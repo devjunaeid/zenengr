@@ -1,0 +1,84 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+
+  "instructions": [
+    "AGENTS.md",
+    "Agent.md"
+  ],
+
+  "permission": {
+    "bash": {
+      "*": "ask",
+
+      "pwd": "allow",
+      "ls*": "allow",
+      "find*": "allow",
+      "grep*": "allow",
+
+      "git status*": "allow",
+      "git diff*": "allow",
+      "git log*": "allow"
+    },
+
+    "github_*": "ask",
+    "git_*": "allow",
+    "postgres_*": "ask",
+    "docker_*": "ask",
+    "browser_*": "ask"
+  },
+
+  "mcp": {
+    "github": {
+      "type": "local",
+      "command": [
+        "npx",
+        "-y",
+        "@modelcontextprotocol/server-github"
+      ],
+      "enabled": true,
+      "environment": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "{env:GITHUB_TOKEN}"
+      }
+    },
+
+    "git": {
+      "type": "local",
+      "command": [
+        "uvx",
+        "mcp-server-git"
+      ],
+      "enabled": true
+    },
+
+    "postgres": {
+      "type": "local",
+      "command": [
+        "uvx",
+        "--python",
+        "3.13",
+        "postgres-mcp",
+        "{env:DATABASE_URL_MCP}"
+      ],
+      "enabled": true
+    },
+
+    "docker": {
+      "type": "local",
+      "command": [
+        "npx",
+        "-y",
+        "mcp-server-docker"
+      ],
+      "enabled": true
+    },
+
+    "browser": {
+      "type": "local",
+      "command": [
+        "npx",
+        "@playwright/mcp@latest"
+      ],
+      "enabled": true
+    }
+  }
+}
