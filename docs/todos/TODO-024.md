@@ -3,14 +3,14 @@ id: TODO-024
 title: Tenant feature status read-only view
 feature: FEAT-003
 story: US-011
-status: proposed
+status: in_progress
 priority: P0
 owner: ""
 estimate: ""
 dependencies: [TODO-020]
 blocks: []
 created: "2026-07-26"
-updated: "2026-07-26"
+updated: "2026-07-27"
 ---
 
 # TODO-024 — Tenant feature status read-only view

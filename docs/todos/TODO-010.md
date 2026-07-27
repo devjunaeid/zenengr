@@ -3,14 +3,14 @@ id: TODO-010
 title: Tenant profile self-service page
 feature: FEAT-001
 story: US-006
-status: proposed
+status: done
 priority: P0
 owner: ""
 estimate: ""
 dependencies: [TODO-004]
 blocks: [TODO-011]
 created: "2026-07-26"
-updated: "2026-07-26"
+updated: "2026-07-27"
 ---
 
 # TODO-010 — Tenant profile self-service page

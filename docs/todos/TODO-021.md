@@ -3,14 +3,14 @@ id: TODO-021
 title: Super Admin flag management UI
 feature: FEAT-003
 story: US-010
-status: proposed
+status: in_progress
 priority: P0
 owner: ""
 estimate: ""
 dependencies: [TODO-020]
 blocks: []
 created: "2026-07-26"
-updated: "2026-07-26"
+updated: "2026-07-27"
 ---
 
 # TODO-021 — Super Admin flag management UI

@@ -6,6 +6,7 @@ Covers: tenant profile, settings, plan/usage, feature flags, limit enforcement, 
 from __future__ import annotations
 
 import uuid
+from typing import Any
 
 import pytest
 from httpx import AsyncClient
@@ -198,6 +199,7 @@ class TestTenantProfile:
 
     @pytest.mark.anyio
     async def test_patch_profile_manager_403(self, client: AsyncClient, db_session: AsyncSession):
+        """Manager cannot edit tenant profile per FR-4.2."""
         tenant, _ = await _create_tenant_and_admin(db_session)
         manager = await _create_user(
             db_session, f"mgr-{uuid.uuid4().hex[:8]}@test.com", AdminUserRole.MANAGER, tenant.id
@@ -215,10 +217,11 @@ class TestTenantProfile:
     async def test_patch_profile_forbidden_fields_422(
         self, client: AsyncClient, db_session: AsyncSession
     ):
+        """Forbidden fields (slug, status, plan_id) return 422."""
         tenant, admin = await _create_tenant_and_admin(db_session)
         headers = await _auth_header(admin)
 
-        # Slug should be rejected by Pydantic (not in schema)
+        # Slug forbidden → 422
         resp = await client.patch(
             "/api/v1/tenant/profile",
             json={"slug": "new-slug"},
@@ -226,7 +229,7 @@ class TestTenantProfile:
         )
         assert resp.status_code == 422
 
-        # Status too
+        # Status forbidden → 422
         resp = await client.patch(
             "/api/v1/tenant/profile",
             json={"status": "cancelled"},
@@ -234,13 +237,38 @@ class TestTenantProfile:
         )
         assert resp.status_code == 422
 
-        # Plan too
+        # plan_id forbidden → 422
         resp = await client.patch(
             "/api/v1/tenant/profile",
             json={"plan_id": str(uuid.uuid4())},
             headers=headers,
         )
         assert resp.status_code == 422
+
+        # Valid field still works
+        resp = await client.patch(
+            "/api/v1/tenant/profile",
+            json={"business_name": "X"},
+            headers=headers,
+        )
+        assert resp.status_code == 200
+        assert resp.json()["business_name"] == "X"
+
+    @pytest.mark.anyio
+    async def test_patch_profile_employee_403(self, client: AsyncClient, db_session: AsyncSession):
+        """Employee cannot edit tenant profile."""
+        tenant, _ = await _create_tenant_and_admin(db_session)
+        employee = await _create_user(
+            db_session, f"emp-{uuid.uuid4().hex[:8]}@test.com", AdminUserRole.EMPLOYEE, tenant.id
+        )
+        headers = await _auth_header(employee)
+
+        resp = await client.patch(
+            "/api/v1/tenant/profile",
+            json={"business_name": "EmployeeHack"},
+            headers=headers,
+        )
+        assert resp.status_code == 403
 
     @pytest.mark.anyio
     async def test_profile_update_audit(self, client: AsyncClient, db_session: AsyncSession):
@@ -661,27 +689,99 @@ class TestTenantFeatureFlags:
 # ═══════════════════════════════════════════════════════════════════════════
 
 
+# ── require_feature_flag dependency tests ────────────────────────────────
+
+
+def _register_flag_endpoint(app: Any) -> None:
+    """Register throwaway endpoint for require_feature_flag testing."""
+    from fastapi import Depends
+
+    from app.core.dependencies import require_feature_flag
+
+    @app.get("/_test/flag-check")
+    async def _flag_check(user=Depends(require_feature_flag("test_feature"))):
+        return {"ok": True, "role": user.role.value}  # type: ignore[union-attr]
+
+
 @pytest.mark.anyio
 async def test_require_feature_flag_disabled(client: AsyncClient, db_session: AsyncSession):
-    """Dependency returns 403 when flag disabled."""
-
-    # We test the dep via a mini app — but simpler: test the function directly
-    # by checking the exception
-    from app.services.feature_flags import is_feature_enabled
-
+    """Dependency returns 403 FEATURE_DISABLED when flag disabled."""
+    _register_flag_endpoint(client._transport.app)
     plan = await _create_plan(db_session)
     tenant, admin = await _create_tenant_and_admin(db_session, plan)
+    headers = await _auth_header(admin)
 
-    enabled = await is_feature_enabled(db_session, tenant.id, "some_flag")
-    assert enabled is False
+    resp = await client.get("/_test/flag-check", headers=headers)
+    assert resp.status_code == 403
+    data = resp.json()
+    # Custom error handler wraps in {"error": {..., "message": ...}}
+    assert data["error"]["message"]["code"] == "FEATURE_DISABLED"
+    assert data["error"]["message"]["details"]["flag"] == "test_feature"
+
+
+@pytest.mark.anyio
+async def test_require_feature_flag_enabled(client: AsyncClient, db_session: AsyncSession):
+    """Dependency passes when flag enabled via plan default."""
+    from app.models.plan_feature_default import PlanFeatureDefault
+
+    _register_flag_endpoint(client._transport.app)
+    plan = await _create_plan(db_session)
+    # Enable flag at plan level
+    pfd = PlanFeatureDefault(plan_id=plan.id, key="test_feature", enabled=True)
+    db_session.add(pfd)
+    await db_session.commit()
+    tenant, admin = await _create_tenant_and_admin(db_session, plan)
+    headers = await _auth_header(admin)
+
+    resp = await client.get("/_test/flag-check", headers=headers)
+    assert resp.status_code == 200
+    assert resp.json()["ok"] is True
 
 
 @pytest.mark.anyio
 async def test_require_feature_flag_sa_exempt(client: AsyncClient, db_session: AsyncSession):
-    """Super admin is exempt from feature flag check."""
+    """Super admin exempt from feature flag check."""
+    _register_flag_endpoint(client._transport.app)
     sa = await _create_sa(db_session)
-    # SA always passes — no tenant context
-    assert sa.role == AdminUserRole.SUPER_ADMIN
+    headers = await _auth_header(sa)
+
+    resp = await client.get("/_test/flag-check", headers=headers)
+    assert resp.status_code == 200
+    assert resp.json()["ok"] is True
+    assert resp.json()["role"] == "super_admin"
+
+
+@pytest.mark.anyio
+async def test_require_feature_flag_flip_reflects(client: AsyncClient, db_session: AsyncSession):
+    """Flag resolution reflects changes immediately (no caching)."""
+    from app.models.plan_feature_default import PlanFeatureDefault
+    from app.services.feature_flags import set_override
+
+    _register_flag_endpoint(client._transport.app)
+    plan = await _create_plan(db_session)
+    pfd = PlanFeatureDefault(plan_id=plan.id, key="test_feature", enabled=True)
+    db_session.add(pfd)
+    await db_session.commit()
+    tenant, admin = await _create_tenant_and_admin(db_session, plan)
+    headers = await _auth_header(admin)
+
+    # Should pass — plan default enabled
+    resp = await client.get("/_test/flag-check", headers=headers)
+    assert resp.status_code == 200
+
+    # Disable via tenant override — should 403 next request
+    await set_override(db_session, tenant.id, "test_feature", enabled=False)
+
+    resp = await client.get("/_test/flag-check", headers=headers)
+    assert resp.status_code == 403
+    data = resp.json()
+    assert data["error"]["message"]["code"] == "FEATURE_DISABLED"
+
+    # Re-enable — should pass again
+    await set_override(db_session, tenant.id, "test_feature", enabled=True)
+
+    resp = await client.get("/_test/flag-check", headers=headers)
+    assert resp.status_code == 200
 
 
 # ═══════════════════════════════════════════════════════════════════════════

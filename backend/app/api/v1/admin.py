@@ -663,7 +663,7 @@ async def api_list_tenant_audit_logs(
             from_dt = datetime.fromisoformat(from_date)
         except ValueError:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="Invalid 'from' date format",
             ) from None
         query = query.where(AuditLog.created_at >= from_dt)
@@ -674,7 +674,7 @@ async def api_list_tenant_audit_logs(
             to_dt = datetime.fromisoformat(to_date)
         except ValueError:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="Invalid 'to' date format",
             ) from None
         query = query.where(AuditLog.created_at <= to_dt)
@@ -720,7 +720,7 @@ async def api_list_platform_audit_logs(
             from_dt = datetime.fromisoformat(from_date)
         except ValueError:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="Invalid 'from' date format",
             ) from None
         query = query.where(AuditLog.created_at >= from_dt)
@@ -731,7 +731,7 @@ async def api_list_platform_audit_logs(
             to_dt = datetime.fromisoformat(to_date)
         except ValueError:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="Invalid 'to' date format",
             ) from None
         query = query.where(AuditLog.created_at <= to_dt)

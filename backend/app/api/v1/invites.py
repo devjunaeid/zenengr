@@ -303,7 +303,7 @@ async def register_from_invite(
     # Password policy
     if len(body.password) < 10:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Password must be at least 10 characters",
         )
 

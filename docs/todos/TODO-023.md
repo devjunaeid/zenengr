@@ -3,14 +3,14 @@ id: TODO-023
 title: Runtime flag check middleware
 feature: FEAT-003
 story: US-011
-status: proposed
+status: done
 priority: P0
 owner: ""
 estimate: ""
 dependencies: [TODO-020]
 blocks: [TODO-025]
 created: "2026-07-26"
-updated: "2026-07-26"
+updated: "2026-07-27"
 ---
 
 # TODO-023 — Runtime flag check middleware

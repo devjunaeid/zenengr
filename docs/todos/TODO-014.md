@@ -3,14 +3,14 @@ id: TODO-014
 title: Tenant plan view page
 feature: FEAT-002
 story: US-007
-status: proposed
+status: in_progress
 priority: P0
 owner: ""
 estimate: ""
 dependencies: [TODO-012]
 blocks: []
 created: "2026-07-26"
-updated: "2026-07-26"
+updated: "2026-07-27"
 ---
 
 # TODO-014 — Tenant plan view page

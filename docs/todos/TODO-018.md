@@ -3,14 +3,14 @@ id: TODO-018
 title: Settings UI for Tenant Admin (editable + view-only)
 feature: FEAT-002
 story: US-009
-status: proposed
+status: in_progress
 priority: P0
 owner: ""
 estimate: ""
 dependencies: [TODO-017]
 blocks: []
 created: "2026-07-26"
-updated: "2026-07-26"
+updated: "2026-07-27"
 ---
 
 # TODO-018 — Settings UI for Tenant Admin (editable + view-only)

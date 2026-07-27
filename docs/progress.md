@@ -4,7 +4,7 @@
 
 - **Phase:** Sprint 1 — Admin Auth & Invites
 - **Last updated:** 2026-07-27
-- **Current focus:** User admin APIs complete (160 tests ✅). Plan CRUD API (TODO-012) next.
+- **Current focus:** User admin APIs complete. Tenant-config APIs done (238 tests ✅). UI pending.
 
 ## What changed recently
 
@@ -63,6 +63,10 @@
 | 2026-07-27 | TODO-031 — Last-admin guard | `ensure_not_last_admin()` service, wired into role change + deactivate. |
 | 2026-07-27 | TODO-032 — Admin-triggered password reset API | POST /tenant/users/{id}/reset-password + public POST /auth/reset-password consume. |
 | 2026-07-27 | TODO-033 — Reset email template | Distinct "Your administrator initiated a password reset" email. |
+| 2026-07-27 | TODO-010 — Tenant profile API | Profile GET/PATCH with audit, permission gates. API done. |
+| 2026-07-27 | TODO-013 — Limit enforcement service | check_limit + LimitExceededError, wired into invites. |
+| 2026-07-27 | TODO-023 — Runtime flag check dependency | require_feature_flag dep with tests for disabled/enabled/flip/SA exemption. |
+| 2026-07-27 | Tenant config batch: profile, settings, flags, limits, audits | Profile PATCH greenlet fix, deprecation cleanup, require_feature_flag dependency tests, doc sync. 238 tests green. TODO-010/013/023 done. TODO-014/018/019/021/022/024/041 in_progress (UI pending). |
 
 ## In progress
 
@@ -71,6 +75,13 @@
 | 2026-07-25 | FEAT-001 — Verify `docker compose up` | Docker daemon not running on this machine | Builds verified (`npm run build` + adapter-node). Verify full compose after starting Docker. |
 | 2026-07-27 | TODO-012 — Plan CRUD API | None | Plan model done; CRUD API pending. |
 | 2026-07-27 | TODO-042 — Instrument sensitive actions (partial) | User-admin actions done; invoice/payment hooks in later batches | See TODO-042 for wired vs pending. |
+| 2026-07-27 | TODO-014 — Tenant plan view page | API done (GET /tenant/plan + usage). | UI pending. |
+| 2026-07-27 | TODO-018 — Settings UI for Tenant Admin | API done (GET/PATCH /tenant/settings). | UI pending. |
+| 2026-07-27 | TODO-019 — Settings UI for Super Admin | API done (admin settings endpoints). | UI pending. |
+| 2026-07-27 | TODO-021 — Super Admin flag management UI | API done (admin flag CRUD endpoints). | UI pending. |
+| 2026-07-27 | TODO-022 — Plan default flag configuration | API done (plan flag CRUD endpoints). | UI pending. |
+| 2026-07-27 | TODO-024 — Tenant feature status read-only view | API done (GET /tenant/flags). | UI pending. |
+| 2026-07-27 | TODO-041 — Audit log viewer for Tenant Admin | API done (GET /tenant/audit-logs + admin equivalents). | UI pending. |
 
 ## Blocked
 

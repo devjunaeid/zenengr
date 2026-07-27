@@ -3,14 +3,14 @@ id: TODO-013
 title: Limit enforcement middleware/service
 feature: FEAT-002
 story: US-007
-status: proposed
+status: done
 priority: P0
 owner: ""
 estimate: ""
 dependencies: [TODO-012]
 blocks: []
 created: "2026-07-26"
-updated: "2026-07-26"
+updated: "2026-07-27"
 ---
 
 # TODO-013 — Limit enforcement middleware/service

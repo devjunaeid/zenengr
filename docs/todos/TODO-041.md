@@ -3,14 +3,14 @@ id: TODO-041
 title: Audit log viewer for Tenant Admin
 feature: FEAT-004
 story: US-017
-status: proposed
+status: in_progress
 priority: P0
 owner: ""
 estimate: ""
 dependencies: [TODO-040]
 blocks: []
 created: "2026-07-26"
-updated: "2026-07-26"
+updated: "2026-07-27"
 ---
 
 # TODO-041 — Audit log viewer for Tenant Admin

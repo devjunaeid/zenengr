@@ -9,7 +9,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.enums import SubscriptionStatus, TenantStatus
 
@@ -35,6 +35,8 @@ class TenantProfileUpdateRequest(BaseModel):
     business_name: str | None = Field(default=None, min_length=1, max_length=255)
     contact_info: dict[str, Any] | None = None
     branding: dict[str, Any] | None = None
+
+    model_config = ConfigDict(extra="forbid")
 
 
 # ── Settings ────────────────────────────────────────────────────────────────

@@ -59,7 +59,7 @@ async def create_tenant(
     # Validate slug format
     if not validate_slug(slug):
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Invalid slug format. Use lowercase alphanumeric "
             "characters and hyphens, no leading/trailing hyphens.",
         )
@@ -81,7 +81,7 @@ async def create_tenant(
         )
     if not plan.is_active:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Selected plan is not active",
         )
 

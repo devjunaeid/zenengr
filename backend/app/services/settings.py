@@ -62,7 +62,7 @@ def validate_setting_value(key: str, value: str) -> None:
     if key == "currency":
         if not _is_valid_currency(value):
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail=(
                     f"Invalid currency '{value}'. Must be ISO 4217 alpha-3 code (e.g. USD, EUR)."
                 ),
@@ -70,9 +70,9 @@ def validate_setting_value(key: str, value: str) -> None:
     elif key == "timezone":
         try:
             zoneinfo.ZoneInfo(value)
-        except (ValueError, TypeError, zoneinfo.ZoneInfoNotFoundError):
+        except ValueError, TypeError, zoneinfo.ZoneInfoNotFoundError:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail=(
                     f"Invalid timezone '{value}'. "
                     "Must be IANA timezone name (e.g. UTC, America/New_York)."
@@ -80,13 +80,13 @@ def validate_setting_value(key: str, value: str) -> None:
             ) from None
     elif key == "invoice_number_format" and "{seq}" not in value.lower():
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(f"Invalid invoice_number_format '{value}'. Must contain '{{seq}}' token."),
         )
     elif key == "date_format" and value not in _VALID_DATE_FORMATS:
         allowed = ", ".join(sorted(_VALID_DATE_FORMATS))
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"Invalid date_format '{value}'. Allowed: {allowed}.",
         )
 

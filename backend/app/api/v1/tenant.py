@@ -60,9 +60,7 @@ def _get_tenant_or_raise(user: AdminUser) -> uuid.UUID:
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-async def _load_tenant_with_relations(
-    session: AsyncSession, tenant_id: uuid.UUID
-) -> Tenant | None:
+async def _load_tenant_with_relations(session: AsyncSession, tenant_id: uuid.UUID) -> Tenant | None:
     """Load tenant with subscription and plan eager-loaded."""
     stmt = (
         select(Tenant)
@@ -105,7 +103,7 @@ async def get_tenant_profile(
 async def update_tenant_profile(
     body: TenantProfileUpdateRequest,
     session: AsyncSession = Depends(get_session),
-    user: AdminUser = Depends(require_permission("manage", "profile")),
+    user: AdminUser = Depends(require_permission("manage", "tenant_settings")),
 ) -> TenantProfileResponse:
     """Update tenant profile fields. Admin only.
 
@@ -129,6 +127,11 @@ async def update_tenant_profile(
         for key, val in update_kwargs.items():
             setattr(tenant, key, val)
         await session.flush()
+
+        # Capture relationships before refresh (refresh would expire them)
+        plan_name = tenant.plan.name if tenant.plan else "Unknown"
+        sub_status = tenant.subscription.status if tenant.subscription else None
+
         await session.refresh(tenant)
 
         await audit_log(
@@ -141,10 +144,9 @@ async def update_tenant_profile(
             entity_id=str(tenant.id),
             details={"updated_fields": list(update_kwargs.keys())},
         )
-
-    # Return fresh profile
-    plan_name = tenant.plan.name if tenant.plan else "Unknown"
-    sub_status = tenant.subscription.status if tenant.subscription else None
+    else:
+        plan_name = tenant.plan.name if tenant.plan else "Unknown"
+        sub_status = tenant.subscription.status if tenant.subscription else None
 
     return TenantProfileResponse(
         id=tenant.id,
@@ -319,7 +321,7 @@ async def list_tenant_audit_logs(
             from_dt = datetime.fromisoformat(from_date)
         except ValueError:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="Invalid 'from' date format. Use ISO 8601.",
             ) from None
         query = query.where(AuditLog.created_at >= from_dt)
@@ -330,7 +332,7 @@ async def list_tenant_audit_logs(
             to_dt = datetime.fromisoformat(to_date)
         except ValueError:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="Invalid 'to' date format. Use ISO 8601.",
             ) from None
         query = query.where(AuditLog.created_at <= to_dt)

@@ -3,14 +3,14 @@ id: TODO-022
 title: Plan default flag configuration
 feature: FEAT-003
 story: US-010
-status: proposed
+status: in_progress
 priority: P0
 owner: ""
 estimate: ""
 dependencies: [TODO-020, TODO-012]
 blocks: []
 created: "2026-07-26"
-updated: "2026-07-26"
+updated: "2026-07-27"
 ---
 
 # TODO-022 — Plan default flag configuration

@@ -139,7 +139,7 @@ async def change_user_role(
     # Cannot change own role
     if target.id == current_user.id:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Cannot change your own role",
         )
 
@@ -152,7 +152,7 @@ async def change_user_role(
             await ensure_not_last_admin(session, current_user.tenant_id, target.id)
         except LastAdminError as exc:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail=str(exc),
             ) from exc
 
@@ -200,7 +200,7 @@ async def deactivate_user(
     # Cannot deactivate self
     if target.id == current_user.id:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Cannot deactivate yourself",
         )
 
@@ -217,7 +217,7 @@ async def deactivate_user(
             await ensure_not_last_admin(session, current_user.tenant_id, target.id)
         except LastAdminError as exc:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail=str(exc),
             ) from exc
 
@@ -311,7 +311,7 @@ async def admin_reset_password(
     # Target must be active
     if not target.is_active:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Cannot reset password for a deactivated user",
         )
 
@@ -373,7 +373,7 @@ async def consume_password_reset(
     # Password policy
     if len(body.new_password) < 10:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Password must be at least 10 characters",
         )
 

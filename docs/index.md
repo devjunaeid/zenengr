@@ -21,7 +21,7 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | ---- | ----- | ---------- |
 | Features | 12 | approved: 11, proposed: 1 |
 | User stories | 47 | done: 2, proposed: 45 |
-| Todos | 122 | done: 12, proposed: 110 |
+| Todos | 122 | done: 15, in_progress: 9, proposed: 98 |
 | Decisions | 3 | accepted: 3 |
 
 ## Active sprint
@@ -121,37 +121,37 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 
 | ID | Title | Story | Status |
 | -- | ----- | ----- | ------ |
-| [TODO-004](todos/TODO-004.md) | Create Tenant model + migration | US-004 | proposed |
+| [TODO-004](todos/TODO-004.md) | Create Tenant model + migration | US-004 | done |
 | [TODO-005](todos/TODO-005.md) | Super Admin tenant creation API + UI | US-004 | proposed |
-| [TODO-006](todos/TODO-006.md) | Slug validation and uniqueness logic | US-004 | proposed |
+| [TODO-006](todos/TODO-006.md) | Slug validation and uniqueness logic | US-004 | done |
 | [TODO-007](todos/TODO-007.md) | Tenant list view | US-005 | proposed |
 | [TODO-008](todos/TODO-008.md) | Tenant edit, suspend, deactivate API + UI | US-005 | proposed |
-| [TODO-009](todos/TODO-009.md) | Login gate for suspended/deactivated tenants | US-005 | proposed |
-| [TODO-010](todos/TODO-010.md) | Tenant profile self-service page | US-006 | proposed |
+| [TODO-009](todos/TODO-009.md) | Login gate for suspended/deactivated tenants | US-005 | done |
+| [TODO-010](todos/TODO-010.md) | Tenant profile self-service page | US-006 | done |
 | [TODO-011](todos/TODO-011.md) | Logo and branding field support | US-006 | proposed |
 
 #### FEAT-002 — Subscription & Settings
 
 | ID | Title | Story | Status |
 | -- | ----- | ----- | ------ |
-| [TODO-012](todos/TODO-012.md) | Subscription Plan model + CRUD | US-007 | proposed |
-| [TODO-013](todos/TODO-013.md) | Limit enforcement middleware/service | US-007 | proposed |
-| [TODO-014](todos/TODO-014.md) | Tenant plan view page | US-007 | proposed |
+| [TODO-012](todos/TODO-012.md) | Subscription Plan model + CRUD | US-007 | in_progress |
+| [TODO-013](todos/TODO-013.md) | Limit enforcement middleware/service | US-007 | done |
+| [TODO-014](todos/TODO-014.md) | Tenant plan view page | US-007 | in_progress |
 | [TODO-015](todos/TODO-015.md) | Tenant subscription view/edit in Super Admin panel | US-008 | proposed |
-| [TODO-016](todos/TODO-016.md) | Subscription status model | US-008 | proposed |
-| [TODO-017](todos/TODO-017.md) | Tenant settings model + permission matrix | US-009 | proposed |
-| [TODO-018](todos/TODO-018.md) | Settings UI for Tenant Admin (editable + view-only) | US-009 | proposed |
-| [TODO-019](todos/TODO-019.md) | Settings UI for Super Admin | US-009 | proposed |
+| [TODO-016](todos/TODO-016.md) | Subscription status model | US-008 | done |
+| [TODO-017](todos/TODO-017.md) | Tenant settings model + permission matrix | US-009 | done |
+| [TODO-018](todos/TODO-018.md) | Settings UI for Tenant Admin (editable + view-only) | US-009 | in_progress |
+| [TODO-019](todos/TODO-019.md) | Settings UI for Super Admin | US-009 | in_progress |
 
 #### FEAT-003 — Feature Flags
 
 | ID | Title | Story | Status |
 | -- | ----- | ----- | ------ |
-| [TODO-020](todos/TODO-020.md) | Feature flag model (key-value per tenant, plan defaults) | US-010 | proposed |
-| [TODO-021](todos/TODO-021.md) | Super Admin flag management UI | US-010 | proposed |
-| [TODO-022](todos/TODO-022.md) | Plan default flag configuration | US-010 | proposed |
-| [TODO-023](todos/TODO-023.md) | Runtime flag check middleware | US-011 | proposed |
-| [TODO-024](todos/TODO-024.md) | Tenant feature status read-only view | US-011 | proposed |
+| [TODO-020](todos/TODO-020.md) | Feature flag model (key-value per tenant, plan defaults) | US-010 | done |
+| [TODO-021](todos/TODO-021.md) | Super Admin flag management UI | US-010 | in_progress |
+| [TODO-022](todos/TODO-022.md) | Plan default flag configuration | US-010 | in_progress |
+| [TODO-023](todos/TODO-023.md) | Runtime flag check middleware | US-011 | done |
+| [TODO-024](todos/TODO-024.md) | Tenant feature status read-only view | US-011 | in_progress |
 | [TODO-025](todos/TODO-025.md) | Disabled feature request prompt component | US-011 | proposed |
 
 #### FEAT-004 — User & Access Management
@@ -166,16 +166,16 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | [TODO-031](todos/TODO-031.md) | Last-admin guard logic | US-013 | done |
 | [TODO-032](todos/TODO-032.md) | Admin-triggered password reset API | US-014 | done |
 | [TODO-033](todos/TODO-033.md) | Reset email with distinct template | US-014 | done |
-| [TODO-034](todos/TODO-034.md) | Role-based permission service | US-015 | proposed |
-| [TODO-035](todos/TODO-035.md) | Endpoint authorization decorators/middleware | US-015 | proposed |
-| [TODO-036](todos/TODO-036.md) | Permission matrix test coverage | US-015 | proposed |
+| [TODO-034](todos/TODO-034.md) | Role-based permission service | US-015 | done |
+| [TODO-035](todos/TODO-035.md) | Endpoint authorization decorators/middleware | US-015 | done |
+| [TODO-036](todos/TODO-036.md) | Permission matrix test coverage | US-015 | done |
 | [TODO-037](todos/TODO-037.md) | Client User invite flow | US-016 | proposed |
 | [TODO-038](todos/TODO-038.md) | Client Portal authentication realm | US-016 | proposed |
 | [TODO-039](todos/TODO-039.md) | Client User deactivation | US-016 | proposed |
-| [TODO-040](todos/TODO-040.md) | Audit log model + service | US-017 | proposed |
-| [TODO-041](todos/TODO-041.md) | Audit log viewer for Tenant Admin | US-017 | proposed |
-| [TODO-042](todos/TODO-042.md) | Instrument sensitive actions with audit logging | US-017 | proposed |
-| [TODO-122](todos/TODO-122.md) | AdminUser model + JWT auth endpoints (login, me) | US-047 | proposed |
+| [TODO-040](todos/TODO-040.md) | Audit log model + service | US-017 | done |
+| [TODO-041](todos/TODO-041.md) | Audit log viewer for Tenant Admin | US-017 | in_progress |
+| [TODO-042](todos/TODO-042.md) | Instrument sensitive actions with audit logging | US-017 | in_progress |
+| [TODO-122](todos/TODO-122.md) | AdminUser model + JWT auth endpoints (login, me) | US-047 | done |
 
 #### FEAT-005 — Client Management
 
