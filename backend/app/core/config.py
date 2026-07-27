@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     admin_portal_base_url: str = "http://localhost:5173"
     invite_ttl_hours: int = 72
     password_reset_ttl_hours: int = 24
+    client_portal_base_url: str = "http://localhost:5173/client"
 
     @property
     def cors_origin_list(self) -> list[str]:

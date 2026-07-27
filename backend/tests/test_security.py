@@ -69,15 +69,16 @@ class TestJWT:
         with pytest.raises(ValueError, match="Invalid token"):
             decode_access_token(tampered)
 
-    def test_wrong_realm_rejected_by_auth(self):
+    def test_client_realm_decodes_successfully(self):
+        """Client-portal token decodes fine; realm check happens in auth middleware."""
         token = create_access_token(
             user_id="u1",
             tenant_id=None,
             role="client",
             realm="client",
         )
-        with pytest.raises(ValueError, match="Input should be 'admin'"):
-            decode_access_token(token)
+        payload = decode_access_token(token)
+        assert payload.realm == "client"
 
     def test_missing_required_claims_fails(self):
         settings = __import__("app.core.config", fromlist=["get_settings"]).get_settings()

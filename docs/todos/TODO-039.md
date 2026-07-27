@@ -3,7 +3,7 @@ id: TODO-039
 title: Client User deactivation
 feature: FEAT-004
 story: US-016
-status: proposed
+status: done
 priority: P0
 owner: ""
 estimate: ""
@@ -21,10 +21,10 @@ Implement Client User deactivation. Tenant Admin/Manager deactivates a Client Us
 
 ## Acceptance criteria
 
-- [ ] POST /api/tenant/client-users/{id}/deactivate sets is_active=false.
-- [ ] Deactivated Client User blocked at login.
-- [ ] Active Client Users unaffected.
-- [ ] Action audited (TODO-042).
+- [x] POST /api/tenant/client-users/{id}/deactivate sets is_active=false.
+- [x] Deactivated Client User blocked at login (401).
+- [x] Active Client Users unaffected.
+- [x] Action audited client_user.deactivated/client_user.reactivated.
 
 ## Notes
 

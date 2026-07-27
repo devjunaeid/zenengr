@@ -37,8 +37,9 @@ class TokenPayload(BaseModel):
 
     sub: str  # user_id (uuid as string)
     tenant_id: str | None = None
+    client_id: str | None = None
     role: str
-    realm: Literal["admin"]
+    realm: Literal["admin", "client"]
     iat: datetime
     exp: datetime
 
@@ -51,8 +52,9 @@ def create_access_token(
     user_id: str,
     tenant_id: str | None,
     role: str,
-    realm: Literal["admin"],
+    realm: Literal["admin", "client"],
     expires_delta: timedelta | None = None,
+    client_id: str | None = None,
 ) -> str:
     """Create signed HS256 JWT access token.
 
@@ -65,6 +67,7 @@ def create_access_token(
     payload: dict[str, Any] = {
         "sub": user_id,
         "tenant_id": tenant_id,
+        "client_id": client_id,
         "role": role,
         "realm": realm,
         "iat": now,

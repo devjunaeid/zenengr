@@ -14,6 +14,8 @@ from app.models.enums import TenantStatus
 if TYPE_CHECKING:
     from app.models.admin_user import AdminUser
     from app.models.audit_log import AuditLog
+    from app.models.client import Client
+    from app.models.client_user import ClientUser
     from app.models.invite import Invite
     from app.models.plan import Plan
     from app.models.tenant_feature_flag import TenantFeatureFlag
@@ -45,3 +47,5 @@ class Tenant(TimestampMixin, Base):
     admin_users: Mapped[list[AdminUser]] = relationship("AdminUser", back_populates="tenant")
     audit_logs: Mapped[list[AuditLog]] = relationship("AuditLog", back_populates="tenant")
     invites: Mapped[list[Invite]] = relationship("Invite", back_populates="tenant")
+    clients: Mapped[list[Client]] = relationship("Client", back_populates="tenant")
+    client_users: Mapped[list[ClientUser]] = relationship("ClientUser", back_populates="tenant")

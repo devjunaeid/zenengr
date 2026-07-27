@@ -2,6 +2,7 @@
 
 Provides:
 - get_current_admin_user: decodes JWT, loads user, enforces realm, tenant gate
+- get_current_client_user: decodes JWT, loads client user, enforces realm, gates
 - require_roles: role-based access (403)
 - require_permission: permission-based access (403)
 - require_super_admin: super admin platform check (403)
@@ -18,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.security import TokenPayload, decode_access_token
 from app.db.session import get_session
 from app.models.admin_user import AdminUser
+from app.models.client_user import ClientUser
 from app.models.enums import AdminUserRole, TenantStatus
 from app.repositories import admin_users as admin_user_repo
 from app.services.permissions import has_permission
@@ -82,6 +84,74 @@ async def get_current_admin_user(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Account cancelled. Contact your administrator.",
             )
+
+    return user
+
+
+async def get_current_client_user(
+    session: AsyncSession = Depends(get_session),
+    credentials: HTTPAuthorizationCredentials = Depends(_security_scheme),
+) -> ClientUser:
+    """Decode client-realm JWT, load client user, enforce gates."""
+    from app.repositories import client_users as client_user_repo
+
+    try:
+        payload: TokenPayload = decode_access_token(credentials.credentials)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token",
+            headers={"WWW-Authenticate": "Bearer"},
+        ) from exc
+
+    if payload.realm != "client":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token realm",
+        )
+
+    try:
+        user_id = uuid.UUID(payload.sub)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token payload",
+        ) from exc
+
+    user = await client_user_repo.get_by_id(session, user_id)
+    if user is None or not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token",
+        )
+
+    # Client archived check
+    from app.models.enums import ClientStatus
+
+    client = user.client
+    if client is None or client.status == ClientStatus.ARCHIVED:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Client account archived",
+        )
+
+    # Tenant gate
+    tenant = user.tenant
+    if tenant is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token",
+        )
+    if tenant.status == TenantStatus.SUSPENDED:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account suspended. Contact your administrator.",
+        )
+    if tenant.status == TenantStatus.CANCELLED:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account cancelled. Contact your administrator.",
+        )
 
     return user
 

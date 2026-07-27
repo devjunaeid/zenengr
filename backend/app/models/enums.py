@@ -48,3 +48,13 @@ class InviteRole(enum.StrEnum):
     ADMIN = "admin"
     MANAGER = "manager"
     EMPLOYEE = "employee"
+
+
+class ClientType(enum.StrEnum):
+    COMPANY = "company"
+    INDIVIDUAL = "individual"
+
+
+class ClientStatus(enum.StrEnum):
+    ACTIVE = "active"
+    ARCHIVED = "archived"

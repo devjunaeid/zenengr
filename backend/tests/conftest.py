@@ -58,9 +58,10 @@ async def _setup_test_db() -> AsyncGenerator[None]:
 
 @pytest_asyncio.fixture
 async def session() -> AsyncGenerator[AsyncSession]:
-    """Fresh engine + session per test to avoid connection-pool poisoning."""
+    """Fresh engine + schema per test. Drop + recreate all tables for clean state."""
     engine = create_async_engine(_TEST_URL)
     async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
 
     factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)

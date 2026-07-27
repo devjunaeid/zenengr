@@ -2,10 +2,16 @@
 
 from app.models.admin_user import AdminUser
 from app.models.audit_log import AuditLog
+from app.models.client import Client
+from app.models.client_invite import ClientInvite
+from app.models.client_note import ClientNote
+from app.models.client_user import ClientUser
 from app.models.enums import (
     ActorType,
     AdminUserRole,
     BillingCycle,
+    ClientStatus,
+    ClientType,
     InviteRole,
     PermissionLevel,
     SubscriptionStatus,
@@ -31,9 +37,15 @@ __all__ = [
     "AdminUser",
     "Invite",
     "PasswordResetToken",
+    "Client",
+    "ClientNote",
+    "ClientUser",
+    "ClientInvite",
     "ActorType",
     "AdminUserRole",
     "BillingCycle",
+    "ClientStatus",
+    "ClientType",
     "InviteRole",
     "PermissionLevel",
     "SubscriptionStatus",

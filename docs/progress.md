@@ -4,13 +4,13 @@
 
 - **Phase:** Sprint 1 — Admin Auth & Invites
 - **Last updated:** 2026-07-27
-- **Current focus:** User admin APIs complete. Tenant-config APIs done (238 tests ✅). UI pending.
+- **Current focus:** User admin APIs complete. Tenant-config APIs done (238 tests ✅). Client Portal auth realm done. UI pending.
 
 ## What changed recently
 
 | Date | Item | Change |
 | ---- | ---- | ------ |
-| 2026-07-27 | User admin APIs (TODO-029/030/031/032/033) | List users, role edit, de/reactivate, last-admin guard, admin-triggered password reset, public consume — all with audit. 160 tests green (+41 from prev). |
+| 2026-07-27 | Client realm (Client/ClientNote/ClientUser/ClientInvite models, migration, tests) | Migration 81cfc015e65d, 276 tests green, ruff + mypy clean. Added drop_all to session fixture for clean test isolation. |
 | 2026-07-26 | Backend skeleton (US-046 / TODO-121) | Created full app skeleton, tooling, alembic, tests — all green. |
 | 2026-07-26 | Gap docs US-047 / TODO-122 | Admin auth story + todo (proposed) for next sprint. |
 | 2026-07-26 | Batch B — 9 core SQLAlchemy models + migration | Plan, Tenant, TenantSubscription, TenantSetting, PlanFeatureDefault, TenantFeatureFlag, AuditLog, AdminUser, Invite — all with enums, FKs, uniques, indexes. Tests: 29/29 green. |
@@ -40,6 +40,7 @@
 
 | Date | Item / task | Notes |
 | ---- | ------------ | ----- |
+| 2026-07-27 | TODO-037/038/039 — Client data layer + Client Portal auth realm | Client/ClientNote/ClientUser/ClientInvite models, client-realm JWT auth, invite flow, deactivation, realm isolation. 4 new tables, migration `81cfc015e65d`. Ruff + mypy clean. |
 | 2026-07-24 | Scaffold template files | `docs/features`, `docs/stories`, `docs/todos`, `docs/decisions`. |
 | 2026-07-25 | `/project-init` completed | Stack detected and documented; FEAT-001 created. |
 | 2026-07-25 | TODO-001 — Frontend Dockerfile + .dockerignore | `frontend/Dockerfile`, `frontend/.dockerignore`; switched to adapter-node for Docker. |
