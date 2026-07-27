@@ -1,5 +1,5 @@
 ---
-id: FEAT-001
+id: FEAT-000
 title: Local development environment
 status: proposed
 priority: high
@@ -9,7 +9,7 @@ created: "2026-07-25"
 updated: "2026-07-25"
 ---
 
-# FEAT-001 — Local development environment
+# FEAT-000 — Local development environment
 
 ## Goal
 
@@ -42,4 +42,4 @@ Provide a reproducible one-command local development stack for the SvelteKit fro
 
 ## Notes
 
-- This feature is the only confirmed actionable requirement at phase `Design`. PRD-driven product features will be filed as FEAT-002+ once the PRD is provided.
+- This feature is the only confirmed actionable requirement at phase `Design`. PRD-driven product features will be filed as FEAT-001+ once the PRD is provided.

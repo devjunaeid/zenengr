@@ -1,0 +1,172 @@
+"""FastAPI dependency injection for auth and authorization.
+
+Provides:
+- get_current_admin_user: decodes JWT, loads user, enforces realm, tenant gate
+- require_roles: role-based access (403)
+- require_permission: permission-based access (403)
+- require_super_admin: super admin platform check (403)
+"""
+
+from __future__ import annotations
+
+import uuid
+
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.security import TokenPayload, decode_access_token
+from app.db.session import get_session
+from app.models.admin_user import AdminUser
+from app.models.enums import AdminUserRole, TenantStatus
+from app.repositories import admin_users as admin_user_repo
+from app.services.permissions import has_permission
+
+_security_scheme = HTTPBearer()
+
+
+async def get_current_admin_user(
+    session: AsyncSession = Depends(get_session),
+    credentials: HTTPAuthorizationCredentials = Depends(_security_scheme),
+) -> AdminUser:
+    """Decode JWT, load user from DB, enforce realm and tenant gate.
+
+    Role/active changes take effect next request (DB read every call).
+    """
+    try:
+        payload: TokenPayload = decode_access_token(credentials.credentials)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token",
+            headers={"WWW-Authenticate": "Bearer"},
+        ) from exc
+
+    if payload.realm != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token realm",
+        )
+
+    # Load fresh from DB every request (FR-4.10)
+    try:
+        user_id = uuid.UUID(payload.sub)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token payload",
+        ) from exc
+
+    user = await admin_user_repo.get_by_id(session, user_id)
+    if user is None or not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token",
+        )
+
+    # Tenant gate for non-super_admin (TODO-009)
+    if user.role != AdminUserRole.SUPER_ADMIN:
+        tenant = user.tenant
+        if tenant is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid or expired token",
+            )
+        if tenant.status == TenantStatus.SUSPENDED:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Account suspended. Contact your administrator.",
+            )
+        if tenant.status == TenantStatus.CANCELLED:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Account cancelled. Contact your administrator.",
+            )
+
+    return user
+
+
+def require_roles(*roles: AdminUserRole) -> type:
+    """Dependency factory: requires user to have one of the given roles."""
+
+    async def _role_checker(
+        user: AdminUser = Depends(get_current_admin_user),
+    ) -> AdminUser:
+        if user.role not in roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Insufficient permissions",
+            )
+        return user
+
+    return _role_checker  # type: ignore[return-value]
+
+
+def require_permission(action: str, resource: str) -> type:
+    """Dependency factory: requires action on resource per RBAC matrix.
+
+    Super admin bypasses tenant permission check — use require_super_admin
+    for platform endpoints instead.
+    """
+
+    async def _permission_checker(
+        user: AdminUser = Depends(get_current_admin_user),
+    ) -> AdminUser:
+        # Super admin not in tenant matrix; platform check separate
+        if user.role == AdminUserRole.SUPER_ADMIN:
+            return user
+        if not has_permission(user.role, action, resource):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Insufficient permissions",
+            )
+        return user
+
+    return _permission_checker  # type: ignore[return-value]
+
+
+async def require_super_admin(
+    user: AdminUser = Depends(get_current_admin_user),
+) -> AdminUser:
+    """Dependency: user must be super_admin (403 otherwise)."""
+    if user.role != AdminUserRole.SUPER_ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Super admin access required",
+        )
+    return user
+
+
+def require_feature_flag(key: str) -> type:
+    """Dependency factory: gates endpoint on feature flag for caller's tenant.
+
+    Super admin is exempt (platform scope has no tenant flags).
+    Returns 403 with code FEATURE_DISABLED when flag disabled.
+    """
+
+    async def _flag_checker(
+        session: AsyncSession = Depends(get_session),
+        user: AdminUser = Depends(get_current_admin_user),
+    ) -> AdminUser:
+        if user.role == AdminUserRole.SUPER_ADMIN:
+            return user
+        if user.tenant_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User must belong to a tenant",
+            )
+        from app.services.feature_flags import is_feature_enabled
+
+        enabled = await is_feature_enabled(session, user.tenant_id, key)
+        if not enabled:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "code": "FEATURE_DISABLED",
+                    "message": f"Feature '{key}' is not enabled for your tenant",
+                    "details": {"flag": key},
+                },
+            )
+        return user
+
+    return _flag_checker  # type: ignore[return-value]

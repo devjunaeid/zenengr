@@ -2,14 +2,28 @@
 
 ## Project status
 
-- **Phase:** Setup / Design
-- **Last updated:** 2026-07-25
-- **Current focus:** Scaffold the local development environment (FEAT-001) before PRD-driven features.
+- **Phase:** Sprint 1 — Admin Auth & Invites
+- **Last updated:** 2026-07-27
+- **Current focus:** User admin APIs complete (160 tests ✅). Plan CRUD API (TODO-012) next.
 
 ## What changed recently
 
 | Date | Item | Change |
 | ---- | ---- | ------ |
+| 2026-07-27 | User admin APIs (TODO-029/030/031/032/033) | List users, role edit, de/reactivate, last-admin guard, admin-triggered password reset, public consume — all with audit. 160 tests green (+41 from prev). |
+| 2026-07-26 | Backend skeleton (US-046 / TODO-121) | Created full app skeleton, tooling, alembic, tests — all green. |
+| 2026-07-26 | Gap docs US-047 / TODO-122 | Admin auth story + todo (proposed) for next sprint. |
+| 2026-07-26 | Batch B — 9 core SQLAlchemy models + migration | Plan, Tenant, TenantSubscription, TenantSetting, PlanFeatureDefault, TenantFeatureFlag, AuditLog, AdminUser, Invite — all with enums, FKs, uniques, indexes. Tests: 29/29 green. |
+| 2026-07-27 | Admin JWT auth + RBAC (TODO-122/034/035/036) | Password hashing (bcrypt), JWT HS256 service, RBAC matrix per FR-4.2, auth deps (require_permission/require_roles), login + /me endpoints, seed script, 96 tests green. |
+| 2026-07-26 | Slug validation util, feature flag resolution service, email abstraction | `app/utils/slug.py`, `app/services/feature_flags.py`, `app/services/email.py`. |
+| 2026-07-26 | TODO-004/040/016/017/020 → done; TODO-012/026 → in_progress | Model+ migration done; CRUD APIs pending for Plan and Invite. |
+| 2026-07-26 | `docs/index.md`, `docs/progress.md` | Updated counts (47 stories, 122 todos, 4 done); sprint 1 active. |
+| 2026-07-26 | `docs/todos/TODO-004..TODO-120.md` | Generated 117 implementation todos from US-004..US-045 stories across 11 features. |
+| 2026-07-26 | `docs/index.md`, `docs/progress.md` | Refreshed dashboard with full todo table by feature; updated progress tracker. |
+| 2026-07-26 | PRD v0.1 saved | 11 features approved, 42 stories US-004..US-045 created, ADR-003 accepted. |
+| 2026-07-26 | ADR-003 | 6 MVP scope decisions recorded. |
+| 2026-07-26 | `docs/features/FEAT-001..FEAT-011` | Created 11 product feature files from PRD modules. |
+| 2026-07-26 | `docs/stories/US-004..US-045.md` | Created 42 product user stories across all 11 features. |
 | 2026-07-25 | `/project-init` | Ran init: detected SvelteKit + FastAPI codebase; confirmed stack with user. |
 | 2026-07-25 | `docs/stack-discovery.md` | Filled from detected manifests + user answers. |
 | 2026-07-25 | `docs/features/FEAT-001.md` | Replaced auth placeholder with **Local development environment** feature. |
@@ -32,18 +46,37 @@
 | 2026-07-25 | TODO-002 — Backend Dockerfile + .dockerignore + entrypoint | `backend/app/main.py`, `backend/Dockerfile`, `backend/.dockerignore`. |
 | 2026-07-25 | TODO-003 — docker-compose.yml + .env.example | Repo-root `docker-compose.yml` (5 services), `.env.example`. |
 | 2026-07-25 | Dev profile docker-compose | Added `frontend-dev` + `backend-dev` services with `profiles: [dev]`, volume mounts, `--reload` flag, separate Dev Dockerfiles. |
+| 2026-07-26 | PRD v0.1 saved, 11 features approved | BRD received from product owner; 11 product feature files created and approved. |
+| 2026-07-26 | User stories US-004..US-045 | 42 product stories derived from feature files. |
+| 2026-07-26 | ADR-003 accepted | 6 MVP scope decisions recorded (sequential completion, soft-delete strategy, etc.). |
+| 2026-07-26 | Backlog TODO-004..TODO-120 | 117 implementation todos generated from US-004..US-045 across all 11 features. |
+| 2026-07-26 | TODO-121 — Backend app skeleton | Full skeleton created, tooling configured, all checks green. |
+| 2026-07-26 | Gap docs US-047 + TODO-122 | Proposed for admin auth — next sprint item. |
+| 2026-07-26 | TODO-012/016/017 — Plan + TenantSubscription + TenantSetting models | Plan limits config, subscription linking, settings with permission levels. |
+| 2026-07-26 | TODO-020 — Feature flag models + resolution service | TenantFeatureFlag, PlanFeatureDefault, `is_feature_enabled()` resolution. |
+| 2026-07-26 | TODO-004/006 — Tenant model + slug validation | Tenant with slug unique index, `validate_slug()` regex util. |
+| 2026-07-26 | TODO-026 — Invite model + email abstraction | Invite with token hash, ConsoleEmailSender protocol. |
+| 2026-07-26 | TODO-040 — AuditLog model | Append-only model without updated_at. |
+| 2026-07-27 | TODO-026/027/028 — Invite API full flow | invite CRUD (tenant-scoped, admin-only), token lookup, registration, audit, email sending. 119 tests green. |
+| 2026-07-27 | TODO-029 — Role edit API | PATCH /tenant/users/{id}/role with last-admin guard, audit. |
+| 2026-07-27 | TODO-030 — Deactivate/reactivate API | POST deactivate/reactivate endpoints, login gate, audit. |
+| 2026-07-27 | TODO-031 — Last-admin guard | `ensure_not_last_admin()` service, wired into role change + deactivate. |
+| 2026-07-27 | TODO-032 — Admin-triggered password reset API | POST /tenant/users/{id}/reset-password + public POST /auth/reset-password consume. |
+| 2026-07-27 | TODO-033 — Reset email template | Distinct "Your administrator initiated a password reset" email. |
 
 ## In progress
 
 | Date started | Item / task | Blockers | Notes |
 | ------------ | ------------ | -------- | ----- |
 | 2026-07-25 | FEAT-001 — Verify `docker compose up` | Docker daemon not running on this machine | Builds verified (`npm run build` + adapter-node). Verify full compose after starting Docker. |
+| 2026-07-27 | TODO-012 — Plan CRUD API | None | Plan model done; CRUD API pending. |
+| 2026-07-27 | TODO-042 — Instrument sensitive actions (partial) | User-admin actions done; invoice/payment hooks in later batches | See TODO-042 for wired vs pending. |
 
 ## Blocked
 
 | Item / task | Blocker | Owner |
 | ------------ | ------- | ----- |
-| FEAT-002+ (product features) | PRD not yet provided by product owner | User |
+| FEAT-001+ (product features implementation) | Awaiting stakeholder approval of backlog | User |
 
 ## Decisions
 
@@ -58,5 +91,7 @@
 
 ## Next
 
-1. Start Docker daemon and run `docker compose up` to verify whole stack.
-2. Once PRD received, scope FEAT-002+ and the corresponding stories/todos.
+1. TODO-012 — Plan CRUD API (list, create, update for super_admin).
+2. Frontend: build accept-invite page (TODO-037 is separate client-user invite batch).
+3. Stakeholder approval gate for remaining backlog.
+4. Continue sprint 1: FEAT-004 foundations (Plan CRUD, tenant onboarding).
