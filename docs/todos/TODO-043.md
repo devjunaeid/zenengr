@@ -3,14 +3,14 @@ id: TODO-043
 title: Client model + CRUD API
 feature: FEAT-005
 story: US-018
-status: proposed
+status: done
 priority: P0
 owner: ""
 estimate: ""
 dependencies: [TODO-004]
 blocks: [TODO-044, TODO-045, TODO-046, TODO-048, TODO-049, TODO-051, TODO-054, TODO-062, TODO-075]
 created: "2026-07-26"
-updated: "2026-07-26"
+updated: "2026-07-27"
 ---
 
 # TODO-043 — Client model + CRUD API

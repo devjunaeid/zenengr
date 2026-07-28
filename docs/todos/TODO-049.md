@@ -3,14 +3,14 @@ id: TODO-049
 title: Activity event model + logging service
 feature: FEAT-005
 story: US-020
-status: proposed
+status: done
 priority: P0
 owner: ""
 estimate: ""
 dependencies: [TODO-043]
 blocks: [TODO-050]
 created: "2026-07-26"
-updated: "2026-07-26"
+updated: "2026-07-27"
 ---
 
 # TODO-049 — Activity event model + logging service

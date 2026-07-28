@@ -26,6 +26,7 @@ from app.schemas.client_auth import (
     ClientLoginRequest,
     ClientLoginResponse,
     ClientMeResponse,
+    ClientProfileUpdateRequest,
     ClientRegisterRequest,
     ClientSummary,
     ClientUserResponse,
@@ -240,6 +241,7 @@ async def client_me(
 ) -> ClientMeResponse:
     """Return authenticated client user profile + client summary."""
     client = user.client
+    tenant = user.tenant
     return ClientMeResponse(
         id=str(user.id),
         email=user.email,
@@ -247,9 +249,57 @@ async def client_me(
         role="client_user",
         client_id=str(user.client_id),
         tenant_id=str(user.tenant_id),
+        tenant_name=tenant.business_name if tenant else None,
         client=ClientSummary(
+            id=str(client.id) if client else None,
             name=client.name if client else "Unknown",
             status=client.status.value if client else "unknown",
+            email=client.email if client else None,
+            phone=client.phone if client else None,
+            billing_address=client.billing_address if client else None,
+            tax_id=client.tax_id if client else None,
+        ),
+    )
+
+
+@auth_router.patch("/profile", response_model=ClientMeResponse)
+async def update_client_profile_endpoint(
+    body: ClientProfileUpdateRequest,
+    user: ClientUser = Depends(get_current_client_user),
+    session: AsyncSession = Depends(get_session),
+) -> ClientMeResponse:
+    """Client self-service: update contact details (email, phone) only.
+
+    tax_id, billing_address, name are forbidden -> 422 via extra="forbid".
+    """
+    from app.services.clients import update_client_profile
+
+    client = await update_client_profile(
+        session,
+        tenant_id=user.tenant_id,
+        client_id=user.client_id,
+        email=body.email,
+        phone=body.phone,
+        actor_id=user.id,
+    )
+
+    tenant = user.tenant
+    return ClientMeResponse(
+        id=str(user.id),
+        email=user.email,
+        full_name=user.full_name,
+        role="client_user",
+        client_id=str(user.client_id),
+        tenant_id=str(user.tenant_id),
+        tenant_name=tenant.business_name if tenant else None,
+        client=ClientSummary(
+            id=str(client.id),
+            name=client.name,
+            status=client.status.value,
+            email=client.email,
+            phone=client.phone,
+            billing_address=client.billing_address,
+            tax_id=client.tax_id,
         ),
     )
 

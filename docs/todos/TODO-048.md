@@ -3,14 +3,14 @@ id: TODO-048
 title: Notes and tags UI
 feature: FEAT-005
 story: US-019
-status: proposed
+status: in_progress
 priority: P0
 owner: ""
 estimate: ""
 dependencies: [TODO-043]
 blocks: []
 created: "2026-07-26"
-updated: "2026-07-26"
+updated: "2026-07-27"
 ---
 
 # TODO-048 — Notes and tags UI
@@ -28,4 +28,6 @@ Add internal notes (free-text) and simple tags/labels to client records. Notes a
 - [ ] Filter by tag in client list (TODO-047).
 
 ## Notes
+
+API complete (notes/tags endpoints + filter). UI in later frontend batch.
 

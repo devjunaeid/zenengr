@@ -45,6 +45,19 @@ from app.services.settings import (
 router = APIRouter(prefix="/tenant", tags=["tenant"])
 
 
+async def _count_active_clients(session: AsyncSession, tenant_id: uuid.UUID) -> int:
+    """Count non-archived clients for a tenant."""
+    from app.models.client import Client
+    from app.models.enums import ClientStatus
+
+    stmt = select(func.count()).where(
+        Client.tenant_id == tenant_id,
+        Client.status != ClientStatus.ARCHIVED,
+    )
+    result = await session.execute(stmt)
+    return result.scalar_one()
+
+
 def _get_tenant_or_raise(user: AdminUser) -> uuid.UUID:
     """Get current user's tenant_id or raise 403."""
     if user.tenant_id is None:
@@ -269,7 +282,7 @@ async def get_tenant_plan_and_usage(
         ),
         usage=UsageCounts(
             admin_users=admin_count,
-            clients=0,  # TODO: wire to Client model
+            clients=await _count_active_clients(session, tenant_id),
             active_projects=0,  # TODO: wire to Project model
             storage_mb=0,  # TODO: wire to storage tracking
         ),

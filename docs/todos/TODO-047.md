@@ -3,14 +3,14 @@ id: TODO-047
 title: Search/filter implementation
 feature: FEAT-005
 story: US-019
-status: proposed
+status: done
 priority: P0
 owner: ""
 estimate: ""
 dependencies: [TODO-046]
 blocks: []
 created: "2026-07-26"
-updated: "2026-07-26"
+updated: "2026-07-27"
 ---
 
 # TODO-047 — Search/filter implementation

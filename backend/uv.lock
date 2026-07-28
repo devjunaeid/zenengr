@@ -142,7 +142,11 @@ dev = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "anyio" },
+    { name = "httpx" },
     { name = "mypy" },
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
     { name = "ruff" },
 ]
 
@@ -167,7 +171,11 @@ provides-extras = ["dev"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "anyio", specifier = ">=4.14.2" },
+    { name = "httpx", specifier = ">=0.28.1" },
     { name = "mypy", specifier = ">=2.3.0" },
+    { name = "pytest", specifier = ">=9.1.1" },
+    { name = "pytest-asyncio", specifier = ">=1.4.0" },
     { name = "ruff", specifier = ">=0.16.0" },
 ]
 

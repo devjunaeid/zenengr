@@ -3,14 +3,14 @@ id: TODO-044
 title: Client create/edit UI
 feature: FEAT-005
 story: US-018
-status: proposed
+status: in_progress
 priority: P0
 owner: ""
 estimate: ""
 dependencies: [TODO-043]
 blocks: []
 created: "2026-07-26"
-updated: "2026-07-26"
+updated: "2026-07-27"
 ---
 
 # TODO-044 — Client create/edit UI
@@ -27,4 +27,6 @@ Build client create and edit form in Admin Portal. Fields: name, contact info, b
 - [ ] Employee role sees form as read-only (FR-4.2).
 
 ## Notes
+
+API complete (TODO-043). UI in later frontend batch.
 

@@ -66,8 +66,15 @@ async def _count_current_usage(
         invite_count = await _count_pending_invites(session, tenant_id)
         return user_count + invite_count
     if resource == "clients":
-        # TODO: wire to Client model when it lands
-        return 0
+        from app.models.client import Client
+        from app.models.enums import ClientStatus
+
+        stmt = select(func.count()).where(
+            Client.tenant_id == tenant_id,
+            Client.status != ClientStatus.ARCHIVED,
+        )
+        result = await session.execute(stmt)
+        return result.scalar_one()
     if resource == "active_projects":
         # TODO: wire to Project model when it lands
         return 0

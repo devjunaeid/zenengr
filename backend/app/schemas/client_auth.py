@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, EmailStr
@@ -37,12 +38,18 @@ class ClientMeResponse(BaseModel):
     role: str = "client_user"
     client_id: str
     tenant_id: str
+    tenant_name: str | None = None
     client: ClientSummary
 
 
 class ClientSummary(BaseModel):
+    id: str | None = None
     name: str
     status: str
+    email: str | None = None
+    phone: str | None = None
+    billing_address: dict[str, Any] | None = None
+    tax_id: str | None = None
 
 
 class ClientInviteLookupResponse(BaseModel):
@@ -70,3 +77,10 @@ class ClientInviteResponse(BaseModel):
 
 class ClientInviteCreateRequest(BaseModel):
     email: EmailStr
+
+
+class ClientProfileUpdateRequest(BaseModel):
+    model_config = {"from_attributes": True, "extra": "forbid"}
+
+    email: EmailStr | None = None
+    phone: str | None = None

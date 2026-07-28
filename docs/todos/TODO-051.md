@@ -3,14 +3,14 @@ id: TODO-051
 title: Archive/unarchive API
 feature: FEAT-005
 story: US-021
-status: proposed
+status: done
 priority: P0
 owner: ""
 estimate: ""
 dependencies: [TODO-043]
 blocks: [TODO-052, TODO-053]
 created: "2026-07-26"
-updated: "2026-07-26"
+updated: "2026-07-27"
 ---
 
 # TODO-051 — Archive/unarchive API

@@ -3,14 +3,14 @@ id: TODO-046
 title: Client list API with rollups
 feature: FEAT-005
 story: US-019
-status: proposed
+status: done
 priority: P0
 owner: ""
 estimate: ""
 dependencies: [TODO-043, TODO-095]
 blocks: [TODO-047]
 created: "2026-07-26"
-updated: "2026-07-26"
+updated: "2026-07-27"
 ---
 
 # TODO-046 — Client list API with rollups

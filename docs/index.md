@@ -20,8 +20,8 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | Area | Count | Key metric |
 | ---- | ----- | ---------- |
 | Features | 12 | approved: 11, proposed: 1 |
-| User stories | 47 | done: 2, proposed: 45 |
-| Todos | 122 | done: 15, in_progress: 9, proposed: 98 |
+| User stories | 47 | done: 7, proposed: 40 |
+| Todos | 122 | done: 24, in_progress: 13, proposed: 85 |
 | Decisions | 3 | accepted: 3 |
 
 ## Active sprint
@@ -75,11 +75,11 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | [US-015](stories/US-015.md) | RBAC permission matrix enforced server-side | FEAT-004 | proposed |
 | [US-016](stories/US-016.md) | Tenant Admin invites/deactivates Client User | FEAT-004 | proposed |
 | [US-017](stories/US-017.md) | Audit trail records sensitive actions | FEAT-004 | proposed |
-| [US-018](stories/US-018.md) | Staff create/edit/view Clients | FEAT-005 | proposed |
-| [US-019](stories/US-019.md) | Client list with rollups, search, filter | FEAT-005 | proposed |
-| [US-020](stories/US-020.md) | Client activity timeline | FEAT-005 | proposed |
-| [US-021](stories/US-021.md) | Staff archive a Client | FEAT-005 | proposed |
-| [US-022](stories/US-022.md) | Client User edits limited profile fields | FEAT-005 | proposed |
+| [US-018](stories/US-018.md) | Staff create/edit/view Clients | FEAT-005 | done |
+| [US-019](stories/US-019.md) | Client list with rollups, search, filter | FEAT-005 | done |
+| [US-020](stories/US-020.md) | Client activity timeline | FEAT-005 | done |
+| [US-021](stories/US-021.md) | Staff archive a Client | FEAT-005 | done |
+| [US-022](stories/US-022.md) | Client User edits limited profile fields | FEAT-005 | done |
 | [US-023](stories/US-023.md) | Staff manage Service catalog | FEAT-006 | proposed |
 | [US-024](stories/US-024.md) | Template edits never mutate project milestones | FEAT-006 | proposed |
 | [US-025](stories/US-025.md) | Staff create Project bundling services | FEAT-007 | proposed |
@@ -181,19 +181,19 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 
 | ID | Title | Story | Status |
 | -- | ----- | ----- | ------ |
-| [TODO-043](todos/TODO-043.md) | Client model + CRUD API | US-018 | proposed |
-| [TODO-044](todos/TODO-044.md) | Client create/edit UI | US-018 | proposed |
-| [TODO-045](todos/TODO-045.md) | Client detail view with contacts | US-018 | proposed |
-| [TODO-046](todos/TODO-046.md) | Client list API with rollups | US-019 | proposed |
-| [TODO-047](todos/TODO-047.md) | Search/filter implementation | US-019 | proposed |
-| [TODO-048](todos/TODO-048.md) | Notes and tags UI | US-019 | proposed |
-| [TODO-049](todos/TODO-049.md) | Activity event model + logging service | US-020 | proposed |
-| [TODO-050](todos/TODO-050.md) | Client activity timeline UI component | US-020 | proposed |
-| [TODO-051](todos/TODO-051.md) | Archive/unarchive API | US-021 | proposed |
-| [TODO-052](todos/TODO-052.md) | Portal access gate for archived clients | US-021 | proposed |
-| [TODO-053](todos/TODO-053.md) | Archived client filter in list views | US-021 | proposed |
-| [TODO-054](todos/TODO-054.md) | Client Portal client profile edit (limited fields) | US-022 | proposed |
-| [TODO-055](todos/TODO-055.md) | Field-level permission enforcement | US-022 | proposed |
+| [TODO-043](todos/TODO-043.md) | Client model + CRUD API | US-018 | done |
+| [TODO-044](todos/TODO-044.md) | Client create/edit UI | US-018 | in_progress |
+| [TODO-045](todos/TODO-045.md) | Client detail view with contacts | US-018 | in_progress |
+| [TODO-046](todos/TODO-046.md) | Client list API with rollups | US-019 | done |
+| [TODO-047](todos/TODO-047.md) | Search/filter implementation | US-019 | done |
+| [TODO-048](todos/TODO-048.md) | Notes and tags UI | US-019 | in_progress |
+| [TODO-049](todos/TODO-049.md) | Activity event model + logging service | US-020 | done |
+| [TODO-050](todos/TODO-050.md) | Client activity timeline UI component | US-020 | in_progress |
+| [TODO-051](todos/TODO-051.md) | Archive/unarchive API | US-021 | done |
+| [TODO-052](todos/TODO-052.md) | Portal access gate for archived clients | US-021 | done |
+| [TODO-053](todos/TODO-053.md) | Archived client filter in list views | US-021 | done |
+| [TODO-054](todos/TODO-054.md) | Client Portal client profile edit (limited fields) | US-022 | done |
+| [TODO-055](todos/TODO-055.md) | Field-level permission enforcement | US-022 | done |
 
 #### FEAT-006 — Service Catalog & Milestones
 
@@ -294,7 +294,7 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 
 | Date | Item | Change |
 | ---- | ---- | ------ |
-| 2026-07-27 | Invite API full flow implemented | TODO-026/027/028 done (119 tests green). Added invite CRUD, token lookup, registration, audit service, email sending. |
+| 2026-07-27 | Client management APIs complete (FEAT-005 US-018..US-022) | TODO-043/046/047/049/051/052/053/054/055 done. Full CRUD, list+rollups, search/filter, archive/unarchive, notes, tags, activity timeline, client portal self-service profile edit. 35 tests green, ruff + mypy clean. |
 | 2026-07-26 | `docs/todos/TODO-004..TODO-120.md`, `docs/index.md`, `docs/progress.md` | Generated implementation backlog (117 todos) from US-004..US-045; refreshed dashboard and progress. |
 | 2026-07-26 | `docs/stories/US-046.md`, `docs/todos/TODO-121.md` | Backend skeleton story + todo (done). |
 | 2026-07-26 | `docs/stories/US-047.md`, `docs/todos/TODO-122.md` | Admin auth gap story + todo (proposed). |

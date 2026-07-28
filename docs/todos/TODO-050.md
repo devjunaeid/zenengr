@@ -3,14 +3,14 @@ id: TODO-050
 title: Client activity timeline UI component
 feature: FEAT-005
 story: US-020
-status: proposed
+status: in_progress
 priority: P0
 owner: ""
 estimate: ""
 dependencies: [TODO-049]
 blocks: []
 created: "2026-07-26"
-updated: "2026-07-26"
+updated: "2026-07-27"
 ---
 
 # TODO-050 — Client activity timeline UI component
@@ -26,4 +26,6 @@ Build activity timeline component on Client detail page. Shows events in reverse
 - [ ] Renders on client detail page within parent component.
 
 ## Notes
+
+API complete (TODO-049). UI in later frontend batch.
 

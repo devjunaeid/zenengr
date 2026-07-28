@@ -3,14 +3,14 @@ id: TODO-053
 title: Archived client filter in list views
 feature: FEAT-005
 story: US-021
-status: proposed
+status: done
 priority: P0
 owner: ""
 estimate: ""
 dependencies: [TODO-051]
 blocks: []
 created: "2026-07-26"
-updated: "2026-07-26"
+updated: "2026-07-27"
 ---
 
 # TODO-053 — Archived client filter in list views

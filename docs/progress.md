@@ -4,12 +4,13 @@
 
 - **Phase:** Sprint 1 — Admin Auth & Invites
 - **Last updated:** 2026-07-27
-- **Current focus:** User admin APIs complete. Tenant-config APIs done (238 tests ✅). Client Portal auth realm done. UI pending.
+- **Current focus:** Client management APIs (FEAT-005) complete. 35 tests green. UI pending.
 
 ## What changed recently
 
 | Date | Item | Change |
 | ---- | ---- | ------ |
+| 2026-07-27 | Client management APIs (FEAT-005, US-018..US-022) | Full CRUD, list+rollups, search/filter, archive/unarchive, notes, tags, activity timeline, client portal self-service profile edit. 35 tests green. ruff + mypy clean. TODO-043/046/047/049/051/052/053/054/055 done. UI todos in_progress. |
 | 2026-07-27 | Client realm (Client/ClientNote/ClientUser/ClientInvite models, migration, tests) | Migration 81cfc015e65d, 276 tests green, ruff + mypy clean. Added drop_all to session fixture for clean test isolation. |
 | 2026-07-26 | Backend skeleton (US-046 / TODO-121) | Created full app skeleton, tooling, alembic, tests — all green. |
 | 2026-07-26 | Gap docs US-047 / TODO-122 | Admin auth story + todo (proposed) for next sprint. |
@@ -40,6 +41,7 @@
 
 | Date | Item / task | Notes |
 | ---- | ------------ | ----- |
+| 2026-07-27 | TODO-043/046/047/049/051/052/053/054/055 — Client management APIs | Full CRUD, list+rollups, search/filter, archive/unarchive, notes, tags, activity timeline, client portal self-service profile edit. 35 tests green. ruff + mypy clean. |
 | 2026-07-27 | TODO-037/038/039 — Client data layer + Client Portal auth realm | Client/ClientNote/ClientUser/ClientInvite models, client-realm JWT auth, invite flow, deactivation, realm isolation. 4 new tables, migration `81cfc015e65d`. Ruff + mypy clean. |
 | 2026-07-24 | Scaffold template files | `docs/features`, `docs/stories`, `docs/todos`, `docs/decisions`. |
 | 2026-07-25 | `/project-init` completed | Stack detected and documented; FEAT-001 created. |
@@ -83,6 +85,10 @@
 | 2026-07-27 | TODO-022 — Plan default flag configuration | API done (plan flag CRUD endpoints). | UI pending. |
 | 2026-07-27 | TODO-024 — Tenant feature status read-only view | API done (GET /tenant/flags). | UI pending. |
 | 2026-07-27 | TODO-041 — Audit log viewer for Tenant Admin | API done (GET /tenant/audit-logs + admin equivalents). | UI pending. |
+| 2026-07-27 | TODO-044 — Client create/edit UI | API done (TODO-043). | UI pending (later frontend batch). |
+| 2026-07-27 | TODO-045 — Client detail view with contacts | API done (TODO-043). | UI pending (later frontend batch). |
+| 2026-07-27 | TODO-048 — Notes and tags UI | API done (notes/tags endpoints). | UI pending (later frontend batch). |
+| 2026-07-27 | TODO-050 — Client activity timeline UI | API done (TODO-049). | UI pending (later frontend batch). |
 
 ## Blocked
 

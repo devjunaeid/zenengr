@@ -3,14 +3,14 @@ id: TODO-054
 title: Client Portal client profile edit (limited fields)
 feature: FEAT-005
 story: US-022
-status: proposed
+status: done
 priority: P0
 owner: ""
 estimate: ""
 dependencies: [TODO-043, TODO-038]
 blocks: [TODO-055]
 created: "2026-07-26"
-updated: "2026-07-26"
+updated: "2026-07-27"
 ---
 
 # TODO-054 — Client Portal client profile edit (limited fields)
