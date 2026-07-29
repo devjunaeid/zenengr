@@ -12,7 +12,7 @@ import asyncpg
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 from app.core.config import get_settings
 from app.db.base import Base
@@ -29,7 +29,7 @@ _TEST_URL = f"{_ASYNC_BASE}/{TEST_DB_NAME}"
 
 @pytest.fixture(scope="session", autouse=True)
 async def _setup_test_db() -> AsyncGenerator[None]:
-    """Create test database before tests, drop after."""
+    """Create test database before tests, drop after. Schema once."""
     conn = await asyncpg.connect(_MAINTENANCE_URL)
     try:
         db_exists = await conn.fetchval(
@@ -39,6 +39,12 @@ async def _setup_test_db() -> AsyncGenerator[None]:
             await conn.execute(f'CREATE DATABASE "{TEST_DB_NAME}"')
     finally:
         await conn.close()
+
+    # Create schema once for entire session
+    engine = create_async_engine(_TEST_URL)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    await engine.dispose()
 
     yield
 
@@ -58,20 +64,18 @@ async def _setup_test_db() -> AsyncGenerator[None]:
 
 @pytest_asyncio.fixture
 async def session() -> AsyncGenerator[AsyncSession]:
-    """Fresh engine + schema per test. Drop + recreate all tables for clean state."""
+    """Transaction rollback per test. Schema already exists from session fixture."""
     engine = create_async_engine(_TEST_URL)
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
-        await conn.run_sync(Base.metadata.create_all)
-
-    factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-    async with factory() as s:
-        try:
-            yield s
-        finally:
-            await s.rollback()
-            await s.close()
-            await engine.dispose()
+    connection = await engine.connect()
+    transaction = await connection.begin()
+    s = AsyncSession(bind=connection, expire_on_commit=False)
+    try:
+        yield s
+    finally:
+        await s.close()
+        await transaction.rollback()
+        await connection.close()
+        await engine.dispose()
 
 
 @pytest_asyncio.fixture

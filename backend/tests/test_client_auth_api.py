@@ -265,6 +265,23 @@ class TestClientLogin:
         assert data["user"]["tenant_id"] == str(tenant.id)
 
     @pytest.mark.anyio
+    async def test_login_eager_load_regression(self, client: AsyncClient, db_session: AsyncSession):
+        """Regression: eager-load client+tenant to avoid MissingGreenlet on real requests."""
+        plan = await _create_plan(db_session)
+        tenant = await _create_tenant(db_session, plan.id)
+        cli = await _create_client(db_session, tenant.id)
+        await _create_client_user(db_session, cli.id, tenant.id, "eager@test.com")
+
+        # Expire all objects so service must re-query with eager loads
+        db_session.expire_all()
+
+        resp = await self._login(client, "eager@test.com")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "access_token" in data
+        assert data["user"]["email"] == "eager@test.com"
+
+    @pytest.mark.anyio
     async def test_login_bad_password(self, client: AsyncClient, db_session: AsyncSession):
         plan = await _create_plan(db_session)
         tenant = await _create_tenant(db_session, plan.id)

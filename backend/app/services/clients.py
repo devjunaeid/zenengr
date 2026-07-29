@@ -335,7 +335,7 @@ async def list_notes(
 
     # Fetch page
     offset = (page - 1) * page_size
-    query = query.order_by(ClientNote.created_at.desc()).offset(offset).limit(page_size)
+    query = query.order_by(ClientNote.created_at.desc(), ClientNote.id.desc()).offset(offset).limit(page_size)
     result = await session.execute(query)
     items = list(result.scalars().all())
 

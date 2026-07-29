@@ -29,7 +29,10 @@
 	let menuOpen = $state(false);
 </script>
 
-<svelte:head><title>{isAuthed ? (portalAuth.tenantName || 'Client Portal') : 'Client Portal'} — ZenEngr</title></svelte:head>
+<svelte:head
+	><title>{isAuthed ? portalAuth.tenantName || 'Client Portal' : 'Client Portal'} — ZenEngr</title
+	></svelte:head
+>
 
 {#if isAuthed}
 	<div class="flex min-h-screen flex-col bg-slate-50">
@@ -51,7 +54,13 @@
 					aria-label="Toggle menu"
 					aria-expanded={menuOpen}
 				>
-					<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+					<svg
+						class="h-5 w-5"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+						stroke-width="2"
+					>
 						{#if menuOpen}
 							<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
 						{:else}

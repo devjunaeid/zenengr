@@ -15,7 +15,7 @@ async def get_by_email(session: AsyncSession, email: str) -> ClientUser | None:
     """Fetch client user by email with client relationship."""
     stmt = (
         select(ClientUser)
-        .options(selectinload(ClientUser.client))
+        .options(selectinload(ClientUser.client), selectinload(ClientUser.tenant))
         .where(ClientUser.email == email.lower().strip())
     )
     result = await session.execute(stmt)

@@ -19,7 +19,8 @@
 		accepted: 'bg-green-100 text-green-800 ring-green-600/20',
 		expired: 'bg-slate-200 text-slate-700 ring-slate-500/20',
 		revoked: 'bg-slate-200 text-slate-700 ring-slate-500/20',
-		inactive: 'bg-slate-200 text-slate-700 ring-slate-500/20'
+		inactive: 'bg-slate-200 text-slate-700 ring-slate-500/20',
+		archived: 'bg-slate-200 text-slate-700 ring-slate-500/20'
 	};
 
 	let style = $derived(styles[status ?? ''] ?? 'bg-slate-100 text-slate-800 ring-slate-500/20');

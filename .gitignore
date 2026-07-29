@@ -61,5 +61,8 @@ venv/
 logs/
 *.sqlite3
 
+# Test artifacts
+.playwright-mcp/
+
 # Docker / local data
 .pgdata/
