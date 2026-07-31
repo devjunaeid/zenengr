@@ -65,3 +65,16 @@ class MilestoneStatus(enum.StrEnum):
     IN_PROGRESS = "in_progress"
     COMPLETED = "completed"
     BLOCKED = "blocked"
+
+
+class ProjectStatus(enum.StrEnum):
+    DRAFT = "draft"
+    ACTIVE = "active"
+    ON_HOLD = "on_hold"
+    COMPLETED = "completed"
+    CANCELLED = "cancelled"
+
+
+class ProjectServiceStatus(enum.StrEnum):
+    ACTIVE = "active"
+    CANCELLED = "cancelled"

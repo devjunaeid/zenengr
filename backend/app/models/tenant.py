@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from app.models.client_user import ClientUser
     from app.models.invite import Invite
     from app.models.plan import Plan
+    from app.models.project import Project
     from app.models.service import Service
     from app.models.tenant_feature_flag import TenantFeatureFlag
     from app.models.tenant_setting import TenantSetting
@@ -51,3 +52,4 @@ class Tenant(TimestampMixin, Base):
     clients: Mapped[list[Client]] = relationship("Client", back_populates="tenant")
     client_users: Mapped[list[ClientUser]] = relationship("ClientUser", back_populates="tenant")
     services: Mapped[list[Service]] = relationship("Service", back_populates="tenant")
+    projects: Mapped[list[Project]] = relationship("Project", back_populates="tenant")

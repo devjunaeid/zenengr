@@ -14,6 +14,7 @@ from app.models.enums import ClientStatus, ClientType
 if TYPE_CHECKING:
     from app.models.client_note import ClientNote
     from app.models.client_user import ClientUser
+    from app.models.project import Project
     from app.models.tenant import Tenant
 
 
@@ -36,3 +37,4 @@ class Client(TimestampMixin, Base):
     tenant: Mapped[Tenant] = relationship("Tenant", back_populates="clients")
     client_users: Mapped[list[ClientUser]] = relationship("ClientUser", back_populates="client")
     notes: Mapped[list[ClientNote]] = relationship("ClientNote", back_populates="client")
+    projects: Mapped[list[Project]] = relationship("Project", back_populates="client")

@@ -15,6 +15,8 @@ from app.models.enums import (
     InviteRole,
     MilestoneStatus,
     PermissionLevel,
+    ProjectServiceStatus,
+    ProjectStatus,
     SubscriptionStatus,
     TenantStatus,
 )
@@ -23,6 +25,9 @@ from app.models.milestone_step_template import MilestoneStepTemplate
 from app.models.password_reset_token import PasswordResetToken
 from app.models.plan import Plan
 from app.models.plan_feature_default import PlanFeatureDefault
+from app.models.project import Project
+from app.models.project_milestone import ProjectMilestone
+from app.models.project_service import ProjectService
 from app.models.service import Service
 from app.models.tenant import Tenant
 from app.models.tenant_feature_flag import TenantFeatureFlag
@@ -46,6 +51,9 @@ __all__ = [
     "ClientInvite",
     "Service",
     "MilestoneStepTemplate",
+    "Project",
+    "ProjectService",
+    "ProjectMilestone",
     "ActorType",
     "AdminUserRole",
     "BillingCycle",
@@ -54,6 +62,8 @@ __all__ = [
     "InviteRole",
     "MilestoneStatus",
     "PermissionLevel",
+    "ProjectServiceStatus",
+    "ProjectStatus",
     "SubscriptionStatus",
     "TenantStatus",
 ]

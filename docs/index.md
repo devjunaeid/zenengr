@@ -21,7 +21,7 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | ---- | ----- | ---------- |
 | Features | 12 | approved: 11, proposed: 1 |
 | User stories | 47 | done: 7, proposed: 40 |
-| Todos | 122 | done: 39, in_progress: 1, proposed: 82 |
+| Todos | 122 | done: 43, in_progress: 1, proposed: 78 |
 | Decisions | 3 | accepted: 3 |
 
 ## Active sprint
@@ -210,13 +210,13 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 
 | ID | Title | Story | Status |
 | -- | ----- | ----- | ------ |
-| [TODO-062](todos/TODO-062.md) | Project model + create API | US-025 | proposed |
+| [TODO-062](todos/TODO-062.md) | Project model + create API | US-025 | done |
 | [TODO-063](todos/TODO-063.md) | Service selection UI at project creation | US-025 | proposed |
-| [TODO-064](todos/TODO-064.md) | Milestone instantiation logic | US-025 | proposed |
-| [TODO-065](todos/TODO-065.md) | Milestone update API | US-026 | proposed |
+| [TODO-064](todos/TODO-064.md) | Milestone instantiation logic | US-025 | done |
+| [TODO-065](todos/TODO-065.md) | Milestone update API | US-026 | done |
 | [TODO-066](todos/TODO-066.md) | Milestone status UI with 4-state selector | US-026 | proposed |
 | [TODO-067](todos/TODO-067.md) | Assignee picker component | US-026 | proposed |
-| [TODO-068](todos/TODO-068.md) | Add service to project API | US-027 | proposed |
+| [TODO-068](todos/TODO-068.md) | Add service to project API | US-027 | done |
 | [TODO-069](todos/TODO-069.md) | Scope growth UI flow | US-027 | proposed |
 | [TODO-070](todos/TODO-070.md) | Soft removal logic for invoiced services | US-028 | proposed |
 | [TODO-071](todos/TODO-071.md) | Cancelled service indicator in project view | US-028 | proposed |
@@ -294,6 +294,7 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 
 | Date | Item | Change |
 | ---- | ---- | ------ |
+| 2026-07-31 | Project management BE slice complete (FEAT-007 US-025..US-027) | TODO-062/064/065/068 done. Project + ProjectService + ProjectMilestone models, migration `c1d2e3f4a5b6`, repos + service + API, 34 tests green, ruff + mypy clean. Soft-cancel + financial rollups (TODO-070/072) deferred to follow-up. |
 | 2026-07-27 | Client management APIs complete (FEAT-005 US-018..US-022) | TODO-043/046/047/049/051/052/053/054/055 done. Full CRUD, list+rollups, search/filter, archive/unarchive, notes, tags, activity timeline, client portal self-service profile edit. 35 tests green, ruff + mypy clean. |
 | 2026-07-26 | `docs/todos/TODO-004..TODO-120.md`, `docs/index.md`, `docs/progress.md` | Generated implementation backlog (117 todos) from US-004..US-045; refreshed dashboard and progress. |
 | 2026-07-26 | `docs/stories/US-046.md`, `docs/todos/TODO-121.md` | Backend skeleton story + todo (done). |

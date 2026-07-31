@@ -10,7 +10,7 @@
 
 | Date | Item | Change |
 | ---- | ---- | ------ |
-| 2026-07-27 | Client management APIs (FEAT-005, US-018..US-022) | Full CRUD, list+rollups, search/filter, archive/unarchive, notes, tags, activity timeline, client portal self-service profile edit. 35 tests green. ruff + mypy clean. TODO-043/046/047/049/051/052/053/054/055 done. UI todos in_progress. |
+| 2026-07-31 | Project management BE slice (FEAT-007, US-025..US-027) | Project + ProjectService + ProjectMilestone models, migration `c1d2e3f4a5b6`, repos + service + API + 34 tests green. TODO-062/064/065/068 done. Soft-cancel + financial rollups (TODO-070/072) deferred. |
 | 2026-07-27 | Client realm (Client/ClientNote/ClientUser/ClientInvite models, migration, tests) | Migration 81cfc015e65d, 276 tests green, ruff + mypy clean. Added drop_all to session fixture for clean test isolation. |
 | 2026-07-26 | Backend skeleton (US-046 / TODO-121) | Created full app skeleton, tooling, alembic, tests — all green. |
 | 2026-07-26 | Gap docs US-047 / TODO-122 | Admin auth story + todo (proposed) for next sprint. |
@@ -41,6 +41,7 @@
 
 | Date | Item / task | Notes |
 | ---- | ------------ | ----- |
+| 2026-07-31 | TODO-062/064/065/068 — Project management BE slice (FEAT-007) | Project + ProjectService + ProjectMilestone models, enum extensions (ProjectStatus, ProjectServiceStatus), migration `c1d2e3f4a5b6`, repository + business service + REST API (POST/GET/PATCH projects, POST services, PATCH milestones), 34 tests green in `tests/test_projects_api.py`. ruff + mypy clean. |
 | 2026-07-31 | TODO-057 + TODO-058 — Service catalog CRUD UI + step ordering (FEAT-006 FE slice) | `frontend/src/lib/api/services.js` (5 fns); `frontend/src/lib/components/MilestoneStepEditor.svelte` (reusable ordered step editor with up/down reorder + add/remove); `/app/services` routes (list + new + detail + edit); Services nav item. `npm run lint` + `npm run check` + `npm run build` all pass. |
 | 2026-07-31 | TODO-056 — Service + MilestoneStepTemplate models + migration (FEAT-006 BE slice) | `app/models/service.py`, `app/models/milestone_step_template.py`, `MilestoneStatus` enum, services relationship on Tenant; alembic `b1c2d3e4f5a6`; repository + schemas + business service + API + 18 tests in `tests/test_services_api.py`. |
 | 2026-07-31 | TODO-044/045/048/050 — Client UI batch (FEAT-005) | New: `frontend/src/lib/api/clients.js` (9 fns); `frontend/src/routes/app/clients/{+layout,+page}.{js,svelte}` (list + filter form + EmptyState); `frontend/src/routes/app/clients/new/+page.svelte` (create form with chip-tag input); `frontend/src/routes/app/clients/[id]/{+page,edit/+page}.{js,svelte}` (detail w/ profile + financials + contacts + notes + activity timeline, edit form, archive/unarchive flow); `Clients` nav item. `npm run lint` + `npm run check` + `npm run build` pass. |
