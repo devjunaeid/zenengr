@@ -13,14 +13,17 @@ from app.models.enums import (
     ClientStatus,
     ClientType,
     InviteRole,
+    MilestoneStatus,
     PermissionLevel,
     SubscriptionStatus,
     TenantStatus,
 )
 from app.models.invite import Invite
+from app.models.milestone_step_template import MilestoneStepTemplate
 from app.models.password_reset_token import PasswordResetToken
 from app.models.plan import Plan
 from app.models.plan_feature_default import PlanFeatureDefault
+from app.models.service import Service
 from app.models.tenant import Tenant
 from app.models.tenant_feature_flag import TenantFeatureFlag
 from app.models.tenant_setting import TenantSetting
@@ -41,12 +44,15 @@ __all__ = [
     "ClientNote",
     "ClientUser",
     "ClientInvite",
+    "Service",
+    "MilestoneStepTemplate",
     "ActorType",
     "AdminUserRole",
     "BillingCycle",
     "ClientStatus",
     "ClientType",
     "InviteRole",
+    "MilestoneStatus",
     "PermissionLevel",
     "SubscriptionStatus",
     "TenantStatus",

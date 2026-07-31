@@ -21,7 +21,7 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | ---- | ----- | ---------- |
 | Features | 12 | approved: 11, proposed: 1 |
 | User stories | 47 | done: 7, proposed: 40 |
-| Todos | 122 | done: 36, in_progress: 1, proposed: 85 |
+| Todos | 122 | done: 39, in_progress: 1, proposed: 82 |
 | Decisions | 3 | accepted: 3 |
 
 ## Active sprint
@@ -199,9 +199,9 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 
 | ID | Title | Story | Status |
 | -- | ----- | ----- | ------ |
-| [TODO-056](todos/TODO-056.md) | Service model + milestone step template model | US-023 | proposed |
-| [TODO-057](todos/TODO-057.md) | Service catalog CRUD API + UI | US-023 | proposed |
-| [TODO-058](todos/TODO-058.md) | Milestone step ordering UI | US-023 | proposed |
+| [TODO-056](todos/TODO-056.md) | Service model + milestone step template model | US-023 | done |
+| [TODO-057](todos/TODO-057.md) | Service catalog CRUD API + UI | US-023 | done |
+| [TODO-058](todos/TODO-058.md) | Milestone step ordering UI | US-023 | done |
 | [TODO-059](todos/TODO-059.md) | Template snapshot logic on project attachment | US-024 | proposed |
 | [TODO-060](todos/TODO-060.md) | Template edit warning UI | US-024 | proposed |
 | [TODO-061](todos/TODO-061.md) | Instance vs template separation test | US-024 | proposed |

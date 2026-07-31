@@ -58,3 +58,10 @@ class ClientType(enum.StrEnum):
 class ClientStatus(enum.StrEnum):
     ACTIVE = "active"
     ARCHIVED = "archived"
+
+
+class MilestoneStatus(enum.StrEnum):
+    PENDING = "pending"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    BLOCKED = "blocked"
