@@ -3,14 +3,14 @@ id: TODO-071
 title: Cancelled service indicator in project view
 feature: FEAT-007
 story: US-028
-status: proposed
+status: done
 priority: P0
 owner: ""
 estimate: ""
 dependencies: [TODO-070]
 blocks: []
 created: "2026-07-26"
-updated: "2026-07-26"
+updated: "2026-07-31"
 ---
 
 # TODO-071 — Cancelled service indicator in project view
@@ -21,10 +21,10 @@ Show cancelled services visibly in project overview with "Cancelled" badge. Reta
 
 ## Acceptance criteria
 
-- [ ] Project services list shows status badge (Active/Cancelled).
-- [ ] Cancelled services displayed with strikethrough or muted styling.
-- [ ] Milestone history for cancelled services still accessible.
-- [ ] Cancelled service cannot be modified.
+- [x] Project services list shows status badge (Active/Cancelled).
+- [x] Cancelled services displayed with strikethrough or muted styling.
+- [x] Milestone history for cancelled services still accessible.
+- [x] Cancelled service cannot be modified.
 
 ## Notes
 

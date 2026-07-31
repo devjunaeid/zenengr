@@ -3,14 +3,14 @@ id: TODO-073
 title: Project overview UI (Admin Portal)
 feature: FEAT-007
 story: US-029
-status: proposed
+status: done
 priority: P0
 owner: ""
 estimate: ""
 dependencies: [TODO-072]
 blocks: []
 created: "2026-07-26"
-updated: "2026-07-26"
+updated: "2026-07-31"
 ---
 
 # TODO-073 — Project overview UI (Admin Portal)
@@ -21,10 +21,10 @@ Build Admin Portal project overview page with progress bar and financial summary
 
 ## Acceptance criteria
 
-- [ ] Progress bar showing milestone completion %.
-- [ ] Financial cards: Total Invoiced, Total Paid, Balance Due.
-- [ ] Linked invoices list with status badges.
-- [ ] Full detail view for staff per FR-7.5.
+- [x] Progress bar showing milestone completion %.
+- [x] Financial cards: Total Invoiced, Total Paid, Balance Due.
+- [x] Linked invoices list with status badges.
+- [x] Full detail view for staff per FR-7.5.
 
 ## Notes
 

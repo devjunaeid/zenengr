@@ -21,7 +21,7 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | ---- | ----- | ---------- |
 | Features | 12 | approved: 11, proposed: 1 |
 | User stories | 47 | done: 7, proposed: 40 |
-| Todos | 122 | done: 43, in_progress: 1, proposed: 78 |
+| Todos | 122 | done: 49, in_progress: 1, proposed: 72 |
 | Decisions | 3 | accepted: 3 |
 
 ## Active sprint
@@ -211,17 +211,17 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | ID | Title | Story | Status |
 | -- | ----- | ----- | ------ |
 | [TODO-062](todos/TODO-062.md) | Project model + create API | US-025 | done |
-| [TODO-063](todos/TODO-063.md) | Service selection UI at project creation | US-025 | proposed |
+| [TODO-063](todos/TODO-063.md) | Service selection UI at project creation | US-025 | done |
 | [TODO-064](todos/TODO-064.md) | Milestone instantiation logic | US-025 | done |
 | [TODO-065](todos/TODO-065.md) | Milestone update API | US-026 | done |
-| [TODO-066](todos/TODO-066.md) | Milestone status UI with 4-state selector | US-026 | proposed |
-| [TODO-067](todos/TODO-067.md) | Assignee picker component | US-026 | proposed |
+| [TODO-066](todos/TODO-066.md) | Milestone status UI with 4-state selector | US-026 | done |
+| [TODO-067](todos/TODO-067.md) | Assignee picker component | US-026 | done |
 | [TODO-068](todos/TODO-068.md) | Add service to project API | US-027 | done |
-| [TODO-069](todos/TODO-069.md) | Scope growth UI flow | US-027 | proposed |
+| [TODO-069](todos/TODO-069.md) | Scope growth UI flow | US-027 | done |
 | [TODO-070](todos/TODO-070.md) | Soft removal logic for invoiced services | US-028 | proposed |
-| [TODO-071](todos/TODO-071.md) | Cancelled service indicator in project view | US-028 | proposed |
+| [TODO-071](todos/TODO-071.md) | Cancelled service indicator in project view | US-028 | done |
 | [TODO-072](todos/TODO-072.md) | Project overview API (aggregate progress + financial summary) | US-029 | proposed |
-| [TODO-073](todos/TODO-073.md) | Project overview UI (Admin Portal) | US-029 | proposed |
+| [TODO-073](todos/TODO-073.md) | Project overview UI (Admin Portal) | US-029 | done |
 | [TODO-074](todos/TODO-074.md) | Client Portal project overview | US-029 | proposed |
 
 #### FEAT-008 — Invoicing

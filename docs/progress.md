@@ -4,13 +4,14 @@
 
 - **Phase:** Sprint 1 — Admin Auth & Invites
 - **Last updated:** 2026-07-31
-- **Current focus:** FEAT-005 client UI batch (TODO-044/045/048/050) shipped. `npm run lint` + `npm run check` + `npm run build` clean. Awaiting stakeholder approval for next feature batch.
+- **Current focus:** FEAT-007 project management FE slice (TODO-063/066/067/069/071/073) shipped. `npm run lint` + `npm run check` + `npm run build` clean. FEAT-007 first slice complete; remaining work (TODO-070/072 BE + TODO-074 client portal) deferred to next batch.
 
 ## What changed recently
 
 | Date | Item | Change |
 | ---- | ---- | ------ |
 | 2026-07-31 | Project management BE slice (FEAT-007, US-025..US-027) | Project + ProjectService + ProjectMilestone models, migration `c1d2e3f4a5b6`, repos + service + API + 34 tests green. TODO-062/064/065/068 done. Soft-cancel + financial rollups (TODO-070/072) deferred. |
+| 2026-07-31 | TODO-063/066/067/069/071/073 — Project management FE slice (FEAT-007) | `lib/api/projects.js` (6 fns); `MilestoneStatusSelector.svelte` (4-state select w/ status colors), `AssigneePicker.svelte`; `/app/projects` routes (list w/ progress bar, new w/ service picker + milestone preview, detail w/ services + grouped milestones + add-service modal, edit); Projects nav item; StatusBadge gained 5 new states (draft/on_hold/completed/in_progress/blocked). `npm run lint` + `npm run check` + `npm run build` pass. |
 | 2026-07-27 | Client realm (Client/ClientNote/ClientUser/ClientInvite models, migration, tests) | Migration 81cfc015e65d, 276 tests green, ruff + mypy clean. Added drop_all to session fixture for clean test isolation. |
 | 2026-07-26 | Backend skeleton (US-046 / TODO-121) | Created full app skeleton, tooling, alembic, tests — all green. |
 | 2026-07-26 | Gap docs US-047 / TODO-122 | Admin auth story + todo (proposed) for next sprint. |
@@ -42,6 +43,7 @@
 | Date | Item / task | Notes |
 | ---- | ------------ | ----- |
 | 2026-07-31 | TODO-062/064/065/068 — Project management BE slice (FEAT-007) | Project + ProjectService + ProjectMilestone models, enum extensions (ProjectStatus, ProjectServiceStatus), migration `c1d2e3f4a5b6`, repository + business service + REST API (POST/GET/PATCH projects, POST services, PATCH milestones), 34 tests green in `tests/test_projects_api.py`. ruff + mypy clean. |
+| 2026-07-31 | TODO-063/066/067/069/071/073 — Project management FE slice (FEAT-007) | `lib/api/projects.js` (6 fns); `MilestoneStatusSelector.svelte` (4-state select w/ status colors), `AssigneePicker.svelte`; `/app/projects` routes (list w/ progress bar, new w/ service picker + milestone preview, detail w/ services + grouped milestones + add-service modal, edit); Projects nav item; StatusBadge gained 5 new states (draft/on_hold/completed/in_progress/blocked). `npm run lint` + `npm run check` + `npm run build` pass. |
 | 2026-07-31 | TODO-057 + TODO-058 — Service catalog CRUD UI + step ordering (FEAT-006 FE slice) | `frontend/src/lib/api/services.js` (5 fns); `frontend/src/lib/components/MilestoneStepEditor.svelte` (reusable ordered step editor with up/down reorder + add/remove); `/app/services` routes (list + new + detail + edit); Services nav item. `npm run lint` + `npm run check` + `npm run build` all pass. |
 | 2026-07-31 | TODO-056 — Service + MilestoneStepTemplate models + migration (FEAT-006 BE slice) | `app/models/service.py`, `app/models/milestone_step_template.py`, `MilestoneStatus` enum, services relationship on Tenant; alembic `b1c2d3e4f5a6`; repository + schemas + business service + API + 18 tests in `tests/test_services_api.py`. |
 | 2026-07-31 | TODO-044/045/048/050 — Client UI batch (FEAT-005) | New: `frontend/src/lib/api/clients.js` (9 fns); `frontend/src/routes/app/clients/{+layout,+page}.{js,svelte}` (list + filter form + EmptyState); `frontend/src/routes/app/clients/new/+page.svelte` (create form with chip-tag input); `frontend/src/routes/app/clients/[id]/{+page,edit/+page}.{js,svelte}` (detail w/ profile + financials + contacts + notes + activity timeline, edit form, archive/unarchive flow); `Clients` nav item. `npm run lint` + `npm run check` + `npm run build` pass. |
@@ -104,7 +106,6 @@
 
 ## Next
 
-1. Frontend: build accept-invite page (TODO-037 is separate client-user invite batch).
-2. Stakeholder approval gate for remaining backlog.
-3. Continue sprint 1: FEAT-004 foundations (Plan CRUD, tenant onboarding).
-4. Stakeholder approval gate for remaining backlog. Next feature batches: FEAT-006 service catalog, FEAT-007 projects, FEAT-008 invoicing.
+1. FEAT-007 remaining: TODO-070 (soft removal logic for invoiced services — BE) + TODO-072 (project overview API — BE) + TODO-074 (Client Portal project overview — FE).
+2. Frontend: build accept-invite page (TODO-037 is separate client-user invite batch).
+3. Stakeholder approval gate for remaining backlog. Next feature batches: FEAT-008 invoicing, FEAT-009 payments.

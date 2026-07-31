@@ -11,6 +11,7 @@
 		{ href: '/app/team', label: 'Team', exact: false, adminOnly: false },
 		{ href: '/app/clients', label: 'Clients', exact: false, adminOnly: false },
 		{ href: '/app/services', label: 'Services', exact: false, adminOnly: false },
+		{ href: '/app/projects', label: 'Projects', exact: false, adminOnly: false },
 		{ href: '/app/settings', label: 'Settings', exact: false, adminOnly: true },
 		{ href: '/app/audit', label: 'Audit log', exact: false, adminOnly: true }
 	];

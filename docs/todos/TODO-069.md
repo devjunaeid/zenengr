@@ -3,14 +3,14 @@ id: TODO-069
 title: Scope growth UI flow
 feature: FEAT-007
 story: US-027
-status: proposed
+status: done
 priority: P0
 owner: ""
 estimate: ""
 dependencies: [TODO-068]
 blocks: []
 created: "2026-07-26"
-updated: "2026-07-26"
+updated: "2026-07-31"
 ---
 
 # TODO-069 — Scope growth UI flow
@@ -21,11 +21,11 @@ Build UI flow in project detail to add a new service. Shows service selector, mi
 
 ## Acceptance criteria
 
-- [ ] "Add Service" button in project detail (for Active projects).
-- [ ] Service selector + milestone preview modal/drawer.
-- [ ] Confirmation before adding.
-- [ ] New milestones appear in project after addition.
-- [ ] Note about separate invoice shown (FR-7.6).
+- [x] "Add Service" button in project detail (for Active projects).
+- [x] Service selector + milestone preview modal/drawer.
+- [x] Confirmation before adding.
+- [x] New milestones appear in project after addition.
+- [x] Note about separate invoice shown (FR-7.6).
 
 ## Notes
 
