@@ -9,6 +9,7 @@
 	const nav = [
 		{ href: '/app', label: 'Dashboard', exact: true, adminOnly: false },
 		{ href: '/app/team', label: 'Team', exact: false, adminOnly: false },
+		{ href: '/app/clients', label: 'Clients', exact: false, adminOnly: false },
 		{ href: '/app/settings', label: 'Settings', exact: false, adminOnly: true },
 		{ href: '/app/audit', label: 'Audit log', exact: false, adminOnly: true }
 	];

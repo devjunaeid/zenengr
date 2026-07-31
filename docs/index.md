@@ -21,7 +21,7 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | ---- | ----- | ---------- |
 | Features | 12 | approved: 11, proposed: 1 |
 | User stories | 47 | done: 7, proposed: 40 |
-| Todos | 122 | done: 24, in_progress: 13, proposed: 85 |
+| Todos | 122 | done: 36, in_progress: 1, proposed: 85 |
 | Decisions | 3 | accepted: 3 |
 
 ## Active sprint
@@ -134,24 +134,24 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 
 | ID | Title | Story | Status |
 | -- | ----- | ----- | ------ |
-| [TODO-012](todos/TODO-012.md) | Subscription Plan model + CRUD | US-007 | in_progress |
+| [TODO-012](todos/TODO-012.md) | Subscription Plan model + CRUD | US-007 | done |
 | [TODO-013](todos/TODO-013.md) | Limit enforcement middleware/service | US-007 | done |
-| [TODO-014](todos/TODO-014.md) | Tenant plan view page | US-007 | in_progress |
+| [TODO-014](todos/TODO-014.md) | Tenant plan view page | US-007 | done |
 | [TODO-015](todos/TODO-015.md) | Tenant subscription view/edit in Super Admin panel | US-008 | proposed |
 | [TODO-016](todos/TODO-016.md) | Subscription status model | US-008 | done |
 | [TODO-017](todos/TODO-017.md) | Tenant settings model + permission matrix | US-009 | done |
-| [TODO-018](todos/TODO-018.md) | Settings UI for Tenant Admin (editable + view-only) | US-009 | in_progress |
-| [TODO-019](todos/TODO-019.md) | Settings UI for Super Admin | US-009 | in_progress |
+| [TODO-018](todos/TODO-018.md) | Settings UI for Tenant Admin (editable + view-only) | US-009 | done |
+| [TODO-019](todos/TODO-019.md) | Settings UI for Super Admin | US-009 | done |
 
 #### FEAT-003 — Feature Flags
 
 | ID | Title | Story | Status |
 | -- | ----- | ----- | ------ |
 | [TODO-020](todos/TODO-020.md) | Feature flag model (key-value per tenant, plan defaults) | US-010 | done |
-| [TODO-021](todos/TODO-021.md) | Super Admin flag management UI | US-010 | in_progress |
-| [TODO-022](todos/TODO-022.md) | Plan default flag configuration | US-010 | in_progress |
+| [TODO-021](todos/TODO-021.md) | Super Admin flag management UI | US-010 | done |
+| [TODO-022](todos/TODO-022.md) | Plan default flag configuration | US-010 | done |
 | [TODO-023](todos/TODO-023.md) | Runtime flag check middleware | US-011 | done |
-| [TODO-024](todos/TODO-024.md) | Tenant feature status read-only view | US-011 | in_progress |
+| [TODO-024](todos/TODO-024.md) | Tenant feature status read-only view | US-011 | done |
 | [TODO-025](todos/TODO-025.md) | Disabled feature request prompt component | US-011 | proposed |
 
 #### FEAT-004 — User & Access Management
@@ -173,7 +173,7 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | [TODO-038](todos/TODO-038.md) | Client Portal authentication realm | US-016 | proposed |
 | [TODO-039](todos/TODO-039.md) | Client User deactivation | US-016 | proposed |
 | [TODO-040](todos/TODO-040.md) | Audit log model + service | US-017 | done |
-| [TODO-041](todos/TODO-041.md) | Audit log viewer for Tenant Admin | US-017 | in_progress |
+| [TODO-041](todos/TODO-041.md) | Audit log viewer for Tenant Admin | US-017 | done |
 | [TODO-042](todos/TODO-042.md) | Instrument sensitive actions with audit logging | US-017 | in_progress |
 | [TODO-122](todos/TODO-122.md) | AdminUser model + JWT auth endpoints (login, me) | US-047 | done |
 
@@ -182,13 +182,13 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | ID | Title | Story | Status |
 | -- | ----- | ----- | ------ |
 | [TODO-043](todos/TODO-043.md) | Client model + CRUD API | US-018 | done |
-| [TODO-044](todos/TODO-044.md) | Client create/edit UI | US-018 | in_progress |
-| [TODO-045](todos/TODO-045.md) | Client detail view with contacts | US-018 | in_progress |
+| [TODO-044](todos/TODO-044.md) | Client create/edit UI | US-018 | done |
+| [TODO-045](todos/TODO-045.md) | Client detail view with contacts | US-018 | done |
 | [TODO-046](todos/TODO-046.md) | Client list API with rollups | US-019 | done |
 | [TODO-047](todos/TODO-047.md) | Search/filter implementation | US-019 | done |
-| [TODO-048](todos/TODO-048.md) | Notes and tags UI | US-019 | in_progress |
+| [TODO-048](todos/TODO-048.md) | Notes and tags UI | US-019 | done |
 | [TODO-049](todos/TODO-049.md) | Activity event model + logging service | US-020 | done |
-| [TODO-050](todos/TODO-050.md) | Client activity timeline UI component | US-020 | in_progress |
+| [TODO-050](todos/TODO-050.md) | Client activity timeline UI component | US-020 | done |
 | [TODO-051](todos/TODO-051.md) | Archive/unarchive API | US-021 | done |
 | [TODO-052](todos/TODO-052.md) | Portal access gate for archived clients | US-021 | done |
 | [TODO-053](todos/TODO-053.md) | Archived client filter in list views | US-021 | done |

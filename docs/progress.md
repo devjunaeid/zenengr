@@ -3,8 +3,8 @@
 ## Project status
 
 - **Phase:** Sprint 1 — Admin Auth & Invites
-- **Last updated:** 2026-07-27
-- **Current focus:** Client management APIs (FEAT-005) complete. 35 tests green. UI pending.
+- **Last updated:** 2026-07-31
+- **Current focus:** FEAT-005 client UI batch (TODO-044/045/048/050) shipped. `npm run lint` + `npm run check` + `npm run build` clean. Awaiting stakeholder approval for next feature batch.
 
 ## What changed recently
 
@@ -41,6 +41,10 @@
 
 | Date | Item / task | Notes |
 | ---- | ------------ | ----- |
+| 2026-07-31 | TODO-044/045/048/050 — Client UI batch (FEAT-005) | New: `frontend/src/lib/api/clients.js` (9 fns); `frontend/src/routes/app/clients/{+layout,+page}.{js,svelte}` (list + filter form + EmptyState); `frontend/src/routes/app/clients/new/+page.svelte` (create form with chip-tag input); `frontend/src/routes/app/clients/[id]/{+page,edit/+page}.{js,svelte}` (detail w/ profile + financials + contacts + notes + activity timeline, edit form, archive/unarchive flow); `Clients` nav item. `npm run lint` + `npm run check` + `npm run build` pass. |
+| 2026-07-31 | TODO-019 + TODO-022 — SA tenant settings panel + plan default flags UI | `frontend/src/lib/api/admin.js` 4 new fns (getTenantSettings, updateTenantSetting, listPlanFlagDefaults, setPlanFlagDefault); SA settings table in `admin/tenants/[id]/+page.svelte`; plan-flags modal in `admin/plans/+page.svelte` (bits-ui Dialog, lazy-loaded). `npm run lint` + `npm run check` pass. |
+| 2026-07-31 | TODO-014/018/021/024/041 — tenant plan view, settings, flags, audit UI (stale status) | UI already implemented in earlier sessions but docs flagged as in_progress. Status synced to done. |
+| 2026-07-31 | TODO-012 — Plan CRUD API | `app/api/v1/admin.py` POST/GET/list/GET/PATCH/DELETE /api/v1/admin/plans; create/list/get/update/delete in `app/services/plans.py` + `app/repositories/plans.py`; audit on plan.created/updated/deleted. 7 tests in `tests/test_admin_api.py::TestPlansCRUD` green (auth isolation, CRUD, dup-name 409, delete-with-tenants 409). |
 | 2026-07-27 | TODO-043/046/047/049/051/052/053/054/055 — Client management APIs | Full CRUD, list+rollups, search/filter, archive/unarchive, notes, tags, activity timeline, client portal self-service profile edit. 35 tests green. ruff + mypy clean. |
 | 2026-07-27 | TODO-037/038/039 — Client data layer + Client Portal auth realm | Client/ClientNote/ClientUser/ClientInvite models, client-realm JWT auth, invite flow, deactivation, realm isolation. 4 new tables, migration `81cfc015e65d`. Ruff + mypy clean. |
 | 2026-07-24 | Scaffold template files | `docs/features`, `docs/stories`, `docs/todos`, `docs/decisions`. |
@@ -69,26 +73,14 @@
 | 2026-07-27 | TODO-010 — Tenant profile API | Profile GET/PATCH with audit, permission gates. API done. |
 | 2026-07-27 | TODO-013 — Limit enforcement service | check_limit + LimitExceededError, wired into invites. |
 | 2026-07-27 | TODO-023 — Runtime flag check dependency | require_feature_flag dep with tests for disabled/enabled/flip/SA exemption. |
-| 2026-07-27 | Tenant config batch: profile, settings, flags, limits, audits | Profile PATCH greenlet fix, deprecation cleanup, require_feature_flag dependency tests, doc sync. 238 tests green. TODO-010/013/023 done. TODO-014/018/019/021/022/024/041 in_progress (UI pending). |
+| 2026-07-27 | Tenant config batch: profile, settings, flags, limits, audits | Profile PATCH greenlet fix, deprecation cleanup, require_feature_flag dependency tests, doc sync. 238 tests green. TODO-010/013/023 done. UI for TODO-014/018/019/021/022/024/041 shipped in later batches. |
 
 ## In progress
 
 | Date started | Item / task | Blockers | Notes |
 | ------------ | ------------ | -------- | ----- |
 | 2026-07-25 | FEAT-001 — Verify `docker compose up` | Docker daemon not running on this machine | Builds verified (`npm run build` + adapter-node). Verify full compose after starting Docker. |
-| 2026-07-27 | TODO-012 — Plan CRUD API | None | Plan model done; CRUD API pending. |
 | 2026-07-27 | TODO-042 — Instrument sensitive actions (partial) | User-admin actions done; invoice/payment hooks in later batches | See TODO-042 for wired vs pending. |
-| 2026-07-27 | TODO-014 — Tenant plan view page | API done (GET /tenant/plan + usage). | UI pending. |
-| 2026-07-27 | TODO-018 — Settings UI for Tenant Admin | API done (GET/PATCH /tenant/settings). | UI pending. |
-| 2026-07-27 | TODO-019 — Settings UI for Super Admin | API done (admin settings endpoints). | UI pending. |
-| 2026-07-27 | TODO-021 — Super Admin flag management UI | API done (admin flag CRUD endpoints). | UI pending. |
-| 2026-07-27 | TODO-022 — Plan default flag configuration | API done (plan flag CRUD endpoints). | UI pending. |
-| 2026-07-27 | TODO-024 — Tenant feature status read-only view | API done (GET /tenant/flags). | UI pending. |
-| 2026-07-27 | TODO-041 — Audit log viewer for Tenant Admin | API done (GET /tenant/audit-logs + admin equivalents). | UI pending. |
-| 2026-07-27 | TODO-044 — Client create/edit UI | API done (TODO-043). | UI pending (later frontend batch). |
-| 2026-07-27 | TODO-045 — Client detail view with contacts | API done (TODO-043). | UI pending (later frontend batch). |
-| 2026-07-27 | TODO-048 — Notes and tags UI | API done (notes/tags endpoints). | UI pending (later frontend batch). |
-| 2026-07-27 | TODO-050 — Client activity timeline UI | API done (TODO-049). | UI pending (later frontend batch). |
 
 ## Blocked
 
@@ -109,7 +101,7 @@
 
 ## Next
 
-1. TODO-012 — Plan CRUD API (list, create, update for super_admin).
-2. Frontend: build accept-invite page (TODO-037 is separate client-user invite batch).
-3. Stakeholder approval gate for remaining backlog.
-4. Continue sprint 1: FEAT-004 foundations (Plan CRUD, tenant onboarding).
+1. Frontend: build accept-invite page (TODO-037 is separate client-user invite batch).
+2. Stakeholder approval gate for remaining backlog.
+3. Continue sprint 1: FEAT-004 foundations (Plan CRUD, tenant onboarding).
+4. Stakeholder approval gate for remaining backlog. Next feature batches: FEAT-006 service catalog, FEAT-007 projects, FEAT-008 invoicing.

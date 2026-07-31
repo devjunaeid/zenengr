@@ -163,3 +163,53 @@ export function deleteFlag(fetchFn, token, tenantId, key) {
 export function getAuditLogs(fetchFn, token, tenantId, params = {}) {
 	return apiFetch(fetchFn, `/admin/tenants/${tenantId}/audit-logs`, { token, params });
 }
+
+/**
+ * @param {typeof fetch} fetchFn
+ * @param {string} token
+ * @param {string} tenantId
+ * @returns {Promise<Array<{ key: string, value: string|null, permission_level: string, editable: boolean }>>}
+ */
+export function getTenantSettings(fetchFn, token, tenantId) {
+	return apiFetch(fetchFn, `/admin/tenants/${tenantId}/settings`, { token });
+}
+
+/**
+ * @param {typeof fetch} fetchFn
+ * @param {string} token
+ * @param {string} tenantId
+ * @param {string} key
+ * @param {string|null} value
+ */
+export function updateTenantSetting(fetchFn, token, tenantId, key, value) {
+	return apiFetch(fetchFn, `/admin/tenants/${tenantId}/settings/${encodeURIComponent(key)}`, {
+		method: 'PATCH',
+		token,
+		body: { value }
+	});
+}
+
+/**
+ * @param {typeof fetch} fetchFn
+ * @param {string} token
+ * @param {string} planId
+ * @returns {Promise<Array<{ key: string, enabled: boolean }>>}
+ */
+export function listPlanFlagDefaults(fetchFn, token, planId) {
+	return apiFetch(fetchFn, `/admin/plans/${planId}/flags`, { token });
+}
+
+/**
+ * @param {typeof fetch} fetchFn
+ * @param {string} token
+ * @param {string} planId
+ * @param {string} key
+ * @param {boolean} enabled
+ */
+export function setPlanFlagDefault(fetchFn, token, planId, key, enabled) {
+	return apiFetch(fetchFn, `/admin/plans/${planId}/flags/${encodeURIComponent(key)}`, {
+		method: 'PUT',
+		token,
+		body: { enabled }
+	});
+}

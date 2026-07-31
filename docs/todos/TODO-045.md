@@ -3,14 +3,14 @@ id: TODO-045
 title: Client detail view with contacts
 feature: FEAT-005
 story: US-018
-status: in_progress
+status: done
 priority: P0
 owner: ""
 estimate: ""
 dependencies: [TODO-043]
 blocks: []
 created: "2026-07-26"
-updated: "2026-07-27"
+updated: "2026-07-31"
 ---
 
 # TODO-045 — Client detail view with contacts
@@ -21,12 +21,12 @@ Build client detail page showing full client info plus list of associated Client
 
 ## Acceptance criteria
 
-- [ ] GET /api/tenant/clients/{id} returns client with contacts array.
-- [ ] Detail page: client info + contacts section.
-- [ ] Primary billing contact highlighted.
-- [ ] Employee view-only; Admin/Manager can edit.
+- [x] GET /api/tenant/clients/{id} returns client with contacts array.
+- [x] Detail page: client info + contacts section.
+- [x] Primary billing contact highlighted.
+- [x] Employee view-only; Admin/Manager can edit.
 
 ## Notes
 
-API complete (TODO-043). UI in later frontend batch.
+Frontend batch shipped 2026-07-31. `frontend/src/routes/app/clients/[id]/+page.svelte` renders profile + financials + contacts sections; "Primary billing contact" badge applied where `is_primary_billing_contact: true`. `frontend/src/routes/app/clients/[id]/+page.js` loads client + notes + activity in parallel. Employee view-only banner via `isEmployee` flag.
 
