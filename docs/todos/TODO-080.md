@@ -3,7 +3,7 @@ id: TODO-080
 title: Lock enforcement on Issued invoices
 feature: FEAT-008
 story: US-031
-status: proposed
+status: done
 priority: P0
 owner: ""
 estimate: ""
@@ -21,10 +21,11 @@ Ensure issued invoices cannot be edited on financial fields (line items, amounts
 
 ## Acceptance criteria
 
-- [ ] PATCH on Issued invoice's financial fields returns 422.
-- [ ] Issued invoice cannot be deleted (405 Method Not Allowed).
-- [ ] Only status transition allowed: Issued -> Void (TODO-081).
-- [ ] Server-side enforcement (not just UI).
+- [x] PATCH on Issued invoice's financial fields returns 422.
+- [x] Issued invoice cannot be deleted (405 Method Not Allowed).
+- [x] Only status transition allowed: Issued -> Void (TODO-081).
+- [x] Server-side enforcement (not just UI).
 
 ## Notes
 
+Lock enforcement complete: financial PATCH on issued -> 422 (notes-only allowed), DELETE issued -> 405, void transition via POST /{id}/void (TODO-081), all server-side.

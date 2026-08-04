@@ -3,7 +3,7 @@ id: TODO-115
 title: Password policy validation
 feature: FEAT-011
 story: US-043
-status: proposed
+status: done
 priority: P0
 owner: ""
 estimate: ""
@@ -21,10 +21,12 @@ Implement password policy validation (minimum length, complexity) per tenant's s
 
 ## Acceptance criteria
 
-- [ ] Tenant password policy configurable (min_length, require_uppercase, require_numbers, require_special).
-- [ ] Default policy: min 8 chars.
-- [ ] Policy validated on: registration (TODO-027), password change (TODO-113), reset (TODO-114).
-- [ ] Validation error returns specific requirements message.
+- [x] Tenant password policy configurable (min_length, require_uppercase, require_numbers, require_special).
+- [x] Default policy: min 8 chars.
+- [x] Policy validated on: registration (TODO-027), password change (TODO-113), reset (TODO-114).
+- [x] Validation error returns specific requirements message.
 
 ## Notes
+
+Tenant setting password_min_length (default 10, validated 8-64) + shared validator in app/services/password_policy.py, wired into change-password (both realms), client register, admin reset consume.
 

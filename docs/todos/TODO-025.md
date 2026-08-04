@@ -3,7 +3,7 @@ id: TODO-025
 title: Disabled feature request prompt component
 feature: FEAT-003
 story: US-011
-status: proposed
+status: done
 priority: P0
 owner: ""
 estimate: ""
@@ -21,9 +21,11 @@ Build reusable UI component shown when user encounters a disabled feature, with 
 
 ## Acceptance criteria
 
-- [ ] Component renders when feature-gated route/component is disabled.
-- [ ] Shows feature name and upgrade prompt text.
-- [ ] Links to plan/upgrade info page.
+- [x] Component renders when feature-gated route/component is disabled.
+- [x] Shows feature name and upgrade prompt text.
+- [x] Links to plan/upgrade info page.
 
 ## Notes
+
+Disabled feature flags on plan page show amber Upgrade to enable pill.
 

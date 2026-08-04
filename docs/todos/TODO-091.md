@@ -3,7 +3,7 @@ id: TODO-091
 title: Payment recording UI
 feature: FEAT-009
 story: US-035
-status: proposed
+status: done
 priority: P0
 owner: ""
 estimate: ""
@@ -21,12 +21,14 @@ Build payment recording form in Admin Portal invoice detail. Fields: amount, dat
 
 ## Acceptance criteria
 
-- [ ] "Record Payment" button/form on Issued invoice detail.
-- [ ] Amount field with validation (positive, <= balance due).
-- [ ] Method selector (bank transfer, card, cash, other).
-- [ ] Reference note text field.
-- [ ] After recording: invoice status updates immediately (TODO-090).
-- [ ] Payment history displayed below.
+- [x] "Record Payment" button/form on Issued invoice detail.
+- [x] Amount field with validation (positive, <= balance due).
+- [x] Method selector (bank transfer, card, cash, other).
+- [x] Reference note text field.
+- [x] After recording: invoice status updates immediately (TODO-090).
+- [x] Payment history displayed below.
 
 ## Notes
+
+Record payment dialog on invoice detail (issued/partially_paid only): amount, method (bank_transfer/card/cash/other), reference, date; transactions card with paid/balance summary + allocation breakdown.
 

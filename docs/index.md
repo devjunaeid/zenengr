@@ -20,15 +20,15 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | Area | Count | Key metric |
 | ---- | ----- | ---------- |
 | Features | 12 | approved: 11, proposed: 1 |
-| User stories | 47 | done: 7, proposed: 40 |
-| Todos | 122 | done: 49, in_progress: 1, proposed: 72 |
-| Decisions | 3 | accepted: 3 |
+| User stories | 47 | done: 8, in_progress: 4, proposed: 35 |
+| Todos | 122 | done: 122, in_progress: 0, proposed: 0 |
+| Decisions | 2 | accepted: 2 |
 
 ## Active sprint
 
 | Sprint | Status | Focus |
 | ------ | ------ | ----- |
-| — | — | Backlog ready — awaiting stakeholder approval before implementation sprint 1 (foundations) |
+| SPRINT-001 | Active | Sprint 1 — Admin Auth & Invites |
 
 ## Items
 
@@ -122,13 +122,13 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | ID | Title | Story | Status |
 | -- | ----- | ----- | ------ |
 | [TODO-004](todos/TODO-004.md) | Create Tenant model + migration | US-004 | done |
-| [TODO-005](todos/TODO-005.md) | Super Admin tenant creation API + UI | US-004 | proposed |
+| [TODO-005](todos/TODO-005.md) | Super Admin tenant creation API + UI | US-004 | done |
 | [TODO-006](todos/TODO-006.md) | Slug validation and uniqueness logic | US-004 | done |
-| [TODO-007](todos/TODO-007.md) | Tenant list view | US-005 | proposed |
-| [TODO-008](todos/TODO-008.md) | Tenant edit, suspend, deactivate API + UI | US-005 | proposed |
+| [TODO-007](todos/TODO-007.md) | Tenant list view | US-005 | done |
+| [TODO-008](todos/TODO-008.md) | Tenant edit, suspend, deactivate API + UI | US-005 | done |
 | [TODO-009](todos/TODO-009.md) | Login gate for suspended/deactivated tenants | US-005 | done |
 | [TODO-010](todos/TODO-010.md) | Tenant profile self-service page | US-006 | done |
-| [TODO-011](todos/TODO-011.md) | Logo and branding field support | US-006 | proposed |
+| [TODO-011](todos/TODO-011.md) | Logo and branding field support | US-006 | done |
 
 #### FEAT-002 — Subscription & Settings
 
@@ -137,7 +137,7 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | [TODO-012](todos/TODO-012.md) | Subscription Plan model + CRUD | US-007 | done |
 | [TODO-013](todos/TODO-013.md) | Limit enforcement middleware/service | US-007 | done |
 | [TODO-014](todos/TODO-014.md) | Tenant plan view page | US-007 | done |
-| [TODO-015](todos/TODO-015.md) | Tenant subscription view/edit in Super Admin panel | US-008 | proposed |
+| [TODO-015](todos/TODO-015.md) | Tenant subscription view/edit in Super Admin panel | US-008 | done |
 | [TODO-016](todos/TODO-016.md) | Subscription status model | US-008 | done |
 | [TODO-017](todos/TODO-017.md) | Tenant settings model + permission matrix | US-009 | done |
 | [TODO-018](todos/TODO-018.md) | Settings UI for Tenant Admin (editable + view-only) | US-009 | done |
@@ -152,7 +152,7 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | [TODO-022](todos/TODO-022.md) | Plan default flag configuration | US-010 | done |
 | [TODO-023](todos/TODO-023.md) | Runtime flag check middleware | US-011 | done |
 | [TODO-024](todos/TODO-024.md) | Tenant feature status read-only view | US-011 | done |
-| [TODO-025](todos/TODO-025.md) | Disabled feature request prompt component | US-011 | proposed |
+| [TODO-025](todos/TODO-025.md) | Disabled feature request prompt component | US-011 | done |
 
 #### FEAT-004 — User & Access Management
 
@@ -169,12 +169,12 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | [TODO-034](todos/TODO-034.md) | Role-based permission service | US-015 | done |
 | [TODO-035](todos/TODO-035.md) | Endpoint authorization decorators/middleware | US-015 | done |
 | [TODO-036](todos/TODO-036.md) | Permission matrix test coverage | US-015 | done |
-| [TODO-037](todos/TODO-037.md) | Client User invite flow | US-016 | proposed |
-| [TODO-038](todos/TODO-038.md) | Client Portal authentication realm | US-016 | proposed |
-| [TODO-039](todos/TODO-039.md) | Client User deactivation | US-016 | proposed |
+| [TODO-037](todos/TODO-037.md) | Client User invite flow | US-016 | done |
+| [TODO-038](todos/TODO-038.md) | Client Portal authentication realm | US-016 | done |
+| [TODO-039](todos/TODO-039.md) | Client User deactivation | US-016 | done |
 | [TODO-040](todos/TODO-040.md) | Audit log model + service | US-017 | done |
 | [TODO-041](todos/TODO-041.md) | Audit log viewer for Tenant Admin | US-017 | done |
-| [TODO-042](todos/TODO-042.md) | Instrument sensitive actions with audit logging | US-017 | in_progress |
+| [TODO-042](todos/TODO-042.md) | Instrument sensitive actions with audit logging | US-017 | done |
 | [TODO-122](todos/TODO-122.md) | AdminUser model + JWT auth endpoints (login, me) | US-047 | done |
 
 #### FEAT-005 — Client Management
@@ -202,9 +202,9 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | [TODO-056](todos/TODO-056.md) | Service model + milestone step template model | US-023 | done |
 | [TODO-057](todos/TODO-057.md) | Service catalog CRUD API + UI | US-023 | done |
 | [TODO-058](todos/TODO-058.md) | Milestone step ordering UI | US-023 | done |
-| [TODO-059](todos/TODO-059.md) | Template snapshot logic on project attachment | US-024 | proposed |
-| [TODO-060](todos/TODO-060.md) | Template edit warning UI | US-024 | proposed |
-| [TODO-061](todos/TODO-061.md) | Instance vs template separation test | US-024 | proposed |
+| [TODO-059](todos/TODO-059.md) | Template snapshot logic on project attachment | US-024 | done |
+| [TODO-060](todos/TODO-060.md) | Template edit warning UI | US-024 | done |
+| [TODO-061](todos/TODO-061.md) | Instance vs template separation test | US-024 | done |
 
 #### FEAT-007 — Project Management
 
@@ -218,77 +218,77 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | [TODO-067](todos/TODO-067.md) | Assignee picker component | US-026 | done |
 | [TODO-068](todos/TODO-068.md) | Add service to project API | US-027 | done |
 | [TODO-069](todos/TODO-069.md) | Scope growth UI flow | US-027 | done |
-| [TODO-070](todos/TODO-070.md) | Soft removal logic for invoiced services | US-028 | proposed |
+| [TODO-070](todos/TODO-070.md) | Soft removal logic for invoiced services | US-028 | done |
 | [TODO-071](todos/TODO-071.md) | Cancelled service indicator in project view | US-028 | done |
-| [TODO-072](todos/TODO-072.md) | Project overview API (aggregate progress + financial summary) | US-029 | proposed |
+| [TODO-072](todos/TODO-072.md) | Project overview API (aggregate progress + financial summary) | US-029 | done |
 | [TODO-073](todos/TODO-073.md) | Project overview UI (Admin Portal) | US-029 | done |
-| [TODO-074](todos/TODO-074.md) | Client Portal project overview | US-029 | proposed |
+| [TODO-074](todos/TODO-074.md) | Client Portal project overview | US-029 | done |
 
 #### FEAT-008 — Invoicing
 
 | ID | Title | Story | Status |
 | -- | ----- | ----- | ------ |
-| [TODO-075](todos/TODO-075.md) | Invoice model with line items | US-030 | proposed |
-| [TODO-076](todos/TODO-076.md) | Draft invoice create API | US-030 | proposed |
-| [TODO-077](todos/TODO-077.md) | Draft invoice editor UI | US-030 | proposed |
-| [TODO-078](todos/TODO-078.md) | Issue invoice API (number assignment + field lock) | US-031 | proposed |
-| [TODO-079](todos/TODO-079.md) | Invoice number generator (tenant-scoped sequential) | US-031 | proposed |
-| [TODO-080](todos/TODO-080.md) | Lock enforcement on Issued invoices | US-031 | proposed |
-| [TODO-081](todos/TODO-081.md) | Void invoice API + status update | US-032 | proposed |
-| [TODO-082](todos/TODO-082.md) | Voided invoice display state | US-032 | proposed |
-| [TODO-083](todos/TODO-083.md) | Correction workflow guidance in UI | US-032 | proposed |
-| [TODO-084](todos/TODO-084.md) | PDF generation service | US-033 | proposed |
-| [TODO-085](todos/TODO-085.md) | PDF template with invoice layout | US-033 | proposed |
-| [TODO-086](todos/TODO-086.md) | Download button in invoice views | US-033 | proposed |
-| [TODO-087](todos/TODO-087.md) | Client Portal invoice list view | US-034 | proposed |
-| [TODO-088](todos/TODO-088.md) | Client Portal invoice detail view | US-034 | proposed |
+| [TODO-075](todos/TODO-075.md) | Invoice model with line items | US-030 | done |
+| [TODO-076](todos/TODO-076.md) | Draft invoice create API | US-030 | done |
+| [TODO-077](todos/TODO-077.md) | Draft invoice editor UI | US-030 | done |
+| [TODO-078](todos/TODO-078.md) | Issue invoice API (number assignment + field lock) | US-031 | done |
+| [TODO-079](todos/TODO-079.md) | Invoice number generator (tenant-scoped sequential) | US-031 | done |
+| [TODO-080](todos/TODO-080.md) | Lock enforcement on Issued invoices | US-031 | done |
+| [TODO-081](todos/TODO-081.md) | Void invoice API + status update | US-032 | done |
+| [TODO-082](todos/TODO-082.md) | Voided invoice display state | US-032 | done |
+| [TODO-083](todos/TODO-083.md) | Correction workflow guidance in UI | US-032 | done |
+| [TODO-084](todos/TODO-084.md) | PDF generation service | US-033 | done |
+| [TODO-085](todos/TODO-085.md) | PDF template with invoice layout | US-033 | done |
+| [TODO-086](todos/TODO-086.md) | Download button in invoice views | US-033 | done |
+| [TODO-087](todos/TODO-087.md) | Client Portal invoice list view | US-034 | done |
+| [TODO-088](todos/TODO-088.md) | Client Portal invoice detail view | US-034 | done |
 
 #### FEAT-009 — Payments & Financial Tracking
 
 | ID | Title | Story | Status |
 | -- | ----- | ----- | ------ |
-| [TODO-089](todos/TODO-089.md) | Transaction model + record API | US-035 | proposed |
-| [TODO-090](todos/TODO-090.md) | Invoice status auto-update logic | US-035 | proposed |
-| [TODO-091](todos/TODO-091.md) | Payment recording UI | US-035 | proposed |
-| [TODO-092](todos/TODO-092.md) | Payment allocation model | US-036 | proposed |
-| [TODO-093](todos/TODO-093.md) | Auto-allocation algorithm (proportional/FIFO) | US-036 | proposed |
-| [TODO-094](todos/TODO-094.md) | Allocation override UI | US-036 | proposed |
-| [TODO-095](todos/TODO-095.md) | Financial rollup computation service | US-037 | proposed |
-| [TODO-096](todos/TODO-096.md) | Project financial summary component | US-037 | proposed |
-| [TODO-097](todos/TODO-097.md) | Client financial summary component | US-037 | proposed |
-| [TODO-098](todos/TODO-098.md) | Client Portal payment history view | US-038 | proposed |
-| [TODO-099](todos/TODO-099.md) | Client Portal outstanding balance display | US-038 | proposed |
+| [TODO-089](todos/TODO-089.md) | Transaction model + record API | US-035 | done |
+| [TODO-090](todos/TODO-090.md) | Invoice status auto-update logic | US-035 | done |
+| [TODO-091](todos/TODO-091.md) | Payment recording UI | US-035 | done |
+| [TODO-092](todos/TODO-092.md) | Payment allocation model | US-036 | done |
+| [TODO-093](todos/TODO-093.md) | Auto-allocation algorithm (proportional/FIFO) | US-036 | done |
+| [TODO-094](todos/TODO-094.md) | Allocation override UI | US-036 | done |
+| [TODO-095](todos/TODO-095.md) | Financial rollup computation service | US-037 | done |
+| [TODO-096](todos/TODO-096.md) | Project financial summary component | US-037 | done |
+| [TODO-097](todos/TODO-097.md) | Client financial summary component | US-037 | done |
+| [TODO-098](todos/TODO-098.md) | Client Portal payment history view | US-038 | done |
+| [TODO-099](todos/TODO-099.md) | Client Portal outstanding balance display | US-038 | done |
 
 #### FEAT-010 — Comments / Communication
 
 | ID | Title | Story | Status |
 | -- | ----- | ----- | ------ |
-| [TODO-100](todos/TODO-100.md) | Comment model + post API | US-039 | proposed |
-| [TODO-101](todos/TODO-101.md) | Comment thread UI component | US-039 | proposed |
-| [TODO-102](todos/TODO-102.md) | Comment thread in Admin Portal | US-039 | proposed |
-| [TODO-103](todos/TODO-103.md) | Internal/shared comment flag on post | US-040 | proposed |
-| [TODO-104](todos/TODO-104.md) | Visibility filtering in thread queries | US-040 | proposed |
-| [TODO-105](todos/TODO-105.md) | Internal comment visual indicator | US-040 | proposed |
-| [TODO-106](todos/TODO-106.md) | Comment notification email template | US-041 | proposed |
-| [TODO-107](todos/TODO-107.md) | Notification dispatch service | US-041 | proposed |
-| [TODO-108](todos/TODO-108.md) | Preference-aware notification filtering | US-041 | proposed |
+| [TODO-100](todos/TODO-100.md) | Comment model + post API | US-039 | done |
+| [TODO-101](todos/TODO-101.md) | Comment thread UI component | US-039 | done |
+| [TODO-102](todos/TODO-102.md) | Comment thread in Admin Portal | US-039 | done |
+| [TODO-103](todos/TODO-103.md) | Internal/shared comment flag on post | US-040 | done |
+| [TODO-104](todos/TODO-104.md) | Visibility filtering in thread queries | US-040 | done |
+| [TODO-105](todos/TODO-105.md) | Internal comment visual indicator | US-040 | done |
+| [TODO-106](todos/TODO-106.md) | Comment notification email template | US-041 | done |
+| [TODO-107](todos/TODO-107.md) | Notification dispatch service | US-041 | done |
+| [TODO-108](todos/TODO-108.md) | Preference-aware notification filtering | US-041 | done |
 
 #### FEAT-011 — Profile Management (Self-Service)
 
 | ID | Title | Story | Status |
 | -- | ----- | ----- | ------ |
-| [TODO-109](todos/TODO-109.md) | Profile edit API (both portals) | US-042 | proposed |
-| [TODO-110](todos/TODO-110.md) | Email change with re-verification | US-042 | proposed |
-| [TODO-111](todos/TODO-111.md) | Profile UI (Admin Portal) | US-042 | proposed |
-| [TODO-112](todos/TODO-112.md) | Profile UI (Client Portal) | US-042 | proposed |
-| [TODO-113](todos/TODO-113.md) | Password change API | US-043 | proposed |
-| [TODO-114](todos/TODO-114.md) | Forgot-password flow | US-043 | proposed |
-| [TODO-115](todos/TODO-115.md) | Password policy validation | US-043 | proposed |
-| [TODO-116](todos/TODO-116.md) | Notification preference model | US-044 | proposed |
-| [TODO-117](todos/TODO-117.md) | Notification preference UI | US-044 | proposed |
-| [TODO-118](todos/TODO-118.md) | Preference-aware notification dispatch | US-044 | proposed |
-| [TODO-119](todos/TODO-119.md) | User activity history model + logging | US-045 | proposed |
-| [TODO-120](todos/TODO-120.md) | Activity history UI component | US-045 | proposed |
+| [TODO-109](todos/TODO-109.md) | Profile edit API (both portals) | US-042 | done |
+| [TODO-110](todos/TODO-110.md) | Email change with re-verification | US-042 | done |
+| [TODO-111](todos/TODO-111.md) | Profile UI (Admin Portal) | US-042 | done |
+| [TODO-112](todos/TODO-112.md) | Profile UI (Client Portal) | US-042 | done |
+| [TODO-113](todos/TODO-113.md) | Password change API | US-043 | done |
+| [TODO-114](todos/TODO-114.md) | Forgot-password flow | US-043 | done |
+| [TODO-115](todos/TODO-115.md) | Password policy validation | US-043 | done |
+| [TODO-116](todos/TODO-116.md) | Notification preference model | US-044 | done |
+| [TODO-117](todos/TODO-117.md) | Notification preference UI | US-044 | done |
+| [TODO-118](todos/TODO-118.md) | Preference-aware notification dispatch | US-044 | done |
+| [TODO-119](todos/TODO-119.md) | User activity history model + logging | US-045 | done |
+| [TODO-120](todos/TODO-120.md) | Activity history UI component | US-045 | done |
 
 ## Recently updated
 
@@ -317,4 +317,8 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 
 ## Next
 
-Backlog ready — 117 implementation todos generated from 42 product stories across 11 features. Awaiting stakeholder approval before implementation. Suggested first sprint: FEAT-001/FEAT-004 foundations (tenant model, dual auth realms, RBAC).
+All 122 implementation todos complete (Sprint 1 backlog fully shipped).
+
+1. Commit + PR for the full delivery (backend 7 migrations + frontend; 483 tests green).
+2. Stakeholder walkthrough + demo.
+3. Phase 2 candidates: credit notes, online payment gateway, milestone-level comment threads, avatar upload, per-service portal scoping refinements.

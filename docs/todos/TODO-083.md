@@ -3,7 +3,7 @@ id: TODO-083
 title: Correction workflow guidance in UI
 feature: FEAT-008
 story: US-032
-status: proposed
+status: done
 priority: P0
 owner: ""
 estimate: ""
@@ -21,9 +21,11 @@ Show UI guidance on voided invoice: "To correct this invoice, create a new invoi
 
 ## Acceptance criteria
 
-- [ ] Voided invoice detail shows guidance message.
-- [ ] "Create new invoice for this project" button/action.
-- [ ] New invoice can reference voided invoice number in notes.
+- [x] Voided invoice detail shows guidance message.
+- [x] "Create new invoice for this project" button/action.
+- [x] New invoice can reference voided invoice number in notes.
 
 ## Notes
+
+Voided invoice detail shows correction guidance card + Create new invoice button (preselects project_id). MVP corrections via new invoice; credit notes Phase 2 (FEAT-008 decision).
 

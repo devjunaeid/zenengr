@@ -3,7 +3,7 @@ id: TODO-072
 title: Project overview API (aggregate progress + financial summary)
 feature: FEAT-007
 story: US-029
-status: proposed
+status: done
 priority: P0
 owner: ""
 estimate: ""
@@ -21,10 +21,12 @@ Build project overview endpoint returning milestone completion percentage and fi
 
 ## Acceptance criteria
 
-- [ ] GET /api/tenant/projects/{id}/overview returns: milestone_completion_pct, total_invoiced, total_paid, balance_due, linked_invoices[].
-- [ ] Completion % = (completed milestones / total milestones) * 100.
-- [ ] Financial numbers computed from TODO-095 service.
-- [ ] Linked invoices list with status.
+- [x] GET /api/tenant/projects/{id}/overview returns: milestone_completion_pct, total_invoiced, total_paid, balance_due, linked_invoices[].
+- [x] Completion % = (completed milestones / total milestones) * 100.
+- [x] Financial numbers computed from TODO-095 service.
+- [x] Linked invoices list with status.
 
 ## Notes
+
+Financial fields + linked_invoices now computed from live invoice/transaction data (TODO-095 wired); overview endpoint complete.
 

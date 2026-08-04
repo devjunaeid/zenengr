@@ -3,7 +3,7 @@ id: TODO-059
 title: Template snapshot logic on project attachment
 feature: FEAT-006
 story: US-024
-status: proposed
+status: done
 priority: P0
 owner: ""
 estimate: ""
@@ -21,11 +21,13 @@ When a service is attached to a project, instantiate milestone step templates as
 
 ## Acceptance criteria
 
-- [ ] On project creation/service attachment: copy each MilestoneStepTemplate to a new ProjectMilestone.
-- [ ] ProjectMilestone stores: name, sequence_order, expected_duration_days, description, status (Pending).
-- [ ] No reference back to MilestoneStepTemplate after instantiation (immutable copy).
-- [ ] Editing service template after instantiation leaves existing milestones unchanged (FR-6.5).
-- [ ] Warning shown when editing template with existing instantiations (TODO-060).
+- [x] On project creation/service attachment: copy each MilestoneStepTemplate to a new ProjectMilestone.
+- [x] ProjectMilestone stores: name, sequence_order, expected_duration_days, description, status (Pending).
+- [x] No reference back to MilestoneStepTemplate after instantiation (immutable copy).
+- [x] Editing service template after instantiation leaves existing milestones unchanged (FR-6.5).
+- [x] Warning shown when editing template with existing instantiations (TODO-060).
 
 ## Notes
+
+Service attach/project creation copies MilestoneStepTemplate rows into ProjectMilestone (name, sequence_order, planned_date, description, status Pending); no FK back to template. Covered by TestTemplateSeparation (TODO-061) + TODO-060 warning.
 

@@ -3,7 +3,7 @@ id: TODO-006
 title: Slug validation and uniqueness logic
 feature: FEAT-001
 story: US-004
-status: proposed
+status: done
 priority: P0
 owner: ""
 estimate: ""
@@ -21,10 +21,12 @@ Implement slug format validation (lowercase alphanumeric + hyphens, no leading/t
 
 ## Acceptance criteria
 
-- [ ] Slug regex validation: ^[a-z0-9]+(-[a-z0-9]+)*$.
-- [ ] Real-time availability check endpoint for UI.
-- [ ] Slug immutable after creation (US-004 Notes).
-- [ ] Unique constraint at DB level (TODO-004).
+- [x] Slug regex validation: ^[a-z0-9]+(-[a-z0-9]+)*$.
+- [x] Real-time availability check endpoint for UI.
+- [x] Slug immutable after creation (US-004 Notes).
+- [x] Unique constraint at DB level (TODO-004).
 
 ## Notes
+
+Slug validation + availability endpoint + immutability + DB unique constraint verified in code (app/utils/slug.py, app/api/v1/admin.py, app/models/tenant.py).
 

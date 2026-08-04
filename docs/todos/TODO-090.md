@@ -3,7 +3,7 @@ id: TODO-090
 title: Invoice status auto-update logic
 feature: FEAT-009
 story: US-035
-status: proposed
+status: done
 priority: P0
 owner: ""
 estimate: ""
@@ -21,11 +21,13 @@ Implement logic: on payment recording, recalculate invoice paid amount and updat
 
 ## Acceptance criteria
 
-- [ ] After recording transaction: sum payments for invoice.
-- [ ] If sum >= total: set status=Paid (FR-9.2).
-- [ ] If sum > 0 and < total: set status=PartiallyPaid (FR-9.2).
-- [ ] Multiple partial payments accumulate toward total (FR-9.2 AC-3).
-- [ ] Status update happens in same transaction as payment recording.
+- [x] After recording transaction: sum payments for invoice.
+- [x] If sum >= total: set status=Paid (FR-9.2).
+- [x] If sum > 0 and < total: set status=PartiallyPaid (FR-9.2).
+- [x] Multiple partial payments accumulate toward total (FR-9.2 AC-3).
+- [x] Status update happens in same transaction as payment recording.
 
 ## Notes
+
+Status recompute in same transaction as recording: sum(transactions) >= total -> paid; > 0 -> partially_paid; multiple partials accumulate. Overpayment allowed (status paid).
 

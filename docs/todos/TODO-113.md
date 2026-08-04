@@ -3,7 +3,7 @@ id: TODO-113
 title: Password change API
 feature: FEAT-011
 story: US-043
-status: proposed
+status: done
 priority: P0
 owner: ""
 estimate: ""
@@ -21,11 +21,13 @@ Build password change endpoint with current-password confirmation. Incorrect cur
 
 ## Acceptance criteria
 
-- [ ] POST /api/auth/change-password with current_password + new_password.
-- [ ] Validates current_password before changing.
-- [ ] Incorrect current_password returns 403.
-- [ ] Password change logged in activity history (TODO-119).
-- [ ] Password policy enforced (TODO-115).
+- [x] POST /api/auth/change-password with current_password + new_password.
+- [x] Validates current_password before changing.
+- [x] Incorrect current_password returns 403.
+- [x] Password change logged in activity history (TODO-119).
+- [x] Password policy enforced (TODO-115).
 
 ## Notes
+
+POST /auth/change-password + /client/auth/change-password: current-password verification (403 wrong), policy applied, audit + activity password.changed logged.
 

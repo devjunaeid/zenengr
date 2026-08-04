@@ -3,7 +3,7 @@ id: TODO-081
 title: Void invoice API + status update
 feature: FEAT-008
 story: US-032
-status: proposed
+status: done
 priority: P0
 owner: ""
 estimate: ""
@@ -21,12 +21,12 @@ Build POST /api/tenant/invoices/{id}/void endpoint. Voided invoice retains numbe
 
 ## Acceptance criteria
 
-- [ ] POST /api/tenant/invoices/{id}/void sets status=Void (FR-8.3).
-- [ ] Voided invoice retains invoice_number and all original data (FR-8.4).
-- [ ] Void action audited (TODO-042).
-- [ ] Only Tenant Admin/Manager can void.
-- [ ] Already-void invoices return 422.
+- [x] POST /api/tenant/invoices/{id}/void sets status=Void (FR-8.3).
+- [x] Voided invoice retains invoice_number and all original data (FR-8.4).
+- [x] Void action audited (TODO-042).
+- [x] Only Tenant Admin/Manager can void.
+- [x] Already-void invoices return 422.
 
 ## Notes
 
-MVP corrections: new invoice referencing voided one. Credit notes Phase 2.
+POST /api/v1/tenant/invoices/{id}/void (manage/invoices). Source statuses issued/partially_paid/paid -> void; draft -> 422 (delete instead); already-void -> 422. Number + all data retained. Audited invoice.voided.

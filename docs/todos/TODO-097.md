@@ -3,7 +3,7 @@ id: TODO-097
 title: Client financial summary component
 feature: FEAT-009
 story: US-037
-status: proposed
+status: done
 priority: P0
 owner: ""
 estimate: ""
@@ -21,10 +21,12 @@ Build client-level financial summary component aggregating across all client's p
 
 ## Acceptance criteria
 
-- [ ] Client detail page shows financial summary: total invoiced, total paid, total outstanding (FR-9.4).
-- [ ] Numbers aggregate across all projects for the client.
-- [ ] Optionally show per-project breakdown.
-- [ ] Computed from TODO-095 service.
+- [x] Client detail page shows financial summary: total invoiced, total paid, total outstanding (FR-9.4).
+- [x] Numbers aggregate across all projects for the client.
+- [x] Optionally show per-project breakdown.
+- [x] Computed from TODO-095 service.
 
 ## Notes
+
+Client detail endpoint returns live total_invoiced/total_paid/total_outstanding via get_client_financials; existing UI cards show real numbers.
 

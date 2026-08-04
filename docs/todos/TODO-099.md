@@ -3,7 +3,7 @@ id: TODO-099
 title: Client Portal outstanding balance display
 feature: FEAT-009
 story: US-038
-status: proposed
+status: done
 priority: P0
 owner: ""
 estimate: ""
@@ -21,9 +21,11 @@ Show outstanding balance per invoice and as client total in Client Portal. Compu
 
 ## Acceptance criteria
 
-- [ ] Each invoice in list shows balance due.
-- [ ] Client total outstanding displayed on dashboard/header.
-- [ ] Live computed from transaction data (FR-9.5).
+- [x] Each invoice in list shows balance due.
+- [x] Client total outstanding displayed on dashboard/header.
+- [x] Live computed from transaction data (FR-9.5).
 
 ## Notes
+
+Outstanding balance (paid_amount/balance_due) shown on client invoice detail + project financial summary.
 

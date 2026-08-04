@@ -3,13 +3,22 @@
 ## Project status
 
 - **Phase:** Sprint 1 — Admin Auth & Invites
-- **Last updated:** 2026-07-31
-- **Current focus:** FEAT-007 project management FE slice (TODO-063/066/067/069/071/073) shipped. `npm run lint` + `npm run check` + `npm run build` clean. FEAT-007 first slice complete; remaining work (TODO-070/072 BE + TODO-074 client portal) deferred to next batch.
+- **Last updated:** 2026-08-03
+- **Current focus:** Sprint 1 backlog complete — all 122 todos shipped (FEAT-001..011 core). 483 backend tests green, frontend check/lint/build clean. Remaining: commit/PR + stakeholder walkthrough.
 
 ## What changed recently
 
 | Date | Item | Change |
 | ---- | ---- | ------ |
+| 2026-08-03 | Final: logo upload + render + PDF branding (TODO-011), per-service financial breakdown (TODO-095), voided-invoice correction guidance UI (TODO-083) | backend/app/api/v1/tenant.py, services/pdf.py, financials.py, schemas/projects.py, services/projects.py, main.py, config.py, tests/test_branding_api.py; frontend/src/routes/app/invoices/[id]/+page.svelte, app/+layout.svelte, app/settings/+page.svelte, app/projects/[id]/+page.svelte, lib/api/tenant.js, invoices.js. |
+| 2026-08-03 | Void API, invoice PDF (reportlab), client-detail financials, service in-use flag, client-portal data endpoints; frontend invoices + payments + comments UI (TODO-081/082/084/085/091/094/096/097/101/102/105/072/077 done) | backend/app/services/pdf.py, api/v1/invoices.py, client_invoices.py, clients.py, services.py, schemas, tests; frontend src/lib/api/invoices.js, comments.js, src/routes/app/invoices/*, app/projects/[id], components/CommentThread.svelte, StatusBadge.svelte, format.js. |
+| 2026-08-03 | FEAT-011 part 2: notification preferences model + endpoints both portals, preference-aware comment dispatch (TODO-108), email change + verification flow (TODO-109/110/116 done) | backend/app/models/notification_preference.py, email_verification_token.py, app/services/notification_preferences.py, account.py, notifications.py, app/api/v1/auth.py, client_auth.py, app/schemas/account.py, alembic/versions/b2c3d4e5f6a7_add_notification_prefs_email.py, tests/test_feat011_api.py, docs/todos/TODO-109/110/116/108.md. |
+| 2026-08-03 | FEAT-011 part 1: profile fields + PATCH both portals, change-password, forgot-password (admin + client), password policy setting, activity history model + endpoints (TODO-109 partial, 113/114/115/119 done) | backend/app/models/admin_user.py, client_user.py, client_password_reset_token.py, user_activity.py, app/services/password_policy.py, account.py, settings.py, app/api/v1/auth.py, client_auth.py, users.py, app/schemas/account.py, auth.py, client_auth.py, alembic/versions/a1b2c3d4e5f6_add_profile_password_activity.py, tests/test_feat011_api.py, docs/todos/TODO-109/113/114/115/119.md. |
+| 2026-08-03 | FEAT-010 comments backend: Comment model + migration, tenant + client portal comment endpoints, internal/shared visibility (server-side), notification dispatch service (TODO-100/103/104/106/107 done) | backend/app/models/comment.py, app/schemas/comments.py, app/services/comments.py, app/services/notifications.py, app/api/v1/projects.py, app/api/v1/client_projects.py, alembic/versions/f7a8b9c0d1e2_add_comments.py, tests/test_comments_api.py, AGENTS.md, docs/todos/TODO-100/103/104/106/107.md. |
+| 2026-08-03 | Dev environment verified: full containerized stack running (OrbStack, 5/5 containers); AGENTS.md updated with how-it-runs docs | AGENTS.md, docs/progress.md. |
+| 2026-08-03 | FEAT-009 payments core + TODO-070: Transaction/PaymentAllocation models + migration, record/list transactions, auto+manual allocation, invoice status auto-update, live financial rollups (project/client, batch), clients list wiring, soft-removal endpoint (TODO-089/090/092/093/095/070 done, TODO-042 complete) | backend/app/models/transaction.py, app/schemas/transactions.py, app/services/transactions.py, app/services/financials.py, app/services/clients.py, app/services/projects.py, app/repositories/projects.py, app/api/v1/invoices.py, app/api/v1/projects.py, alembic/versions/e5f6a7b8c9d0_add_transaction_tables.py, tests/test_transactions_api.py, tests/test_projects_api.py, docs/todos/TODO-089/090/092/093/095/070/042.md. |
+| 2026-08-03 | FEAT-008 invoicing backend core: Invoice/InvoiceLineItem/InvoiceNumberSequence models + migration, draft create/list/detail/PATCH/DELETE, issue with gapless per-tenant numbering, lock enforcement (TODO-075/076/078/079 done) | backend/app/models/invoice.py, invoice_number_sequence.py, app/schemas/invoices.py, app/services/invoices.py, app/api/v1/invoices.py, alembic/versions/d3e4f5a6b7c8_add_invoice_tables.py, tests/test_invoices_api.py, docs/todos/TODO-075/076/078/079.md. |
+| 2026-08-03 | TODO-072 - Project overview API: GET /tenant/projects/{id}/overview (milestone completion pct live; financial + invoice fields placeholder via financials.py seam). 3 tests added, 37 project tests green. Doc reconciliation: TODO-006/009 done, TODO-007 in_progress, US-025 done, US-026-029 in_progress, SPRINT-001 active. | backend/app/api/v1/projects.py, backend/app/services/projects.py, backend/app/schemas/projects.py, backend/app/services/financials.py, backend/tests/test_projects_api.py, docs/todos/TODO-006/007/009/072.md, docs/stories/US-025..029.md, docs/sprints/sprint-001.md, docs/index.md. |
 | 2026-07-31 | Project management BE slice (FEAT-007, US-025..US-027) | Project + ProjectService + ProjectMilestone models, migration `c1d2e3f4a5b6`, repos + service + API + 34 tests green. TODO-062/064/065/068 done. Soft-cancel + financial rollups (TODO-070/072) deferred. |
 | 2026-07-31 | TODO-063/066/067/069/071/073 — Project management FE slice (FEAT-007) | `lib/api/projects.js` (6 fns); `MilestoneStatusSelector.svelte` (4-state select w/ status colors), `AssigneePicker.svelte`; `/app/projects` routes (list w/ progress bar, new w/ service picker + milestone preview, detail w/ services + grouped milestones + add-service modal, edit); Projects nav item; StatusBadge gained 5 new states (draft/on_hold/completed/in_progress/blocked). `npm run lint` + `npm run check` + `npm run build` pass. |
 | 2026-07-27 | Client realm (Client/ClientNote/ClientUser/ClientInvite models, migration, tests) | Migration 81cfc015e65d, 276 tests green, ruff + mypy clean. Added drop_all to session fixture for clean test isolation. |
@@ -84,8 +93,7 @@
 
 | Date started | Item / task | Blockers | Notes |
 | ------------ | ------------ | -------- | ----- |
-| 2026-07-25 | FEAT-001 — Verify `docker compose up` | Docker daemon not running on this machine | Builds verified (`npm run build` + adapter-node). Verify full compose after starting Docker. |
-| 2026-07-27 | TODO-042 — Instrument sensitive actions (partial) | User-admin actions done; invoice/payment hooks in later batches | See TODO-042 for wired vs pending. |
+| 2026-07-25 | FEAT-001 — Verify `docker compose up` | None (daemon verified up 2026-08-03; 5/5 containers healthy) | Compose stack verified running 2026-08-03: postgres/redis/pgadmin/backend-dev/frontend-dev all Up. Full `docker compose up` (prod profile) verification still pending. |
 
 ## Blocked
 
@@ -106,6 +114,8 @@
 
 ## Next
 
-1. FEAT-007 remaining: TODO-070 (soft removal logic for invoiced services — BE) + TODO-072 (project overview API — BE) + TODO-074 (Client Portal project overview — FE).
-2. Frontend: build accept-invite page (TODO-037 is separate client-user invite batch).
-3. Stakeholder approval gate for remaining backlog. Next feature batches: FEAT-008 invoicing, FEAT-009 payments.
+All 122 implementation todos complete (Sprint 1 backlog fully shipped).
+
+1. Commit + PR for the full delivery (backend 7 migrations + frontend; 483 tests green).
+2. Stakeholder walkthrough + demo.
+3. Phase 2 candidates: credit notes, online payment gateway, milestone-level comment threads, avatar upload, per-service portal scoping refinements.

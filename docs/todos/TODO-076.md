@@ -3,7 +3,7 @@ id: TODO-076
 title: Draft invoice create API
 feature: FEAT-008
 story: US-030
-status: proposed
+status: done
 priority: P0
 owner: ""
 estimate: ""
@@ -21,11 +21,12 @@ Build POST endpoint to create Draft invoice. Select project services as line ite
 
 ## Acceptance criteria
 
-- [ ] POST /api/tenant/invoices creates Draft invoice with line items.
-- [ ] Line items can reference ProjectService IDs or be custom (description + amount).
-- [ ] Draft invoice: issue_date and due_date set by user. invoice_number=null.
-- [ ] Draft invoices fully editable (line items, amounts, dates) (FR-8.4).
-- [ ] Only Tenant Admin/Manager can create invoices.
+- [x] POST /api/tenant/invoices creates Draft invoice with line items.
+- [x] Line items can reference ProjectService IDs or be custom (description + amount).
+- [x] Draft invoice: issue_date and due_date set by user. invoice_number=null.
+- [x] Draft invoices fully editable (line items, amounts, dates) (FR-8.4).
+- [x] Only Tenant Admin/Manager can create invoices.
 
 ## Notes
 
+POST /api/v1/tenant/invoices creates draft (manage/invoices permission). Line items: project_service_id (snapshot name+price) or custom description+unit_price+quantity. Totals computed server-side (half-up 2dp); draft fully editable via PATCH incl. line item replacement; DELETE draft only.

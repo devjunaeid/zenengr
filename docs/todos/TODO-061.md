@@ -3,7 +3,7 @@ id: TODO-061
 title: Instance vs template separation test
 feature: FEAT-006
 story: US-024
-status: proposed
+status: done
 priority: P0
 owner: ""
 estimate: ""
@@ -21,9 +21,11 @@ Write tests verifying that editing service template after instantiation does NOT
 
 ## Acceptance criteria
 
-- [ ] Test: create service + milestone steps, create project from service, edit template steps, verify project milestones unchanged.
-- [ ] Test: new projects after template edit get updated template.
-- [ ] Test: warning flag set correctly for used vs unused templates.
+- [x] Test: create service + milestone steps, create project from service, edit template steps, verify project milestones unchanged.
+- [x] Test: new projects after template edit get updated template.
+- [x] Test: warning flag set correctly for used vs unused templates.
 
 ## Notes
+
+TestTemplateSeparation: 4 API-level tests — template rename/reorder/add/remove leave instantiated project milestones untouched; detached service in_use stays false.
 

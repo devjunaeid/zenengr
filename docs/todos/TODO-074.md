@@ -3,7 +3,7 @@ id: TODO-074
 title: Client Portal project overview
 feature: FEAT-007
 story: US-029
-status: proposed
+status: done
 priority: P0
 owner: ""
 estimate: ""
@@ -21,10 +21,12 @@ Build Client Portal project overview showing same data as Admin Portal but with 
 
 ## Acceptance criteria
 
-- [ ] Client Portal project page shows milestone progress + financial summary.
-- [ ] Same GET /api/tenant/projects/{id}/overview endpoint (auth middleware scopes to client).
-- [ ] Client-appropriate layout per FR-7.5 AC-8.
-- [ ] Client User cannot see other clients' projects (FR-4.8).
+- [x] Client Portal project page shows milestone progress + financial summary.
+- [x] Same GET /api/tenant/projects/{id}/overview endpoint (auth middleware scopes to client).
+- [x] Client-appropriate layout per FR-7.5 AC-8.
+- [x] Client User cannot see other clients' projects (FR-4.8).
 
 ## Notes
+
+Client Portal project list + detail pages with progress, services, milestones, financial summary, linked invoices, comment thread (client realm).
 

@@ -71,9 +71,25 @@ These commands were discovered by `/project-init` from the manifests under `fron
 
 ### Local dev (repo root, Docker Compose)
 
-- Bring up the full stack: `docker compose up` (FE + BE + Postgres + Redis + pgAdmin)
+- Bring up the full dev stack: `docker compose --profile dev up` (Postgres + Redis + pgAdmin + backend-dev + frontend-dev, hot reload)
+- Production profile: `docker compose --profile prod up`
 - Rebuild images: `docker compose up --build`
 - Tear down: `docker compose down` (add `-v` to drop data volumes)
+
+## Development environment — how it actually runs (verified 2026-08-03)
+
+The project is developed against a **containerized stack** via Docker (OrbStack on macOS). Agents must assume containers are the running environment — Docker IS the dev flow:
+
+- **Postgres**: container, postgres:16-alpine, host port 5432, creds `app`/`app`, database `app`. Backend config default in `backend/app/core/config.py` points at `postgresql+asyncpg://app:app@localhost:5432/app`.
+- **Redis**: container, host port 6379.
+- **pgAdmin**: container, host port 5050 (`admin@zenengr.dev` / `admin`).
+- **Backend dev server**: container `zenengr-backend-dev`, port 8000, `./backend/app` volume-mounted for hot reload.
+- **Frontend dev server**: container `zenengr-frontend-dev`, port 5173, `./frontend/src` volume-mounted.
+- **Docker daemon must be running for everything, including tests.** Verify with `docker ps`. If the daemon is down, Postgres is unreachable and tests/backend fail — do not assume the code is broken.
+- **Tests run on the HOST** (`cd backend && uv run pytest`) but connect to the **containerized** Postgres at `localhost:5432`. `backend/tests/conftest.py` auto-creates and drops an `app_test` database per session.
+- **Backend checks** (`uv run ruff check .`, `uv run mypy app`, `uv run pytest`) run from `backend/` on the host against the container services.
+- **Migrations**: `uv run alembic upgrade head` (host) applies to the containerized Postgres.
+- Check service state with `docker compose ps` / `docker ps` before blaming environment failures.
 
 > Lint/type/test commands marked "pending" need the corresponding dev dependency (`ruff`, `mypy`, `pytest`, `alembic`) added via `uv add --dev` before they will work.
 

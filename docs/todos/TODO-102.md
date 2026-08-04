@@ -3,7 +3,7 @@ id: TODO-102
 title: Comment thread in Admin Portal
 feature: FEAT-010
 story: US-039
-status: proposed
+status: done
 priority: P0
 owner: ""
 estimate: ""
@@ -21,10 +21,12 @@ Integrate comment thread component into Admin Portal project detail page.
 
 ## Acceptance criteria
 
-- [ ] Project detail page has "Comments" section/tab.
-- [ ] GET /api/tenant/projects/{id}/comments returns comments (with internal comments for tenant staff).
-- [ ] Tenant staff can post and see all comments (including internal-only).
-- [ ] Client Users cannot see internal-only comments (visibility enforced server-side).
+- [x] Project detail page has "Comments" section/tab.
+- [x] GET /api/tenant/projects/{id}/comments returns comments (with internal comments for tenant staff).
+- [x] Tenant staff can post and see all comments (including internal-only).
+- [x] Client Users cannot see internal-only comments (visibility enforced server-side).
 
 ## Notes
+
+Admin Portal: Comments section on project detail page using CommentThread.
 

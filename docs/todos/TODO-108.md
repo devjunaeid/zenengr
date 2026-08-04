@@ -3,7 +3,7 @@ id: TODO-108
 title: Preference-aware notification filtering
 feature: FEAT-010
 story: US-041
-status: proposed
+status: done
 priority: P0
 owner: ""
 estimate: ""
@@ -21,10 +21,12 @@ Ensure notification dispatch respects per-user notification preferences (TODO-11
 
 ## Acceptance criteria
 
-- [ ] Before dispatching: check user's notification_preferences for the event type.
-- [ ] If disabled: skip email for that user.
-- [ ] Preferences checked per user (not per-tenant).
-- [ ] Default: all notifications enabled (TODO-116).
+- [x] Before dispatching: check user's notification_preferences for the event type.
+- [x] If disabled: skip email for that user.
+- [x] Preferences checked per user (not per-tenant).
+- [x] Default: all notifications enabled (TODO-116).
 
 ## Notes
+
+dispatch_new_comment now checks per-user NotificationPreference (new_comment event): missing = enabled, explicit false skips email. Client users only for shared comments on their own projects (existing behavior).
 

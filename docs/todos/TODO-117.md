@@ -3,7 +3,7 @@ id: TODO-117
 title: Notification preference UI
 feature: FEAT-011
 story: US-044
-status: proposed
+status: done
 priority: P0
 owner: ""
 estimate: ""
@@ -21,11 +21,13 @@ Build notification preferences page with toggle switches for each event type. Ac
 
 ## Acceptance criteria
 
-- [ ] Preferences page: toggle per event type with label (FR-11.3).
-- [ ] All toggles default ON.
-- [ ] Toggle change calls PATCH /api/auth/notification-preferences/{event_type}.
-- [ ] Preferences page accessible from profile settings.
-- [ ] System notifications (password changes, etc.) not toggleable (US-044 Notes).
+- [x] Preferences page: toggle per event type with label (FR-11.3).
+- [x] All toggles default ON.
+- [x] Toggle change calls PATCH /api/auth/notification-preferences/{event_type}.
+- [x] Preferences page accessible from profile settings.
+- [x] System notifications (password changes, etc.) not toggleable (US-044 Notes).
 
 ## Notes
+
+Prefs toggle UI on both profile pages (immediate PATCH, per-event saved flash).
 

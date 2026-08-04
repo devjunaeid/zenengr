@@ -3,7 +3,7 @@ id: TODO-082
 title: Voided invoice display state
 feature: FEAT-008
 story: US-032
-status: proposed
+status: done
 priority: P0
 owner: ""
 estimate: ""
@@ -21,9 +21,11 @@ Show voided invoices with visible "VOID" watermark/overlay in invoice views. Ret
 
 ## Acceptance criteria
 
-- [ ] Voided invoices show prominent "Void" badge/overlay in list and detail views.
-- [ ] All original data still visible.
-- [ ] No edit actions available on voided invoices.
+- [x] Voided invoices show prominent "Void" badge/overlay in list and detail views.
+- [x] All original data still visible.
+- [x] No edit actions available on voided invoices.
 
 ## Notes
+
+Voided invoices show void status badge (StatusBadge) in list + detail; retained number + data; hidden from client portal invoice list (kept in tenant list).
 

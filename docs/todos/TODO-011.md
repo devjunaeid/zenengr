@@ -3,7 +3,7 @@ id: TODO-011
 title: Logo and branding field support
 feature: FEAT-001
 story: US-006
-status: proposed
+status: done
 priority: P0
 owner: ""
 estimate: ""
@@ -21,11 +21,11 @@ Add logo upload/URL field and branding fields (primary color, secondary color) t
 
 ## Acceptance criteria
 
-- [ ] Logo upload endpoint stores image URL.
-- [ ] Branding color fields stored on tenant model.
-- [ ] Logo renders in portal header and invoice PDF template.
-- [ ] File type/size validation on upload.
+- [x] Logo upload endpoint stores image URL.
+- [x] Branding color fields stored on tenant model.
+- [x] Logo renders in portal header and invoice PDF template.
+- [x] File type/size validation on upload.
 
 ## Notes
 
-Phase 2: full custom color scheme support.
+Logo upload endpoint POST /tenant/branding/logo (image/* validation, 2MB cap, saved to /uploads, sets branding.logo_url), header logo render (settings upload + header img), invoice PDF branding (color + logo via onFirstPage/ImageReader), file validation + tests (test_branding_api.py).

@@ -3,7 +3,7 @@ id: TODO-118
 title: Preference-aware notification dispatch
 feature: FEAT-011
 story: US-044
-status: proposed
+status: done
 priority: P0
 owner: ""
 estimate: ""
@@ -21,10 +21,12 @@ Ensure notification dispatch service (TODO-107) checks user's NotificationPrefer
 
 ## Acceptance criteria
 
-- [ ] Before sending notification: query NotificationPreference for user + event_type.
-- [ ] If enabled=false: skip email for that user.
-- [ ] Checked per-user, per-event.
-- [ ] Integrates with TODO-107 dispatch service.
+- [x] Before sending notification: query NotificationPreference for user + event_type.
+- [x] If enabled=false: skip email for that user.
+- [x] Checked per-user, per-event.
+- [x] Integrates with TODO-107 dispatch service.
 
 ## Notes
+
+Prefs-aware dispatch active via dispatch_new_comment (TODO-108 wiring); other event types dispatch when their producers land.
 

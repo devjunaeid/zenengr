@@ -3,7 +3,7 @@ id: TODO-077
 title: Draft invoice editor UI
 feature: FEAT-008
 story: US-030
-status: proposed
+status: done
 priority: P0
 owner: ""
 estimate: ""
@@ -21,11 +21,13 @@ Build draft invoice editor in Admin Portal: add/remove line items, adjust amount
 
 ## Acceptance criteria
 
-- [ ] Invoice editor with line items table: add/remove rows.
-- [ ] Service selector to add project service as line item.
-- [ ] Custom line item row: description + amount fields.
-- [ ] Live calculation of subtotal, tax, total.
-- [ ] Save as Draft (PATCH) or Issue (TODO-078).
+- [x] Invoice editor with line items table: add/remove rows.
+- [x] Service selector to add project service as line item.
+- [x] Custom line item row: description + amount fields.
+- [x] Live calculation of subtotal, tax, total.
+- [x] Save as Draft (PATCH) or Issue (TODO-078).
 
 ## Notes
+
+Draft invoice editor (new + edit pages): project select w/ ?project_id preselect, dynamic line items (project-service or custom rows, computed amounts), dates/notes, totals footer, issue/void/delete actions with ConfirmDialogs.
 

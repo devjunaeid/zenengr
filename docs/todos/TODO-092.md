@@ -3,7 +3,7 @@ id: TODO-092
 title: Payment allocation model
 feature: FEAT-009
 story: US-036
-status: proposed
+status: done
 priority: P0
 owner: ""
 estimate: ""
@@ -21,10 +21,12 @@ Create PaymentAllocation model linking Transaction to InvoiceLineItems. Supports
 
 ## Acceptance criteria
 
-- [ ] PaymentAllocation model: transaction_id FK, line_item_id FK, amount.
-- [ ] Sum of allocations = transaction amount.
-- [ ] Each line item tracks paid_amount via sum of its allocations.
-- [ ] Alembic migration.
+- [x] PaymentAllocation model: transaction_id FK, line_item_id FK, amount.
+- [x] Sum of allocations = transaction amount.
+- [x] Each line item tracks paid_amount via sum of its allocations.
+- [x] Alembic migration.
 
 ## Notes
+
+PaymentAllocation model (transaction_id, line_item_id, amount, unique per transaction+line item via replace semantics). Line-item paid amounts = sum of allocations.
 

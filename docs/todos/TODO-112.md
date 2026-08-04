@@ -3,7 +3,7 @@ id: TODO-112
 title: Profile UI (Client Portal)
 feature: FEAT-011
 story: US-042
-status: proposed
+status: done
 priority: P0
 owner: ""
 estimate: ""
@@ -21,10 +21,12 @@ Build Client Portal profile page with same fields as Admin Portal but Client-sty
 
 ## Acceptance criteria
 
-- [ ] Client Portal profile page: same editable fields as Admin Portal.
-- [ ] Client-style layout per FR-11.4.
-- [ ] Email change flow (TODO-110) accessible.
-- [ ] User cannot change role or client association (FR-11.6).
+- [x] Client Portal profile page: same editable fields as Admin Portal.
+- [x] Client-style layout per FR-11.4.
+- [x] Email change flow (TODO-110) accessible.
+- [x] User cannot change role or client association (FR-11.6).
 
 ## Notes
+
+Client profile page gains Your account section (profile fields, password, prefs, activity) via /client/auth/user-profile + account APIs.
 

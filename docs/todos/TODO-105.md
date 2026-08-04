@@ -3,7 +3,7 @@ id: TODO-105
 title: Internal comment visual indicator
 feature: FEAT-010
 story: US-040
-status: proposed
+status: done
 priority: P0
 owner: ""
 estimate: ""
@@ -21,9 +21,11 @@ Add visual badge/icon to internal-only comments in Admin Portal thread. Distingu
 
 ## Acceptance criteria
 
-- [ ] Internal comments show "Internal" badge (red/orange).
-- [ ] Badge visible only in Admin Portal (Client Portal never sees these comments).
-- [ ] Shared comments have no badge.
+- [x] Internal comments show "Internal" badge (red/orange).
+- [x] Badge visible only in Admin Portal (Client Portal never sees these comments).
+- [x] Shared comments have no badge.
 
 ## Notes
+
+Internal comments show red Internal pill; visible only to staff (client realm never receives internal comments - server-filtered).
 

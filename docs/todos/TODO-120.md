@@ -3,7 +3,7 @@ id: TODO-120
 title: Activity history UI component
 feature: FEAT-011
 story: US-045
-status: proposed
+status: done
 priority: P0
 owner: ""
 estimate: ""
@@ -21,11 +21,13 @@ Build activity history component on profile/settings page. Shows email changes a
 
 ## Acceptance criteria
 
-- [ ] GET /api/auth/activity returns user's activity history.
-- [ ] UI list: event type icon, timestamp, description.
-- [ ] Email change entry shows old and new email (FR-11.5).
-- [ ] Password change entry shows timestamp only.
-- [ ] Read-only log — no delete.
+- [x] GET /api/auth/activity returns user's activity history.
+- [x] UI list: event type icon, timestamp, description.
+- [x] Email change entry shows old and new email (FR-11.5).
+- [x] Password change entry shows timestamp only.
+- [x] Read-only log — no delete.
 
 ## Notes
+
+Activity history tables on both profile pages (read-only, event + old/new values).
 

@@ -3,7 +3,7 @@ id: TODO-095
 title: Financial rollup computation service
 feature: FEAT-009
 story: US-037
-status: proposed
+status: done
 priority: P0
 owner: ""
 estimate: ""
@@ -21,11 +21,13 @@ Build service computing financial rollups from live invoice/transaction data: To
 
 ## Acceptance criteria
 
-- [ ] Service method: get_project_financials(project_id) -> {total_invoiced, total_paid, total_outstanding}.
-- [ ] Service method: get_client_financials(client_id) -> {total_invoiced, total_paid, total_outstanding}.
-- [ ] Computed from live data (not stored) (FR-9.4 AC-8).
-- [ ] Optional per-service breakdown.
-- [ ] Accessible in Admin Portal and Client Portal (scoped) (FR-9.5).
+- [x] Service method: get_project_financials(project_id) -> {total_invoiced, total_paid, total_outstanding}.
+- [x] Service method: get_client_financials(client_id) -> {total_invoiced, total_paid, total_outstanding}.
+- [x] Computed from live data (not stored) (FR-9.4 AC-8).
+- [x] Optional per-service breakdown.
+- [x] Accessible in Admin Portal and Client Portal (scoped) (FR-9.5).
 
 ## Notes
+
+Per-service breakdown (get_project_financials_by_service: invoiced/paid/outstanding per service, Custom for unlinked line items) exposed via project overview + UI table; client portal scoped views live. All rollups computed live.
 

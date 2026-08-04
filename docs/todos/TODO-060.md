@@ -3,7 +3,7 @@ id: TODO-060
 title: Template edit warning UI
 feature: FEAT-006
 story: US-024
-status: proposed
+status: done
 priority: P0
 owner: ""
 estimate: ""
@@ -21,9 +21,11 @@ Show warning dialog when editing a service template that has existing project in
 
 ## Acceptance criteria
 
-- [ ] Service catalog checks if service has been used in any project.
-- [ ] If used: show warning banner/before edit confirmation: "Editing this template will not affect existing projects."
-- [ ] Warning displayed on service edit page.
+- [x] Service catalog checks if service has been used in any project.
+- [x] If used: show warning banner/before edit confirmation: "Editing this template will not affect existing projects."
+- [x] Warning displayed on service edit page.
 
 ## Notes
+
+Edit page shows amber in-use warning banner (project_count) - template edits never mutate instantiated milestones.
 

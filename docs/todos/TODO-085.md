@@ -3,7 +3,7 @@ id: TODO-085
 title: PDF template with invoice layout
 feature: FEAT-008
 story: US-033
-status: proposed
+status: done
 priority: P0
 owner: ""
 estimate: ""
@@ -21,10 +21,12 @@ Design and implement invoice PDF template with tenant branding (logo, colors). P
 
 ## Acceptance criteria
 
-- [ ] Template uses tenant logo and branding colors (TODO-011).
-- [ ] Layout: header (logo + company info), line items table, totals section, footer.
-- [ ] "DRAFT" watermark on draft invoices.
-- [ ] Responsive to variable line item count (multi-page if needed).
+- [x] Template uses tenant logo and branding colors (TODO-011).
+- [x] Layout: header (logo + company info), line items table, totals section, footer.
+- [x] "DRAFT" watermark on draft invoices.
+- [x] Responsive to variable line item count (multi-page if needed).
 
 ## Notes
+
+Template: tenant business name, invoice number or DRAFT, status, project/client, issue/due dates, line items table, subtotal/tax/total, notes, Generated-by footer. Monochrome.
 

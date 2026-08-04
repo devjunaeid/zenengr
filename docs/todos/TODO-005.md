@@ -3,7 +3,7 @@ id: TODO-005
 title: Super Admin tenant creation API + UI
 feature: FEAT-001
 story: US-004
-status: proposed
+status: done
 priority: P0
 owner: ""
 estimate: ""
@@ -21,12 +21,14 @@ Build tenant creation endpoint (POST /api/admin/tenants) + Super Admin UI form. 
 
 ## Acceptance criteria
 
-- [ ] POST /api/admin/tenants creates tenant + creates Tenant Admin user.
-- [ ] Slug validated for uniqueness before creation (US-004 AC2).
-- [ ] Tenant created with status=Trial by default (US-004 AC4).
-- [ ] Plan assigned at creation (US-004 AC5).
-- [ ] Super Admin UI form for tenant creation with slug preview.
-- [ ] Tenant isolation enforced from creation (US-004 AC7).
+- [x] POST /api/admin/tenants creates tenant + creates Tenant Admin user.
+- [x] Slug validated for uniqueness before creation (US-004 AC2).
+- [x] Tenant created with status=Trial by default (US-004 AC4).
+- [x] Plan assigned at creation (US-004 AC5).
+- [x] Super Admin UI form for tenant creation with slug preview.
+- [x] Tenant isolation enforced from creation (US-004 AC7).
 
 ## Notes
+
+Verified in code: POST /api/v1/admin/tenants (app/api/v1/admin.py), create_tenant service with slug validation/availability + TRIAL default + temp password (app/services/tenants.py); UI at frontend/src/routes/admin/tenants/new/+page.svelte with slug preview/availability.
 

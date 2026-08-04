@@ -3,7 +3,7 @@ id: TODO-093
 title: Auto-allocation algorithm (proportional/FIFO)
 feature: FEAT-009
 story: US-036
-status: proposed
+status: done
 priority: P0
 owner: ""
 estimate: ""
@@ -21,10 +21,12 @@ Implement automatic payment allocation: proportional by default (amount split ac
 
 ## Acceptance criteria
 
-- [ ] On payment recording: auto-create PaymentAllocations proportional to line item amounts.
-- [ ] Proportional: each line item gets transaction.amount * (line_item.amount / invoice.total).
-- [ ] Rounding handled (penny goes to largest line item).
-- [ ] Auto-allocation overridable by manual allocation (TODO-094).
+- [x] On payment recording: auto-create PaymentAllocations proportional to line item amounts.
+- [x] Proportional: each line item gets transaction.amount * (line_item.amount / invoice.total).
+- [x] Rounding handled (penny goes to largest line item).
+- [x] Auto-allocation overridable by manual allocation (TODO-094).
 
 ## Notes
+
+Proportional auto-allocation: cents math, share = amount * (line_item.amount / invoice.total), remainder penny to largest line item. Manual allocation override accepted via request allocations (validated sum == amount, line items must belong to invoice).
 

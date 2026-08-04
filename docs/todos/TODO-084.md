@@ -3,7 +3,7 @@ id: TODO-084
 title: PDF generation service
 feature: FEAT-008
 story: US-033
-status: proposed
+status: done
 priority: P0
 owner: ""
 estimate: ""
@@ -21,12 +21,12 @@ Build server-side PDF generation service for invoices. Template-based (e.g., Wea
 
 ## Acceptance criteria
 
-- [ ] GET /api/tenant/invoices/{id}/pdf returns downloadable PDF.
-- [ ] PDF includes: invoice number, issue date, due date, line items, subtotal, tax, total, company info (FR-8.2).
-- [ ] Draft invoice PDF optionally watermarked "DRAFT" (FR-8.7).
-- [ ] Client Portal also has PDF download (TODO-086).
-- [ ] PDF generation is server-side, not client-side.
+- [x] GET /api/tenant/invoices/{id}/pdf returns downloadable PDF.
+- [x] PDF includes: invoice number, issue date, due date, line items, subtotal, tax, total, company info (FR-8.2).
+- [x] Draft invoice PDF optionally watermarked "DRAFT" (FR-8.7).
+- [x] Client Portal also has PDF download (TODO-086).
+- [x] PDF generation is server-side, not client-side.
 
 ## Notes
 
-Consider library choice based on deployment constraints.
+reportlab 5.0 added; app/services/pdf.py renders A4 invoice PDF (header, line items, totals, notes, footer).

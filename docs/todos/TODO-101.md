@@ -3,7 +3,7 @@ id: TODO-101
 title: Comment thread UI component
 feature: FEAT-010
 story: US-039
-status: proposed
+status: done
 priority: P0
 owner: ""
 estimate: ""
@@ -21,11 +21,13 @@ Build reusable comment thread component: list of comments with author avatar, na
 
 ## Acceptance criteria
 
-- [ ] Comment list: sorted oldest-first.
-- [ ] Each comment: author name + avatar, author type badge, timestamp, content.
-- [ ] Internal-only comments show badge (TODO-105).
-- [ ] New comment text area + submit button.
-- [ ] Optimistic UI update on new comment.
+- [x] Comment list: sorted oldest-first.
+- [x] Each comment: author name + avatar, author type badge, timestamp, content.
+- [x] Internal-only comments show badge (TODO-105).
+- [x] New comment text area + submit button.
+- [x] Optimistic UI update on new comment.
 
 ## Notes
+
+CommentThread.svelte: self-fetching, realm-aware (admin/client), post form, internal-only toggle for staff, author chips, internal red badge, empty/error states.
 

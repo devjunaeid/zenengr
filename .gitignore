@@ -66,3 +66,6 @@ logs/
 
 # Docker / local data
 .pgdata/
+
+# Local runtime
+uploads/
