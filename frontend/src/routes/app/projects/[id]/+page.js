@@ -1,5 +1,6 @@
 import { error } from '@sveltejs/kit';
 import { ApiError } from '$lib/api/client.js';
+import * as invoiceApi from '$lib/api/invoices.js';
 import * as projectApi from '$lib/api/projects.js';
 import * as serviceApi from '$lib/api/services.js';
 import * as tenantApi from '$lib/api/tenant.js';
@@ -11,11 +12,14 @@ export async function load({ fetch, params }) {
 	const token = /** @type {string} */ (auth.token);
 
 	try {
-		const [project, users] = await Promise.all([
+		const [project, users, overview] = await Promise.all([
 			projectApi.getProject(fetch, token, params.id),
 			tenantApi
 				.listUsers(fetch, token, { page_size: 100, is_active: true })
-				.catch(() => ({ items: [] }))
+				.catch(() => ({ items: [] })),
+			// Financial summary is a nice-to-have on this page; a failure here
+			// must not take down the whole project view.
+			invoiceApi.getProjectOverview(fetch, token, params.id).catch(() => null)
 		]);
 
 		// Fetch active service details so we can show step previews when adding
@@ -43,7 +47,7 @@ export async function load({ fetch, params }) {
 			if (r) serviceDetails[r.id] = r;
 		}
 
-		return { project, users: users.items, serviceDetails };
+		return { project, users: users.items, serviceDetails, overview };
 	} catch (e) {
 		if (e instanceof ApiError && e.status === 404) {
 			throw error(404, 'Project not found');

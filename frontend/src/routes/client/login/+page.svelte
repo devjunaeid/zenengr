@@ -84,6 +84,12 @@
 						autocomplete="current-password"
 						class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
 					/>
+					<div class="mt-1 text-right">
+						<a
+							href={resolve('/client/forgot-password')}
+							class="text-xs font-medium text-indigo-600 hover:text-indigo-500">Forgot password?</a
+						>
+					</div>
 				</div>
 				<button
 					type="submit"

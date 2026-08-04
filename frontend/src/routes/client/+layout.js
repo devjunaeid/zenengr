@@ -2,7 +2,12 @@ import { redirect } from '@sveltejs/kit';
 import { portalAuth } from '$lib/stores/portalAuth.svelte.js';
 
 // Public client routes that don't need auth
-const PUBLIC_ROUTES = ['/client/login', '/client/accept-invite'];
+const PUBLIC_ROUTES = [
+	'/client/login',
+	'/client/accept-invite',
+	'/client/forgot-password',
+	'/client/reset-password'
+];
 
 /** @param {{ fetch: typeof fetch, url: URL }} event */
 export async function load({ fetch, url }) {

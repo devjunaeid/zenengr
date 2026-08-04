@@ -12,11 +12,17 @@
 		{ href: '/app/clients', label: 'Clients', exact: false, adminOnly: false },
 		{ href: '/app/services', label: 'Services', exact: false, adminOnly: false },
 		{ href: '/app/projects', label: 'Projects', exact: false, adminOnly: false },
+		{ href: '/app/invoices', label: 'Invoices', exact: false, adminOnly: false },
 		{ href: '/app/settings', label: 'Settings', exact: false, adminOnly: true },
+		{ href: '/app/profile', label: 'Profile', exact: false, adminOnly: false },
 		{ href: '/app/audit', label: 'Audit log', exact: false, adminOnly: true }
 	];
 
 	let visibleNav = $derived(nav.filter((i) => !i.adminOnly || auth.isTenantAdmin));
+
+	// Tenant branding accent (FEAT-011). Defensive: render nothing when unset.
+	const brandColor = $derived(data.profile.branding?.color);
+	const logoUrl = $derived(data.profile.branding?.logo_url);
 
 	/**
 	 * @param {{ href: string, exact: boolean }} item
@@ -35,7 +41,18 @@
 
 <div class="flex min-h-screen flex-col bg-slate-50">
 	<header class="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-3">
-		<span class="text-sm font-semibold text-slate-900">{data.profile.business_name}</span>
+		<span class="flex items-center gap-2 text-sm font-semibold text-slate-900">
+			{#if logoUrl}
+				<img src={logoUrl} alt={`${data.profile.business_name} logo`} class="h-7 w-auto" />
+			{:else if brandColor}
+				<span
+					class="inline-block h-2.5 w-2.5 rounded-full"
+					style="background-color: {brandColor}"
+					aria-hidden="true"
+				></span>
+			{/if}
+			{data.profile.business_name}
+		</span>
 		<div class="flex items-center gap-4">
 			<span class="text-sm text-slate-700">
 				{data.user.full_name}

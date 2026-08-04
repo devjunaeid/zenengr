@@ -1,4 +1,4 @@
-import { apiFetch } from './client.js';
+import { ApiError, apiFetch, BASE_URL } from './client.js';
 
 /**
  * Tenant staff API endpoints (admin / manager / employee roles).
@@ -19,6 +19,43 @@ export function getProfile(fetchFn, token) {
  */
 export function updateProfile(fetchFn, token, body) {
 	return apiFetch(fetchFn, '/tenant/profile', { method: 'PATCH', token, body });
+}
+
+/**
+ * Upload a tenant branding logo (multipart/form-data, field name `file`).
+ * Must run in the browser (uses FormData); call from an event handler, not a
+ * load function.
+ *
+ * @param {typeof fetch} fetchFn
+ * @param {string} token
+ * @param {File} file
+ * @returns {Promise<{ logo_url: string }>}
+ * @throws {ApiError}
+ */
+export async function uploadLogo(fetchFn, token, file) {
+	const form = new FormData();
+	form.append('file', file);
+	const res = await fetchFn(`${BASE_URL}/tenant/branding/logo`, {
+		method: 'POST',
+		headers: { Authorization: `Bearer ${token}` },
+		body: form
+	});
+	if (!res.ok) {
+		let data = null;
+		try {
+			data = await res.json();
+		} catch {
+			// non-JSON error body; fall through to generic error
+		}
+		const envelope = data && data.error ? data.error : {};
+		throw new ApiError(
+			res.status,
+			envelope.code ?? 'UNKNOWN',
+			envelope.message ?? res.statusText,
+			envelope.details ?? {}
+		);
+	}
+	return res.json();
 }
 
 /**

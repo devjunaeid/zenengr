@@ -116,6 +116,17 @@
 	</p>
 {/if}
 
+{#if initial.in_use}
+	<div
+		role="alert"
+		class="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800"
+	>
+		This service is used in {initial.project_count ?? 0}
+		{initial.project_count === 1 ? 'project' : 'projects'}. Template edits do not change existing
+		project milestones.
+	</div>
+{/if}
+
 <form
 	class="mt-6 max-w-3xl space-y-6"
 	onsubmit={(e) => {

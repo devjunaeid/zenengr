@@ -78,15 +78,24 @@
 	{#if data.flags.length === 0}
 		<p class="mt-2 text-sm text-slate-500">No feature flags resolved for this plan.</p>
 	{:else}
-		<ul class="mt-3 flex flex-wrap gap-2">
+		<ul class="mt-3 flex flex-wrap items-center gap-2">
 			{#each data.flags as flag (flag.key)}
-				<li
-					class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset {flag.enabled
-						? 'bg-green-100 text-green-800 ring-green-600/20'
-						: 'bg-slate-100 text-slate-600 ring-slate-500/20'}"
-				>
-					<span class="font-mono">{flag.key}</span>
-					<span>{flag.enabled ? 'On' : 'Off'}</span>
+				<li class="inline-flex items-center gap-2">
+					<span
+						class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset {flag.enabled
+							? 'bg-green-100 text-green-800 ring-green-600/20'
+							: 'bg-slate-100 text-slate-600 ring-slate-500/20'}"
+					>
+						<span class="font-mono">{flag.key}</span>
+						<span>{flag.enabled ? 'On' : 'Off'}</span>
+					</span>
+					{#if !flag.enabled}
+						<span
+							class="rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800 ring-1 ring-amber-600/20 ring-inset"
+						>
+							Upgrade to enable
+						</span>
+					{/if}
 				</li>
 			{/each}
 		</ul>

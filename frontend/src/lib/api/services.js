@@ -32,7 +32,7 @@ import { apiFetch } from './client.js';
  */
 
 /**
- * @typedef {ServiceListItem & { steps: MilestoneStep[] }} ServiceDetail
+ * @typedef {ServiceListItem & { steps: MilestoneStep[], in_use: boolean, project_count: number }} ServiceDetail
  */
 
 /**

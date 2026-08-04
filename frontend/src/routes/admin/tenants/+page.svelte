@@ -12,19 +12,42 @@
 
 	let q = $state(untrack(() => data.filters.q));
 	let status = $state(untrack(() => data.filters.status));
+	let sort = $state(untrack(() => data.filters.sort));
 
 	const statuses = ['trial', 'active', 'suspended', 'cancelled'];
 
 	/**
 	 * @param {number} page
+	 * @param {string} [sortValue]
 	 */
-	function gotoPage(page) {
+	function gotoPage(page, sortValue = sort) {
+		const url = `${resolve('/admin/tenants')}?q=${encodeURIComponent(q)}&status=${status}&sort=${encodeURIComponent(sortValue)}&page=${page}`;
 		// eslint-disable-next-line svelte/no-navigation-without-resolve -- query string appended to a resolved route
-		goto(`${resolve('/admin/tenants')}?q=${encodeURIComponent(q)}&status=${status}&page=${page}`);
+		goto(url);
 	}
 
 	function applyFilters() {
 		gotoPage(1);
+	}
+
+	/**
+	 * @param {'business_name'|'created_at'} field
+	 */
+	function toggleSort(field) {
+		let next;
+		if (sort === field) next = `-${field}`;
+		else if (sort === `-${field}`) next = '';
+		else next = field;
+		gotoPage(1, next);
+	}
+
+	/**
+	 * @param {'business_name'|'created_at'} field
+	 */
+	function sortIndicator(field) {
+		if (sort === field) return '▲';
+		if (sort === `-${field}`) return '▼';
+		return '';
 	}
 </script>
 
@@ -92,11 +115,16 @@
 			<table class="min-w-full divide-y divide-slate-200">
 				<thead class="bg-slate-50">
 					<tr>
-						<th
-							scope="col"
-							class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
-							>Name</th
-						>
+						<th scope="col" class="px-4 py-3 text-left">
+							<button
+								type="button"
+								onclick={() => toggleSort('business_name')}
+								class="inline-flex items-center gap-1 text-xs font-semibold tracking-wide text-slate-600 uppercase hover:text-indigo-600"
+							>
+								Name
+								<span class="text-slate-400">{sortIndicator('business_name')}</span>
+							</button>
+						</th>
 						<th
 							scope="col"
 							class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
@@ -117,11 +145,16 @@
 							class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
 							>Users</th
 						>
-						<th
-							scope="col"
-							class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
-							>Created</th
-						>
+						<th scope="col" class="px-4 py-3 text-left">
+							<button
+								type="button"
+								onclick={() => toggleSort('created_at')}
+								class="inline-flex items-center gap-1 text-xs font-semibold tracking-wide text-slate-600 uppercase hover:text-indigo-600"
+							>
+								Created
+								<span class="text-slate-400">{sortIndicator('created_at')}</span>
+							</button>
+						</th>
 					</tr>
 				</thead>
 				<tbody class="divide-y divide-slate-200">

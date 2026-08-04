@@ -1,6 +1,6 @@
 import { env } from '$env/dynamic/public';
 
-const BASE_URL = (env.PUBLIC_API_URL ?? 'http://localhost:8000/api/v1').replace(/\/$/, '');
+export const BASE_URL = (env.PUBLIC_API_URL ?? 'http://localhost:8000/api/v1').replace(/\/$/, '');
 
 /**
  * Error thrown for any non-2xx backend response, parsed from the

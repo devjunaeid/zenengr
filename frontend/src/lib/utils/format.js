@@ -41,6 +41,17 @@ export function humanize(value) {
 }
 
 /**
+ * Format a number or decimal-string as USD currency.
+ * @param {number|string|null|undefined} v
+ */
+export function fmtPrice(v) {
+	if (v == null || v === '') return '—';
+	const n = Number(v);
+	if (Number.isNaN(n)) return '—';
+	return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n);
+}
+
+/**
  * Slugify a business name: lowercase, alnum + dashes.
  * @param {string} value
  */

@@ -35,7 +35,7 @@ export function updatePlan(fetchFn, token, planId, body) {
 /**
  * @param {typeof fetch} fetchFn
  * @param {string} token
- * @param {{ page?: number, page_size?: number, status?: string, q?: string }} [params]
+ * @param {{ page?: number, page_size?: number, status?: string, q?: string, sort?: string }} [params]
  * @returns {Promise<{ items: Array<{ id: string, business_name: string, slug: string, status: string, plan_name: string, created_at: string, active_user_count: number }>, total: number, page: number, page_size: number }>}
  */
 export function listTenants(fetchFn, token, params = {}) {

@@ -10,11 +10,14 @@
 
 	let { data } = $props();
 
-	let hasFilter = $derived(Boolean(untrack(() => data.filters.status)));
+	let hasFilter = $derived(
+		Boolean(untrack(() => data.filters.status)) || Boolean(untrack(() => data.filters.project_id))
+	);
 
 	let status = $state(untrack(() => data.filters.status));
+	let projectId = $state(untrack(() => data.filters.project_id));
 
-	const statusOptions = ['', 'draft', 'issued', 'partially_paid', 'paid'];
+	const statusOptions = ['', 'draft', 'issued', 'partially_paid', 'paid', 'void'];
 
 	/**
 	 * @param {number} p
@@ -22,9 +25,10 @@
 	function buildUrl(p) {
 		const params = new SvelteURLSearchParams();
 		if (status) params.set('status', status);
+		if (projectId) params.set('project_id', projectId);
 		if (p > 1) params.set('page', String(p));
 		const qs = params.toString();
-		return qs ? `${resolve('/client/invoices')}?${qs}` : resolve('/client/invoices');
+		return qs ? `${resolve('/app/invoices')}?${qs}` : resolve('/app/invoices');
 	}
 
 	function applyFilters() {
@@ -39,7 +43,7 @@
 	}
 </script>
 
-<svelte:head><title>Invoices — Client Portal</title></svelte:head>
+<svelte:head><title>Invoices — ZenEngr</title></svelte:head>
 
 <div class="flex items-center justify-between">
 	<div>
@@ -49,6 +53,12 @@
 			{data.invoices.total === 1 ? 'invoice' : 'invoices'}
 		</p>
 	</div>
+	<a
+		href={resolve('/app/invoices/new')}
+		class="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+	>
+		New invoice
+	</a>
 </div>
 
 <form
@@ -70,6 +80,19 @@
 			{/each}
 		</select>
 	</div>
+	<div>
+		<label for="f-project" class="block text-xs font-medium text-slate-600">Project</label>
+		<select
+			id="f-project"
+			bind:value={projectId}
+			class="mt-1 block w-64 rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+		>
+			<option value="">All projects</option>
+			{#each data.projects as p (p.id)}
+				<option value={p.id}>{p.name}</option>
+			{/each}
+		</select>
+	</div>
 	<button
 		type="submit"
 		class="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
@@ -87,8 +110,15 @@
 		{:else}
 			<EmptyState
 				title="No invoices yet"
-				description="Invoices will appear here once they are issued for your projects."
-			/>
+				description="Create an invoice to bill a project for its services."
+			>
+				<a
+					href={resolve('/app/invoices/new')}
+					class="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+				>
+					New invoice
+				</a>
+			</EmptyState>
 		{/if}
 	{:else}
 		<div class="overflow-x-auto">
@@ -118,28 +148,37 @@
 						<th
 							scope="col"
 							class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
-							>Due date</th
+							>Issued</th
+						>
+						<th
+							scope="col"
+							class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
+							>Created</th
 						>
 					</tr>
 				</thead>
 				<tbody class="divide-y divide-slate-200">
 					{#each data.invoices.items as inv (inv.id)}
+						{@const projectName = data.projects.find((p) => p.id === inv.project_id)?.name}
 						<tr class="hover:bg-slate-50">
 							<td class="px-4 py-3 text-sm font-medium text-slate-900">
 								<a
-									href={resolve('/client/invoices/[id]', { id: inv.id })}
+									href={resolve('/app/invoices/[id]', { id: inv.id })}
 									class="text-indigo-600 hover:text-indigo-500"
 								>
 									{inv.invoice_number ?? '—'}
 								</a>
 							</td>
-							<td class="px-4 py-3 text-sm text-slate-700">{inv.project_name}</td>
+							<td class="px-4 py-3 text-sm text-slate-700">{projectName ?? '—'}</td>
 							<td class="px-4 py-3"><StatusBadge status={inv.status} /></td>
 							<td class="px-4 py-3 text-right text-sm whitespace-nowrap text-slate-700"
 								>{fmtPrice(inv.total)}</td
 							>
 							<td class="px-4 py-3 text-sm whitespace-nowrap text-slate-600"
-								>{formatDate(inv.due_date)}</td
+								>{formatDate(inv.issue_date)}</td
+							>
+							<td class="px-4 py-3 text-sm whitespace-nowrap text-slate-600"
+								>{formatDate(inv.created_at)}</td
 							>
 						</tr>
 					{/each}

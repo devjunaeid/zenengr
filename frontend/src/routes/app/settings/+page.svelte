@@ -22,6 +22,37 @@
 	/** @type {string|null} */
 	let profileErr = $state(null);
 
+	// ---- Logo upload (TODO-011) ----
+	let logoFile = $state(/** @type {File|null} */ (null));
+	let logoBusy = $state(false);
+	/** @type {string|null} */
+	let logoMsg = $state(null);
+	/** @type {string|null} */
+	let logoErr = $state(null);
+	/** @type {string|null} */
+	let logoUrl = $state(untrack(() => data.profile.branding?.logo_url ?? null));
+
+	async function uploadLogo() {
+		if (!logoFile) {
+			logoErr = 'Pick an image file first.';
+			return;
+		}
+		logoBusy = true;
+		logoMsg = null;
+		logoErr = null;
+		try {
+			const res = await tenantApi.uploadLogo(fetch, token, logoFile);
+			logoUrl = res.logo_url;
+			logoFile = null;
+			logoMsg = 'Logo updated.';
+			await invalidateAll();
+		} catch (e) {
+			logoErr = e instanceof ApiError ? e.message : 'Upload failed.';
+		} finally {
+			logoBusy = false;
+		}
+	}
+
 	async function saveProfile() {
 		profileBusy = true;
 		profileMsg = null;
@@ -166,6 +197,55 @@
 			</button>
 		{/if}
 	</form>
+</section>
+
+<!-- Tenant logo -->
+<section
+	class="mt-6 max-w-2xl rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
+	aria-labelledby="logo-h"
+>
+	<h2 id="logo-h" class="text-base font-semibold text-slate-900">Logo</h2>
+	<p class="mt-1 text-sm text-slate-500">Shown in the app header. PNG, JPEG, WebP, or GIF.</p>
+	{#if logoMsg}
+		<p
+			role="status"
+			class="mt-3 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800"
+		>
+			{logoMsg}
+		</p>
+	{/if}
+	{#if logoErr}
+		<p
+			role="alert"
+			class="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+		>
+			{logoErr}
+		</p>
+	{/if}
+	<div class="mt-4 flex flex-wrap items-center gap-3">
+		<input
+			id="sp-logo"
+			type="file"
+			accept="image/png,image/jpeg,image/webp,image/gif"
+			disabled={!isAdmin || logoBusy}
+			onchange={(e) =>
+				(logoFile = /** @type {HTMLInputElement} */ (e.currentTarget).files?.[0] ?? null)}
+			class="block w-full max-w-xs text-sm text-slate-700 file:mr-3 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-slate-700 hover:file:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-60"
+		/>
+		<button
+			type="button"
+			disabled={!isAdmin || logoBusy || !logoFile}
+			aria-busy={logoBusy}
+			onclick={uploadLogo}
+			class="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+		>
+			{#if logoBusy}<Spinner class="h-4 w-4 text-white" />{/if}
+			Upload
+		</button>
+		{#if logoUrl}
+			<img src={logoUrl} alt="Current business logo" class="h-10 w-auto" />
+		{/if}
+	</div>
 </section>
 
 <!-- Tenant settings -->

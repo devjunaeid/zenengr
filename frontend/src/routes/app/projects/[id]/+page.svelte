@@ -7,6 +7,7 @@
 	import * as projectApi from '$lib/api/projects.js';
 	import * as serviceApi from '$lib/api/services.js';
 	import AssigneePicker from '$lib/components/AssigneePicker.svelte';
+	import CommentThread from '$lib/components/CommentThread.svelte';
 	import MilestoneStatusSelector from '$lib/components/MilestoneStatusSelector.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
 	import StatusBadge from '$lib/components/StatusBadge.svelte';
@@ -357,15 +358,108 @@
 		{/if}
 	</div>
 
-	<div
-		class="mt-5 rounded-md border border-dashed border-slate-300 bg-slate-50 p-4"
-		aria-label="Linked invoices"
-	>
+	<div class="mt-5 grid gap-4 sm:grid-cols-3">
+		<div>
+			<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Total invoiced</dt>
+			<dd class="mt-1 text-lg font-semibold text-slate-900">
+				{data.overview ? fmtPrice(data.overview.total_invoiced) : '—'}
+			</dd>
+		</div>
+		<div>
+			<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Total paid</dt>
+			<dd class="mt-1 text-lg font-semibold text-slate-900">
+				{data.overview ? fmtPrice(data.overview.total_paid) : '—'}
+			</dd>
+		</div>
+		<div>
+			<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Balance due</dt>
+			<dd class="mt-1 text-lg font-semibold text-slate-900">
+				{data.overview ? fmtPrice(data.overview.balance_due) : '—'}
+			</dd>
+		</div>
+	</div>
+
+	{#if data.overview?.service_breakdown?.length}
+		<div class="mt-5 overflow-hidden rounded-md border border-slate-200">
+			<table class="min-w-full divide-y divide-slate-200">
+				<thead class="bg-slate-100">
+					<tr>
+						<th
+							scope="col"
+							class="px-4 py-2.5 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
+							>Service</th
+						>
+						<th
+							scope="col"
+							class="px-4 py-2.5 text-right text-xs font-semibold tracking-wide text-slate-600 uppercase"
+							>Invoiced</th
+						>
+						<th
+							scope="col"
+							class="px-4 py-2.5 text-right text-xs font-semibold tracking-wide text-slate-600 uppercase"
+							>Paid</th
+						>
+						<th
+							scope="col"
+							class="px-4 py-2.5 text-right text-xs font-semibold tracking-wide text-slate-600 uppercase"
+							>Outstanding</th
+						>
+					</tr>
+				</thead>
+				<tbody class="divide-y divide-slate-200">
+					{#each data.overview.service_breakdown as row (row.service_id)}
+						<tr class="hover:bg-slate-50">
+							<td class="px-4 py-2.5 text-sm font-medium text-slate-900">{row.service_name}</td>
+							<td class="px-4 py-2.5 text-right text-sm whitespace-nowrap text-slate-700"
+								>{fmtPrice(row.total_invoiced)}</td
+							>
+							<td class="px-4 py-2.5 text-right text-sm whitespace-nowrap text-slate-700"
+								>{fmtPrice(row.total_paid)}</td
+							>
+							<td class="px-4 py-2.5 text-right text-sm whitespace-nowrap text-slate-900"
+								>{fmtPrice(row.total_outstanding)}</td
+							>
+						</tr>
+					{/each}
+				</tbody>
+			</table>
+		</div>
+	{/if}
+
+	<div class="mt-5">
 		<div class="flex items-center justify-between">
 			<p class="text-sm font-medium text-slate-700">Linked invoices</p>
-			<StatusBadge status="draft" />
+			<!-- eslint-disable svelte/no-navigation-without-resolve -- query string appended to a resolved route -->
+			<a
+				href={`${resolve('/app/invoices/new')}?project_id=${data.project.id}`}
+				class="text-sm font-medium text-indigo-600 hover:text-indigo-500"
+			>
+				New invoice
+			</a>
+			<!-- eslint-enable svelte/no-navigation-without-resolve -->
 		</div>
-		<p class="mt-1 text-xs text-slate-500">Invoicing coming soon.</p>
+		{#if !data.overview}
+			<p class="mt-2 text-sm text-slate-500">Could not load invoice summary.</p>
+		{:else if data.overview.linked_invoices.length === 0}
+			<p class="mt-2 text-sm text-slate-500">No invoices yet.</p>
+		{:else}
+			<ul class="mt-3 divide-y divide-slate-200 rounded-md border border-slate-200">
+				{#each data.overview.linked_invoices as inv (inv.id)}
+					<li class="flex items-center justify-between gap-3 px-4 py-3">
+						<a
+							href={resolve('/app/invoices/[id]', { id: inv.id })}
+							class="text-sm font-medium text-indigo-600 hover:text-indigo-500"
+						>
+							{inv.number ?? 'Draft'}
+						</a>
+						<div class="flex items-center gap-3">
+							<StatusBadge status={inv.status} />
+							<span class="text-sm whitespace-nowrap text-slate-700">{fmtPrice(inv.total)}</span>
+						</div>
+					</li>
+				{/each}
+			</ul>
+		{/if}
 	</div>
 
 	<div class="mt-5 grid gap-3 text-xs text-slate-500 sm:grid-cols-2">
@@ -543,6 +637,17 @@
 			{/each}
 		</div>
 	{/if}
+</section>
+
+<!-- Comments section (TODO-101/102) -->
+<section
+	class="mt-6 rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
+	aria-labelledby="comments-h"
+>
+	<h2 id="comments-h" class="text-base font-semibold text-slate-900">Comments</h2>
+	<div class="mt-2">
+		<CommentThread projectId={data.project.id} {fetch} {token} realm="admin" staff={true} />
+	</div>
 </section>
 
 <!-- Add service modal (bits-ui Dialog) -->
