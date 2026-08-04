@@ -138,3 +138,36 @@ class MilestoneUpdateRequest(BaseModel):
     planned_date: date | None = None
     actual_date: date | None = None
     assignee_id: uuid.UUID | None = None
+
+
+# ── Project overview (TODO-072) ──────────────────────────────────────────────
+
+
+class LinkedInvoiceItem(BaseModel):
+    model_config = {"from_attributes": True}
+    id: uuid.UUID
+    number: str
+    status: str
+    total: str = "0.00"
+
+
+class ProjectServiceFinancialItem(BaseModel):
+    service_id: uuid.UUID | None
+    service_name: str
+    total_invoiced: str = "0.00"
+    total_paid: str = "0.00"
+    total_outstanding: str = "0.00"
+
+
+class ProjectOverviewResponse(BaseModel):
+    project_id: uuid.UUID
+    name: str
+    status: ProjectStatus
+    milestone_total: int
+    milestone_completed: int
+    milestone_completion_pct: float
+    total_invoiced: str = "0.00"
+    total_paid: str = "0.00"
+    balance_due: str = "0.00"
+    linked_invoices: list[LinkedInvoiceItem] = []
+    service_breakdown: list[ProjectServiceFinancialItem] = []

@@ -7,6 +7,7 @@ Validation rules per setting key:
 - timezone: IANA timezone name via zoneinfo
 - invoice_number_format: must contain {seq} token
 - date_format: allowlist
+- password_min_length: integer between 8 and 64
 """
 
 from __future__ import annotations
@@ -50,6 +51,11 @@ DEFAULT_SETTINGS: list[dict[str, Any]] = [
         "value": "noreply@zenengr.com",
         "permission_level": PermissionLevel.TENANT_ADMIN_VIEWABLE,
     },
+    {
+        "key": "password_min_length",
+        "value": "10",
+        "permission_level": PermissionLevel.TENANT_ADMIN_EDITABLE,
+    },
 ]
 
 # ── Validation ──────────────────────────────────────────────────────────────
@@ -89,6 +95,19 @@ def validate_setting_value(key: str, value: str) -> None:
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"Invalid date_format '{value}'. Allowed: {allowed}.",
         )
+    elif key == "password_min_length":
+        try:
+            parsed = int(value)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="password_min_length must be an integer between 8 and 64",
+            ) from None
+        if not 8 <= parsed <= 64:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="password_min_length must be an integer between 8 and 64",
+            )
 
 
 def _is_valid_currency(code: str) -> bool:

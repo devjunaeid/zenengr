@@ -106,9 +106,7 @@ async def get_service(
     service_id: uuid.UUID,
 ) -> Service:
     """Get service scoped to tenant. Raises 404 if not found."""
-    service = await service_repo.get_service_for_tenant_with_steps(
-        session, tenant_id, service_id
-    )
+    service = await service_repo.get_service_for_tenant_with_steps(session, tenant_id, service_id)
     if service is None:
         raise ServiceNotFoundError()
     return service
@@ -163,9 +161,28 @@ async def get_service_detail(
     *,
     tenant_id: uuid.UUID,
     service_id: uuid.UUID,
-) -> Service:
-    """Get a service with steps eager-loaded. Raises 404 if not found."""
-    return await get_service(session, tenant_id=tenant_id, service_id=service_id)
+) -> dict[str, Any]:
+    """Get a service with steps eager-loaded and in-use stats (TODO-060).
+
+    Returns a detail dict matching ServiceDetailResponse plus computed
+    `project_count` (number of projects the service is attached to) and
+    `in_use` (project_count > 0). Raises 404 if not found.
+    """
+    service = await get_service(session, tenant_id=tenant_id, service_id=service_id)
+    project_count = await service_repo.count_project_services(session, service_id)
+    return {
+        "id": service.id,
+        "name": service.name,
+        "description": service.description,
+        "default_price": service.default_price,
+        "is_active": service.is_active,
+        "step_count": len(service.milestone_steps),
+        "in_use": project_count > 0,
+        "project_count": project_count,
+        "created_at": service.created_at,
+        "updated_at": service.updated_at,
+        "steps": service.milestone_steps,
+    }
 
 
 async def update_service(
@@ -198,7 +215,6 @@ async def update_service(
 
     if changed_keys:
         await session.flush()
-        await session.refresh(service, attribute_names=["milestone_steps"])
 
         await audit_log(
             session,
@@ -213,7 +229,12 @@ async def update_service(
 
         await session.commit()
 
-    return service
+    # Re-fetch with steps eager-loaded so response builders never touch
+    # lazy/expired attributes after commit.
+    return (
+        await service_repo.get_service_for_tenant_with_steps(session, tenant_id, service_id)
+        or service
+    )
 
 
 async def delete_service(

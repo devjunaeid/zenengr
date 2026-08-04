@@ -6,14 +6,17 @@ Base path: /api/v1/tenant
 
 from __future__ import annotations
 
+import asyncio
 import uuid
+from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.core.config import get_settings
 from app.core.dependencies import get_current_admin_user, require_permission
 from app.db.session import get_session
 from app.models.admin_user import AdminUser
@@ -43,6 +46,22 @@ from app.services.settings import (
 )
 
 router = APIRouter(prefix="/tenant", tags=["tenant"])
+
+_ALLOWED_IMAGE_TYPES = {
+    "image/png": ".png",
+    "image/jpeg": ".jpg",
+    "image/webp": ".webp",
+    "image/gif": ".gif",
+}
+_MAX_LOGO_BYTES = 2 * 1024 * 1024
+
+
+def _persist_logo(filename: str, data: bytes) -> str:
+    """Write logo bytes to the uploads dir. Blocking; run in a worker thread."""
+    uploads_dir = Path(get_settings().uploads_dir)
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    (uploads_dir / filename).write_bytes(data)
+    return f"/uploads/{filename}"
 
 
 async def _count_active_clients(session: AsyncSession, tenant_id: uuid.UUID) -> int:
@@ -242,6 +261,71 @@ async def update_tenant_setting_endpoint(
         permission_level=updated.permission_level.value if updated else "",
         editable=can_edit_setting(updated.permission_level, user.role) if updated else False,
     )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Branding (TODO-011)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+@router.post("/branding/logo")
+async def upload_branding_logo(
+    file: UploadFile,
+    session: AsyncSession = Depends(get_session),
+    user: AdminUser = Depends(require_permission("manage", "tenant_settings")),
+) -> dict[str, str]:
+    """Upload a tenant branding logo (PNG/JPEG/WebP/GIF, max 2MB).
+
+    Writes the file to the uploads dir, records /uploads/<filename> in both
+    the branding JSONB dict and the logo_url column, and audits the change.
+    """
+    tenant_id = _get_tenant_or_raise(user)
+    tenant = await session.get(Tenant, tenant_id)
+    if tenant is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tenant not found")
+
+    content_type = file.content_type or ""
+    if not content_type.startswith("image/"):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Logo must be an image",
+        )
+    ext = _ALLOWED_IMAGE_TYPES.get(content_type)
+    if ext is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Unsupported image type. Use PNG, JPEG, WebP, or GIF.",
+        )
+
+    data = await file.read()
+    if len(data) > _MAX_LOGO_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="Logo too large",
+        )
+
+    filename = f"{uuid.uuid4().hex}{ext}"
+    logo_url = await asyncio.to_thread(_persist_logo, filename, data)
+
+    branding = dict(tenant.branding or {})
+    branding["logo_url"] = logo_url
+    tenant.branding = branding
+    tenant.logo_url = logo_url
+
+    await session.flush()
+    await audit_log(
+        session,
+        tenant_id=tenant_id,
+        actor_id=user.id,
+        actor_type=ActorType.ADMIN_USER,
+        action="tenant.branding.updated",
+        entity_type="tenant",
+        entity_id=str(tenant.id),
+        details={"logo_url": logo_url},
+    )
+    await session.commit()
+
+    return {"logo_url": logo_url}
 
 
 # ═══════════════════════════════════════════════════════════════════════════

@@ -116,8 +116,11 @@ async def register_client_user_from_invite(
     if invite.expires_at < datetime.now(UTC):
         raise InviteExpiredError("Invite has expired")
 
-    if len(password) < 10:
-        raise ValueError("Password must be at least 10 characters")
+    # Password policy (tenant-configurable, TODO-115)
+    from app.services.password_policy import get_min_password_length, validate_password_policy
+
+    min_length = await get_min_password_length(session, invite.tenant_id)
+    validate_password_policy(password, min_length)
 
     # Check email not already used globally
     email_exists = await client_user_repo.check_email_exists(session, invite.email)

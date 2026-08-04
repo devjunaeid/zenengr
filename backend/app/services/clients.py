@@ -15,6 +15,7 @@ from app.models.client_note import ClientNote
 from app.models.enums import ActorType, ClientStatus, ClientType
 from app.repositories import clients as client_repo
 from app.services.audit import log as audit_log
+from app.services.financials import get_client_financials, get_client_financials_batch
 from app.services.limits import check_limit
 
 # ── Exceptions ───────────────────────────────────────────────────────────────
@@ -105,6 +106,39 @@ async def get_client(
     return client
 
 
+async def get_client_detail(
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    client_id: uuid.UUID,
+) -> dict[str, Any]:
+    """Get client detail with live financial rollup merged in (TODO-097).
+
+    Keeps every existing client key and adds total_invoiced / total_paid /
+    total_outstanding computed from the invoice + transaction tables.
+    """
+    client = await get_client(session, tenant_id=tenant_id, client_id=client_id)
+    financials = await get_client_financials(session, client_id=client_id)
+    return {
+        "id": client.id,
+        "tenant_id": client.tenant_id,
+        "name": client.name,
+        "client_type": client.client_type.value,
+        "email": client.email,
+        "phone": client.phone,
+        "billing_address": client.billing_address,
+        "tax_id": client.tax_id,
+        "status": client.status.value,
+        "tags": client.tags,
+        "created_at": client.created_at,
+        "updated_at": client.updated_at,
+        "client_users": client.client_users,
+        "total_invoiced": financials["total_invoiced"],
+        "total_paid": financials["total_paid"],
+        "total_outstanding": financials["total_outstanding"],
+    }
+
+
 async def list_clients(
     session: AsyncSession,
     *,
@@ -133,7 +167,10 @@ async def list_clients(
     )
 
     result_items = []
+    client_ids = [c.id for c in items]
+    financials = await get_client_financials_batch(session, client_ids=client_ids)
     for c in items:
+        fin = financials.get(c.id, {})
         result_items.append(
             {
                 "id": c.id,
@@ -146,8 +183,8 @@ async def list_clients(
                 "created_at": c.created_at,
                 "updated_at": c.updated_at,
                 "active_projects": 0,  # TODO: wire to Project model
-                "total_invoiced": "0.00",  # TODO: wire to Invoice model
-                "total_outstanding": "0.00",  # TODO: wire to Invoice model
+                "total_invoiced": fin.get("total_invoiced", "0.00"),
+                "total_outstanding": fin.get("total_outstanding", "0.00"),
             }
         )
 
@@ -335,7 +372,11 @@ async def list_notes(
 
     # Fetch page
     offset = (page - 1) * page_size
-    query = query.order_by(ClientNote.created_at.desc(), ClientNote.id.desc()).offset(offset).limit(page_size)
+    query = (
+        query.order_by(ClientNote.created_at.desc(), ClientNote.id.desc())
+        .offset(offset)
+        .limit(page_size)
+    )
     result = await session.execute(query)
     items = list(result.scalars().all())
 

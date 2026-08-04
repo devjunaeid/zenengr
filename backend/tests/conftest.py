@@ -27,7 +27,7 @@ _ASYNC_BASE = _CONFIG.database_url.rsplit("/", 1)[0]
 _TEST_URL = f"{_ASYNC_BASE}/{TEST_DB_NAME}"
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest_asyncio.fixture(scope="session", loop_scope="session", autouse=True)
 async def _setup_test_db() -> AsyncGenerator[None]:
     """Create test database before tests, drop after. Schema once."""
     conn = await asyncpg.connect(_MAINTENANCE_URL)

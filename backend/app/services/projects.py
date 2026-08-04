@@ -25,6 +25,7 @@ from app.models.enums import (
     ProjectServiceStatus,
     ProjectStatus,
 )
+from app.models.invoice import Invoice, InvoiceLineItem
 from app.models.milestone_step_template import MilestoneStepTemplate
 from app.models.project import Project
 from app.models.project_milestone import ProjectMilestone
@@ -33,6 +34,7 @@ from app.models.service import Service
 from app.repositories import clients as client_repo
 from app.repositories import projects as project_repo
 from app.repositories import services as service_repo
+from app.services import financials as financials_service
 from app.services.audit import log as audit_log
 
 # ── Exceptions ──────────────────────────────────────────────────────────────
@@ -78,12 +80,18 @@ class ProjectNotActiveError(HTTPException):
         )
 
 
+class ProjectServiceAlreadyCancelledError(HTTPException):
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Project service already cancelled",
+        )
+
+
 # ── Helpers ────────────────────────────────────────────────────────────────
 
 
-async def _get_client(
-    session: AsyncSession, tenant_id: uuid.UUID, client_id: uuid.UUID
-) -> Client:
+async def _get_client(session: AsyncSession, tenant_id: uuid.UUID, client_id: uuid.UUID) -> Client:
     client = await client_repo.get_by_tenant_id(session, tenant_id, client_id)
     if client is None:
         raise HTTPException(
@@ -113,9 +121,7 @@ async def _get_service_for_tenant(
     return service
 
 
-async def _get_admin_user(
-    session: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID
-) -> bool:
+async def _get_admin_user(session: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID) -> bool:
     """Verify an admin user exists in the same tenant. True if ok, False otherwise."""
     from app.models.admin_user import AdminUser
 
@@ -165,9 +171,7 @@ async def _attach_service_internal(
         # planned_date = start + (prior_days + this_step_duration)
         # i.e. end of the current step. None if either side missing.
         if tmpl.expected_duration_days is not None and start_date is not None:
-            planned = _compute_planned_date(
-                start_date, prior_days + tmpl.expected_duration_days
-            )
+            planned = _compute_planned_date(start_date, prior_days + tmpl.expected_duration_days)
             prior_days += tmpl.expected_duration_days
         else:
             planned = None
@@ -236,9 +240,7 @@ async def create_project(
     )
 
     for svc in services:
-        await _attach_service_internal(
-            session, project, svc, start_date=start_date
-        )
+        await _attach_service_internal(session, project, svc, start_date=start_date)
 
     await session.flush()
     await session.refresh(project, attribute_names=["project_services", "milestones"])
@@ -275,6 +277,39 @@ async def get_project(
     if project is None:
         raise ProjectNotFoundError()
     return project
+
+
+async def get_project_overview(
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    project_id: uuid.UUID,
+) -> dict[str, Any]:
+    """Build project overview data: milestone completion + financial summary.
+
+    404 if project not found in tenant. Financial fields come from
+    services/financials.py (live sums; see TODO-095/FEAT-008).
+    """
+    project = await get_project(session, tenant_id=tenant_id, project_id=project_id)
+    total = len(project.milestones)
+    completed = sum(1 for m in project.milestones if m.status == MilestoneStatus.COMPLETED)
+    pct = 0.0 if total == 0 else round(completed / total * 100, 2)
+    financials = await financials_service.get_project_financials(session, project_id=project.id)
+    invoices = await financials_service.list_linked_invoices(session, project_id=project.id)
+    service_breakdown = await financials_service.get_project_financials_by_service(
+        session, project_id=project.id
+    )
+    return {
+        "project_id": project.id,
+        "name": project.name,
+        "status": project.status,
+        "milestone_total": total,
+        "milestone_completed": completed,
+        "milestone_completion_pct": pct,
+        "financials": financials,
+        "invoices": invoices,
+        "service_breakdown": service_breakdown,
+    }
 
 
 async def list_projects(
@@ -383,9 +418,7 @@ async def update_project(
     return await _reload_with_relations(session, project)
 
 
-async def _reload_with_relations(
-    session: AsyncSession, project: Project
-) -> Project:
+async def _reload_with_relations(session: AsyncSession, project: Project) -> Project:
     """Re-fetch project with services+milestones eager-loaded."""
     fresh = await project_repo.get_project_for_tenant_with_services(
         session, project.tenant_id, project.id
@@ -455,6 +488,76 @@ async def attach_service(
     return project_service, milestone_count
 
 
+# ── Remove project service (TODO-070) ──────────────────────────────────────
+
+
+async def remove_project_service(
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    project_id: uuid.UUID,
+    project_service_id: uuid.UUID,
+    actor_id: uuid.UUID,
+) -> ProjectService | None:
+    """Remove a project service from a project.
+
+    Hard-deletes the project_service (milestones cascade) when no invoice
+    line item references it; otherwise soft-cancels it (status=CANCELLED)
+    so historical invoices keep their line-item references intact.
+
+    Returns the cancelled ProjectService on the soft path, None on hard delete.
+    """
+    project = await project_repo.get_project_for_tenant(session, tenant_id, project_id)
+    if project is None:
+        raise ProjectNotFoundError()
+
+    ps = await project_repo.get_project_service_for_tenant(session, tenant_id, project_service_id)
+    if ps is None or ps.project_id != project_id:
+        raise ProjectServiceNotAttachedError()
+
+    if ps.status == ProjectServiceStatus.CANCELLED:
+        raise ProjectServiceAlreadyCancelledError()
+
+    # Any invoice line item referencing this project service blocks hard delete
+    # (the FK would be violated regardless of invoice status).
+    li_q = (
+        select(InvoiceLineItem.id)
+        .join(Invoice, InvoiceLineItem.invoice_id == Invoice.id)
+        .where(InvoiceLineItem.project_service_id == project_service_id)
+        .limit(1)
+    )
+    referenced = (await session.execute(li_q)).scalar_one_or_none()
+
+    if referenced is not None:
+        await project_repo.cancel_project_service(session, ps)
+        await audit_log(
+            session,
+            tenant_id=tenant_id,
+            actor_id=actor_id,
+            actor_type=ActorType.ADMIN_USER,
+            action="project.service_cancelled",
+            entity_type="project",
+            entity_id=str(project.id),
+            details={"project_service_id": str(project_service_id)},
+        )
+        await session.commit()
+        return ps
+
+    await project_repo.delete_project_service(session, ps)
+    await audit_log(
+        session,
+        tenant_id=tenant_id,
+        actor_id=actor_id,
+        actor_type=ActorType.ADMIN_USER,
+        action="project.service_removed",
+        entity_type="project",
+        entity_id=str(project.id),
+        details={"project_service_id": str(project_service_id)},
+    )
+    await session.commit()
+    return None
+
+
 # ── Milestone ops ───────────────────────────────────────────────────────────
 
 
@@ -464,9 +567,7 @@ async def get_milestone(
     tenant_id: uuid.UUID,
     milestone_id: uuid.UUID,
 ) -> ProjectMilestone:
-    milestone = await project_repo.get_milestone_for_tenant(
-        session, tenant_id, milestone_id
-    )
+    milestone = await project_repo.get_milestone_for_tenant(session, tenant_id, milestone_id)
     if milestone is None:
         raise MilestoneNotFoundError()
     return milestone
@@ -481,9 +582,7 @@ async def update_milestone(
     actor_id: uuid.UUID,
 ) -> ProjectMilestone:
     """Update milestone fields. Validates assignee belongs to tenant."""
-    milestone = await project_repo.get_milestone_for_tenant(
-        session, tenant_id, milestone_id
-    )
+    milestone = await project_repo.get_milestone_for_tenant(session, tenant_id, milestone_id)
     if milestone is None:
         raise MilestoneNotFoundError()
 

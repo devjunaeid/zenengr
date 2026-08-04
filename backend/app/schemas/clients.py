@@ -84,6 +84,9 @@ class ClientDetailResponse(BaseModel):
     updated_at: datetime
     client_users: list[ClientUserSummary]
     recent_activity: list[dict[str, Any]]
+    total_invoiced: str = "0.00"
+    total_paid: str = "0.00"
+    total_outstanding: str = "0.00"
 
 
 # ── Notes ────────────────────────────────────────────────────────────────────

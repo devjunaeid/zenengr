@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.milestone_step_template import MilestoneStepTemplate
+from app.models.project_service import ProjectService
 from app.models.service import Service
 
 
@@ -61,6 +62,21 @@ async def get_service_for_tenant_with_steps(
     return result.unique().scalar_one_or_none()
 
 
+async def count_project_services(session: AsyncSession, service_id: uuid.UUID) -> int:
+    """Count ProjectService rows referencing a service (TODO-060).
+
+    A service is "in use" when at least one project has it attached, so the
+    count spans the whole tenant (service ids are globally unique).
+    """
+    stmt = (
+        select(func.count())
+        .select_from(ProjectService)
+        .where(ProjectService.service_id == service_id)
+    )
+    result = await session.execute(stmt)
+    return result.scalar_one()
+
+
 async def create_service(
     session: AsyncSession,
     *,
@@ -95,22 +111,16 @@ async def list_services_for_tenant(
     sort: str | None = None,
 ) -> tuple[list[Service], int]:
     """List services for a tenant with filtering, search, sort, pagination."""
-    query = (
-        select(Service)
-        .options(selectinload(Service.milestone_steps))
-        .where(Service.tenant_id == tenant_id)
-    )
-
+    conditions = [Service.tenant_id == tenant_id]
     if is_active is not None:
-        query = query.where(Service.is_active == is_active)
-
+        conditions.append(Service.is_active == is_active)
     if q:
-        query = query.where(Service.name.ilike(f"%{q}%"))
+        conditions.append(Service.name.ilike(f"%{q}%"))
+
+    query = select(Service).options(selectinload(Service.milestone_steps)).where(*conditions)
 
     # Count (strip options for count subquery)
-    count_q = select(func.count()).select_from(
-        select(Service).where(Service.tenant_id == tenant_id).subquery()
-    )
+    count_q = select(func.count()).select_from(select(Service).where(*conditions).subquery())
     total_result = await session.execute(count_q)
     total: int = total_result.scalar_one()
 
@@ -169,9 +179,7 @@ async def replace_milestone_steps(
     from sqlalchemy import delete as sql_delete
 
     await session.execute(
-        sql_delete(MilestoneStepTemplate).where(
-            MilestoneStepTemplate.service_id == service.id
-        )
+        sql_delete(MilestoneStepTemplate).where(MilestoneStepTemplate.service_id == service.id)
     )
 
     # Insert new

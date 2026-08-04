@@ -370,20 +370,18 @@ async def consume_password_reset(
             detail="Reset token has already been used",
         )
 
-    # Password policy
-    if len(body.new_password) < 10:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail="Password must be at least 10 characters",
-        )
-
-    # Set new password on user
+    # Password policy (tenant-configurable, TODO-115)
     user = await admin_user_repo.get_by_id(session, token.user_id)
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found",
         )
+
+    from app.services.password_policy import get_min_password_length, validate_password_policy
+
+    min_length = await get_min_password_length(session, user.tenant_id)
+    validate_password_policy(body.new_password, min_length)
 
     user.hashed_password = hash_password(body.new_password)
 

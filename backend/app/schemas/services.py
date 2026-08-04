@@ -82,6 +82,8 @@ class ServiceDetailResponse(BaseModel):
     default_price: Decimal | None
     is_active: bool
     step_count: int
+    in_use: bool = False
+    project_count: int = 0
     created_at: datetime
     updated_at: datetime
     steps: list[MilestoneStepResponse]

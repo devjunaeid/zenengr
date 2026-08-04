@@ -19,6 +19,16 @@ from app.models.enums import ActorType
 from app.repositories import client_invites as invite_repo
 from app.repositories import client_users as client_user_repo
 from app.repositories import clients as client_repo
+from app.schemas.account import (
+    ActivityResponse,
+    ChangePasswordRequest,
+    ClientResetPasswordRequest,
+    ForgotPasswordRequest,
+    NotificationPreferenceResponse,
+    NotificationPreferencesUpdateRequest,
+    ProfileUpdateRequest,
+    VerifyEmailRequest,
+)
 from app.schemas.client_auth import (
     ClientInviteCreateRequest,
     ClientInviteLookupResponse,
@@ -30,6 +40,14 @@ from app.schemas.client_auth import (
     ClientRegisterRequest,
     ClientSummary,
     ClientUserResponse,
+)
+from app.services.account import (
+    change_password,
+    forgot_password_client,
+    list_activity,
+    reset_client_password,
+    update_client_profile,
+    verify_email_client,
 )
 from app.services.audit import log as audit_log
 from app.services.client_auth import (
@@ -45,6 +63,8 @@ from app.services.client_auth import (
     register_client_user_from_invite,
 )
 from app.services.email import EmailSender, create_email_sender
+from app.services.notification_preferences import list_preferences, update_preferences
+from app.services.password_policy import get_min_password_length
 
 # ── Tenant-scoped (admin: manage clients) ────────────────────────────────
 
@@ -92,6 +112,35 @@ async def _send_client_invite_email(
         f"This link expires in {settings.invite_ttl_hours} hours."
     )
     await email_sender.send_email(to=email, subject=subject, body=body)
+
+
+def _build_client_me_response(user: ClientUser) -> ClientMeResponse:
+    """Build ClientMeResponse from a client user (+ eager-loaded client/tenant)."""
+    client = user.client
+    tenant = user.tenant
+    return ClientMeResponse(
+        id=str(user.id),
+        email=user.email,
+        full_name=user.full_name,
+        role="client_user",
+        client_id=str(user.client_id),
+        tenant_id=str(user.tenant_id),
+        tenant_name=tenant.business_name if tenant else None,
+        avatar_url=user.avatar_url,
+        phone=user.phone,
+        timezone=user.timezone,
+        language=user.language,
+        pending_email=user.pending_email,
+        client=ClientSummary(
+            id=str(client.id) if client else None,
+            name=client.name if client else "Unknown",
+            status=client.status.value if client else "unknown",
+            email=client.email if client else None,
+            phone=client.phone if client else None,
+            billing_address=client.billing_address if client else None,
+            tax_id=client.tax_id if client else None,
+        ),
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -178,12 +227,6 @@ async def register_client_user(
     session: AsyncSession = Depends(get_session),
 ) -> ClientLoginResponse:
     """Register client user from valid invite. Returns auto-login JWT."""
-    if len(body.password) < 10:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail="Password must be at least 10 characters",
-        )
-
     try:
         token, token_type, user = await register_client_user_from_invite(
             session, body.token, body.full_name, body.password
@@ -204,16 +247,10 @@ async def register_client_user(
             detail=str(exc),
         ) from exc
     except ValueError as exc:
-        # Either "Invite not found" or password policy
-        msg = str(exc)
-        if "10 characters" in msg:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail=msg,
-            ) from exc
+        # "Invite not found" — password policy raises PasswordPolicyError (422) separately
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=msg,
+            detail=str(exc),
         ) from exc
 
     return ClientLoginResponse(
@@ -230,6 +267,36 @@ async def register_client_user(
     )
 
 
+@public_router.post("/forgot-password", status_code=status.HTTP_200_OK)
+async def client_forgot_password(
+    body: ForgotPasswordRequest,
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, str]:
+    """Public: request password reset email. Always 200 (no existence leak)."""
+    await forgot_password_client(session, email=body.email)
+    return {"status": "ok"}
+
+
+@public_router.post("/reset-password", status_code=status.HTTP_200_OK)
+async def client_reset_password(
+    body: ClientResetPasswordRequest,
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, str]:
+    """Public: consume client password reset token and set new password."""
+    await reset_client_password(session, token=body.token, new_password=body.new_password)
+    return {"status": "ok"}
+
+
+@public_router.post("/verify-email", status_code=status.HTTP_200_OK)
+async def client_verify_email(
+    body: VerifyEmailRequest,
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, str]:
+    """Public: confirm pending client email change with single-use token (TODO-110)."""
+    await verify_email_client(session, token=body.token)
+    return {"status": "ok"}
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # Authenticated client portal endpoints
 # ═══════════════════════════════════════════════════════════════════════════
@@ -240,26 +307,7 @@ async def client_me(
     user: ClientUser = Depends(get_current_client_user),
 ) -> ClientMeResponse:
     """Return authenticated client user profile + client summary."""
-    client = user.client
-    tenant = user.tenant
-    return ClientMeResponse(
-        id=str(user.id),
-        email=user.email,
-        full_name=user.full_name,
-        role="client_user",
-        client_id=str(user.client_id),
-        tenant_id=str(user.tenant_id),
-        tenant_name=tenant.business_name if tenant else None,
-        client=ClientSummary(
-            id=str(client.id) if client else None,
-            name=client.name if client else "Unknown",
-            status=client.status.value if client else "unknown",
-            email=client.email if client else None,
-            phone=client.phone if client else None,
-            billing_address=client.billing_address if client else None,
-            tax_id=client.tax_id if client else None,
-        ),
-    )
+    return _build_client_me_response(user)
 
 
 @auth_router.patch("/profile", response_model=ClientMeResponse)
@@ -292,6 +340,10 @@ async def update_client_profile_endpoint(
         client_id=str(user.client_id),
         tenant_id=str(user.tenant_id),
         tenant_name=tenant.business_name if tenant else None,
+        avatar_url=user.avatar_url,
+        phone=user.phone,
+        timezone=user.timezone,
+        language=user.language,
         client=ClientSummary(
             id=str(client.id),
             name=client.name,
@@ -302,6 +354,99 @@ async def update_client_profile_endpoint(
             tax_id=client.tax_id,
         ),
     )
+
+
+@auth_router.patch("/user-profile", response_model=ClientMeResponse)
+async def update_client_user_profile_endpoint(
+    body: ProfileUpdateRequest,
+    user: ClientUser = Depends(get_current_client_user),
+    session: AsyncSession = Depends(get_session),
+) -> ClientMeResponse:
+    """Client self-service: update own user profile fields.
+
+    Distinct from PATCH /client/auth/profile which updates the client ENTITY.
+    """
+    updated = await update_client_profile(
+        session,
+        user=user,
+        full_name=body.full_name,
+        avatar_url=body.avatar_url,
+        phone=body.phone,
+        timezone=body.timezone,
+        language=body.language,
+        email=body.email,
+    )
+    return _build_client_me_response(updated)
+
+
+@auth_router.get("/notification-preferences", response_model=list[NotificationPreferenceResponse])
+async def client_notification_preferences(
+    user: ClientUser = Depends(get_current_client_user),
+    session: AsyncSession = Depends(get_session),
+) -> list[NotificationPreferenceResponse]:
+    """Return the caller's per-event notification preferences (TODO-116)."""
+    prefs = await list_preferences(
+        session, user_id=user.id, user_type="client_user", tenant_id=user.tenant_id
+    )
+    return [NotificationPreferenceResponse(**p) for p in prefs]
+
+
+@auth_router.patch(
+    "/notification-preferences", response_model=list[NotificationPreferenceResponse]
+)
+async def client_update_notification_preferences(
+    body: NotificationPreferencesUpdateRequest,
+    user: ClientUser = Depends(get_current_client_user),
+    session: AsyncSession = Depends(get_session),
+) -> list[NotificationPreferenceResponse]:
+    """Upsert the caller's per-event notification preferences (TODO-116)."""
+    entries = [(e.event_type, e.enabled) for e in body.preferences]
+    prefs = await update_preferences(
+        session,
+        user_id=user.id,
+        user_type="client_user",
+        tenant_id=user.tenant_id,
+        entries=entries,
+    )
+    return [NotificationPreferenceResponse(**p) for p in prefs]
+
+
+@auth_router.post("/change-password", status_code=status.HTTP_200_OK)
+async def client_change_password(
+    body: ChangePasswordRequest,
+    user: ClientUser = Depends(get_current_client_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, str]:
+    """Client self-service: change own password (tenant password policy applies)."""
+    min_length = await get_min_password_length(session, user.tenant_id)
+    await change_password(
+        session,
+        user=user,
+        current_password=body.current_password,
+        new_password=body.new_password,
+        min_length=min_length,
+    )
+    return {"status": "ok"}
+
+
+@auth_router.get("/activity", response_model=list[ActivityResponse])
+async def client_activity(
+    user: ClientUser = Depends(get_current_client_user),
+    session: AsyncSession = Depends(get_session),
+) -> list[ActivityResponse]:
+    """Return the caller's activity history, newest first (TODO-119)."""
+    entries = await list_activity(session, user_id=user.id)
+    return [
+        ActivityResponse(
+            id=e.id,
+            event_type=e.event_type,
+            description=e.description,
+            old_value=e.old_value,
+            new_value=e.new_value,
+            created_at=e.created_at,
+        )
+        for e in entries
+    ]
 
 
 # ═══════════════════════════════════════════════════════════════════════════

@@ -204,6 +204,15 @@ async def cancel_project_service(
     await session.refresh(project_service)
 
 
+async def delete_project_service(
+    session: AsyncSession,
+    project_service: ProjectService,
+) -> None:
+    """Hard-delete a project_service; milestones cascade via relationship + FK."""
+    await session.delete(project_service)
+    await session.flush()
+
+
 # ── Milestone lookups ──────────────────────────────────────────────────────
 
 

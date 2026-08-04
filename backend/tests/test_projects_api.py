@@ -216,9 +216,7 @@ class TestAuthIsolation:
         assert resp.status_code == 401
 
     @pytest.mark.asyncio
-    async def test_manager_can_create(
-        self, client: AsyncClient, db_session: AsyncSession
-    ):
+    async def test_manager_can_create(self, client: AsyncClient, db_session: AsyncSession):
         ctx = await _bootstrap(db_session, role=AdminUserRole.MANAGER)
         resp = await client.post(
             "/api/v1/tenant/projects/",
@@ -231,9 +229,7 @@ class TestAuthIsolation:
         assert resp.status_code == 201
 
     @pytest.mark.asyncio
-    async def test_employee_cannot_create(
-        self, client: AsyncClient, db_session: AsyncSession
-    ):
+    async def test_employee_cannot_create(self, client: AsyncClient, db_session: AsyncSession):
         ctx = await _bootstrap(db_session, role=AdminUserRole.EMPLOYEE)
         resp = await client.post(
             "/api/v1/tenant/projects/",
@@ -246,9 +242,7 @@ class TestAuthIsolation:
         assert resp.status_code == 403
 
     @pytest.mark.asyncio
-    async def test_employee_can_read(
-        self, client: AsyncClient, db_session: AsyncSession
-    ):
+    async def test_employee_can_read(self, client: AsyncClient, db_session: AsyncSession):
         ctx = await _bootstrap(db_session, role=AdminUserRole.ADMIN)
         admin_headers = await _admin_auth_header(ctx["admin"])
         # Create project as admin
@@ -274,9 +268,7 @@ class TestAuthIsolation:
         assert resp.json()["total"] == 1
 
     @pytest.mark.asyncio
-    async def test_employee_cannot_patch(
-        self, client: AsyncClient, db_session: AsyncSession
-    ):
+    async def test_employee_cannot_patch(self, client: AsyncClient, db_session: AsyncSession):
         ctx = await _bootstrap(db_session, role=AdminUserRole.ADMIN)
         admin_headers = await _admin_auth_header(ctx["admin"])
         create_resp = await client.post(
@@ -307,9 +299,7 @@ class TestAuthIsolation:
 
 class TestProjectCRUD:
     @pytest.mark.asyncio
-    async def test_create_with_two_services(
-        self, client: AsyncClient, db_session: AsyncSession
-    ):
+    async def test_create_with_two_services(self, client: AsyncClient, db_session: AsyncSession):
         ctx = await _bootstrap(db_session)
         resp = await client.post(
             "/api/v1/tenant/projects/",
@@ -329,9 +319,7 @@ class TestProjectCRUD:
         assert data["milestone_count"] == 3  # 2 from svcA + 1 from svcB
 
     @pytest.mark.asyncio
-    async def test_create_with_no_services(
-        self, client: AsyncClient, db_session: AsyncSession
-    ):
+    async def test_create_with_no_services(self, client: AsyncClient, db_session: AsyncSession):
         ctx = await _bootstrap(db_session)
         resp = await client.post(
             "/api/v1/tenant/projects/",
@@ -347,9 +335,7 @@ class TestProjectCRUD:
         assert data["milestone_count"] == 0
 
     @pytest.mark.asyncio
-    async def test_list_returns_project(
-        self, client: AsyncClient, db_session: AsyncSession
-    ):
+    async def test_list_returns_project(self, client: AsyncClient, db_session: AsyncSession):
         ctx = await _bootstrap(db_session)
         admin_headers = await _admin_auth_header(ctx["admin"])
         await client.post(
@@ -357,9 +343,7 @@ class TestProjectCRUD:
             json={"name": "Listed", "client_id": str(ctx["client"].id)},
             headers=admin_headers,
         )
-        resp = await client.get(
-            "/api/v1/tenant/projects/", headers=admin_headers
-        )
+        resp = await client.get("/api/v1/tenant/projects/", headers=admin_headers)
         assert resp.status_code == 200
         assert resp.json()["total"] == 1
         assert resp.json()["items"][0]["name"] == "Listed"
@@ -381,9 +365,7 @@ class TestProjectCRUD:
         )
         pid = create_resp.json()["id"]
 
-        resp = await client.get(
-            f"/api/v1/tenant/projects/{pid}", headers=admin_headers
-        )
+        resp = await client.get(f"/api/v1/tenant/projects/{pid}", headers=admin_headers)
         assert resp.status_code == 200
         data = resp.json()
         assert len(data["services"]) == 1
@@ -394,9 +376,7 @@ class TestProjectCRUD:
         assert all(m["status"] == "pending" for m in data["milestones"])
 
     @pytest.mark.asyncio
-    async def test_patch_status_transitions(
-        self, client: AsyncClient, db_session: AsyncSession
-    ):
+    async def test_patch_status_transitions(self, client: AsyncClient, db_session: AsyncSession):
         ctx = await _bootstrap(db_session)
         admin_headers = await _admin_auth_header(ctx["admin"])
         create_resp = await client.post(
@@ -475,10 +455,12 @@ class TestMilestoneInstantiation:
             headers=await _admin_auth_header(ctx["admin"]),
         )
         pid = resp.json()["id"]
-        detail = (await client.get(
-            f"/api/v1/tenant/projects/{pid}",
-            headers=await _admin_auth_header(ctx["admin"]),
-        )).json()
+        detail = (
+            await client.get(
+                f"/api/v1/tenant/projects/{pid}",
+                headers=await _admin_auth_header(ctx["admin"]),
+            )
+        ).json()
         names = [m["name"] for m in detail["milestones"]]
         assert names == ["Step A1", "Step A2"]
         assert all(m["status"] == "pending" for m in detail["milestones"])
@@ -500,10 +482,12 @@ class TestMilestoneInstantiation:
             headers=await _admin_auth_header(ctx["admin"]),
         )
         pid = resp.json()["id"]
-        detail = (await client.get(
-            f"/api/v1/tenant/projects/{pid}",
-            headers=await _admin_auth_header(ctx["admin"]),
-        )).json()
+        detail = (
+            await client.get(
+                f"/api/v1/tenant/projects/{pid}",
+                headers=await _admin_auth_header(ctx["admin"]),
+            )
+        ).json()
         # 7 days + 14 days => step 1 = day 0+7=7, step 2 = day 7+14=21
         planned = [m["planned_date"] for m in detail["milestones"]]
         assert planned[0] == (start + timedelta(days=7)).isoformat()
@@ -524,10 +508,12 @@ class TestMilestoneInstantiation:
             headers=await _admin_auth_header(ctx["admin"]),
         )
         pid = resp.json()["id"]
-        detail = (await client.get(
-            f"/api/v1/tenant/projects/{pid}",
-            headers=await _admin_auth_header(ctx["admin"]),
-        )).json()
+        detail = (
+            await client.get(
+                f"/api/v1/tenant/projects/{pid}",
+                headers=await _admin_auth_header(ctx["admin"]),
+            )
+        ).json()
         assert all(m["planned_date"] is None for m in detail["milestones"])
 
     @pytest.mark.asyncio
@@ -552,10 +538,12 @@ class TestMilestoneInstantiation:
             headers=await _admin_auth_header(ctx["admin"]),
         )
         pid = resp.json()["id"]
-        detail = (await client.get(
-            f"/api/v1/tenant/projects/{pid}",
-            headers=await _admin_auth_header(ctx["admin"]),
-        )).json()
+        detail = (
+            await client.get(
+                f"/api/v1/tenant/projects/{pid}",
+                headers=await _admin_auth_header(ctx["admin"]),
+            )
+        ).json()
         assert detail["milestones"][0]["planned_date"] is None
 
     @pytest.mark.asyncio
@@ -563,9 +551,7 @@ class TestMilestoneInstantiation:
         self, client: AsyncClient, db_session: AsyncSession
     ):
         ctx = await _bootstrap(db_session)
-        svc_empty = await _create_service(
-            db_session, ctx["tenant"].id, name="Empty", steps=[]
-        )
+        svc_empty = await _create_service(db_session, ctx["tenant"].id, name="Empty", steps=[])
         resp = await client.post(
             "/api/v1/tenant/projects/",
             json={
@@ -588,23 +574,21 @@ class TestMilestoneInstantiation:
 
 class TestMilestoneUpdate:
     @pytest.mark.asyncio
-    async def test_patch_status_in_progress(
-        self, client: AsyncClient, db_session: AsyncSession
-    ):
+    async def test_patch_status_in_progress(self, client: AsyncClient, db_session: AsyncSession):
         ctx = await _bootstrap(db_session)
         admin_headers = await _admin_auth_header(ctx["admin"])
-        pid = (await client.post(
-            "/api/v1/tenant/projects/",
-            json={
-                "name": "P",
-                "client_id": str(ctx["client"].id),
-                "service_ids": [str(ctx["svc_a"].id)],
-            },
-            headers=admin_headers,
-        )).json()["id"]
-        detail = (await client.get(
-            f"/api/v1/tenant/projects/{pid}", headers=admin_headers
-        )).json()
+        pid = (
+            await client.post(
+                "/api/v1/tenant/projects/",
+                json={
+                    "name": "P",
+                    "client_id": str(ctx["client"].id),
+                    "service_ids": [str(ctx["svc_a"].id)],
+                },
+                headers=admin_headers,
+            )
+        ).json()["id"]
+        detail = (await client.get(f"/api/v1/tenant/projects/{pid}", headers=admin_headers)).json()
         mid = detail["milestones"][0]["id"]
 
         resp = await client.patch(
@@ -616,23 +600,23 @@ class TestMilestoneUpdate:
         assert resp.json()["status"] == "in_progress"
 
     @pytest.mark.asyncio
-    async def test_patch_status_completed(
-        self, client: AsyncClient, db_session: AsyncSession
-    ):
+    async def test_patch_status_completed(self, client: AsyncClient, db_session: AsyncSession):
         ctx = await _bootstrap(db_session)
         admin_headers = await _admin_auth_header(ctx["admin"])
-        pid = (await client.post(
-            "/api/v1/tenant/projects/",
-            json={
-                "name": "P",
-                "client_id": str(ctx["client"].id),
-                "service_ids": [str(ctx["svc_a"].id)],
-            },
-            headers=admin_headers,
-        )).json()["id"]
-        mid = (await client.get(
-            f"/api/v1/tenant/projects/{pid}", headers=admin_headers
-        )).json()["milestones"][0]["id"]
+        pid = (
+            await client.post(
+                "/api/v1/tenant/projects/",
+                json={
+                    "name": "P",
+                    "client_id": str(ctx["client"].id),
+                    "service_ids": [str(ctx["svc_a"].id)],
+                },
+                headers=admin_headers,
+            )
+        ).json()["id"]
+        mid = (await client.get(f"/api/v1/tenant/projects/{pid}", headers=admin_headers)).json()[
+            "milestones"
+        ][0]["id"]
 
         resp = await client.patch(
             f"/api/v1/tenant/projects/{pid}/milestones/{mid}",
@@ -643,23 +627,23 @@ class TestMilestoneUpdate:
         assert resp.json()["status"] == "completed"
 
     @pytest.mark.asyncio
-    async def test_patch_actual_date(
-        self, client: AsyncClient, db_session: AsyncSession
-    ):
+    async def test_patch_actual_date(self, client: AsyncClient, db_session: AsyncSession):
         ctx = await _bootstrap(db_session)
         admin_headers = await _admin_auth_header(ctx["admin"])
-        pid = (await client.post(
-            "/api/v1/tenant/projects/",
-            json={
-                "name": "P",
-                "client_id": str(ctx["client"].id),
-                "service_ids": [str(ctx["svc_a"].id)],
-            },
-            headers=admin_headers,
-        )).json()["id"]
-        mid = (await client.get(
-            f"/api/v1/tenant/projects/{pid}", headers=admin_headers
-        )).json()["milestones"][0]["id"]
+        pid = (
+            await client.post(
+                "/api/v1/tenant/projects/",
+                json={
+                    "name": "P",
+                    "client_id": str(ctx["client"].id),
+                    "service_ids": [str(ctx["svc_a"].id)],
+                },
+                headers=admin_headers,
+            )
+        ).json()["id"]
+        mid = (await client.get(f"/api/v1/tenant/projects/{pid}", headers=admin_headers)).json()[
+            "milestones"
+        ][0]["id"]
 
         today = date.today().isoformat()
         resp = await client.patch(
@@ -676,18 +660,20 @@ class TestMilestoneUpdate:
     ):
         ctx = await _bootstrap(db_session, extra_admin=True)
         admin_headers = await _admin_auth_header(ctx["admin"])
-        pid = (await client.post(
-            "/api/v1/tenant/projects/",
-            json={
-                "name": "P",
-                "client_id": str(ctx["client"].id),
-                "service_ids": [str(ctx["svc_a"].id)],
-            },
-            headers=admin_headers,
-        )).json()["id"]
-        mid = (await client.get(
-            f"/api/v1/tenant/projects/{pid}", headers=admin_headers
-        )).json()["milestones"][0]["id"]
+        pid = (
+            await client.post(
+                "/api/v1/tenant/projects/",
+                json={
+                    "name": "P",
+                    "client_id": str(ctx["client"].id),
+                    "service_ids": [str(ctx["svc_a"].id)],
+                },
+                headers=admin_headers,
+            )
+        ).json()["id"]
+        mid = (await client.get(f"/api/v1/tenant/projects/{pid}", headers=admin_headers)).json()[
+            "milestones"
+        ][0]["id"]
 
         resp = await client.patch(
             f"/api/v1/tenant/projects/{pid}/milestones/{mid}",
@@ -704,18 +690,20 @@ class TestMilestoneUpdate:
         ctx_a = await _bootstrap(db_session)
         ctx_b = await _bootstrap(db_session)  # second tenant
         admin_headers = await _admin_auth_header(ctx_a["admin"])
-        pid = (await client.post(
-            "/api/v1/tenant/projects/",
-            json={
-                "name": "P",
-                "client_id": str(ctx_a["client"].id),
-                "service_ids": [str(ctx_a["svc_a"].id)],
-            },
-            headers=admin_headers,
-        )).json()["id"]
-        mid = (await client.get(
-            f"/api/v1/tenant/projects/{pid}", headers=admin_headers
-        )).json()["milestones"][0]["id"]
+        pid = (
+            await client.post(
+                "/api/v1/tenant/projects/",
+                json={
+                    "name": "P",
+                    "client_id": str(ctx_a["client"].id),
+                    "service_ids": [str(ctx_a["svc_a"].id)],
+                },
+                headers=admin_headers,
+            )
+        ).json()["id"]
+        mid = (await client.get(f"/api/v1/tenant/projects/{pid}", headers=admin_headers)).json()[
+            "milestones"
+        ][0]["id"]
 
         # Try to assign tenant B's admin
         resp = await client.patch(
@@ -731,18 +719,20 @@ class TestMilestoneUpdate:
     ):
         ctx = await _bootstrap(db_session)
         admin_headers = await _admin_auth_header(ctx["admin"])
-        pid = (await client.post(
-            "/api/v1/tenant/projects/",
-            json={
-                "name": "P",
-                "client_id": str(ctx["client"].id),
-                "service_ids": [str(ctx["svc_a"].id)],
-            },
-            headers=admin_headers,
-        )).json()["id"]
-        mid = (await client.get(
-            f"/api/v1/tenant/projects/{pid}", headers=admin_headers
-        )).json()["milestones"][0]["id"]
+        pid = (
+            await client.post(
+                "/api/v1/tenant/projects/",
+                json={
+                    "name": "P",
+                    "client_id": str(ctx["client"].id),
+                    "service_ids": [str(ctx["svc_a"].id)],
+                },
+                headers=admin_headers,
+            )
+        ).json()["id"]
+        mid = (await client.get(f"/api/v1/tenant/projects/{pid}", headers=admin_headers)).json()[
+            "milestones"
+        ][0]["id"]
 
         resp = await client.patch(
             f"/api/v1/tenant/projects/{pid}/milestones/{mid}",
@@ -757,18 +747,20 @@ class TestMilestoneUpdate:
     ):
         ctx = await _bootstrap(db_session)
         admin_headers = await _admin_auth_header(ctx["admin"])
-        pid = (await client.post(
-            "/api/v1/tenant/projects/",
-            json={
-                "name": "P",
-                "client_id": str(ctx["client"].id),
-                "service_ids": [str(ctx["svc_a"].id)],
-            },
-            headers=admin_headers,
-        )).json()["id"]
-        mid = (await client.get(
-            f"/api/v1/tenant/projects/{pid}", headers=admin_headers
-        )).json()["milestones"][0]["id"]
+        pid = (
+            await client.post(
+                "/api/v1/tenant/projects/",
+                json={
+                    "name": "P",
+                    "client_id": str(ctx["client"].id),
+                    "service_ids": [str(ctx["svc_a"].id)],
+                },
+                headers=admin_headers,
+            )
+        ).json()["id"]
+        mid = (await client.get(f"/api/v1/tenant/projects/{pid}", headers=admin_headers)).json()[
+            "milestones"
+        ][0]["id"]
 
         resp = await client.patch(
             f"/api/v1/tenant/projects/{pid}/milestones/{mid}",
@@ -785,20 +777,20 @@ class TestMilestoneUpdate:
 
 class TestAttachService:
     @pytest.mark.asyncio
-    async def test_attach_to_active_project(
-        self, client: AsyncClient, db_session: AsyncSession
-    ):
+    async def test_attach_to_active_project(self, client: AsyncClient, db_session: AsyncSession):
         ctx = await _bootstrap(db_session)
         admin_headers = await _admin_auth_header(ctx["admin"])
-        pid = (await client.post(
-            "/api/v1/tenant/projects/",
-            json={
-                "name": "Active",
-                "client_id": str(ctx["client"].id),
-                "service_ids": [str(ctx["svc_a"].id)],
-            },
-            headers=admin_headers,
-        )).json()["id"]
+        pid = (
+            await client.post(
+                "/api/v1/tenant/projects/",
+                json={
+                    "name": "Active",
+                    "client_id": str(ctx["client"].id),
+                    "service_ids": [str(ctx["svc_a"].id)],
+                },
+                headers=admin_headers,
+            )
+        ).json()["id"]
         # Move to active
         await client.patch(
             f"/api/v1/tenant/projects/{pid}",
@@ -817,9 +809,7 @@ class TestAttachService:
         assert data["milestone_count"] == 1  # svc_b has 1 step
 
         # Confirm via detail: now 3 milestones total
-        detail = (await client.get(
-            f"/api/v1/tenant/projects/{pid}", headers=admin_headers
-        )).json()
+        detail = (await client.get(f"/api/v1/tenant/projects/{pid}", headers=admin_headers)).json()
         assert len(detail["milestones"]) == 3
         assert len(detail["services"]) == 2
 
@@ -829,15 +819,17 @@ class TestAttachService:
     ):
         ctx = await _bootstrap(db_session)
         admin_headers = await _admin_auth_header(ctx["admin"])
-        pid = (await client.post(
-            "/api/v1/tenant/projects/",
-            json={
-                "name": "Dup",
-                "client_id": str(ctx["client"].id),
-                "service_ids": [str(ctx["svc_a"].id)],
-            },
-            headers=admin_headers,
-        )).json()["id"]
+        pid = (
+            await client.post(
+                "/api/v1/tenant/projects/",
+                json={
+                    "name": "Dup",
+                    "client_id": str(ctx["client"].id),
+                    "service_ids": [str(ctx["svc_a"].id)],
+                },
+                headers=admin_headers,
+            )
+        ).json()["id"]
         await client.patch(
             f"/api/v1/tenant/projects/{pid}",
             json={"status": "active"},
@@ -851,20 +843,20 @@ class TestAttachService:
         assert resp.status_code == 409
 
     @pytest.mark.asyncio
-    async def test_attach_to_draft_returns_409(
-        self, client: AsyncClient, db_session: AsyncSession
-    ):
+    async def test_attach_to_draft_returns_409(self, client: AsyncClient, db_session: AsyncSession):
         ctx = await _bootstrap(db_session)
         admin_headers = await _admin_auth_header(ctx["admin"])
-        pid = (await client.post(
-            "/api/v1/tenant/projects/",
-            json={
-                "name": "Draft",
-                "client_id": str(ctx["client"].id),
-                "service_ids": [str(ctx["svc_a"].id)],
-            },
-            headers=admin_headers,
-        )).json()["id"]
+        pid = (
+            await client.post(
+                "/api/v1/tenant/projects/",
+                json={
+                    "name": "Draft",
+                    "client_id": str(ctx["client"].id),
+                    "service_ids": [str(ctx["svc_a"].id)],
+                },
+                headers=admin_headers,
+            )
+        ).json()["id"]
         # Project is draft by default; try to attach
         resp = await client.post(
             f"/api/v1/tenant/projects/{pid}/services",
@@ -879,15 +871,17 @@ class TestAttachService:
     ):
         ctx = await _bootstrap(db_session)
         admin_headers = await _admin_auth_header(ctx["admin"])
-        pid = (await client.post(
-            "/api/v1/tenant/projects/",
-            json={
-                "name": "Cancel",
-                "client_id": str(ctx["client"].id),
-                "service_ids": [str(ctx["svc_a"].id)],
-            },
-            headers=admin_headers,
-        )).json()["id"]
+        pid = (
+            await client.post(
+                "/api/v1/tenant/projects/",
+                json={
+                    "name": "Cancel",
+                    "client_id": str(ctx["client"].id),
+                    "service_ids": [str(ctx["svc_a"].id)],
+                },
+                headers=admin_headers,
+            )
+        ).json()["id"]
         await client.patch(
             f"/api/v1/tenant/projects/{pid}",
             json={"status": "cancelled"},
@@ -907,15 +901,17 @@ class TestAttachService:
         ctx_a = await _bootstrap(db_session)
         ctx_b = await _bootstrap(db_session)
         admin_headers = await _admin_auth_header(ctx_a["admin"])
-        pid = (await client.post(
-            "/api/v1/tenant/projects/",
-            json={
-                "name": "X",
-                "client_id": str(ctx_a["client"].id),
-                "service_ids": [str(ctx_a["svc_a"].id)],
-            },
-            headers=admin_headers,
-        )).json()["id"]
+        pid = (
+            await client.post(
+                "/api/v1/tenant/projects/",
+                json={
+                    "name": "X",
+                    "client_id": str(ctx_a["client"].id),
+                    "service_ids": [str(ctx_a["svc_a"].id)],
+                },
+                headers=admin_headers,
+            )
+        ).json()["id"]
         await client.patch(
             f"/api/v1/tenant/projects/{pid}",
             json={"status": "active"},
@@ -936,9 +932,7 @@ class TestAttachService:
 
 class TestProjectAudit:
     @pytest.mark.asyncio
-    async def test_project_created_audit(
-        self, client: AsyncClient, db_session: AsyncSession
-    ):
+    async def test_project_created_audit(self, client: AsyncClient, db_session: AsyncSession):
         ctx = await _bootstrap(db_session)
         admin_headers = await _admin_auth_header(ctx["admin"])
         resp = await client.post(
@@ -953,61 +947,69 @@ class TestProjectAudit:
         pid = resp.json()["id"]
 
         rows = (
-            await db_session.execute(
-                select(AuditLog).where(
-                    AuditLog.tenant_id == ctx["tenant"].id,
-                    AuditLog.entity_id == pid,
-                    AuditLog.action == "project.created",
+            (
+                await db_session.execute(
+                    select(AuditLog).where(
+                        AuditLog.tenant_id == ctx["tenant"].id,
+                        AuditLog.entity_id == pid,
+                        AuditLog.action == "project.created",
+                    )
                 )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         assert len(rows) == 1
         assert rows[0].details["service_count"] == 2
 
     @pytest.mark.asyncio
-    async def test_project_updated_audit(
-        self, client: AsyncClient, db_session: AsyncSession
-    ):
+    async def test_project_updated_audit(self, client: AsyncClient, db_session: AsyncSession):
         ctx = await _bootstrap(db_session)
         admin_headers = await _admin_auth_header(ctx["admin"])
-        pid = (await client.post(
-            "/api/v1/tenant/projects/",
-            json={"name": "ToUpdate", "client_id": str(ctx["client"].id)},
-            headers=admin_headers,
-        )).json()["id"]
+        pid = (
+            await client.post(
+                "/api/v1/tenant/projects/",
+                json={"name": "ToUpdate", "client_id": str(ctx["client"].id)},
+                headers=admin_headers,
+            )
+        ).json()["id"]
         await client.patch(
             f"/api/v1/tenant/projects/{pid}",
             json={"name": "Updated Name", "status": "active"},
             headers=admin_headers,
         )
         rows = (
-            await db_session.execute(
-                select(AuditLog).where(
-                    AuditLog.tenant_id == ctx["tenant"].id,
-                    AuditLog.entity_id == pid,
-                    AuditLog.action == "project.updated",
+            (
+                await db_session.execute(
+                    select(AuditLog).where(
+                        AuditLog.tenant_id == ctx["tenant"].id,
+                        AuditLog.entity_id == pid,
+                        AuditLog.action == "project.updated",
+                    )
                 )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         assert len(rows) == 1
         assert "name" in rows[0].details["changed_keys"]
         assert "status" in rows[0].details["changed_keys"]
 
     @pytest.mark.asyncio
-    async def test_service_attached_audit(
-        self, client: AsyncClient, db_session: AsyncSession
-    ):
+    async def test_service_attached_audit(self, client: AsyncClient, db_session: AsyncSession):
         ctx = await _bootstrap(db_session)
         admin_headers = await _admin_auth_header(ctx["admin"])
-        pid = (await client.post(
-            "/api/v1/tenant/projects/",
-            json={
-                "name": "Att",
-                "client_id": str(ctx["client"].id),
-                "service_ids": [str(ctx["svc_a"].id)],
-            },
-            headers=admin_headers,
-        )).json()["id"]
+        pid = (
+            await client.post(
+                "/api/v1/tenant/projects/",
+                json={
+                    "name": "Att",
+                    "client_id": str(ctx["client"].id),
+                    "service_ids": [str(ctx["svc_a"].id)],
+                },
+                headers=admin_headers,
+            )
+        ).json()["id"]
         await client.patch(
             f"/api/v1/tenant/projects/{pid}",
             json={"status": "active"},
@@ -1019,49 +1021,379 @@ class TestProjectAudit:
             headers=admin_headers,
         )
         rows = (
-            await db_session.execute(
-                select(AuditLog).where(
-                    AuditLog.tenant_id == ctx["tenant"].id,
-                    AuditLog.entity_id == pid,
-                    AuditLog.action == "project.service_attached",
+            (
+                await db_session.execute(
+                    select(AuditLog).where(
+                        AuditLog.tenant_id == ctx["tenant"].id,
+                        AuditLog.entity_id == pid,
+                        AuditLog.action == "project.service_attached",
+                    )
                 )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         assert len(rows) == 1
         assert rows[0].details["service_id"] == str(ctx["svc_b"].id)
 
     @pytest.mark.asyncio
-    async def test_milestone_updated_audit(
-        self, client: AsyncClient, db_session: AsyncSession
-    ):
+    async def test_milestone_updated_audit(self, client: AsyncClient, db_session: AsyncSession):
         ctx = await _bootstrap(db_session)
         admin_headers = await _admin_auth_header(ctx["admin"])
-        pid = (await client.post(
-            "/api/v1/tenant/projects/",
-            json={
-                "name": "MA",
-                "client_id": str(ctx["client"].id),
-                "service_ids": [str(ctx["svc_a"].id)],
-            },
-            headers=admin_headers,
-        )).json()["id"]
-        mid = (await client.get(
-            f"/api/v1/tenant/projects/{pid}", headers=admin_headers
-        )).json()["milestones"][0]["id"]
+        pid = (
+            await client.post(
+                "/api/v1/tenant/projects/",
+                json={
+                    "name": "MA",
+                    "client_id": str(ctx["client"].id),
+                    "service_ids": [str(ctx["svc_a"].id)],
+                },
+                headers=admin_headers,
+            )
+        ).json()["id"]
+        mid = (await client.get(f"/api/v1/tenant/projects/{pid}", headers=admin_headers)).json()[
+            "milestones"
+        ][0]["id"]
         await client.patch(
             f"/api/v1/tenant/projects/{pid}/milestones/{mid}",
             json={"status": "completed", "actual_date": "2026-08-15"},
             headers=admin_headers,
         )
         rows = (
-            await db_session.execute(
-                select(AuditLog).where(
-                    AuditLog.tenant_id == ctx["tenant"].id,
-                    AuditLog.entity_id == mid,
-                    AuditLog.action == "project.milestone_updated",
+            (
+                await db_session.execute(
+                    select(AuditLog).where(
+                        AuditLog.tenant_id == ctx["tenant"].id,
+                        AuditLog.entity_id == mid,
+                        AuditLog.action == "project.milestone_updated",
+                    )
                 )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         assert len(rows) == 1
         assert "status" in rows[0].details["changed_keys"]
         assert "actual_date" in rows[0].details["changed_keys"]
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Project overview (TODO-072)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestProjectOverview:
+    @pytest.mark.asyncio
+    async def test_overview_returns_completion_and_placeholders(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        ctx = await _bootstrap(db_session)
+        admin_headers = await _admin_auth_header(ctx["admin"])
+        create_resp = await client.post(
+            "/api/v1/tenant/projects/",
+            json={
+                "name": "Overview",
+                "client_id": str(ctx["client"].id),
+                "service_ids": [str(ctx["svc_a"].id)],
+            },
+            headers=admin_headers,
+        )
+        pid = create_resp.json()["id"]
+
+        resp = await client.get(f"/api/v1/tenant/projects/{pid}/overview", headers=admin_headers)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["project_id"] == pid
+        assert data["name"] == "Overview"
+        assert data["milestone_total"] == 2  # svc_a has 2 milestone steps
+        assert data["milestone_completed"] == 0
+        assert data["milestone_completion_pct"] == 0.0
+        assert data["total_invoiced"] == "0.00"
+        assert data["total_paid"] == "0.00"
+        assert data["balance_due"] == "0.00"
+        assert data["linked_invoices"] == []
+
+    @pytest.mark.asyncio
+    async def test_overview_reflects_completed_milestones(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        ctx = await _bootstrap(db_session)
+        admin_headers = await _admin_auth_header(ctx["admin"])
+        create_resp = await client.post(
+            "/api/v1/tenant/projects/",
+            json={
+                "name": "Overview2",
+                "client_id": str(ctx["client"].id),
+                "service_ids": [str(ctx["svc_a"].id)],
+            },
+            headers=admin_headers,
+        )
+        pid = create_resp.json()["id"]
+        detail = (await client.get(f"/api/v1/tenant/projects/{pid}", headers=admin_headers)).json()
+        mid = detail["milestones"][0]["id"]
+        upd = await client.patch(
+            f"/api/v1/tenant/projects/{pid}/milestones/{mid}",
+            json={"status": "completed"},
+            headers=admin_headers,
+        )
+        assert upd.status_code == 200
+
+        resp = await client.get(f"/api/v1/tenant/projects/{pid}/overview", headers=admin_headers)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["milestone_total"] == 2
+        assert data["milestone_completed"] == 1
+        assert data["milestone_completion_pct"] == 50.0
+
+    @pytest.mark.asyncio
+    async def test_overview_service_breakdown_with_payment(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        ctx = await _bootstrap(db_session)
+        admin_headers = await _admin_auth_header(ctx["admin"])
+        pid = (
+            await client.post(
+                "/api/v1/tenant/projects/",
+                json={
+                    "name": "Breakdown",
+                    "client_id": str(ctx["client"].id),
+                    "service_ids": [str(ctx["svc_a"].id)],
+                },
+                headers=admin_headers,
+            )
+        ).json()["id"]
+        ps_id = (await client.get(f"/api/v1/tenant/projects/{pid}", headers=admin_headers)).json()[
+            "services"
+        ][0]["id"]
+
+        inv_resp = await client.post(
+            "/api/v1/tenant/invoices/",
+            json={"project_id": pid, "line_items": [{"project_service_id": ps_id}]},
+            headers=admin_headers,
+        )
+        assert inv_resp.status_code == 201
+        inv_id = inv_resp.json()["id"]
+        await client.post(f"/api/v1/tenant/invoices/{inv_id}/issue", headers=admin_headers)
+        pay_resp = await client.post(
+            f"/api/v1/tenant/invoices/{inv_id}/transactions",
+            json={"amount": "200.00", "method": "bank_transfer"},
+            headers=admin_headers,
+        )
+        assert pay_resp.status_code == 201
+
+        resp = await client.get(f"/api/v1/tenant/projects/{pid}/overview", headers=admin_headers)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total_invoiced"] == "500.00"
+        assert data["total_paid"] == "200.00"
+        assert data["balance_due"] == "300.00"
+        assert len(data["service_breakdown"]) == 1
+        item = data["service_breakdown"][0]
+        assert item["service_id"] == str(ctx["svc_a"].id)
+        assert item["service_name"] == ctx["svc_a"].name
+        assert item["total_invoiced"] == "500.00"
+        assert item["total_paid"] == "200.00"
+        assert item["total_outstanding"] == "300.00"
+
+    @pytest.mark.asyncio
+    async def test_overview_service_breakdown_custom_line_item(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        ctx = await _bootstrap(db_session)
+        admin_headers = await _admin_auth_header(ctx["admin"])
+        pid = (
+            await client.post(
+                "/api/v1/tenant/projects/",
+                json={"name": "Custom Breakdown", "client_id": str(ctx["client"].id)},
+                headers=admin_headers,
+            )
+        ).json()["id"]
+
+        inv_resp = await client.post(
+            "/api/v1/tenant/invoices/",
+            json={
+                "project_id": pid,
+                "line_items": [
+                    {"description": "Setup fee", "unit_price": "250.00", "quantity": "2"}
+                ],
+            },
+            headers=admin_headers,
+        )
+        assert inv_resp.status_code == 201
+        inv_id = inv_resp.json()["id"]
+        await client.post(f"/api/v1/tenant/invoices/{inv_id}/issue", headers=admin_headers)
+
+        resp = await client.get(f"/api/v1/tenant/projects/{pid}/overview", headers=admin_headers)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data["service_breakdown"]) == 1
+        item = data["service_breakdown"][0]
+        assert item["service_id"] is None
+        assert item["service_name"] == "Custom"
+        assert item["total_invoiced"] == "500.00"
+        assert item["total_paid"] == "0.00"
+        assert item["total_outstanding"] == "500.00"
+
+    @pytest.mark.asyncio
+    async def test_overview_not_found(self, client: AsyncClient, db_session: AsyncSession):
+        ctx = await _bootstrap(db_session)
+        admin_headers = await _admin_auth_header(ctx["admin"])
+        resp = await client.get(
+            "/api/v1/tenant/projects/00000000-0000-0000-0000-000000000000/overview",
+            headers=admin_headers,
+        )
+        assert resp.status_code == 404
+        resp2 = await client.get(
+            "/api/v1/tenant/projects/not-a-uuid/overview", headers=admin_headers
+        )
+        assert resp2.status_code == 404
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Remove project service (TODO-070)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestRemoveProjectService:
+    @pytest.mark.asyncio
+    async def test_remove_uninvoiced_service(self, client: AsyncClient, db_session: AsyncSession):
+        ctx = await _bootstrap(db_session)
+        admin_headers = await _admin_auth_header(ctx["admin"])
+        create_resp = await client.post(
+            "/api/v1/tenant/projects/",
+            json={
+                "name": "Remove",
+                "client_id": str(ctx["client"].id),
+                "service_ids": [str(ctx["svc_a"].id)],
+            },
+            headers=admin_headers,
+        )
+        pid = create_resp.json()["id"]
+        detail = (await client.get(f"/api/v1/tenant/projects/{pid}", headers=admin_headers)).json()
+        ps_id = detail["services"][0]["id"]
+        assert len(detail["milestones"]) == 2  # svc_a has 2 steps
+
+        resp = await client.delete(
+            f"/api/v1/tenant/projects/{pid}/services/{ps_id}", headers=admin_headers
+        )
+        assert resp.status_code == 204
+
+        detail2 = (await client.get(f"/api/v1/tenant/projects/{pid}", headers=admin_headers)).json()
+        assert all(s["id"] != ps_id for s in detail2["services"])
+        assert detail2["services"] == []
+        assert detail2["milestones"] == []  # cascade removed this service's milestones
+
+    @pytest.mark.asyncio
+    async def test_remove_invoiced_service_soft_cancels(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        ctx = await _bootstrap(db_session)
+        admin_headers = await _admin_auth_header(ctx["admin"])
+        create_resp = await client.post(
+            "/api/v1/tenant/projects/",
+            json={
+                "name": "SoftCancel",
+                "client_id": str(ctx["client"].id),
+                "service_ids": [str(ctx["svc_a"].id)],
+            },
+            headers=admin_headers,
+        )
+        pid = create_resp.json()["id"]
+        ps_id = (await client.get(f"/api/v1/tenant/projects/{pid}", headers=admin_headers)).json()[
+            "services"
+        ][0]["id"]
+
+        # Invoice against the service, then issue it
+        inv_resp = await client.post(
+            "/api/v1/tenant/invoices/",
+            json={
+                "project_id": pid,
+                "line_items": [{"project_service_id": ps_id}],
+            },
+            headers=admin_headers,
+        )
+        assert inv_resp.status_code == 201
+        inv_id = inv_resp.json()["id"]
+        issue_resp = await client.post(
+            f"/api/v1/tenant/invoices/{inv_id}/issue", headers=admin_headers
+        )
+        assert issue_resp.status_code == 200
+
+        resp = await client.delete(
+            f"/api/v1/tenant/projects/{pid}/services/{ps_id}", headers=admin_headers
+        )
+        assert resp.status_code == 204
+
+        detail = (await client.get(f"/api/v1/tenant/projects/{pid}", headers=admin_headers)).json()
+        svc = next(s for s in detail["services"] if s["id"] == ps_id)
+        assert svc["status"] == "cancelled"
+        assert len(detail["milestones"]) == 2  # milestones stay on soft path
+
+        inv_detail = (
+            await client.get(f"/api/v1/tenant/invoices/{inv_id}", headers=admin_headers)
+        ).json()
+        assert len(inv_detail["line_items"]) == 1
+        assert inv_detail["line_items"][0]["project_service_id"] == ps_id
+
+    @pytest.mark.asyncio
+    async def test_remove_missing_404(self, client: AsyncClient, db_session: AsyncSession):
+        ctx = await _bootstrap(db_session)
+        admin_headers = await _admin_auth_header(ctx["admin"])
+        pid = (
+            await client.post(
+                "/api/v1/tenant/projects/",
+                json={"name": "Missing", "client_id": str(ctx["client"].id)},
+                headers=admin_headers,
+            )
+        ).json()["id"]
+
+        resp = await client.delete(
+            f"/api/v1/tenant/projects/{pid}/services/{uuid.uuid4()}",
+            headers=admin_headers,
+        )
+        assert resp.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_remove_already_cancelled_409(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        ctx = await _bootstrap(db_session)
+        admin_headers = await _admin_auth_header(ctx["admin"])
+        create_resp = await client.post(
+            "/api/v1/tenant/projects/",
+            json={
+                "name": "DupCancel",
+                "client_id": str(ctx["client"].id),
+                "service_ids": [str(ctx["svc_a"].id)],
+            },
+            headers=admin_headers,
+        )
+        pid = create_resp.json()["id"]
+        ps_id = (await client.get(f"/api/v1/tenant/projects/{pid}", headers=admin_headers)).json()[
+            "services"
+        ][0]["id"]
+
+        # First delete: soft-cancel (service is referenced by no invoice -> hard
+        # delete would apply; to force the soft path we invoice it first)
+        inv_resp = await client.post(
+            "/api/v1/tenant/invoices/",
+            json={
+                "project_id": pid,
+                "line_items": [{"project_service_id": ps_id}],
+            },
+            headers=admin_headers,
+        )
+        assert inv_resp.status_code == 201
+        inv_id = inv_resp.json()["id"]
+        await client.post(f"/api/v1/tenant/invoices/{inv_id}/issue", headers=admin_headers)
+
+        resp = await client.delete(
+            f"/api/v1/tenant/projects/{pid}/services/{ps_id}", headers=admin_headers
+        )
+        assert resp.status_code == 204
+
+        # Second delete: already cancelled -> 409
+        resp2 = await client.delete(
+            f"/api/v1/tenant/projects/{pid}/services/{ps_id}", headers=admin_headers
+        )
+        assert resp2.status_code == 409

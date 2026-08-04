@@ -159,7 +159,7 @@ async def get_client_endpoint(
             detail="Client not found",
         ) from None
 
-    client = await client_service.get_client(session, tenant_id=tenant_id, client_id=cid)
+    client = await client_service.get_client_detail(session, tenant_id=tenant_id, client_id=cid)
 
     # Get recent 10 activity entries
     activity = await client_service.get_activity(
@@ -178,7 +178,7 @@ async def get_client_endpoint(
             is_active=u.is_active,
             is_primary_billing_contact=u.is_primary_billing_contact,
         )
-        for u in client.client_users
+        for u in client["client_users"]
     ]
 
     recent_activity = [
@@ -196,20 +196,23 @@ async def get_client_endpoint(
     ]
 
     return ClientDetailResponse(
-        id=client.id,
-        tenant_id=client.tenant_id,
-        name=client.name,
-        client_type=client.client_type.value,
-        email=client.email,
-        phone=client.phone,
-        billing_address=client.billing_address,
-        tax_id=client.tax_id,
-        status=client.status.value,
-        tags=client.tags,
-        created_at=client.created_at,
-        updated_at=client.updated_at,
+        id=client["id"],
+        tenant_id=client["tenant_id"],
+        name=client["name"],
+        client_type=client["client_type"],
+        email=client["email"],
+        phone=client["phone"],
+        billing_address=client["billing_address"],
+        tax_id=client["tax_id"],
+        status=client["status"],
+        tags=client["tags"],
+        created_at=client["created_at"],
+        updated_at=client["updated_at"],
         client_users=client_users,
         recent_activity=recent_activity,
+        total_invoiced=client["total_invoiced"],
+        total_paid=client["total_paid"],
+        total_outstanding=client["total_outstanding"],
     )
 
 

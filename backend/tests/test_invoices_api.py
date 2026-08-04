@@ -1,0 +1,562 @@
+"""Integration tests for invoice APIs (FEAT-008, TODO-075/076/078/079)."""
+
+from __future__ import annotations
+
+import uuid
+from datetime import date
+
+import pytest
+from httpx import AsyncClient
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.security import create_access_token, hash_password
+from app.models.admin_user import AdminUser
+from app.models.audit_log import AuditLog
+from app.models.client import Client
+from app.models.enums import AdminUserRole, ClientStatus, ClientType, TenantStatus
+from app.models.plan import Plan
+from app.models.project import Project
+from app.models.project_service import ProjectService
+from app.models.service import Service
+from app.models.tenant import Tenant
+
+_TEST_PWD = "testpass123!"
+
+
+# ── Helpers ────────────────────────────────────────────────────────────────
+
+
+async def _create_plan(session: AsyncSession) -> Plan:
+    plan = Plan(
+        name=f"TestPlan-{uuid.uuid4().hex[:8]}",
+        max_admin_users=5,
+        max_clients=20,
+        max_active_projects=50,
+        max_storage_mb=256,
+    )
+    session.add(plan)
+    await session.commit()
+    await session.refresh(plan)
+    return plan
+
+
+async def _create_tenant(
+    session: AsyncSession,
+    plan_id: uuid.UUID,
+    business_name: str = "TestCo",
+) -> Tenant:
+    tenant = Tenant(
+        business_name=business_name,
+        slug=f"testco-{uuid.uuid4().hex[:8]}",
+        status=TenantStatus.ACTIVE,
+        plan_id=plan_id,
+    )
+    session.add(tenant)
+    await session.commit()
+    await session.refresh(tenant)
+    return tenant
+
+
+async def _create_admin(
+    session: AsyncSession,
+    email: str,
+    role: AdminUserRole,
+    tenant_id: uuid.UUID | None = None,
+) -> AdminUser:
+    user = AdminUser(
+        tenant_id=tenant_id,
+        email=email,
+        full_name=f"Test {role.value}",
+        hashed_password=hash_password(_TEST_PWD),
+        role=role,
+        is_active=True,
+    )
+    session.add(user)
+    await session.commit()
+    await session.refresh(user)
+    return user
+
+
+async def _create_client(session: AsyncSession, tenant_id: uuid.UUID) -> Client:
+    client = Client(
+        tenant_id=tenant_id,
+        name=f"Test Client {uuid.uuid4().hex[:6]}",
+        client_type=ClientType.COMPANY,
+        status=ClientStatus.ACTIVE,
+    )
+    session.add(client)
+    await session.commit()
+    await session.refresh(client)
+    return client
+
+
+async def _create_service(
+    session: AsyncSession,
+    tenant_id: uuid.UUID,
+    *,
+    name: str = "Test Service",
+) -> Service:
+    service = Service(
+        tenant_id=tenant_id,
+        name=f"{name} {uuid.uuid4().hex[:6]}",
+        description="",
+        default_price="500.00",
+        is_active=True,
+    )
+    session.add(service)
+    await session.commit()
+    await session.refresh(service)
+    return service
+
+
+async def _create_project(
+    session: AsyncSession,
+    tenant_id: uuid.UUID,
+    client_id: uuid.UUID,
+) -> Project:
+    project = Project(
+        tenant_id=tenant_id,
+        name=f"Proj {uuid.uuid4().hex[:6]}",
+        client_id=client_id,
+    )
+    session.add(project)
+    await session.commit()
+    await session.refresh(project)
+    return project
+
+
+async def _attach_service(
+    session: AsyncSession,
+    project_id: uuid.UUID,
+    service: Service,
+) -> ProjectService:
+    ps = ProjectService(
+        project_id=project_id,
+        service_id=service.id,
+        price_at_attachment=service.default_price,
+    )
+    session.add(ps)
+    await session.commit()
+    await session.refresh(ps)
+    return ps
+
+
+async def _admin_auth_header(user: AdminUser) -> dict[str, str]:
+    token = create_access_token(
+        user_id=str(user.id),
+        tenant_id=str(user.tenant_id) if user.tenant_id else None,
+        role=user.role.value,
+        realm="admin",
+    )
+    return {"Authorization": f"Bearer {token}"}
+
+
+async def _bootstrap(
+    db_session: AsyncSession,
+    *,
+    role: AdminUserRole = AdminUserRole.ADMIN,
+):
+    """Create plan + tenant + admin + client + service + project + attachment."""
+    plan = await _create_plan(db_session)
+    tenant = await _create_tenant(db_session, plan.id)
+    admin = await _create_admin(
+        db_session,
+        f"admin-{uuid.uuid4().hex[:8]}@testco.com",
+        role,
+        tenant.id,
+    )
+    client = await _create_client(db_session, tenant.id)
+    svc = await _create_service(db_session, tenant.id, name="Svc")
+    project = await _create_project(db_session, tenant.id, client.id)
+    ps = await _attach_service(db_session, project.id, svc)
+    return {
+        "plan": plan,
+        "tenant": tenant,
+        "admin": admin,
+        "client": client,
+        "svc": svc,
+        "project": project,
+        "ps": ps,
+    }
+
+
+async def _create_invoice(
+    client: AsyncClient,
+    headers: dict[str, str],
+    project_id: uuid.UUID,
+    project_service_id: uuid.UUID,
+):
+    resp = await client.post(
+        "/api/v1/tenant/invoices/",
+        json={
+            "project_id": str(project_id),
+            "line_items": [{"project_service_id": str(project_service_id)}],
+        },
+        headers=headers,
+    )
+    assert resp.status_code == 201
+    return resp.json()["id"]
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Invoice API
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestInvoicesAPI:
+    @pytest.mark.asyncio
+    async def test_create_draft_with_project_service(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        ctx = await _bootstrap(db_session)
+        resp = await client.post(
+            "/api/v1/tenant/invoices/",
+            json={
+                "project_id": str(ctx["project"].id),
+                "line_items": [{"project_service_id": str(ctx["ps"].id)}],
+            },
+            headers=await _admin_auth_header(ctx["admin"]),
+        )
+        assert resp.status_code == 201
+        data = resp.json()
+        assert data["status"] == "draft"
+        assert data["invoice_number"] is None
+        assert data["total"] == f"{ctx['svc'].default_price:.2f}"
+        assert data["subtotal"] == data["total"]
+        assert data["tax_total"] == "0.00"
+        assert data["client_id"] == str(ctx["client"].id)
+        assert len(data["line_items"]) == 1
+        li = data["line_items"][0]
+        assert li["description"] == ctx["svc"].name
+        assert li["unit_price"] == f"{ctx['svc'].default_price:.2f}"
+        assert li["amount"] == f"{ctx['svc'].default_price:.2f}"
+
+    @pytest.mark.asyncio
+    async def test_create_draft_with_custom_line_item(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        ctx = await _bootstrap(db_session)
+        resp = await client.post(
+            "/api/v1/tenant/invoices/",
+            json={
+                "project_id": str(ctx["project"].id),
+                "line_items": [
+                    {"description": "Setup fee", "unit_price": "250.00", "quantity": "2"}
+                ],
+            },
+            headers=await _admin_auth_header(ctx["admin"]),
+        )
+        assert resp.status_code == 201
+        data = resp.json()
+        assert data["total"] == "500.00"
+        li = data["line_items"][0]
+        assert li["amount"] == "500.00"
+        assert li["quantity"] == "2.00"
+        assert li["project_service_id"] is None
+
+    @pytest.mark.asyncio
+    async def test_create_draft_validation(self, client: AsyncClient, db_session: AsyncSession):
+        ctx = await _bootstrap(db_session)
+        headers = await _admin_auth_header(ctx["admin"])
+        # empty line items -> 422
+        resp = await client.post(
+            "/api/v1/tenant/invoices/",
+            json={"project_id": str(ctx["project"].id), "line_items": []},
+            headers=headers,
+        )
+        assert resp.status_code == 422
+        # random (non-existent) project -> 404
+        resp = await client.post(
+            "/api/v1/tenant/invoices/",
+            json={
+                "project_id": str(uuid.uuid4()),
+                "line_items": [{"project_service_id": str(ctx["ps"].id)}],
+            },
+            headers=headers,
+        )
+        assert resp.status_code == 404
+        # malformed uuid in path -> 404
+        resp = await client.get("/api/v1/tenant/invoices/not-a-uuid", headers=headers)
+        assert resp.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_update_draft(self, client: AsyncClient, db_session: AsyncSession):
+        ctx = await _bootstrap(db_session)
+        headers = await _admin_auth_header(ctx["admin"])
+        inv_id = await _create_invoice(client, headers, ctx["project"].id, ctx["ps"].id)
+
+        resp = await client.patch(
+            f"/api/v1/tenant/invoices/{inv_id}",
+            json={"due_date": "2026-09-30", "notes": "Updated note"},
+            headers=headers,
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["due_date"] == "2026-09-30"
+        assert data["notes"] == "Updated note"
+
+        # Replace line items -> totals recomputed
+        resp = await client.patch(
+            f"/api/v1/tenant/invoices/{inv_id}",
+            json={
+                "line_items": [{"description": "Custom", "unit_price": "100.00", "quantity": "3"}]
+            },
+            headers=headers,
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] == "300.00"
+        assert len(data["line_items"]) == 1
+        assert data["line_items"][0]["description"] == "Custom"
+
+    @pytest.mark.asyncio
+    async def test_issue_assigns_sequential_number(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        ctx = await _bootstrap(db_session)
+        headers = await _admin_auth_header(ctx["admin"])
+        inv1 = await _create_invoice(client, headers, ctx["project"].id, ctx["ps"].id)
+        inv2 = await _create_invoice(client, headers, ctx["project"].id, ctx["ps"].id)
+
+        year = date.today().year
+        resp1 = await client.post(f"/api/v1/tenant/invoices/{inv1}/issue", headers=headers)
+        assert resp1.status_code == 200
+        assert resp1.json()["invoice_number"] == f"INV-{year}-0001"
+        assert resp1.json()["status"] == "issued"
+        assert resp1.json()["issue_date"] == date.today().isoformat()
+
+        resp2 = await client.post(f"/api/v1/tenant/invoices/{inv2}/issue", headers=headers)
+        assert resp2.status_code == 200
+        assert resp2.json()["invoice_number"] == f"INV-{year}-0002"
+
+    @pytest.mark.asyncio
+    async def test_issue_non_draft_rejected(self, client: AsyncClient, db_session: AsyncSession):
+        ctx = await _bootstrap(db_session)
+        headers = await _admin_auth_header(ctx["admin"])
+        inv_id = await _create_invoice(client, headers, ctx["project"].id, ctx["ps"].id)
+
+        resp = await client.post(f"/api/v1/tenant/invoices/{inv_id}/issue", headers=headers)
+        assert resp.status_code == 200
+
+        resp2 = await client.post(f"/api/v1/tenant/invoices/{inv_id}/issue", headers=headers)
+        assert resp2.status_code == 422
+
+    @pytest.mark.asyncio
+    async def test_issue_not_found(self, client: AsyncClient, db_session: AsyncSession):
+        ctx = await _bootstrap(db_session)
+        resp = await client.post(
+            f"/api/v1/tenant/invoices/{uuid.uuid4()}/issue",
+            headers=await _admin_auth_header(ctx["admin"]),
+        )
+        assert resp.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_patch_issued_locked(self, client: AsyncClient, db_session: AsyncSession):
+        ctx = await _bootstrap(db_session)
+        headers = await _admin_auth_header(ctx["admin"])
+        inv_id = await _create_invoice(client, headers, ctx["project"].id, ctx["ps"].id)
+        await client.post(f"/api/v1/tenant/invoices/{inv_id}/issue", headers=headers)
+
+        # due_date locked after issue
+        resp = await client.patch(
+            f"/api/v1/tenant/invoices/{inv_id}",
+            json={"due_date": "2026-12-01"},
+            headers=headers,
+        )
+        assert resp.status_code == 422
+
+        # notes still editable after issue
+        resp = await client.patch(
+            f"/api/v1/tenant/invoices/{inv_id}",
+            json={"notes": "Post-issue note"},
+            headers=headers,
+        )
+        assert resp.status_code == 200
+        assert resp.json()["notes"] == "Post-issue note"
+
+    @pytest.mark.asyncio
+    async def test_delete_draft(self, client: AsyncClient, db_session: AsyncSession):
+        ctx = await _bootstrap(db_session)
+        headers = await _admin_auth_header(ctx["admin"])
+        inv_id = await _create_invoice(client, headers, ctx["project"].id, ctx["ps"].id)
+
+        resp = await client.delete(f"/api/v1/tenant/invoices/{inv_id}", headers=headers)
+        assert resp.status_code == 204
+
+        resp = await client.get(f"/api/v1/tenant/invoices/{inv_id}", headers=headers)
+        assert resp.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_delete_issued_rejected(self, client: AsyncClient, db_session: AsyncSession):
+        ctx = await _bootstrap(db_session)
+        headers = await _admin_auth_header(ctx["admin"])
+        inv_id = await _create_invoice(client, headers, ctx["project"].id, ctx["ps"].id)
+        await client.post(f"/api/v1/tenant/invoices/{inv_id}/issue", headers=headers)
+
+        resp = await client.delete(f"/api/v1/tenant/invoices/{inv_id}", headers=headers)
+        assert resp.status_code == 405
+
+    @pytest.mark.asyncio
+    async def test_employee_cannot_create(self, client: AsyncClient, db_session: AsyncSession):
+        ctx = await _bootstrap(db_session, role=AdminUserRole.EMPLOYEE)
+        resp = await client.post(
+            "/api/v1/tenant/invoices/",
+            json={
+                "project_id": str(ctx["project"].id),
+                "line_items": [{"project_service_id": str(ctx["ps"].id)}],
+            },
+            headers=await _admin_auth_header(ctx["admin"]),
+        )
+        assert resp.status_code == 403
+
+    @pytest.mark.asyncio
+    async def test_list_invoices(self, client: AsyncClient, db_session: AsyncSession):
+        ctx = await _bootstrap(db_session)
+        headers = await _admin_auth_header(ctx["admin"])
+        inv1 = await _create_invoice(client, headers, ctx["project"].id, ctx["ps"].id)
+        inv2 = await _create_invoice(client, headers, ctx["project"].id, ctx["ps"].id)
+
+        resp = await client.get("/api/v1/tenant/invoices/", headers=headers)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] == 2
+        assert len(data["items"]) == 2
+        assert {item["id"] for item in data["items"]} == {inv1, inv2}
+
+        # status filter works
+        resp = await client.get("/api/v1/tenant/invoices/?status=draft", headers=headers)
+        assert resp.json()["total"] == 2
+        await client.post(f"/api/v1/tenant/invoices/{inv1}/issue", headers=headers)
+        resp = await client.get("/api/v1/tenant/invoices/?status=issued", headers=headers)
+        assert resp.json()["total"] == 1
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Void invoice (TODO-081)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestVoidInvoice:
+    @pytest.mark.asyncio
+    async def test_void_issued_invoice(self, client: AsyncClient, db_session: AsyncSession):
+        ctx = await _bootstrap(db_session)
+        headers = await _admin_auth_header(ctx["admin"])
+        inv_id = await _create_invoice(client, headers, ctx["project"].id, ctx["ps"].id)
+        resp = await client.post(f"/api/v1/tenant/invoices/{inv_id}/issue", headers=headers)
+        assert resp.status_code == 200
+        issued_number = resp.json()["invoice_number"]
+        assert issued_number is not None
+
+        resp = await client.post(f"/api/v1/tenant/invoices/{inv_id}/void", headers=headers)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "void"
+        assert data["invoice_number"] == issued_number  # number retained
+        assert data["total"] == f"{ctx['svc'].default_price:.2f}"
+
+        # detail also shows void
+        resp = await client.get(f"/api/v1/tenant/invoices/{inv_id}", headers=headers)
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "void"
+
+    @pytest.mark.asyncio
+    async def test_void_draft_and_already_void_422(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        ctx = await _bootstrap(db_session)
+        headers = await _admin_auth_header(ctx["admin"])
+        inv_id = await _create_invoice(client, headers, ctx["project"].id, ctx["ps"].id)
+
+        # draft -> 422 (drafts are deleted, not voided)
+        resp = await client.post(f"/api/v1/tenant/invoices/{inv_id}/void", headers=headers)
+        assert resp.status_code == 422
+        assert "Only issued" in resp.json()["error"]["message"]
+
+        # already void -> 422
+        await client.post(f"/api/v1/tenant/invoices/{inv_id}/issue", headers=headers)
+        resp = await client.post(f"/api/v1/tenant/invoices/{inv_id}/void", headers=headers)
+        assert resp.status_code == 200
+        resp = await client.post(f"/api/v1/tenant/invoices/{inv_id}/void", headers=headers)
+        assert resp.status_code == 422
+        assert "already voided" in resp.json()["error"]["message"]
+
+    @pytest.mark.asyncio
+    async def test_void_audited(self, client: AsyncClient, db_session: AsyncSession):
+        ctx = await _bootstrap(db_session)
+        headers = await _admin_auth_header(ctx["admin"])
+        inv_id = await _create_invoice(client, headers, ctx["project"].id, ctx["ps"].id)
+        await client.post(f"/api/v1/tenant/invoices/{inv_id}/issue", headers=headers)
+
+        await client.post(f"/api/v1/tenant/invoices/{inv_id}/void", headers=headers)
+
+        rows = (
+            (
+                await db_session.execute(
+                    select(AuditLog).where(
+                        AuditLog.tenant_id == ctx["tenant"].id,
+                        AuditLog.action == "invoice.voided",
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        assert len(rows) == 1
+        assert rows[0].entity_type == "invoice"
+        assert rows[0].entity_id == inv_id
+        assert rows[0].details["invoice_number"].startswith("INV-")
+
+    @pytest.mark.asyncio
+    async def test_void_not_found(self, client: AsyncClient, db_session: AsyncSession):
+        ctx = await _bootstrap(db_session)
+        resp = await client.post(
+            f"/api/v1/tenant/invoices/{uuid.uuid4()}/void",
+            headers=await _admin_auth_header(ctx["admin"]),
+        )
+        assert resp.status_code == 404
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Invoice PDF (TODO-084/085)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestInvoicePDF:
+    @pytest.mark.asyncio
+    async def test_issued_invoice_pdf(self, client: AsyncClient, db_session: AsyncSession):
+        ctx = await _bootstrap(db_session)
+        headers = await _admin_auth_header(ctx["admin"])
+        inv_id = await _create_invoice(client, headers, ctx["project"].id, ctx["ps"].id)
+        await client.post(f"/api/v1/tenant/invoices/{inv_id}/issue", headers=headers)
+
+        resp = await client.get(f"/api/v1/tenant/invoices/{inv_id}/pdf", headers=headers)
+        assert resp.status_code == 200
+        assert resp.headers["content-type"].startswith("application/pdf")
+        assert resp.content[:4] == b"%PDF"
+        disposition = resp.headers["content-disposition"]
+        assert "filename=" in disposition
+        assert disposition.startswith("attachment;")
+
+    @pytest.mark.asyncio
+    async def test_draft_invoice_pdf_uses_draft_filename(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        ctx = await _bootstrap(db_session)
+        headers = await _admin_auth_header(ctx["admin"])
+        inv_id = await _create_invoice(client, headers, ctx["project"].id, ctx["ps"].id)
+
+        resp = await client.get(f"/api/v1/tenant/invoices/{inv_id}/pdf", headers=headers)
+        assert resp.status_code == 200
+        assert resp.headers["content-type"].startswith("application/pdf")
+        assert resp.content[:4] == b"%PDF"
+        assert 'filename="DRAFT.pdf"' in resp.headers["content-disposition"]
+
+    @pytest.mark.asyncio
+    async def test_pdf_not_found(self, client: AsyncClient, db_session: AsyncSession):
+        ctx = await _bootstrap(db_session)
+        resp = await client.get(
+            f"/api/v1/tenant/invoices/{uuid.uuid4()}/pdf",
+            headers=await _admin_auth_header(ctx["admin"]),
+        )
+        assert resp.status_code == 404

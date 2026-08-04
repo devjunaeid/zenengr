@@ -55,6 +55,13 @@ class ClientType(enum.StrEnum):
     INDIVIDUAL = "individual"
 
 
+class CommentAuthorType(enum.StrEnum):
+    TENANT_ADMIN = "tenant_admin"
+    TENANT_MANAGER = "tenant_manager"
+    TENANT_EMPLOYEE = "tenant_employee"
+    CLIENT_USER = "client_user"
+
+
 class ClientStatus(enum.StrEnum):
     ACTIVE = "active"
     ARCHIVED = "archived"
@@ -78,3 +85,25 @@ class ProjectStatus(enum.StrEnum):
 class ProjectServiceStatus(enum.StrEnum):
     ACTIVE = "active"
     CANCELLED = "cancelled"
+
+
+class InvoiceStatus(enum.StrEnum):
+    DRAFT = "draft"
+    ISSUED = "issued"
+    PARTIALLY_PAID = "partially_paid"
+    PAID = "paid"
+    VOID = "void"
+
+
+class PaymentMethod(enum.StrEnum):
+    BANK_TRANSFER = "bank_transfer"
+    CARD = "card"
+    CASH = "cash"
+    OTHER = "other"
+
+
+class NotificationEventType(enum.StrEnum):
+    NEW_COMMENT = "new_comment"
+    INVOICE_ISSUED = "invoice_issued"
+    PAYMENT_RECEIVED = "payment_received"
+    MILESTONE_COMPLETED = "milestone_completed"

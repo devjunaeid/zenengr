@@ -45,11 +45,11 @@ def _to_detail_response(service: Any) -> ServiceDetailResponse:
         default_price=service.default_price,
         is_active=service.is_active,
         step_count=len(service.milestone_steps),
+        in_use=getattr(service, "in_use", False),
+        project_count=getattr(service, "project_count", 0),
         created_at=service.created_at,
         updated_at=service.updated_at,
-        steps=[
-            MilestoneStepResponse.model_validate(s) for s in service.milestone_steps
-        ],
+        steps=[MilestoneStepResponse.model_validate(s) for s in service.milestone_steps],
     )
 
 
@@ -132,10 +132,8 @@ async def get_service_endpoint(
             detail="Service not found",
         ) from None
 
-    service = await service_service.get_service_detail(
-        session, tenant_id=tenant_id, service_id=sid
-    )
-    return _to_detail_response(service)
+    detail = await service_service.get_service_detail(session, tenant_id=tenant_id, service_id=sid)
+    return ServiceDetailResponse.model_validate(detail)
 
 
 @router.patch("/{service_id}", response_model=ServiceDetailResponse)

@@ -9,16 +9,18 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_current_admin_user, require_permission
 from app.db.session import get_session
 from app.models.admin_user import AdminUser
 from app.models.enums import ProjectStatus
+from app.schemas.comments import CommentCreateRequest, CommentResponse
 from app.schemas.projects import (
     AttachServiceRequest,
     AttachServiceResponse,
+    LinkedInvoiceItem,
     MilestoneUpdateRequest,
     ProjectCreateRequest,
     ProjectCreateResponse,
@@ -26,9 +28,12 @@ from app.schemas.projects import (
     ProjectListItem,
     ProjectListResponse,
     ProjectMilestoneItem,
+    ProjectOverviewResponse,
+    ProjectServiceFinancialItem,
     ProjectServiceItem,
     ProjectUpdateRequest,
 )
+from app.services import comments as comment_service
 from app.services import projects as project_service
 
 router = APIRouter(prefix="/tenant/projects", tags=["projects"])
@@ -119,6 +124,19 @@ def _to_create_response(project: Any) -> ProjectCreateResponse:
         service_count=len(project.project_services),
         milestone_count=len(project.milestones),
         created_at=project.created_at,
+    )
+
+
+def _to_comment_response(comment: Any) -> CommentResponse:
+    return CommentResponse(
+        id=comment.id,
+        project_id=comment.project_id,
+        author_id=comment.author_id,
+        author_type=comment.author_type,
+        author_name=comment.author_name,
+        content=comment.content,
+        is_internal=comment.is_internal,
+        created_at=comment.created_at,
     )
 
 
@@ -216,10 +234,35 @@ async def get_project_endpoint(
     """Get project detail with services + milestones. All staff can read."""
     tenant_id = _get_tenant_id(user)
     pid = _parse_uuid(project_id, kind="Project")
-    project = await project_service.get_project(
-        session, tenant_id=tenant_id, project_id=pid
-    )
+    project = await project_service.get_project(session, tenant_id=tenant_id, project_id=pid)
     return _to_detail(project)
+
+
+@router.get("/{project_id}/overview", response_model=ProjectOverviewResponse)
+async def get_project_overview_endpoint(
+    project_id: str,
+    session: AsyncSession = Depends(get_session),
+    user: AdminUser = Depends(get_current_admin_user),
+) -> ProjectOverviewResponse:
+    """Project overview with milestone completion and financial summary. All staff can read."""
+    tenant_id = _get_tenant_id(user)
+    pid = _parse_uuid(project_id, kind="Project")
+    data = await project_service.get_project_overview(session, tenant_id=tenant_id, project_id=pid)
+    return ProjectOverviewResponse(
+        project_id=data["project_id"],
+        name=data["name"],
+        status=data["status"],
+        milestone_total=data["milestone_total"],
+        milestone_completed=data["milestone_completed"],
+        milestone_completion_pct=data["milestone_completion_pct"],
+        total_invoiced=data["financials"]["total_invoiced"],
+        total_paid=data["financials"]["total_paid"],
+        balance_due=data["financials"]["balance_due"],
+        linked_invoices=[LinkedInvoiceItem(**inv) for inv in data["invoices"]],
+        service_breakdown=[
+            ProjectServiceFinancialItem(**item) for item in data["service_breakdown"]
+        ],
+    )
 
 
 @router.patch("/{project_id}", response_model=ProjectDetailResponse)
@@ -274,9 +317,7 @@ async def attach_service_endpoint(
     return AttachServiceResponse(
         project_service_id=project_service_row.id,
         service_id=project_service_row.service_id,
-        service_name=project_service_row.service.name
-        if project_service_row.service
-        else "",
+        service_name=project_service_row.service.name if project_service_row.service else "",
         milestone_count=milestone_count,
     )
 
@@ -325,3 +366,76 @@ async def update_milestone_endpoint(
         created_at=milestone.created_at,
         updated_at=milestone.updated_at,
     )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Remove project service (TODO-070)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+@router.delete(
+    "/{project_id}/services/{project_service_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def remove_project_service_endpoint(
+    project_id: str,
+    project_service_id: str,
+    session: AsyncSession = Depends(get_session),
+    user: AdminUser = Depends(require_permission("manage", "projects")),
+) -> Response:
+    """Remove a project service: hard-delete when uninvoiced, soft-cancel otherwise."""
+    tenant_id = _get_tenant_id(user)
+    pid = _parse_uuid(project_id, kind="Project")
+    psid = _parse_uuid(project_service_id, kind="Project service")
+    await project_service.remove_project_service(
+        session,
+        tenant_id=tenant_id,
+        project_id=pid,
+        project_service_id=psid,
+        actor_id=user.id,
+    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Comments (FEAT-010, TODO-100/103/104/106/107)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+@router.post(
+    "/{project_id}/comments",
+    response_model=CommentResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def post_comment_endpoint(
+    project_id: str,
+    body: CommentCreateRequest,
+    session: AsyncSession = Depends(get_session),
+    user: AdminUser = Depends(get_current_admin_user),
+) -> CommentResponse:
+    """Post a comment on a project. All staff may attempt; employees are
+    restricted to projects they own (enforced in the service)."""
+    tenant_id = _get_tenant_id(user)
+    pid = _parse_uuid(project_id, kind="Project")
+    comment = await comment_service.post_comment(
+        session,
+        tenant_id=tenant_id,
+        project_id=pid,
+        content=body.content,
+        is_internal=body.is_internal,
+        actor=user,
+    )
+    return _to_comment_response(comment)
+
+
+@router.get("/{project_id}/comments", response_model=list[CommentResponse])
+async def list_comments_endpoint(
+    project_id: str,
+    session: AsyncSession = Depends(get_session),
+    user: AdminUser = Depends(get_current_admin_user),
+) -> list[CommentResponse]:
+    """List comments on a project (internal + shared). All staff can read."""
+    tenant_id = _get_tenant_id(user)
+    pid = _parse_uuid(project_id, kind="Project")
+    comments = await comment_service.list_comments(session, tenant_id=tenant_id, project_id=pid)
+    return [_to_comment_response(c) for c in comments]

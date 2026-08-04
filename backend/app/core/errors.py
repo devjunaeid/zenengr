@@ -1,9 +1,25 @@
+from decimal import Decimal
 from typing import Any
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
+
+
+def _json_safe(value: Any) -> Any:
+    """Recursively convert values that json.dumps cannot serialize.
+
+    Pydantic validation errors can carry constraint values such as
+    Decimal (e.g. Field(ge=Decimal("0"))), which are not JSON-serializable.
+    """
+    if isinstance(value, Decimal):
+        return str(value)
+    if isinstance(value, dict):
+        return {k: _json_safe(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(v) for v in value]
+    return value
 
 
 def _error_code(status_code: int) -> str:
@@ -30,7 +46,7 @@ def _error_response(
             "error": {
                 "code": _error_code(status_code),
                 "message": message,
-                "details": details or {},
+                "details": _json_safe(details) or {},
             }
         },
     )

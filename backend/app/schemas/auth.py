@@ -16,6 +16,11 @@ class UserResponse(BaseModel):
     full_name: str
     role: str
     tenant_id: str | None = None
+    avatar_url: str | None = None
+    phone: str | None = None
+    timezone: str | None = None
+    language: str | None = None
+    pending_email: str | None = None
 
     model_config = {"from_attributes": True}
 
