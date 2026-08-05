@@ -1,33 +1,211 @@
 /**
  * Shared formatting helpers.
+ *
+ * Price/date/time helpers are tenant-aware: they read the reactive
+ * `tenantSettings` store internally, so every call site follows the
+ * tenant's currency/timezone/date_format/time_format without passing
+ * settings around. Intl formatters are cached per key (currency, timezone,
+ * hour cycle) to avoid re-allocating them on every render.
  */
+import { tenantSettings } from '$lib/stores/settings.svelte.js';
 
 /**
- * Format an ISO timestamp as a short, local date-time string.
- * @param {string|null|undefined} iso
+ * Allowed date format templates (also used by the configuration page).
+ * @type {readonly string[]}
  */
-export function formatDate(iso) {
-	if (!iso) return '—';
-	const d = new Date(iso);
-	if (Number.isNaN(d.getTime())) return String(iso);
-	return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+export const DATE_FORMATS = [
+	'YYYY-MM-DD',
+	'DD-MM-YYYY',
+	'MM-DD-YYYY',
+	'DD/MM/YYYY',
+	'MM/DD/YYYY',
+	'YYYY/MM/DD',
+	'DD.MM.YYYY',
+	'MM.DD.YYYY',
+	'DD MMM YYYY',
+	'MMM D, YYYY',
+	'D MMMM YYYY',
+	'MMMM D, YYYY'
+];
+
+/** Matches date-only ISO strings like "2026-03-05" (no time component). */
+const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** @type {Map<string, Intl.NumberFormat>} */
+const priceFormatters = new Map();
+/** @type {Map<string, Intl.DateTimeFormat>} */
+const datePartExtractors = new Map();
+/** @type {Intl.DateTimeFormat|null} */
+let localDatePartExtractor = null;
+/** @type {Map<string, Intl.DateTimeFormat>} */
+const timeFormatters = new Map();
+
+/** @type {{ short: string[], long: string[] }|null} */
+let monthNamesCache = null;
+
+/**
+ * Month-name arrays (en-US), computed once from Intl formatters.
+ * @param {'short'|'long'} style
+ */
+function monthNames(style) {
+	if (!monthNamesCache) {
+		const short = [];
+		const long = [];
+		const fmtShort = new Intl.DateTimeFormat('en-US', { month: 'short' });
+		const fmtLong = new Intl.DateTimeFormat('en-US', { month: 'long' });
+		for (let i = 0; i < 12; i++) {
+			const d = new Date(2000, i, 1);
+			short.push(fmtShort.format(d));
+			long.push(fmtLong.format(d));
+		}
+		monthNamesCache = { short, long };
+	}
+	return monthNamesCache[style];
 }
 
 /**
- * Format an ISO timestamp with time.
+ * Cached per-timezone date-part extractor. Falls back to UTC when the
+ * configured timezone is not a valid IANA name (never cached on failure).
+ * @param {string} timeZone
+ */
+function getDateParts(timeZone) {
+	let fmt = datePartExtractors.get(timeZone);
+	if (!fmt) {
+		try {
+			fmt = new Intl.DateTimeFormat('en-US', {
+				timeZone,
+				year: 'numeric',
+				month: 'numeric',
+				day: 'numeric'
+			});
+			datePartExtractors.set(timeZone, fmt);
+		} catch {
+			return getDateParts('UTC');
+		}
+	}
+	return fmt;
+}
+
+/**
+ * Cached date-part extractor with NO timezone option: reads the calendar
+ * fields as literally given to the Date object (local naive date). Used for
+ * date-only ISO strings so they render as-is in any tenant/browser timezone.
+ * @returns {Intl.DateTimeFormat}
+ */
+function getLocalDateParts() {
+	if (!localDatePartExtractor) {
+		localDatePartExtractor = new Intl.DateTimeFormat('en-US', {
+			year: 'numeric',
+			month: 'numeric',
+			day: 'numeric'
+		});
+	}
+	return localDatePartExtractor;
+}
+
+/**
+ * Format a date-only ISO string or datetime into a tenant template.
+ * Tokens: YYYY, YY, MMMM, MMM, MM, M, DD, D.
+ *
  * @param {string|null|undefined} iso
+ * @param {{ date_format?: string, timezone?: string }} [overrides] explicit template/timezone (used by the configuration demo)
+ * @returns {string}
+ */
+export function formatDate(iso, overrides = {}) {
+	if (!iso) return '—';
+	const dateOnly = typeof iso === 'string' && DATE_ONLY_RE.test(iso);
+	const d = dateOnly
+		? (() => {
+				const [y, m, day] = iso.split('-').map(Number);
+				return new Date(y, m - 1, day);
+			})()
+		: new Date(iso);
+	if (Number.isNaN(d.getTime())) return '';
+	const settings = tenantSettings;
+	const template = overrides.date_format ?? settings.date_format;
+	const timeZone = overrides.timezone ?? settings.timezone;
+
+	const fmt = dateOnly ? getLocalDateParts() : getDateParts(timeZone);
+	const parts = fmt.formatToParts(d);
+	/** @type {Record<string, string>} */
+	const byType = {};
+	for (const p of parts) byType[p.type] = p.value;
+
+	const year = byType.year ?? '????';
+	const monthNum = parseInt(byType.month, 10);
+	const dayNum = parseInt(byType.day, 10);
+	const months = monthNames('long');
+	const monthsShort = monthNames('short');
+
+	// Single-pass token replace: longest tokens first so "MMMM" is not eaten
+	// by "MM", and month names inserted as values are never rescanned.
+	return template.replace(/YYYY|YY|MMMM|MMM|MM|M|DD|D/g, (tok) => {
+		switch (tok) {
+			case 'YYYY':
+				return year;
+			case 'YY':
+				return year.slice(-2);
+			case 'MMMM':
+				return months[monthNum - 1] ?? '';
+			case 'MMM':
+				return monthsShort[monthNum - 1] ?? '';
+			case 'MM':
+				return String(monthNum).padStart(2, '0');
+			case 'M':
+				return String(monthNum);
+			case 'DD':
+				return String(dayNum).padStart(2, '0');
+			case 'D':
+				return String(dayNum);
+			default:
+				return tok;
+		}
+	});
+}
+
+/**
+ * Format a datetime as HH:mm (24h) or h:mm a (12h) in the tenant timezone.
+ *
+ * @param {string|null|undefined} iso
+ * @param {{ time_format?: string, timezone?: string }} [overrides]
+ * @returns {string}
+ */
+export function formatTime(iso, overrides = {}) {
+	if (!iso) return '—';
+	if (typeof iso === 'string' && DATE_ONLY_RE.test(iso)) return '';
+	const d = new Date(iso);
+	if (Number.isNaN(d.getTime())) return '';
+	const settings = tenantSettings;
+	const timeZone = overrides.timezone ?? settings.timezone;
+	const hour12 = (overrides.time_format ?? settings.time_format) !== '24h';
+
+	const key = `${timeZone}|${hour12 ? '12' : '24'}`;
+	let fmt = timeFormatters.get(key);
+	if (!fmt) {
+		try {
+			fmt = new Intl.DateTimeFormat('en-US', {
+				timeZone,
+				hour: hour12 ? 'numeric' : '2-digit',
+				minute: '2-digit',
+				hour12
+			});
+			timeFormatters.set(key, fmt);
+		} catch {
+			if (timeZone !== 'UTC') return formatTime(iso, { ...overrides, timezone: 'UTC' });
+			return '—';
+		}
+	}
+	return fmt.format(d);
+}
+
+/**
+ * Format an ISO timestamp as date + time in tenant settings.
+ * @param {string|null|undefined} iso
+ * @returns {string}
  */
 export function formatDateTime(iso) {
-	if (!iso) return '—';
-	const d = new Date(iso);
-	if (Number.isNaN(d.getTime())) return String(iso);
-	return d.toLocaleString(undefined, {
-		year: 'numeric',
-		month: 'short',
-		day: 'numeric',
-		hour: '2-digit',
-		minute: '2-digit'
-	});
+	if (typeof iso === 'string' && DATE_ONLY_RE.test(iso)) return formatDate(iso);
+	return `${formatDate(iso)} ${formatTime(iso)}`;
 }
 
 /**
@@ -41,14 +219,26 @@ export function humanize(value) {
 }
 
 /**
- * Format a number or decimal-string as USD currency.
+ * Format a number or decimal-string as currency in the tenant currency.
+ * Formatter cached per currency code. Explicit `currency` overrides the
+ * tenant setting (e.g. client-realm APIs that return a fixed currency).
+ *
  * @param {number|string|null|undefined} v
+ * @param {string} [currency] 3-letter ISO code; defaults to tenant currency
+ * @returns {string}
  */
-export function fmtPrice(v) {
+export function fmtPrice(v, currency) {
 	if (v == null || v === '') return '—';
 	const n = Number(v);
-	if (Number.isNaN(n)) return '—';
-	return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n);
+	if (Number.isNaN(n)) return String(v);
+	const cur = currency ?? tenantSettings.currency;
+	let fmt = priceFormatters.get(cur);
+	if (!fmt) {
+		if (!/^[A-Z]{3}$/.test(cur)) return fmtPrice(v, 'USD');
+		fmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: cur });
+		priceFormatters.set(cur, fmt);
+	}
+	return fmt.format(n);
 }
 
 /**

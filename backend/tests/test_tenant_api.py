@@ -524,9 +524,74 @@ class TestTenantSettings:
         tenant, admin = await _create_tenant_and_admin(db_session)
         headers = await _auth_header(admin)
 
+        # "foo" is not in the supported date-format allowlist -> 422
         resp = await client.patch(
             "/api/v1/tenant/settings/date_format",
-            json={"value": "DD-MM-YYYY"},
+            json={"value": "foo"},
+            headers=headers,
+        )
+        assert resp.status_code == 422
+
+    @pytest.mark.anyio
+    async def test_patch_date_format_allowed_values(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        """Every supported date format (incl. hyphenated) patches cleanly."""
+        tenant, admin = await _create_tenant_and_admin(db_session)
+        headers = await _auth_header(admin)
+
+        from app.services.settings import _VALID_DATE_FORMATS
+
+        for fmt in sorted(_VALID_DATE_FORMATS):
+            resp = await client.patch(
+                "/api/v1/tenant/settings/date_format",
+                json={"value": fmt},
+                headers=headers,
+            )
+            assert resp.status_code == 200, f"{fmt}: {resp.text}"
+            assert resp.json()["value"] == fmt
+
+    @pytest.mark.anyio
+    async def test_patch_time_format_validation(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        tenant, admin = await _create_tenant_and_admin(db_session)
+        headers = await _auth_header(admin)
+
+        for val in ("12h", "24h"):
+            resp = await client.patch(
+                "/api/v1/tenant/settings/time_format",
+                json={"value": val},
+                headers=headers,
+            )
+            assert resp.status_code == 200
+            assert resp.json()["value"] == val
+
+        resp = await client.patch(
+            "/api/v1/tenant/settings/time_format",
+            json={"value": "10h"},
+            headers=headers,
+        )
+        assert resp.status_code == 422
+
+    @pytest.mark.anyio
+    async def test_patch_currency_allowed_and_rejected(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        tenant, admin = await _create_tenant_and_admin(db_session)
+        headers = await _auth_header(admin)
+
+        resp = await client.patch(
+            "/api/v1/tenant/settings/currency",
+            json={"value": "BDT"},
+            headers=headers,
+        )
+        assert resp.status_code == 200
+        assert resp.json()["value"] == "BDT"
+
+        resp = await client.patch(
+            "/api/v1/tenant/settings/currency",
+            json={"value": "not-a-currency"},
             headers=headers,
         )
         assert resp.status_code == 422

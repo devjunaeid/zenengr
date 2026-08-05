@@ -63,6 +63,16 @@ class ClientInvoiceDetailResponse(BaseModel):
     updated_at: datetime
 
 
+# ── Client formatting settings ───────────────────────────────────────────────
+
+
+class ClientSettingsResponse(BaseModel):
+    currency: str
+    timezone: str
+    date_format: str
+    time_format: str
+
+
 # ── Client project list ──────────────────────────────────────────────────────
 
 

@@ -5,8 +5,13 @@
 	import * as tenantApi from '$lib/api/tenant.js';
 	import Spinner from '$lib/components/Spinner.svelte';
 	import { auth } from '$lib/stores/auth.svelte.js';
+	import { DATE_FORMATS, formatDate } from '$lib/utils/format.js';
 
 	let { data } = $props();
+
+	// Fixed sample instant used for the live date-format demos (deterministic,
+	// avoids server/client hydration mismatch from `new Date()`).
+	const DEMO_ISO = '2026-03-05T14:30:00.000Z';
 
 	const token = /** @type {string} */ (auth.token);
 	let isAdmin = $derived(auth.isTenantAdmin);
@@ -103,13 +108,36 @@
 							<td class="px-4 py-3">
 								{#if s.editable && isAdmin}
 									<label for="set-{s.key}" class="sr-only">Value for {s.key}</label>
-									<input
-										id="set-{s.key}"
-										type="text"
-										bind:value={drafts[s.key]}
-										placeholder={s.value === null ? '••••••' : ''}
-										class="block w-64 rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-									/>
+									{#if s.key === 'date_format'}
+										<select
+											id="set-{s.key}"
+											bind:value={drafts[s.key]}
+											class="block w-72 rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+										>
+											{#each DATE_FORMATS as fmt (fmt)}
+												<option value={fmt}>
+													{fmt} — {formatDate(DEMO_ISO, { date_format: fmt })}
+												</option>
+											{/each}
+										</select>
+									{:else if s.key === 'time_format'}
+										<select
+											id="set-{s.key}"
+											bind:value={drafts[s.key]}
+											class="block w-72 rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+										>
+											<option value="24h">24h — 14:30</option>
+											<option value="12h">12h — 2:30 PM</option>
+										</select>
+									{:else}
+										<input
+											id="set-{s.key}"
+											type="text"
+											bind:value={drafts[s.key]}
+											placeholder={s.value === null ? '••••••' : ''}
+											class="block w-64 rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+										/>
+									{/if}
 								{:else}
 									<span class="text-sm text-slate-600">{s.value ?? '••••••'}</span>
 								{/if}

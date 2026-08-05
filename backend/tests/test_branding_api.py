@@ -5,8 +5,10 @@ storage migration/backfill tool (TODO-126)."""
 from __future__ import annotations
 
 import base64
+import re
 import types
 import uuid
+import zlib
 
 import boto3
 import pytest
@@ -387,6 +389,100 @@ class TestInvoicePdfStorageLogo:
         assert resp.status_code == 200
         assert resp.headers["content-type"].startswith("application/pdf")
         assert resp.content[:4] == b"%PDF"
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# PDF currency code (FEAT-014, TODO-151)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def _decompress_pdf_streams(pdf_bytes: bytes) -> bytes:
+    """Extract every stream object and decode ASCII85 + Flate content.
+
+    ReportLab writes content streams with [/ASCII85Decode /FlateDecode].
+    Returns the concatenated decoded bytes; undecodable streams are skipped.
+    """
+    decoded = bytearray()
+    for match in re.finditer(rb"stream\r?\n", pdf_bytes):
+        start = match.end()
+        end = pdf_bytes.find(b"endstream", start)
+        if end == -1:
+            continue
+        raw = pdf_bytes[start:end]
+        raw = raw.rstrip(b"\r\n")
+        if not raw:
+            continue
+        try:
+            inflated = zlib.decompress(base64.a85decode(raw, adobe=True))
+            decoded.extend(inflated)
+        except (ValueError, zlib.error):
+            # non-content streams (fonts, images) use other encodings; skip
+            continue
+    return bytes(decoded)
+
+
+class TestInvoicePdfCurrencyCode:
+    @pytest.mark.asyncio
+    async def test_pdf_uses_tenant_currency_code(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        ctx = await _bootstrap(db_session)
+        headers = await _admin_auth_header(ctx["admin"])
+
+        resp = await client.patch(
+            "/api/v1/tenant/settings/currency",
+            json={"value": "BDT"},
+            headers=headers,
+        )
+        assert resp.status_code == 200
+
+        inv_resp = await client.post(
+            "/api/v1/tenant/invoices/",
+            json={
+                "project_id": str(ctx["project"].id),
+                "line_items": [{"project_service_id": str(ctx["ps"].id)}],
+            },
+            headers=headers,
+        )
+        assert inv_resp.status_code == 201
+        inv_id = inv_resp.json()["id"]
+        await client.post(f"/api/v1/tenant/invoices/{inv_id}/issue", headers=headers)
+
+        resp = await client.get(f"/api/v1/tenant/invoices/{inv_id}/pdf", headers=headers)
+        assert resp.status_code == 200
+        assert resp.content[:4] == b"%PDF"
+
+        content = _decompress_pdf_streams(resp.content)
+        assert b"BDT" in content
+        # service default price is 500.00 -> code-prefixed money string
+        assert b"BDT 500.00" in content
+
+    @pytest.mark.asyncio
+    async def test_pdf_defaults_to_usd_code(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        ctx = await _bootstrap(db_session)
+        headers = await _admin_auth_header(ctx["admin"])
+
+        inv_resp = await client.post(
+            "/api/v1/tenant/invoices/",
+            json={
+                "project_id": str(ctx["project"].id),
+                "line_items": [{"project_service_id": str(ctx["ps"].id)}],
+            },
+            headers=headers,
+        )
+        assert inv_resp.status_code == 201
+        inv_id = inv_resp.json()["id"]
+        await client.post(f"/api/v1/tenant/invoices/{inv_id}/issue", headers=headers)
+
+        resp = await client.get(f"/api/v1/tenant/invoices/{inv_id}/pdf", headers=headers)
+        assert resp.status_code == 200
+        assert resp.content[:4] == b"%PDF"
+
+        content = _decompress_pdf_streams(resp.content)
+        assert b"USD" in content
+        assert b"USD 500.00" in content
 
 
 # ═══════════════════════════════════════════════════════════════════════════

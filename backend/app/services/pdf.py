@@ -27,6 +27,7 @@ from app.models.client import Client
 from app.models.enums import InvoiceStatus
 from app.models.invoice import Invoice
 from app.models.tenant import Tenant
+from app.services.settings import get_tenant_setting_by_key
 from app.storage import get_storage
 
 _STATUS_LABELS: dict[InvoiceStatus, str] = {
@@ -51,6 +52,15 @@ def _human_status(status: InvoiceStatus) -> str:
 def _fmt(value: Any) -> str:
     """Format a Decimal/float as a fixed 2-decimal money string."""
     return f"{value:.2f}"
+
+
+def _money(value: Any, code: str) -> str:
+    """Format a money value with the tenant's currency code prefix.
+
+    Uses the ISO code (e.g. "BDT 500.00"), never a symbol: non-Latin
+    currency glyphs break the built-in WinAnsi Helvetica fonts.
+    """
+    return f"{code} {value:.2f}"
 
 
 def _parse_hex_color(value: Any) -> colors.Color | None:
@@ -130,6 +140,15 @@ async def render_invoice_pdf(
             textColor=brand_color,
         )
 
+    # Currency code (FEAT-014): stored tenant setting or USD default.
+    # Codes render in Helvetica; symbols would need WinAnsi-safe fonts.
+    currency_code = "USD"
+    if tenant is not None:
+        currency_setting = await get_tenant_setting_by_key(session, tenant.id, "currency")
+        if currency_setting is not None and currency_setting.value:
+            currency_code = currency_setting.value
+    currency_code = currency_code.upper()
+
     elements: list[Any] = []
     elements.append(Paragraph("INVOICE", title_style))
     if brand_color is not None:
@@ -173,8 +192,8 @@ async def render_invoice_pdf(
             [
                 item.description,
                 _fmt(item.quantity),
-                _fmt(item.unit_price),
-                _fmt(item.amount),
+                _money(item.unit_price, currency_code),
+                _money(item.amount, currency_code),
             ]
         )
     items_table = Table(table_data, colWidths=_ITEM_COL_WIDTHS, repeatRows=1)
@@ -194,9 +213,9 @@ async def render_invoice_pdf(
     # ── Totals ────────────────────────────────────────────────────────────
     totals = Table(
         [
-            ["Subtotal", _fmt(invoice.subtotal)],
-            ["Tax", _fmt(invoice.tax_total)],
-            ["Total", _fmt(invoice.total)],
+            ["Subtotal", _money(invoice.subtotal, currency_code)],
+            ["Tax", _money(invoice.tax_total, currency_code)],
+            ["Total", _money(invoice.total, currency_code)],
         ],
         colWidths=[85 * mm, 85 * mm],
     )

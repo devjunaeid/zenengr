@@ -7,6 +7,7 @@ Validation rules per setting key:
 - timezone: IANA timezone name via zoneinfo
 - invoice_number_format: must contain {seq} token
 - date_format: allowlist
+- time_format: "12h" or "24h"
 - password_min_length: integer between 8 and 64
 """
 
@@ -47,6 +48,11 @@ DEFAULT_SETTINGS: list[dict[str, Any]] = [
         "permission_level": PermissionLevel.TENANT_ADMIN_EDITABLE,
     },
     {
+        "key": "time_format",
+        "value": "24h",
+        "permission_level": PermissionLevel.TENANT_ADMIN_EDITABLE,
+    },
+    {
         "key": "email_sender_identity",
         "value": "noreply@zenengr.com",
         "permission_level": PermissionLevel.TENANT_ADMIN_VIEWABLE,
@@ -60,7 +66,24 @@ DEFAULT_SETTINGS: list[dict[str, Any]] = [
 
 # ── Validation ──────────────────────────────────────────────────────────────
 
-_VALID_DATE_FORMATS = frozenset({"YYYY-MM-DD", "DD/MM/YYYY", "MM/DD/YYYY"})
+_VALID_DATE_FORMATS = frozenset(
+    {
+        "YYYY-MM-DD",
+        "DD-MM-YYYY",
+        "MM-DD-YYYY",
+        "DD/MM/YYYY",
+        "MM/DD/YYYY",
+        "YYYY/MM/DD",
+        "DD.MM.YYYY",
+        "MM.DD.YYYY",
+        "DD MMM YYYY",
+        "MMM D, YYYY",
+        "D MMMM YYYY",
+        "MMMM D, YYYY",
+    }
+)
+
+_VALID_TIME_FORMATS = frozenset({"12h", "24h"})
 
 
 def validate_setting_value(key: str, value: str) -> None:
@@ -90,10 +113,17 @@ def validate_setting_value(key: str, value: str) -> None:
             detail=(f"Invalid invoice_number_format '{value}'. Must contain '{{seq}}' token."),
         )
     elif key == "date_format" and value not in _VALID_DATE_FORMATS:
-        allowed = ", ".join(sorted(_VALID_DATE_FORMATS))
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail=f"Invalid date_format '{value}'. Allowed: {allowed}.",
+            detail="date_format must be one of the supported formats",
+        )
+    elif key == "time_format" and value not in _VALID_TIME_FORMATS:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=(
+                f"Invalid time_format '{value}'. "
+                "Must be '12h' (12-hour) or '24h' (24-hour)."
+            ),
         )
     elif key == "password_min_length":
         try:
@@ -111,8 +141,13 @@ def validate_setting_value(key: str, value: str) -> None:
 
 
 def _is_valid_currency(code: str) -> bool:
-    """Basic ISO 4217 alpha-3 check (3 uppercase letters)."""
-    return len(code) == 3 and code.isalpha() and code.isupper()
+    """Basic ISO 4217 alpha-3 check (3 uppercase ASCII letters)."""
+    return (
+        len(code) == 3
+        and code.isascii()
+        and code.isalpha()
+        and code.isupper()
+    )
 
 
 # ── Permission helpers ──────────────────────────────────────────────────────
@@ -219,6 +254,29 @@ async def get_tenant_setting_by_key(
         )
     )
     return result.scalar_one_or_none()
+
+
+# Keys surfaced to the client portal (resolved, no permission internals).
+CLIENT_FORMATTING_KEYS = ("currency", "timezone", "date_format", "time_format")
+
+
+async def get_client_formatting_settings(
+    session: AsyncSession, tenant_id: uuid.UUID
+) -> dict[str, str]:
+    """Resolve the client-facing formatting settings for a tenant.
+
+    Each key returns the stored override when present, else the
+    DEFAULT_SETTINGS value. Never raises: all four keys always resolve.
+    """
+    defaults = {d["key"]: d["value"] for d in DEFAULT_SETTINGS}
+    result = await session.execute(
+        select(TenantSetting).where(
+            TenantSetting.tenant_id == tenant_id,
+            TenantSetting.key.in_(CLIENT_FORMATTING_KEYS),
+        )
+    )
+    stored = {s.key: s.value for s in result.scalars().all()}
+    return {key: stored.get(key, defaults[key]) for key in CLIENT_FORMATTING_KEYS}
 
 
 async def update_tenant_setting(

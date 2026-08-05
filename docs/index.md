@@ -19,9 +19,9 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 
 | Area | Count | Key metric |
 | ---- | ----- | ---------- |
-| Features | 14 | approved: 13, proposed: 1 |
-| User stories | 54 | done: 14, in_progress: 4, proposed: 36 |
-| Todos | 144 | done: 144, in_progress: 0, proposed: 0 |
+| Features | 15 | approved: 14, proposed: 1 |
+| User stories | 55 | done: 15, in_progress: 4, proposed: 36 |
+| Todos | 151 | done: 151, in_progress: 0, proposed: 0 |
 | Decisions | 2 | accepted: 2 |
 
 ## Active sprint
@@ -55,6 +55,7 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | [FEAT-011](features/FEAT-011-profile-self-service.md) | Profile Management (Self-Service) | approved | P0 |
 | [FEAT-012](features/FEAT-012-file-storage.md) | File Management & Storage | approved | P0 |
 | [FEAT-013](features/FEAT-013-email-smtp.md) | Per-Tenant Email (SMTP) & Settings Tabs | approved | P0 |
+| [FEAT-014](features/FEAT-014-tenant-formatting.md) | Tenant-Wide Formatting (Currency / Timezone / Date & Time) | approved | P0 |
 
 ### Stories
 
@@ -114,6 +115,7 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | [US-052](stories/US-052.md) | Quota and limits | FEAT-012 | done |
 | [US-053](stories/US-053.md) | Tenant admin manages per-tenant SMTP for outgoing email | FEAT-013 | done |
 | [US-054](stories/US-054.md) | Settings reorganized into top-bar tabs | FEAT-013 | done |
+| [US-055](stories/US-055.md) | Tenant-wide currency/date/timezone formatting | FEAT-014 | done |
 
 ### Todos
 
@@ -331,6 +333,18 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | [TODO-143](todos/TODO-143.md) | Settings tabs restructure | US-054 | done |
 | [TODO-144](todos/TODO-144.md) | SMTP settings UI | US-054 | done |
 
+#### FEAT-014 — Tenant-Wide Formatting (Currency / Timezone / Date & Time)
+
+| ID | Title | Story | Status |
+| -- | ----- | ----- | ------ |
+| [TODO-145](todos/TODO-145.md) | Frontend settings store + tenant-aware format helpers | US-055 | done |
+| [TODO-146](todos/TODO-146.md) | Wire settings into staff + client layouts | US-055 | done |
+| [TODO-147](todos/TODO-147.md) | Client settings endpoint (backend) | US-055 | done |
+| [TODO-148](todos/TODO-148.md) | Backend date/time format validation + defaults | US-055 | done |
+| [TODO-149](todos/TODO-149.md) | Sweep call sites to helpers | US-055 | done |
+| [TODO-150](todos/TODO-150.md) | Date + time format dropdowns in settings | US-055 | done |
+| [TODO-151](todos/TODO-151.md) | PDF currency symbol + tests | US-055 | done |
+
 ## Recently updated
 
 | Date | Item | Change |
@@ -358,7 +372,7 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 
 ## Next
 
-All 144 todos complete (FEAT-012 + FEAT-013 shipped; 550 backend tests green, frontend clean).
+All 151 todos complete (FEAT-012..014 shipped; 558 backend tests green, frontend clean).
 
 1. Stakeholder walkthrough + demo.
-2. Phase 2 candidates: credit notes, online payment gateway, milestone comments, client uploads, public share links, per-user email aliases, DKIM/SPF management, email templates editor, send history dashboard.
+2. Phase 2 candidates: credit notes, online payment gateway, milestone comments, client uploads, public share links, per-user locale overrides, multi-currency invoices, i18n, Unicode font in PDF for non-Latin currency symbols.

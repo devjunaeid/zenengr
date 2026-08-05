@@ -12,7 +12,7 @@
 	import Spinner from '$lib/components/Spinner.svelte';
 	import StatusBadge from '$lib/components/StatusBadge.svelte';
 	import { auth } from '$lib/stores/auth.svelte.js';
-	import { formatDate, formatDateTime, humanize } from '$lib/utils/format.js';
+	import { formatDate, formatDateTime, fmtPrice, humanize } from '$lib/utils/format.js';
 
 	let { data } = $props();
 
@@ -199,16 +199,6 @@
 		}
 		return out;
 	});
-
-	/**
-	 * @param {string|null|undefined} v
-	 */
-	function fmtPrice(v) {
-		if (v == null || v === '') return '—';
-		const n = Number(v);
-		if (Number.isNaN(n)) return '—';
-		return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n);
-	}
 
 	/**
 	 * @param {string|null|undefined} d

@@ -96,6 +96,7 @@ async def test_setting_defaults_defined(db_session):
     assert "invoice_number_format" in keys
     assert "timezone" in keys
     assert "date_format" in keys
+    assert "time_format" in keys
     assert "email_sender_identity" in keys
     assert "password_min_length" in keys
-    assert len(DEFAULT_SETTINGS) == 6
+    assert len(DEFAULT_SETTINGS) == 7

@@ -7,7 +7,7 @@
 	import Pagination from '$lib/components/Pagination.svelte';
 	import StatusBadge from '$lib/components/StatusBadge.svelte';
 	import { auth } from '$lib/stores/auth.svelte.js';
-	import { formatDate } from '$lib/utils/format.js';
+	import { formatDate, fmtPrice } from '$lib/utils/format.js';
 
 	let { data } = $props();
 
@@ -40,16 +40,6 @@
 	function gotoPage(p) {
 		// eslint-disable-next-line svelte/no-navigation-without-resolve -- query string appended to a resolved route
 		goto(buildUrl(p));
-	}
-
-	/**
-	 * @param {string|null|undefined} v
-	 */
-	function fmtPrice(v) {
-		if (v == null || v === '') return '—';
-		const num = Number(v);
-		if (Number.isNaN(num)) return '—';
-		return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(num);
 	}
 </script>
 

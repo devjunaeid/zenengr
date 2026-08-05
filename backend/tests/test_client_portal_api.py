@@ -534,6 +534,67 @@ class TestClientProjectPortal:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# Client formatting settings (FEAT-014, TODO-147)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestClientFormattingSettings:
+    @pytest.mark.asyncio
+    async def test_client_settings_returns_defaults_for_fresh_tenant(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        ctx = await _bootstrap(db_session)
+        resp = await client.get(
+            "/api/v1/client/settings",
+            headers=await _client_auth_header(ctx["cu_a"]),
+        )
+        assert resp.status_code == 200
+        assert resp.json() == {
+            "currency": "USD",
+            "timezone": "UTC",
+            "date_format": "YYYY-MM-DD",
+            "time_format": "24h",
+        }
+
+    @pytest.mark.asyncio
+    async def test_client_settings_reflects_tenant_override(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        ctx = await _bootstrap(db_session)
+        admin_headers = await _admin_auth_header(ctx["admin"])
+
+        resp = await client.patch(
+            "/api/v1/tenant/settings/date_format",
+            json={"value": "DD/MM/YYYY"},
+            headers=admin_headers,
+        )
+        assert resp.status_code == 200
+
+        resp = await client.get(
+            "/api/v1/client/settings",
+            headers=await _client_auth_header(ctx["cu_a"]),
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["date_format"] == "DD/MM/YYYY"
+        # untouched keys still resolve to defaults
+        assert data["currency"] == "USD"
+        assert data["timezone"] == "UTC"
+        assert data["time_format"] == "24h"
+
+    @pytest.mark.asyncio
+    async def test_admin_token_rejected_on_client_settings(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        ctx = await _bootstrap(db_session)
+        resp = await client.get(
+            "/api/v1/client/settings",
+            headers=await _admin_auth_header(ctx["admin"]),
+        )
+        assert resp.status_code == 401
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # Client invoice PDF (TODO-084/085)
 # ═══════════════════════════════════════════════════════════════════════════
 

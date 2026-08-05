@@ -6,7 +6,7 @@
 	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
 	import StatusBadge from '$lib/components/StatusBadge.svelte';
 	import { auth } from '$lib/stores/auth.svelte.js';
-	import { formatDateTime } from '$lib/utils/format.js';
+	import { formatDateTime, fmtPrice } from '$lib/utils/format.js';
 
 	let { data } = $props();
 
@@ -50,16 +50,6 @@
 			deleteOpen = false;
 			deleteBusy = false;
 		}
-	}
-
-	/**
-	 * @param {string|null|undefined} v
-	 */
-	function fmtPrice(v) {
-		if (v == null || v === '') return '—';
-		const num = Number(v);
-		if (Number.isNaN(num)) return '—';
-		return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(num);
 	}
 </script>
 
