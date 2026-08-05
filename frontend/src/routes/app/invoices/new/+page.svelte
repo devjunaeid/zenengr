@@ -74,7 +74,7 @@
 	function addRow() {
 		rows.push({
 			key: rowKey++,
-			kind: 'service',
+			kind: projectId ? 'service' : 'custom',
 			project_service_id: '',
 			service_name: '',
 			unit_price: '',
@@ -107,15 +107,15 @@
 
 	async function submit() {
 		err = null;
-		if (!projectId) {
-			err = 'Pick a project.';
-			return;
-		}
 		if (rows.length === 0) {
 			err = 'Add at least one line item.';
 			return;
 		}
 		for (const r of rows) {
+			if (!projectId && r.kind === 'service') {
+				err = 'Project services need a project. Switch the row to Custom.';
+				return;
+			}
 			if (r.kind === 'service' && !r.project_service_id) {
 				err = 'Every line item needs a service.';
 				return;
@@ -135,7 +135,6 @@
 		try {
 			/** @type {Record<string, any>} */
 			const body = {
-				project_id: projectId,
 				line_items: rows.map((r) =>
 					r.kind === 'service'
 						? { project_service_id: r.project_service_id }
@@ -146,6 +145,7 @@
 							}
 				)
 			};
+			if (projectId) body.project_id = projectId;
 			if (issueDate) body.issue_date = issueDate;
 			if (dueDate) body.due_date = dueDate;
 			if (notes.trim()) body.notes = notes.trim();
@@ -192,18 +192,23 @@
 	<section class="space-y-4">
 		<div class="grid gap-4 sm:grid-cols-3">
 			<div>
-				<label for="i-project" class="block text-sm font-medium text-slate-700">Project *</label>
+				<label for="i-project" class="block text-sm font-medium text-slate-700">Project</label>
 				<select
 					id="i-project"
 					bind:value={projectId}
-					required
 					class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
 				>
 					<option value="" disabled>Select a project</option>
+					<option value="">— General / internal invoice (no project) —</option>
 					{#each data.projects as p (p.id)}
 						<option value={p.id}>{p.name}</option>
 					{/each}
 				</select>
+				{#if !projectId}
+					<p class="mt-1 text-xs text-slate-500">
+						General (internal) invoice: custom line items only. Not visible to clients.
+					</p>
+				{/if}
 			</div>
 			<div>
 				<label for="i-issue" class="block text-sm font-medium text-slate-700">Issue date</label>
@@ -289,7 +294,9 @@
 								bind:value={row.kind}
 								class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
 							>
-								<option value="service">Project service</option>
+								{#if projectId}
+									<option value="service">Project service</option>
+								{/if}
 								<option value="custom">Custom</option>
 							</select>
 						</div>

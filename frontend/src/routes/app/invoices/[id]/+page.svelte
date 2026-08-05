@@ -26,6 +26,25 @@
 	let voidOpen = $state(false);
 	let voidBusy = $state(false);
 
+	// ---- FEAT-015: apply advance + refund ----
+	let applyOpen = $state(false);
+	let applyBusy = $state(false);
+	/** @type {string|null} */
+	let applyErr = $state(null);
+	/** @type {string} */
+	let applyAmount = $state('');
+
+	let refundOpen = $state(false);
+	let refundBusy = $state(false);
+	/** @type {string|null} */
+	let refundErr = $state(null);
+	/** @type {string} */
+	let refundAmount = $state('');
+	/** @type {'bank_transfer'|'card'|'cash'|'other'} */
+	let refundMethod = $state('other');
+	/** @type {string} */
+	let refundRef = $state('');
+
 	const number = $derived(data.invoice.invoice_number ?? 'Draft');
 
 	/** @type {string|null} */
@@ -108,6 +127,60 @@
 		}
 	}
 
+	async function runApplyAdvance() {
+		applyErr = null;
+		actionErr = null;
+		actionMsg = null;
+		const trimmed = applyAmount.trim();
+		if (trimmed && Math.round((Number(trimmed) || 0) * 100) <= 0) {
+			applyErr = 'Enter an amount greater than zero, or leave it empty for the full balance.';
+			return;
+		}
+		applyBusy = true;
+		try {
+			const result = await invoiceApi.applyAdvance(
+				fetch,
+				token,
+				data.invoice.id,
+				trimmed || undefined
+			);
+			applyOpen = false;
+			actionMsg = `Applied ${fmtPrice(result.applied)} · remaining advance ${fmtPrice(result.advance_balance)}`;
+			await invalidateAll();
+		} catch (e) {
+			applyErr = e instanceof ApiError ? e.message : 'Could not apply advance.';
+		} finally {
+			applyBusy = false;
+		}
+	}
+
+	async function runRefund() {
+		refundErr = null;
+		actionErr = null;
+		actionMsg = null;
+		if (!refundAmount || Math.round((Number(refundAmount) || 0) * 100) <= 0) {
+			refundErr = 'Enter an amount greater than zero.';
+			return;
+		}
+		refundBusy = true;
+		try {
+			/** @type {Record<string, any>} */
+			const body = {
+				amount: Number(refundAmount).toFixed(2),
+				method: refundMethod
+			};
+			if (refundRef.trim()) body.reference_note = refundRef.trim();
+			await invoiceApi.refundInvoice(fetch, token, data.invoice.id, /** @type {any} */ (body));
+			refundOpen = false;
+			actionMsg = 'Refund recorded.';
+			await invalidateAll();
+		} catch (e) {
+			refundErr = e instanceof ApiError ? e.message : 'Could not record refund.';
+		} finally {
+			refundBusy = false;
+		}
+	}
+
 	// ---- transactions (TODO-091 record payment, TODO-094 allocation override) ----
 	let payOpen = $state(false);
 	let payBusy = $state(false);
@@ -129,7 +202,10 @@
 	const methodOptions = ['bank_transfer', 'card', 'cash', 'other'];
 	const lineItems = $derived(data.invoice.line_items);
 	const totalPaid = $derived(
-		data.transactions.reduce((sum, t) => sum + (Number(t.amount) || 0), 0)
+		data.transactions.reduce(
+			(sum, t) => sum + (Number(t.amount) || 0) * (t.direction === 'credit' ? -1 : 1),
+			0
+		)
 	);
 	const balanceDue = $derived(Math.max(0, (Number(data.invoice.total) || 0) - totalPaid));
 
@@ -217,6 +293,13 @@
 	<div class="flex items-center gap-3">
 		<h1 class="text-2xl font-semibold text-slate-900">{number}</h1>
 		<StatusBadge status={data.invoice.status} />
+		{#if data.invoice.project_id == null}
+			<span
+				class="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600 ring-1 ring-slate-500/20 ring-inset"
+			>
+				Internal invoice
+			</span>
+		{/if}
 	</div>
 	<div class="flex flex-wrap items-center gap-2">
 		<button
@@ -295,6 +378,26 @@
 				Delete
 			</button>
 		{:else if data.invoice.status === 'issued' || data.invoice.status === 'partially_paid' || data.invoice.status === 'paid'}
+			{#if data.invoice.status === 'issued' || data.invoice.status === 'partially_paid'}
+				<button
+					type="button"
+					onclick={() => (applyOpen = true)}
+					disabled={applyBusy}
+					class="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+				>
+					Apply advance
+				</button>
+			{/if}
+			{#if data.invoice.status === 'partially_paid' || data.invoice.status === 'paid'}
+				<button
+					type="button"
+					onclick={() => (refundOpen = true)}
+					disabled={refundBusy}
+					class="rounded-md border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+				>
+					Refund
+				</button>
+			{/if}
 			<button
 				type="button"
 				onclick={() => (voidOpen = true)}
@@ -347,7 +450,9 @@
 		<div class="mt-3">
 			<!-- eslint-disable svelte/no-navigation-without-resolve -- query string appended to a resolved route -->
 			<a
-				href={`${resolve('/app/invoices/new')}?project_id=${data.invoice.project_id}`}
+				href={data.invoice.project_id
+					? `${resolve('/app/invoices/new')}?project_id=${data.invoice.project_id}`
+					: resolve('/app/invoices/new')}
 				class="rounded-md border border-amber-300 bg-white px-3 py-1.5 text-sm font-medium text-amber-900 hover:bg-amber-100 focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:outline-none"
 			>
 				Create new invoice
@@ -518,6 +623,11 @@
 						<th
 							scope="col"
 							class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
+							>Type</th
+						>
+						<th
+							scope="col"
+							class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
 							>Amount</th
 						>
 						<th
@@ -540,8 +650,23 @@
 				<tbody class="divide-y divide-slate-200">
 					{#each data.transactions as t (t.id)}
 						<tr class="hover:bg-slate-50">
+							<td class="px-4 py-3">
+								{#if t.direction === 'credit'}
+									<span
+										class="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800 ring-1 ring-red-600/20 ring-inset"
+									>
+										Refund
+									</span>
+								{:else}
+									<span
+										class="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800 ring-1 ring-green-600/20 ring-inset"
+									>
+										Payment
+									</span>
+								{/if}
+							</td>
 							<td class="px-4 py-3 text-sm font-medium whitespace-nowrap text-slate-900"
-								>{fmtPrice(t.amount)}</td
+								>{t.direction === 'credit' ? `−${fmtPrice(t.amount)}` : fmtPrice(t.amount)}</td
 							>
 							<td class="px-4 py-3 text-sm whitespace-nowrap text-slate-700"
 								>{humanize(t.method)}</td
@@ -552,7 +677,7 @@
 							>
 						</tr>
 						<tr class="bg-slate-50/50">
-							<td colspan="4" class="px-4 py-2">
+							<td colspan="5" class="px-4 py-2">
 								<details class="group">
 									<summary
 										class="flex cursor-pointer list-none items-center gap-1 text-xs text-slate-500 hover:text-indigo-600 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
@@ -812,6 +937,204 @@
 					>
 						{#if payBusy}<Spinner class="h-4 w-4 text-white" />{/if}
 						Record payment
+					</button>
+				</div>
+			</form>
+		</Dialog.Content>
+	</Dialog.Portal>
+</Dialog.Root>
+
+<!-- Apply advance dialog -->
+<Dialog.Root bind:open={applyOpen}>
+	<Dialog.Portal>
+		<Dialog.Overlay class="fixed inset-0 z-40 bg-black/50" />
+		<Dialog.Content
+			class="fixed top-1/2 left-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-6 shadow-xl focus:outline-none"
+		>
+			<div class="flex items-center justify-between">
+				<Dialog.Title class="text-lg font-semibold text-slate-900">Apply advance</Dialog.Title>
+				<Dialog.Close
+					type="button"
+					aria-label="Close"
+					class="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+				>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						viewBox="0 0 20 20"
+						fill="currentColor"
+						class="h-5 w-5"
+						aria-hidden="true"
+					>
+						<path
+							d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"
+						/>
+					</svg>
+				</Dialog.Close>
+			</div>
+			<Dialog.Description class="mt-2 text-sm text-slate-600">
+				Apply the client's advance balance to invoice {number}.
+			</Dialog.Description>
+
+			{#if applyErr}
+				<p
+					role="alert"
+					class="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+				>
+					{applyErr}
+				</p>
+			{/if}
+
+			<form
+				class="mt-4 space-y-4"
+				onsubmit={(e) => {
+					e.preventDefault();
+					runApplyAdvance();
+				}}
+			>
+				<div>
+					<label for="apply-amount" class="block text-sm font-medium text-slate-700">Amount</label>
+					<input
+						id="apply-amount"
+						type="number"
+						min="0.01"
+						step="0.01"
+						bind:value={applyAmount}
+						placeholder="Full available balance"
+						class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+					/>
+					<p class="mt-1 text-xs text-slate-500">
+						Leave empty to apply the full available advance balance.
+					</p>
+				</div>
+
+				<div class="mt-6 flex justify-end gap-3">
+					<Dialog.Close
+						type="button"
+						class="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+					>
+						Cancel
+					</Dialog.Close>
+					<button
+						type="submit"
+						disabled={applyBusy}
+						aria-busy={applyBusy}
+						class="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+					>
+						{#if applyBusy}<Spinner class="h-4 w-4 text-white" />{/if}
+						Apply advance
+					</button>
+				</div>
+			</form>
+		</Dialog.Content>
+	</Dialog.Portal>
+</Dialog.Root>
+
+<!-- Refund dialog -->
+<Dialog.Root bind:open={refundOpen}>
+	<Dialog.Portal>
+		<Dialog.Overlay class="fixed inset-0 z-40 bg-black/50" />
+		<Dialog.Content
+			class="fixed top-1/2 left-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-6 shadow-xl focus:outline-none"
+		>
+			<div class="flex items-center justify-between">
+				<Dialog.Title class="text-lg font-semibold text-slate-900">Refund</Dialog.Title>
+				<Dialog.Close
+					type="button"
+					aria-label="Close"
+					class="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+				>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						viewBox="0 0 20 20"
+						fill="currentColor"
+						class="h-5 w-5"
+						aria-hidden="true"
+					>
+						<path
+							d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"
+						/>
+					</svg>
+				</Dialog.Close>
+			</div>
+			<Dialog.Description class="mt-2 text-sm text-slate-600">
+				Record a refund against invoice {number}. This reduces the paid amount on record.
+			</Dialog.Description>
+
+			{#if refundErr}
+				<p
+					role="alert"
+					class="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+				>
+					{refundErr}
+				</p>
+			{/if}
+
+			<form
+				class="mt-4 space-y-4"
+				onsubmit={(e) => {
+					e.preventDefault();
+					runRefund();
+				}}
+			>
+				<div class="grid gap-4 sm:grid-cols-2">
+					<div>
+						<label for="refund-amount" class="block text-sm font-medium text-slate-700"
+							>Amount</label
+						>
+						<input
+							id="refund-amount"
+							type="number"
+							min="0.01"
+							step="0.01"
+							required
+							bind:value={refundAmount}
+							class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+						/>
+					</div>
+					<div>
+						<label for="refund-method" class="block text-sm font-medium text-slate-700"
+							>Method</label
+						>
+						<select
+							id="refund-method"
+							bind:value={refundMethod}
+							class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+						>
+							{#each methodOptions as m (m)}
+								<option value={m}>{humanize(m)}</option>
+							{/each}
+						</select>
+					</div>
+				</div>
+
+				<div>
+					<label for="refund-ref" class="block text-sm font-medium text-slate-700"
+						>Reference note</label
+					>
+					<input
+						id="refund-ref"
+						type="text"
+						bind:value={refundRef}
+						placeholder="Refund reason, transfer reference, …"
+						class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+					/>
+				</div>
+
+				<div class="mt-6 flex justify-end gap-3">
+					<Dialog.Close
+						type="button"
+						class="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+					>
+						Cancel
+					</Dialog.Close>
+					<button
+						type="submit"
+						disabled={refundBusy}
+						aria-busy={refundBusy}
+						class="inline-flex items-center gap-2 rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+					>
+						{#if refundBusy}<Spinner class="h-4 w-4 text-white" />{/if}
+						Record refund
 					</button>
 				</div>
 			</form>

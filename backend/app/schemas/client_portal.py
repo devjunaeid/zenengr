@@ -26,7 +26,7 @@ class ClientInvoiceListItem(BaseModel):
     id: uuid.UUID
     invoice_number: str | None
     status: InvoiceStatus
-    project_id: uuid.UUID
+    project_id: uuid.UUID | None
     project_name: str
     issue_date: date | None
     due_date: date | None
@@ -48,7 +48,7 @@ class ClientInvoiceDetailResponse(BaseModel):
     id: uuid.UUID
     invoice_number: str | None
     status: InvoiceStatus
-    project_id: uuid.UUID
+    project_id: uuid.UUID | None
     project_name: str
     issue_date: date | None
     due_date: date | None

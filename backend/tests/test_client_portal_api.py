@@ -764,3 +764,176 @@ class TestClientInvoiceTransactions:
         )
         assert resp.status_code == 200
         assert resp.json() == []
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# General invoices excluded from portal + rollups (FEAT-015, TODO-152/153)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestGeneralInvoicePortalExclusion:
+    @pytest.mark.asyncio
+    async def test_general_invoice_hidden_from_client_portal_and_financials(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        ctx = await _bootstrap(db_session)
+        admin_headers = await _admin_auth_header(ctx["admin"])
+        proj = await _create_project(db_session, ctx["tenant"].id, ctx["client_a"].id)
+        ps = await _attach_service(db_session, proj.id, ctx["svc"])
+
+        # create + issue a general (internal) invoice with no project/client
+        resp = await client.post(
+            "/api/v1/tenant/invoices/",
+            json={"line_items": [{"description": "Internal", "unit_price": "1000.00"}]},
+            headers=admin_headers,
+        )
+        assert resp.status_code == 201
+        gen_id = resp.json()["id"]
+        resp = await client.post(f"/api/v1/tenant/invoices/{gen_id}/issue", headers=admin_headers)
+        assert resp.status_code == 200
+
+        # client portal list excludes the general invoice
+        resp = await client.get(
+            "/api/v1/client/invoices/",
+            headers=await _client_auth_header(ctx["cu_a"]),
+        )
+        assert resp.status_code == 200
+        assert resp.json()["total"] == 0
+
+        # client financial rollup unchanged by the general invoice
+        resp = await client.get(
+            f"/api/v1/tenant/clients/{ctx['client_a'].id}",
+            headers=admin_headers,
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total_invoiced"] == "0.00"
+        assert data["total_paid"] == "0.00"
+        assert data["total_outstanding"] == "0.00"
+
+        # client project financial rollup + linked invoices unchanged
+        resp = await client.get(
+            f"/api/v1/client/projects/{proj.id}",
+            headers=await _client_auth_header(ctx["cu_a"]),
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["financials"] == {
+            "total_invoiced": "0.00",
+            "total_paid": "0.00",
+            "balance_due": "0.00",
+        }
+        assert data["linked_invoices"] == []
+
+        # control: a normal project invoice does show up
+        inv_id = await _create_and_issue_invoice(client, admin_headers, proj.id, ps.id)
+        resp = await client.get(
+            "/api/v1/client/invoices/",
+            headers=await _client_auth_header(ctx["cu_a"]),
+        )
+        assert resp.status_code == 200
+        assert resp.json()["total"] == 1
+        assert resp.json()["items"][0]["id"] == inv_id
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Client ledger (FEAT-015, TODO-158)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestClientLedger:
+    @pytest.mark.asyncio
+    async def test_staff_and_client_ledger_after_pay_overpay_refund_apply(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        ctx = await _bootstrap(db_session)
+        admin_headers = await _admin_auth_header(ctx["admin"])
+        proj = await _create_project(db_session, ctx["tenant"].id, ctx["client_a"].id)
+        ps = await _attach_service(db_session, proj.id, ctx["svc"])
+        inv1 = await _create_and_issue_invoice(client, admin_headers, proj.id, ps.id)
+        await _record_transaction(client, admin_headers, inv1, "600.00")  # overpay -> advance 100
+        refund = await client.post(
+            f"/api/v1/tenant/invoices/{inv1}/refund",
+            json={"amount": "200.00"},
+            headers=admin_headers,
+        )
+        assert refund.status_code == 201
+
+        inv2_resp = await client.post(
+            "/api/v1/tenant/invoices/",
+            json={
+                "project_id": str(proj.id),
+                "line_items": [{"description": "Custom", "unit_price": "300.00"}],
+            },
+            headers=admin_headers,
+        )
+        assert inv2_resp.status_code == 201
+        inv2 = inv2_resp.json()["id"]
+        await client.post(f"/api/v1/tenant/invoices/{inv2}/issue", headers=admin_headers)
+        applied = await client.post(
+            f"/api/v1/tenant/invoices/{inv2}/apply-advance",
+            json={},
+            headers=admin_headers,
+        )
+        assert applied.status_code == 200
+
+        expected_entries = [
+            {"kind": "payment", "amount": "600.00", "running_balance": "600.00"},
+            {"kind": "advance_received", "amount": "-100.00", "running_balance": "500.00"},
+            {"kind": "refund", "amount": "-200.00", "running_balance": "300.00"},
+            {"kind": "advance_applied", "amount": "100.00", "running_balance": "400.00"},
+        ]
+
+        resp = await client.get(
+            f"/api/v1/tenant/clients/{ctx['client_a'].id}/ledger",
+            headers=admin_headers,
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["advance_balance"] == "0.00"
+        assert len(data["entries"]) == 4
+        for entry, expected in zip(data["entries"], expected_entries, strict=True):
+            assert entry["kind"] == expected["kind"]
+            assert entry["amount"] == expected["amount"]
+            assert entry["running_balance"] == expected["running_balance"]
+            assert entry["id"]
+            assert entry["created_at"]
+
+        # client portal sees the same ledger for their own client
+        resp = await client.get(
+            "/api/v1/client/ledger",
+            headers=await _client_auth_header(ctx["cu_a"]),
+        )
+        assert resp.status_code == 200
+        assert resp.json() == data
+
+    @pytest.mark.asyncio
+    async def test_client_ledger_scoped_to_own_client(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        ctx = await _bootstrap(db_session)
+        admin_headers = await _admin_auth_header(ctx["admin"])
+        proj = await _create_project(db_session, ctx["tenant"].id, ctx["client_a"].id)
+        ps = await _attach_service(db_session, proj.id, ctx["svc"])
+        inv1 = await _create_and_issue_invoice(client, admin_headers, proj.id, ps.id)
+        await _record_transaction(client, admin_headers, inv1, "600.00")
+
+        # client B's ledger is empty (no data isolation leak)
+        resp = await client.get(
+            "/api/v1/client/ledger",
+            headers=await _client_auth_header(ctx["cu_b"]),
+        )
+        assert resp.status_code == 200
+        assert resp.json() == {"advance_balance": "0.00", "entries": []}
+
+    @pytest.mark.asyncio
+    async def test_staff_ledger_unknown_client_404(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        ctx = await _bootstrap(db_session)
+        admin_headers = await _admin_auth_header(ctx["admin"])
+        resp = await client.get(
+            f"/api/v1/tenant/clients/{uuid.uuid4()}/ledger",
+            headers=admin_headers,
+        )
+        assert resp.status_code == 404

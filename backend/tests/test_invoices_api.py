@@ -560,3 +560,159 @@ class TestInvoicePDF:
             headers=await _admin_auth_header(ctx["admin"]),
         )
         assert resp.status_code == 404
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# General (internal) invoices (FEAT-015, TODO-152/153)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestGeneralInvoice:
+    @pytest.mark.asyncio
+    async def test_create_general_invoice_with_custom_line_items(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        ctx = await _bootstrap(db_session)
+        headers = await _admin_auth_header(ctx["admin"])
+        resp = await client.post(
+            "/api/v1/tenant/invoices/",
+            json={
+                "line_items": [
+                    {"description": "Internal consulting", "unit_price": "750.00", "quantity": "2"}
+                ]
+            },
+            headers=headers,
+        )
+        assert resp.status_code == 201
+        data = resp.json()
+        assert data["status"] == "draft"
+        assert data["invoice_number"] is None
+        assert data["project_id"] is None
+        assert data["client_id"] is None
+        assert data["is_general"] is True
+        assert data["total"] == "1500.00"
+        assert len(data["line_items"]) == 1
+        li = data["line_items"][0]
+        assert li["description"] == "Internal consulting"
+        assert li["amount"] == "1500.00"
+        assert li["project_service_id"] is None
+
+    @pytest.mark.asyncio
+    async def test_general_invoice_rejects_project_service_line_item(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        ctx = await _bootstrap(db_session)
+        resp = await client.post(
+            "/api/v1/tenant/invoices/",
+            json={"line_items": [{"project_service_id": str(ctx["ps"].id)}]},
+            headers=await _admin_auth_header(ctx["admin"]),
+        )
+        assert resp.status_code == 422
+        assert resp.json()["error"]["message"] == "Project service line items require a project"
+
+    @pytest.mark.asyncio
+    async def test_project_invoice_with_custom_items_still_works(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        ctx = await _bootstrap(db_session)
+        headers = await _admin_auth_header(ctx["admin"])
+        resp = await client.post(
+            "/api/v1/tenant/invoices/",
+            json={
+                "project_id": str(ctx["project"].id),
+                "line_items": [{"description": "Custom", "unit_price": "100.00", "quantity": "1"}],
+            },
+            headers=headers,
+        )
+        assert resp.status_code == 201
+        data = resp.json()
+        assert data["project_id"] == str(ctx["project"].id)
+        assert data["client_id"] == str(ctx["client"].id)
+        assert data["is_general"] is False
+        assert data["total"] == "100.00"
+
+    @pytest.mark.asyncio
+    async def test_issue_general_invoice_shares_sequence(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        ctx = await _bootstrap(db_session)
+        headers = await _admin_auth_header(ctx["admin"])
+        # project invoice issued first -> 0001
+        proj_inv = await _create_invoice(client, headers, ctx["project"].id, ctx["ps"].id)
+        await client.post(f"/api/v1/tenant/invoices/{proj_inv}/issue", headers=headers)
+
+        resp = await client.post(
+            "/api/v1/tenant/invoices/",
+            json={"line_items": [{"description": "Internal", "unit_price": "50.00"}]},
+            headers=headers,
+        )
+        assert resp.status_code == 201
+        gen_id = resp.json()["id"]
+
+        year = date.today().year
+        resp = await client.post(f"/api/v1/tenant/invoices/{gen_id}/issue", headers=headers)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["invoice_number"] == f"INV-{year}-0002"
+        assert data["status"] == "issued"
+        assert data["project_id"] is None
+        assert data["client_id"] is None
+        assert data["is_general"] is True
+
+    @pytest.mark.asyncio
+    async def test_general_invoice_list_detail_and_void(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        ctx = await _bootstrap(db_session)
+        headers = await _admin_auth_header(ctx["admin"])
+        resp = await client.post(
+            "/api/v1/tenant/invoices/",
+            json={"line_items": [{"description": "Internal", "unit_price": "50.00"}]},
+            headers=headers,
+        )
+        assert resp.status_code == 201
+        gen_id = resp.json()["id"]
+        await client.post(f"/api/v1/tenant/invoices/{gen_id}/issue", headers=headers)
+
+        # list renders general invoice with null project/client
+        resp = await client.get("/api/v1/tenant/invoices/", headers=headers)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] == 1
+        item = data["items"][0]
+        assert item["id"] == gen_id
+        assert item["project_id"] is None
+        assert item["client_id"] is None
+        assert item["status"] == "issued"
+
+        # detail renders without crashing
+        resp = await client.get(f"/api/v1/tenant/invoices/{gen_id}", headers=headers)
+        assert resp.status_code == 200
+        detail = resp.json()
+        assert detail["project_id"] is None
+        assert detail["client_id"] is None
+        assert detail["is_general"] is True
+        assert len(detail["line_items"]) == 1
+
+        # void works
+        resp = await client.post(f"/api/v1/tenant/invoices/{gen_id}/void", headers=headers)
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "void"
+
+    @pytest.mark.asyncio
+    async def test_general_invoice_pdf(self, client: AsyncClient, db_session: AsyncSession):
+        ctx = await _bootstrap(db_session)
+        headers = await _admin_auth_header(ctx["admin"])
+        resp = await client.post(
+            "/api/v1/tenant/invoices/",
+            json={"line_items": [{"description": "Internal", "unit_price": "50.00"}]},
+            headers=headers,
+        )
+        assert resp.status_code == 201
+        gen_id = resp.json()["id"]
+        await client.post(f"/api/v1/tenant/invoices/{gen_id}/issue", headers=headers)
+
+        resp = await client.get(f"/api/v1/tenant/invoices/{gen_id}/pdf", headers=headers)
+        assert resp.status_code == 200
+        assert resp.headers["content-type"].startswith("application/pdf")
+        assert resp.content[:4] == b"%PDF"

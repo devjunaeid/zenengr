@@ -1,9 +1,11 @@
-"""Invoice + InvoiceLineItem models (FEAT-008, TODO-075).
+"""Invoice + InvoiceLineItem models (FEAT-008, TODO-075; FEAT-015, TODO-152).
 
-An Invoice is tenant-scoped and linked to a Project. It carries
-money snapshots (subtotal/tax_total/total) plus a snapshot of the
-line items it was issued against. invoice_number is assigned only
-at issue time via the per-tenant InvoiceNumberSequence.
+An Invoice is tenant-scoped and optionally linked to a Project. A NULL
+project_id marks a GENERAL (internal) invoice with no client link; such
+invoices only carry custom line items. An Invoice carries money snapshots
+(subtotal/tax_total/total) plus a snapshot of the line items it was issued
+against. invoice_number is assigned only at issue time via the per-tenant
+InvoiceNumberSequence.
 """
 
 from __future__ import annotations
@@ -38,8 +40,8 @@ class Invoice(TimestampMixin, Base):
     tenant_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("tenants.id"), index=True, nullable=False
     )
-    project_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, ForeignKey("projects.id"), index=True, nullable=False
+    project_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("projects.id"), index=True, nullable=True
     )
     invoice_number: Mapped[str | None] = mapped_column(String(255), nullable=True)
     status: Mapped[InvoiceStatus] = mapped_column(default=InvoiceStatus.DRAFT, nullable=False)
@@ -50,7 +52,7 @@ class Invoice(TimestampMixin, Base):
     total: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=Decimal("0"), nullable=False)
     notes: Mapped[str] = mapped_column(Text, default="", nullable=False)
 
-    project: Mapped[Project] = relationship("Project")
+    project: Mapped[Project | None] = relationship("Project")
     line_items: Mapped[list[InvoiceLineItem]] = relationship(
         "InvoiceLineItem",
         back_populates="invoice",

@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.dependencies import get_current_admin_user, require_permission
 from app.db.session import get_session
 from app.models.admin_user import AdminUser
-from app.models.enums import InvoiceStatus
+from app.models.enums import InvoiceStatus, PaymentMethod
 from app.models.tenant import Tenant
 from app.schemas.invoices import (
     InvoiceCreateRequest,
@@ -26,7 +26,10 @@ from app.schemas.invoices import (
     InvoiceUpdateRequest,
 )
 from app.schemas.transactions import (
+    ApplyAdvanceRequest,
+    ApplyAdvanceResponse,
     PaymentAllocationResponse,
+    RefundRequest,
     TransactionCreateRequest,
     TransactionResponse,
 )
@@ -75,7 +78,8 @@ def _to_response(invoice: Any) -> InvoiceResponse:
         invoice_number=invoice.invoice_number,
         status=invoice.status,
         project_id=invoice.project_id,
-        client_id=invoice.project.client_id,
+        client_id=invoice.project.client_id if invoice.project else None,
+        is_general=invoice.project_id is None,
         issue_date=invoice.issue_date,
         due_date=invoice.due_date,
         subtotal=f"{invoice.subtotal:.2f}",
@@ -94,6 +98,7 @@ def _to_transaction_response(tx: Any) -> TransactionResponse:
         id=tx.id,
         invoice_id=tx.invoice_id,
         amount=f"{tx.amount:.2f}",
+        direction=tx.direction,
         method=tx.method,
         reference_note=tx.reference_note,
         recorded_by_id=tx.recorded_by_id,
@@ -356,3 +361,60 @@ async def list_transactions_endpoint(
     iid = _parse_uuid(invoice_id, kind="Invoice")
     txs = await transaction_service.list_transactions(session, tenant_id=tenant_id, invoice_id=iid)
     return [_to_transaction_response(tx) for tx in txs]
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Refunds + advances (FEAT-015, TODO-154/155)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+@router.post(
+    "/{invoice_id}/refund",
+    response_model=TransactionResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def refund_invoice_endpoint(
+    invoice_id: str,
+    body: RefundRequest,
+    session: AsyncSession = Depends(get_session),
+    user: AdminUser = Depends(require_permission("manage", "invoices")),
+) -> TransactionResponse:
+    """Record a refund against an invoice. Admin/Manager only.
+
+    The refund cannot exceed the invoice's net paid amount.
+    """
+    tenant_id = _get_tenant_id(user)
+    iid = _parse_uuid(invoice_id, kind="Invoice")
+    tx = await transaction_service.refund_invoice(
+        session,
+        tenant_id=tenant_id,
+        invoice_id=iid,
+        amount=body.amount,
+        method=body.method if body.method is not None else PaymentMethod.OTHER,
+        reference_note=body.reference_note,
+        actor_id=user.id,
+    )
+    return _to_transaction_response(tx)
+
+
+@router.post(
+    "/{invoice_id}/apply-advance",
+    response_model=ApplyAdvanceResponse,
+)
+async def apply_advance_endpoint(
+    invoice_id: str,
+    body: ApplyAdvanceRequest,
+    session: AsyncSession = Depends(get_session),
+    user: AdminUser = Depends(require_permission("manage", "invoices")),
+) -> ApplyAdvanceResponse:
+    """Apply advance balance to an issued/partially-paid invoice. Admin/Manager only."""
+    tenant_id = _get_tenant_id(user)
+    iid = _parse_uuid(invoice_id, kind="Invoice")
+    result = await transaction_service.apply_advance(
+        session,
+        tenant_id=tenant_id,
+        invoice_id=iid,
+        amount=body.amount,
+        actor_id=user.id,
+    )
+    return ApplyAdvanceResponse(**result)

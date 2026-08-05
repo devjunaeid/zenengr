@@ -124,11 +124,29 @@ import { ApiError, apiFetch, BASE_URL } from './client.js';
  * @property {string} id
  * @property {string} invoice_id
  * @property {string} amount decimal-as-string
+ * @property {'debit'|'credit'} direction debit = payment (money in), credit = refund (money out)
  * @property {'bank_transfer'|'card'|'cash'|'other'} method
  * @property {string} reference_note
  * @property {string|null} recorded_by_id
  * @property {string} recorded_at ISO datetime
  * @property {ClientTransactionAllocation[]} allocations
+ */
+
+/**
+ * @typedef {object} ClientLedgerEntry
+ * @property {string} id
+ * @property {'payment'|'refund'|'advance_received'|'advance_applied'} kind
+ * @property {string} amount signed decimal-as-string (refunds/advance receipts negative)
+ * @property {string} reference reference note, may be empty
+ * @property {string|null} invoice_id
+ * @property {string} created_at ISO datetime
+ * @property {string} running_balance decimal-as-string
+ */
+
+/**
+ * @typedef {object} ClientLedgerResponse
+ * @property {string} advance_balance decimal-as-string
+ * @property {ClientLedgerEntry[]} entries chronological, oldest first
  */
 
 /**
@@ -248,6 +266,17 @@ export function listClientTransactions(fetchFn, token, invoiceId) {
 	return apiFetch(fetchFn, `/client/invoices/${encodeURIComponent(invoiceId)}/transactions`, {
 		token
 	});
+}
+
+/**
+ * The client's own ledger: advance balance + signed money entries with
+ * running balance.
+ * @param {typeof fetch} fetchFn
+ * @param {string} token
+ * @returns {Promise<ClientLedgerResponse>}
+ */
+export function getClientLedger(fetchFn, token) {
+	return apiFetch(fetchFn, '/client/ledger', { token });
 }
 
 /**

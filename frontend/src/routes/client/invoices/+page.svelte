@@ -4,6 +4,7 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import EmptyState from '$lib/components/EmptyState.svelte';
+	import LedgerTable from '$lib/components/LedgerTable.svelte';
 	import Pagination from '$lib/components/Pagination.svelte';
 	import StatusBadge from '$lib/components/StatusBadge.svelte';
 	import { formatDate, fmtPrice, humanize } from '$lib/utils/format.js';
@@ -77,6 +78,30 @@
 		Apply
 	</button>
 </form>
+
+{#if data.ledger}
+	<section
+		class="mt-6 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"
+		aria-labelledby="balance-h"
+	>
+		<div
+			class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-6 py-4"
+		>
+			<h2 id="balance-h" class="text-base font-semibold text-slate-900">Your balance</h2>
+			<p class="text-sm text-slate-600">
+				Advance balance:
+				<span
+					class="font-semibold {Number(data.ledger.advance_balance) > 0
+						? 'text-green-600'
+						: 'text-slate-900'}"
+				>
+					{fmtPrice(data.ledger.advance_balance)}
+				</span>
+			</p>
+		</div>
+		<LedgerTable entries={data.ledger.entries} emptyMessage="No ledger entries yet." />
+	</section>
+{/if}
 
 <div class="mt-6 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
 	{#if data.invoices.items.length === 0}

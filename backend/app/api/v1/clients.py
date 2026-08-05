@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.dependencies import get_current_admin_user, require_permission
 from app.db.session import get_session
 from app.models.admin_user import AdminUser
+from app.models.client import Client
 from app.models.enums import ClientStatus
 from app.schemas.clients import (
     ClientActivityEntry,
@@ -30,7 +31,9 @@ from app.schemas.clients import (
     ClientUpdateRequest,
     ClientUserSummary,
 )
+from app.schemas.transactions import ClientLedgerResponse
 from app.services import clients as client_service
+from app.services import transactions as transaction_service
 
 router = APIRouter(prefix="/tenant/clients", tags=["clients"])
 
@@ -214,6 +217,38 @@ async def get_client_endpoint(
         total_paid=client["total_paid"],
         total_outstanding=client["total_outstanding"],
     )
+
+
+@router.get("/{client_id}/ledger", response_model=ClientLedgerResponse)
+async def get_client_ledger_endpoint(
+    client_id: str,
+    session: AsyncSession = Depends(get_session),
+    user: AdminUser = Depends(get_current_admin_user),
+) -> ClientLedgerResponse:
+    """Client ledger: advance balance + signed money entries. All staff can view."""
+    tenant_id = _get_tenant_id(user)
+
+    try:
+        cid = uuid.UUID(client_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Client not found",
+        ) from None
+
+    client = await session.get(Client, cid)
+    if client is None or client.tenant_id != tenant_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Client not found",
+        )
+
+    result = await transaction_service.build_client_ledger(
+        session,
+        tenant_id=tenant_id,
+        client_id=cid,
+    )
+    return ClientLedgerResponse(**result)
 
 
 @router.patch("/{client_id}", response_model=ClientListItem)

@@ -12,8 +12,8 @@ import { ApiError, apiFetch, BASE_URL } from './client.js';
  * @property {string} id
  * @property {string|null} invoice_number null while draft
  * @property {'draft'|'issued'|'partially_paid'|'paid'|'void'} status
- * @property {string} project_id
- * @property {string} client_id
+ * @property {string|null} project_id null for general (internal) invoices
+ * @property {string|null} client_id null for general (internal) invoices
  * @property {string|null} issue_date ISO date
  * @property {string|null} due_date ISO date
  * @property {number|string} total decimal-as-string or number
@@ -36,8 +36,9 @@ import { ApiError, apiFetch, BASE_URL } from './client.js';
  * @property {string} id
  * @property {string|null} invoice_number null while draft
  * @property {'draft'|'issued'|'partially_paid'|'paid'|'void'} status
- * @property {string} project_id
- * @property {string} client_id
+ * @property {string|null} project_id null for general (internal) invoices
+ * @property {string|null} client_id null for general (internal) invoices
+ * @property {boolean} is_general true when project_id/client_id are null
  * @property {string|null} issue_date
  * @property {string|null} due_date
  * @property {number|string} subtotal
@@ -76,6 +77,7 @@ import { ApiError, apiFetch, BASE_URL } from './client.js';
  * @property {string} id
  * @property {string} invoice_id
  * @property {string} amount decimal-as-string
+ * @property {'debit'|'credit'} direction debit = payment (money in), credit = refund (money out)
  * @property {'bank_transfer'|'card'|'cash'|'other'} method
  * @property {string} reference_note
  * @property {string|null} recorded_by_id
@@ -107,12 +109,12 @@ export function getInvoice(fetchFn, token, id) {
  * @param {typeof fetch} fetchFn
  * @param {string} token
  * @param {{
- *   project_id: string,
+ *   project_id?: string,
  *   issue_date?: string,
  *   due_date?: string,
  *   notes?: string,
  *   line_items: Array<{ project_service_id?: string, description?: string, unit_price?: string|number, quantity?: number }>
- * }} body
+ * }} body Create payload; omit project_id for general (internal) invoices
  * @returns {Promise<InvoiceDetailResponse>}
  */
 export function createInvoice(fetchFn, token, body) {
@@ -180,6 +182,49 @@ export function recordTransaction(fetchFn, token, invoiceId, payload) {
 export function listTransactions(fetchFn, token, invoiceId) {
 	return apiFetch(fetchFn, `/tenant/invoices/${encodeURIComponent(invoiceId)}/transactions`, {
 		token
+	});
+}
+
+/**
+ * Record a refund (credit transaction) against an invoice. Cannot exceed the
+ * invoice's net paid amount (server-enforced).
+ *
+ * @param {typeof fetch} fetchFn
+ * @param {string} token
+ * @param {string} invoiceId
+ * @param {{
+ *   amount: string,
+ *   method?: 'bank_transfer'|'card'|'cash'|'other',
+ *   reference_note?: string
+ * }} payload
+ * @returns {Promise<Transaction>}
+ */
+export function refundInvoice(fetchFn, token, invoiceId, payload) {
+	return apiFetch(fetchFn, `/tenant/invoices/${encodeURIComponent(invoiceId)}/refund`, {
+		method: 'POST',
+		token,
+		body: payload
+	});
+}
+
+/**
+ * Apply client advance balance to an issued/partially-paid invoice. Omitting
+ * `amount` applies as much as the advance balance + invoice balance allow.
+ *
+ * @param {typeof fetch} fetchFn
+ * @param {string} token
+ * @param {string} invoiceId
+ * @param {string} [amount] decimal-as-string, optional
+ * @returns {Promise<{ applied: string, advance_balance: string }>}
+ */
+export function applyAdvance(fetchFn, token, invoiceId, amount) {
+	/** @type {Record<string, any>} */
+	const body = {};
+	if (amount != null && amount !== '') body.amount = amount;
+	return apiFetch(fetchFn, `/tenant/invoices/${encodeURIComponent(invoiceId)}/apply-advance`, {
+		method: 'POST',
+		token,
+		body
 	});
 }
 

@@ -33,7 +33,7 @@
 	let dueDate = $state(initial.due_date);
 	let notes = $state(initial.notes ?? '');
 	/** @type {import('$lib/api/projects.js').ProjectServiceItem[]} */
-	let projectServices = $state(untrack(() => data.project.services));
+	let projectServices = $state(untrack(() => data.project?.services ?? []));
 
 	let rowKey = 1;
 	/** @type {LineItemRow[]} */
@@ -56,7 +56,7 @@
 	function addRow() {
 		rows.push({
 			key: rowKey++,
-			kind: 'service',
+			kind: data.project ? 'service' : 'custom',
 			id: null,
 			project_service_id: '',
 			service_name: '',
@@ -95,6 +95,10 @@
 			return;
 		}
 		for (const r of rows) {
+			if (r.kind === 'service' && !data.project) {
+				err = 'Project services need a project. Switch the row to Custom.';
+				return;
+			}
 			if (r.kind === 'service' && !r.project_service_id) {
 				err = 'Every line item needs a service.';
 				return;
@@ -186,7 +190,7 @@
 				<input
 					id="i-project"
 					type="text"
-					value={data.project.name}
+					value={data.project ? data.project.name : 'Internal invoice'}
 					disabled
 					class="mt-1 block w-full cursor-not-allowed rounded-md border-slate-300 bg-slate-50 text-sm text-slate-600 shadow-sm"
 				/>
@@ -255,7 +259,9 @@
 								bind:value={row.kind}
 								class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
 							>
-								<option value="service">Project service</option>
+								{#if data.project}
+									<option value="service">Project service</option>
+								{/if}
 								<option value="custom">Custom</option>
 							</select>
 						</div>

@@ -19,9 +19,9 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 
 | Area | Count | Key metric |
 | ---- | ----- | ---------- |
-| Features | 15 | approved: 14, proposed: 1 |
-| User stories | 55 | done: 15, in_progress: 4, proposed: 36 |
-| Todos | 151 | done: 151, in_progress: 0, proposed: 0 |
+| Features | 16 | approved: 15, proposed: 1 |
+| User stories | 57 | done: 17, in_progress: 4, proposed: 36 |
+| Todos | 160 | done: 160, in_progress: 0, proposed: 0 |
 | Decisions | 2 | accepted: 2 |
 
 ## Active sprint
@@ -56,6 +56,7 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | [FEAT-012](features/FEAT-012-file-storage.md) | File Management & Storage | approved | P0 |
 | [FEAT-013](features/FEAT-013-email-smtp.md) | Per-Tenant Email (SMTP) & Settings Tabs | approved | P0 |
 | [FEAT-014](features/FEAT-014-tenant-formatting.md) | Tenant-Wide Formatting (Currency / Timezone / Date & Time) | approved | P0 |
+| [FEAT-015](features/FEAT-015-advances-ledger-general-invoices.md) | Advances, Ledger Transactions & General Invoices | approved | P0 |
 
 ### Stories
 
@@ -116,6 +117,8 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | [US-053](stories/US-053.md) | Tenant admin manages per-tenant SMTP for outgoing email | FEAT-013 | done |
 | [US-054](stories/US-054.md) | Settings reorganized into top-bar tabs | FEAT-013 | done |
 | [US-055](stories/US-055.md) | Tenant-wide currency/date/timezone formatting | FEAT-014 | done |
+| [US-056](stories/US-056.md) | General (internal) invoices without project or client | FEAT-015 | done |
+| [US-057](stories/US-057.md) | Advance payments + ledger transactions (debit/credit, refunds) | FEAT-015 | done |
 
 ### Todos
 
@@ -345,6 +348,20 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | [TODO-150](todos/TODO-150.md) | Date + time format dropdowns in settings | US-055 | done |
 | [TODO-151](todos/TODO-151.md) | PDF currency symbol + tests | US-055 | done |
 
+#### FEAT-015 — Advances, Ledger Transactions & General Invoices
+
+| ID | Title | Story | Status |
+| -- | ----- | ----- | ------ |
+| [TODO-152](todos/TODO-152.md) | Invoice project_id/client_id nullable + migration | US-056 | done |
+| [TODO-153](todos/TODO-153.md) | General invoice create/update/list support | US-056 | done |
+| [TODO-154](todos/TODO-154.md) | Transaction direction debit/credit + refund endpoint | US-057 | done |
+| [TODO-155](todos/TODO-155.md) | Advance model + overpay split | US-057 | done |
+| [TODO-156](todos/TODO-156.md) | Apply-advance endpoint | US-057 | done |
+| [TODO-157](todos/TODO-157.md) | Client advance balance + ledger API (staff) | US-057 | done |
+| [TODO-158](todos/TODO-158.md) | Client portal ledger + advance display | US-057 | done |
+| [TODO-159](todos/TODO-159.md) | Frontend: general invoice UI + advance apply + ledger views + refund | US-056 | done |
+| [TODO-160](todos/TODO-160.md) | Full test pass + docs sync | US-056 | done |
+
 ## Recently updated
 
 | Date | Item | Change |
@@ -372,7 +389,7 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 
 ## Next
 
-All 151 todos complete (FEAT-012..014 shipped; 558 backend tests green, frontend clean).
+All 160 todos complete (FEAT-012..015 shipped; 576 backend tests green, frontend clean).
 
 1. Stakeholder walkthrough + demo.
-2. Phase 2 candidates: credit notes, online payment gateway, milestone comments, client uploads, public share links, per-user locale overrides, multi-currency invoices, i18n, Unicode font in PDF for non-Latin currency symbols.
+2. Phase 2 candidates: credit notes, automatic advance application, multi-currency invoices, online payment gateway, milestone comments, client uploads, public share links, i18n, Unicode PDF fonts.

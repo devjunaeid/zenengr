@@ -20,11 +20,11 @@ from sqlalchemy.orm import selectinload
 from app.core.dependencies import get_current_client_user
 from app.db.session import get_session
 from app.models.client_user import ClientUser
-from app.models.enums import InvoiceStatus
-from app.models.invoice import Invoice
+from app.models.enums import InvoiceStatus, TransactionDirection
+from app.models.invoice import Invoice, InvoiceLineItem
 from app.models.project import Project
 from app.models.tenant import Tenant
-from app.models.transaction import Transaction
+from app.models.transaction import PaymentAllocation, Transaction
 from app.schemas.client_portal import (
     ClientInvoiceDetailResponse,
     ClientInvoiceListItem,
@@ -83,6 +83,7 @@ def _to_transaction_response(tx: Any) -> TransactionResponse:
         id=tx.id,
         invoice_id=tx.invoice_id,
         amount=f"{tx.amount:.2f}",
+        direction=tx.direction,
         method=tx.method,
         reference_note=tx.reference_note,
         recorded_by_id=tx.recorded_by_id,
@@ -186,10 +187,18 @@ async def get_client_invoice_endpoint(
             detail="Invoice not found",
         )
 
-    paid_q = select(func.coalesce(func.sum(Transaction.amount), 0)).where(
-        Transaction.invoice_id == invoice.id
+    paid_q = (
+        select(func.coalesce(func.sum(PaymentAllocation.amount), 0))
+        .join(InvoiceLineItem, PaymentAllocation.line_item_id == InvoiceLineItem.id)
+        .where(InvoiceLineItem.invoice_id == invoice.id)
     )
-    paid = Decimal((await session.execute(paid_q)).scalar_one())
+    paid_allocations = Decimal((await session.execute(paid_q)).scalar_one())
+    refund_q = select(func.coalesce(func.sum(Transaction.amount), 0)).where(
+        Transaction.invoice_id == invoice.id,
+        Transaction.direction == TransactionDirection.CREDIT,
+    )
+    refunds = Decimal((await session.execute(refund_q)).scalar_one())
+    paid = _clamp_non_negative(paid_allocations - refunds)
     paid_amount = f"{paid:.2f}"
     balance_due = f"{_clamp_non_negative(Decimal(invoice.total) - paid):.2f}"
 

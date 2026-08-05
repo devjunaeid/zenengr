@@ -19,7 +19,7 @@ class InvoiceLineItemInput(BaseModel):
 
 
 class InvoiceCreateRequest(BaseModel):
-    project_id: uuid.UUID
+    project_id: uuid.UUID | None = None
     issue_date: date | None = None
     due_date: date | None = None
     notes: str | None = None
@@ -57,8 +57,9 @@ class InvoiceResponse(BaseModel):
     id: uuid.UUID
     invoice_number: str | None
     status: InvoiceStatus
-    project_id: uuid.UUID
-    client_id: uuid.UUID
+    project_id: uuid.UUID | None
+    client_id: uuid.UUID | None
+    is_general: bool
     issue_date: date | None
     due_date: date | None
     subtotal: str
@@ -74,8 +75,8 @@ class InvoiceListItem(BaseModel):
     id: uuid.UUID
     invoice_number: str | None
     status: InvoiceStatus
-    project_id: uuid.UUID
-    client_id: uuid.UUID
+    project_id: uuid.UUID | None
+    client_id: uuid.UUID | None
     issue_date: date | None
     due_date: date | None
     total: str

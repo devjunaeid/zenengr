@@ -6,11 +6,12 @@
 	import { ApiError } from '$lib/api/client.js';
 	import * as clientApi from '$lib/api/clients.js';
 	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
+	import LedgerTable from '$lib/components/LedgerTable.svelte';
 	import Pagination from '$lib/components/Pagination.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
 	import StatusBadge from '$lib/components/StatusBadge.svelte';
 	import { auth } from '$lib/stores/auth.svelte.js';
-	import { formatDateTime, humanize } from '$lib/utils/format.js';
+	import { formatDateTime, fmtPrice, humanize } from '$lib/utils/format.js';
 
 	let { data } = $props();
 
@@ -424,6 +425,34 @@
 		</section>
 	</div>
 </div>
+
+<section
+	class="mt-6 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"
+	aria-labelledby="ledger-h"
+>
+	<div
+		class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-6 py-4"
+	>
+		<h2 id="ledger-h" class="text-base font-semibold text-slate-900">Ledger</h2>
+		{#if data.ledger}
+			<p class="text-sm text-slate-600">
+				Advance balance:
+				<span
+					class="font-semibold {Number(data.ledger.advance_balance) > 0
+						? 'text-green-600'
+						: 'text-slate-900'}"
+				>
+					{fmtPrice(data.ledger.advance_balance)}
+				</span>
+			</p>
+		{/if}
+	</div>
+	{#if data.ledger}
+		<LedgerTable entries={data.ledger.entries} />
+	{:else}
+		<p class="px-6 py-8 text-sm text-slate-500">Ledger unavailable.</p>
+	{/if}
+</section>
 
 <ConfirmDialog
 	bind:open={

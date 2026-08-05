@@ -49,6 +49,23 @@ import { apiFetch } from './client.js';
  */
 
 /**
+ * @typedef {object} LedgerEntry
+ * @property {string} id
+ * @property {'payment'|'refund'|'advance_received'|'advance_applied'} kind
+ * @property {string} amount signed decimal-as-string (refunds/advance receipts negative)
+ * @property {string} reference reference note, may be empty
+ * @property {string|null} invoice_id
+ * @property {string} created_at ISO datetime
+ * @property {string} running_balance decimal-as-string
+ */
+
+/**
+ * @typedef {object} ClientLedgerResponse
+ * @property {string} advance_balance decimal-as-string
+ * @property {LedgerEntry[]} entries chronological, oldest first
+ */
+
+/**
  * @param {typeof fetch} fetchFn
  * @param {string} token
  * @param {{ page?: number, page_size?: number, status?: string, q?: string, tag?: string, sort?: string }} [params]
@@ -165,4 +182,17 @@ export function listActivity(fetchFn, token, id, params = {}) {
 		token,
 		params
 	});
+}
+
+/**
+ * Client ledger: advance balance + signed money entries (payments, refunds,
+ * advance receipts, advance applications) with running balance.
+ *
+ * @param {typeof fetch} fetchFn
+ * @param {string} token
+ * @param {string} clientId
+ * @returns {Promise<ClientLedgerResponse>}
+ */
+export function getClientLedger(fetchFn, token, clientId) {
+	return apiFetch(fetchFn, `/tenant/clients/${encodeURIComponent(clientId)}/ledger`, { token });
 }

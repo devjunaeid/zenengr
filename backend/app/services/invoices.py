@@ -75,12 +75,11 @@ class InvoiceProjectNotFoundError(HTTPException):
 
 
 class InvoiceLineItemError(HTTPException):
-    def __init__(self) -> None:
+    def __init__(self, detail: str | None = None) -> None:
         super().__init__(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail=(
-                "Each line item must specify a project service or a description with unit price"
-            ),
+            detail=detail
+            or ("Each line item must specify a project service or a description with unit price"),
         )
 
 
@@ -190,7 +189,7 @@ async def _resolve_line_items(
     session: AsyncSession,
     *,
     tenant_id: uuid.UUID,
-    project_id: uuid.UUID,
+    project_id: uuid.UUID | None,
     inputs: list[Any],
     existing_by_id: dict[uuid.UUID, Any] | None = None,
 ) -> list[dict[str, Any]]:
@@ -198,6 +197,8 @@ async def _resolve_line_items(
 
     - project_service_id set: snapshot service name + price (attachment price,
       falling back to service default_price; InvoiceNoPriceError if neither).
+      Only valid when a project is present: project services cannot be priced
+      on a GENERAL (project-less) invoice.
     - otherwise: custom line; description + unit_price required (existing
       values kept when replacing an item by id during updates).
     """
@@ -205,6 +206,8 @@ async def _resolve_line_items(
     resolved: list[dict[str, Any]] = []
     for item in inputs:
         if item.project_service_id is not None:
+            if project_id is None:
+                raise InvoiceLineItemError("Project service line items require a project")
             ps = await _get_project_service_for_invoice(
                 session, tenant_id, project_id, item.project_service_id
             )
@@ -278,17 +281,23 @@ async def create_draft_invoice(
     session: AsyncSession,
     *,
     tenant_id: uuid.UUID,
-    project_id: uuid.UUID,
+    project_id: uuid.UUID | None,
     issue_date: date | None,
     due_date: date | None,
     notes: str | None,
     line_items: list[Any],
     actor_id: uuid.UUID,
 ) -> Invoice:
-    """Create a draft invoice with resolved line item snapshots."""
-    project = await _get_project_for_tenant(session, tenant_id, project_id)
-    if project is None:
-        raise InvoiceProjectNotFoundError()
+    """Create a draft invoice with resolved line item snapshots.
+
+    A NULL project_id creates a GENERAL (internal) invoice: no project
+    existence check, no client link, and only custom line items are allowed
+    (project_service inputs are rejected by _resolve_line_items).
+    """
+    if project_id is not None:
+        project = await _get_project_for_tenant(session, tenant_id, project_id)
+        if project is None:
+            raise InvoiceProjectNotFoundError()
     if not line_items:
         raise InvoiceEmptyError()
 
@@ -314,6 +323,9 @@ async def create_draft_invoice(
     for data in resolved:
         session.add(InvoiceLineItem(invoice_id=invoice.id, **data))
 
+    audit_details: dict[str, str] = {"total": str(subtotal)}
+    if project_id is not None:
+        audit_details["project_id"] = str(project_id)
     await audit_log(
         session,
         tenant_id=tenant_id,
@@ -322,7 +334,7 @@ async def create_draft_invoice(
         action="invoice.created",
         entity_type="invoice",
         entity_id=str(invoice.id),
-        details={"project_id": str(project_id), "total": str(subtotal)},
+        details=audit_details,
     )
     await session.commit()
     return await get_invoice(session, tenant_id=tenant_id, invoice_id=invoice.id)
@@ -453,6 +465,9 @@ async def update_draft_invoice(
     if not changed:
         return invoice
 
+    audit_details: dict[str, Any] = {}
+    if invoice.project_id is not None:
+        audit_details["project_id"] = str(invoice.project_id)
     await audit_log(
         session,
         tenant_id=tenant_id,
@@ -461,7 +476,7 @@ async def update_draft_invoice(
         action="invoice.updated",
         entity_type="invoice",
         entity_id=str(invoice.id),
-        details={"project_id": str(invoice.project_id)},
+        details=audit_details,
     )
     await session.commit()
     return await get_invoice(session, tenant_id=tenant_id, invoice_id=invoice_id)
@@ -508,6 +523,9 @@ async def delete_draft_invoice(
     if invoice.status != InvoiceStatus.DRAFT:
         raise InvoiceDeleteNotAllowedError()
 
+    audit_details: dict[str, Any] = {}
+    if invoice.project_id is not None:
+        audit_details["project_id"] = str(invoice.project_id)
     await audit_log(
         session,
         tenant_id=tenant_id,
@@ -516,7 +534,7 @@ async def delete_draft_invoice(
         action="invoice.deleted",
         entity_type="invoice",
         entity_id=str(invoice.id),
-        details={"project_id": str(invoice.project_id)},
+        details=audit_details,
     )
     await session.delete(invoice)
     await session.commit()
@@ -555,6 +573,9 @@ async def issue_invoice(
     invoice.invoice_number = number
     invoice.status = InvoiceStatus.ISSUED
 
+    issue_details: dict[str, str] = {"invoice_number": number}
+    if invoice.project_id is not None:
+        issue_details["project_id"] = str(invoice.project_id)
     await audit_log(
         session,
         tenant_id=tenant_id,
@@ -563,10 +584,7 @@ async def issue_invoice(
         action="invoice.issued",
         entity_type="invoice",
         entity_id=str(invoice.id),
-        details={
-            "invoice_number": number,
-            "project_id": str(invoice.project_id),
-        },
+        details=issue_details,
     )
     await session.commit()
     return await get_invoice(session, tenant_id=tenant_id, invoice_id=invoice_id)

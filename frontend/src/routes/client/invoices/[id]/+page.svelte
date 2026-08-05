@@ -300,6 +300,11 @@
 						<th
 							scope="col"
 							class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
+							>Type</th
+						>
+						<th
+							scope="col"
+							class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
 							>Amount</th
 						>
 						<th
@@ -322,8 +327,23 @@
 				<tbody class="divide-y divide-slate-200">
 					{#each data.transactions as t (t.id)}
 						<tr class="hover:bg-slate-50">
+							<td class="px-4 py-3">
+								{#if t.direction === 'credit'}
+									<span
+										class="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800 ring-1 ring-red-600/20 ring-inset"
+									>
+										Refund
+									</span>
+								{:else}
+									<span
+										class="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800 ring-1 ring-green-600/20 ring-inset"
+									>
+										Payment
+									</span>
+								{/if}
+							</td>
 							<td class="px-4 py-3 text-sm font-medium whitespace-nowrap text-slate-900"
-								>{fmtPrice(t.amount)}</td
+								>{t.direction === 'credit' ? `−${fmtPrice(t.amount)}` : fmtPrice(t.amount)}</td
 							>
 							<td class="px-4 py-3 text-sm whitespace-nowrap text-slate-700"
 								>{humanize(t.method)}</td
@@ -335,7 +355,7 @@
 						</tr>
 						{#if t.allocations.length > 0}
 							<tr class="bg-slate-50/50">
-								<td colspan="4" class="px-4 py-2">
+								<td colspan="5" class="px-4 py-2">
 									<details class="group">
 										<summary
 											class="flex cursor-pointer list-none items-center gap-1 text-xs text-slate-500 hover:text-indigo-600 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"

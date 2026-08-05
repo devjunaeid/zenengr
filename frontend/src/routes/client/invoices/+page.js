@@ -15,5 +15,7 @@ export async function load({ fetch, url }) {
 		...(status && { status })
 	});
 
-	return { invoices, filters: { status, page } };
+	const ledger = await portalApi.getClientLedger(fetch, token).catch(() => null);
+
+	return { invoices, ledger, filters: { status, page } };
 }

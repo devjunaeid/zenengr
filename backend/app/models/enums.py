@@ -102,6 +102,11 @@ class PaymentMethod(enum.StrEnum):
     OTHER = "other"
 
 
+class TransactionDirection(enum.StrEnum):
+    DEBIT = "debit"
+    CREDIT = "credit"
+
+
 class NotificationEventType(enum.StrEnum):
     NEW_COMMENT = "new_comment"
     INVOICE_ISSUED = "invoice_issued"

@@ -1248,6 +1248,88 @@ class TestProjectOverview:
         )
         assert resp2.status_code == 404
 
+    @pytest.mark.asyncio
+    async def test_overview_paid_includes_advances_and_excludes_refunds(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        ctx = await _bootstrap(db_session)
+        admin_headers = await _admin_auth_header(ctx["admin"])
+        pid = (
+            await client.post(
+                "/api/v1/tenant/projects/",
+                json={
+                    "name": "AdvanceFin",
+                    "client_id": str(ctx["client"].id),
+                    "service_ids": [str(ctx["svc_a"].id)],
+                },
+                headers=admin_headers,
+            )
+        ).json()["id"]
+        ps_id = (await client.get(f"/api/v1/tenant/projects/{pid}", headers=admin_headers)).json()[
+            "services"
+        ][0]["id"]
+
+        # inv1: 500.00, overpaid by 100 -> advance created
+        inv1 = (
+            await client.post(
+                "/api/v1/tenant/invoices/",
+                json={"project_id": pid, "line_items": [{"project_service_id": ps_id}]},
+                headers=admin_headers,
+            )
+        ).json()["id"]
+        await client.post(f"/api/v1/tenant/invoices/{inv1}/issue", headers=admin_headers)
+        pay = await client.post(
+            f"/api/v1/tenant/invoices/{inv1}/transactions",
+            json={"amount": "600.00", "method": "bank_transfer"},
+            headers=admin_headers,
+        )
+        assert pay.status_code == 201
+
+        # refund 200 -> paid drops to 300 for inv1
+        refund = await client.post(
+            f"/api/v1/tenant/invoices/{inv1}/refund",
+            json={"amount": "200.00"},
+            headers=admin_headers,
+        )
+        assert refund.status_code == 201
+
+        # inv2: 300.00 custom, advance of 100 applied -> paid 100
+        inv2 = (
+            await client.post(
+                "/api/v1/tenant/invoices/",
+                json={
+                    "project_id": pid,
+                    "line_items": [{"description": "Custom", "unit_price": "300.00"}],
+                },
+                headers=admin_headers,
+            )
+        ).json()["id"]
+        await client.post(f"/api/v1/tenant/invoices/{inv2}/issue", headers=admin_headers)
+        applied = await client.post(
+            f"/api/v1/tenant/invoices/{inv2}/apply-advance",
+            json={},
+            headers=admin_headers,
+        )
+        assert applied.status_code == 200
+
+        resp = await client.get(f"/api/v1/tenant/projects/{pid}/overview", headers=admin_headers)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total_invoiced"] == "800.00"
+        assert data["total_paid"] == "400.00"  # 500 + 100 applied - 200 refund
+        assert data["balance_due"] == "400.00"
+
+        # client rollup reflects the same net paid
+        resp = await client.get(
+            f"/api/v1/tenant/clients/{ctx['client'].id}",
+            headers=admin_headers,
+        )
+        assert resp.status_code == 200
+        cdata = resp.json()
+        assert cdata["total_invoiced"] == "800.00"
+        assert cdata["total_paid"] == "400.00"
+        assert cdata["total_outstanding"] == "400.00"
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Remove project service (TODO-070)

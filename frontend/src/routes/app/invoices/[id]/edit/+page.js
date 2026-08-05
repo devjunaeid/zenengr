@@ -11,7 +11,11 @@ export async function load({ fetch, params }) {
 
 	try {
 		const invoice = await invoiceApi.getInvoice(fetch, token, params.id);
-		const project = await projectApi.getProject(fetch, token, invoice.project_id);
+		// General (internal) invoices have no project; the edit page renders
+		// custom line items only in that case.
+		const project = invoice.project_id
+			? await projectApi.getProject(fetch, token, invoice.project_id)
+			: null;
 		return { invoice, project };
 	} catch (e) {
 		if (e instanceof ApiError && e.status === 404) {

@@ -1,6 +1,7 @@
 """SQLAlchemy ORM models — import here for Alembic autogenerate detection."""
 
 from app.models.admin_user import AdminUser
+from app.models.advance import Advance
 from app.models.audit_log import AuditLog
 from app.models.client import Client
 from app.models.client_invite import ClientInvite
@@ -28,6 +29,7 @@ from app.models.enums import (
     SmtpSecurityMode,
     SubscriptionStatus,
     TenantStatus,
+    TransactionDirection,
 )
 from app.models.file_asset import FileAsset
 from app.models.file_folder import FileFolder
@@ -61,6 +63,7 @@ __all__ = [
     "TenantFeatureFlag",
     "AuditLog",
     "AdminUser",
+    "Advance",
     "Invite",
     "PasswordResetToken",
     "Client",
@@ -102,4 +105,5 @@ __all__ = [
     "SmtpSecurityMode",
     "SubscriptionStatus",
     "TenantStatus",
+    "TransactionDirection",
 ]

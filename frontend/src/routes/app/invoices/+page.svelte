@@ -169,7 +169,17 @@
 									{inv.invoice_number ?? '—'}
 								</a>
 							</td>
-							<td class="px-4 py-3 text-sm text-slate-700">{projectName ?? '—'}</td>
+							<td class="px-4 py-3 text-sm text-slate-700">
+								{#if inv.project_id}
+									{projectName ?? '—'}
+								{:else}
+									<span
+										class="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 ring-1 ring-slate-500/20 ring-inset"
+									>
+										Internal
+									</span>
+								{/if}
+							</td>
 							<td class="px-4 py-3"><StatusBadge status={inv.status} /></td>
 							<td class="px-4 py-3 text-right text-sm whitespace-nowrap text-slate-700"
 								>{fmtPrice(inv.total)}</td
