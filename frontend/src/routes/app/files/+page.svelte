@@ -8,6 +8,7 @@
 	import * as filesApi from '$lib/api/files.js';
 	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
 	import EmptyState from '$lib/components/EmptyState.svelte';
+	import FileCard from '$lib/components/FileCard.svelte';
 	import Pagination from '$lib/components/Pagination.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
 	import { auth } from '$lib/stores/auth.svelte.js';
@@ -562,20 +563,6 @@
 				? 'bg-indigo-50 text-indigo-700 ring-indigo-500/20'
 				: 'bg-amber-50 text-amber-800 ring-amber-500/20';
 	}
-
-	/**
-	 * @param {string|null|undefined} contentType
-	 */
-	function fileKind(contentType) {
-		const t = (contentType ?? '').toLowerCase();
-		if (t.startsWith('image/')) return 'image';
-		if (t === 'application/pdf') return 'pdf';
-		if (t.startsWith('text/')) return 'text';
-		return 'file';
-	}
-
-	const actionBtn =
-		'rounded px-2 py-1 text-sm font-medium hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40';
 </script>
 
 <svelte:head><title>Files — ZenEngr</title></svelte:head>
@@ -690,177 +677,21 @@
 				</EmptyState>
 			{/if}
 		{:else}
-			<div class="overflow-x-auto">
-				<table class="min-w-full divide-y divide-slate-200">
-					<thead class="bg-slate-50">
-						<tr>
-							<th
-								scope="col"
-								class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
-								>Name</th
-							>
-							<th
-								scope="col"
-								class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
-								>Size</th
-							>
-							<th
-								scope="col"
-								class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
-								>Type</th
-							>
-							<th
-								scope="col"
-								class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
-								>Scope</th
-							>
-							<th
-								scope="col"
-								class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
-								>Uploaded</th
-							>
-							<th
-								scope="col"
-								class="px-4 py-3 text-right text-xs font-semibold tracking-wide text-slate-600 uppercase"
-								>Actions</th
-							>
-						</tr>
-					</thead>
-					<tbody class="divide-y divide-slate-200">
-						{#each data.files.items as file (file.id)}
-							{@const canAct = canActOnFile(file)}
-							<tr
-								class="cursor-pointer hover:bg-slate-50"
-								tabindex="0"
-								role="button"
-								aria-label={`Preview ${file.name}`}
-								onclick={(e) => {
-									if (
-										e.target instanceof Element &&
-										e.target.closest('button, a, input, select, textarea')
-									) {
-										return;
-									}
-									openPreview(file);
-								}}
-								onkeydown={(e) => {
-									if (e.key !== 'Enter' && e.key !== ' ') return;
-									e.preventDefault();
-									openPreview(file);
-								}}
-							>
-								<td class="max-w-xs px-4 py-3">
-									<div class="flex items-center gap-2">
-										<svg
-											xmlns="http://www.w3.org/2000/svg"
-											viewBox="0 0 20 20"
-											fill="currentColor"
-											class="h-4 w-4 shrink-0 text-slate-400"
-											aria-hidden="true"
-										>
-											{#if fileKind(file.content_type) === 'image'}
-												<path
-													fill-rule="evenodd"
-													d="M1 5.25A2.25 2.25 0 013.25 3h13.5A2.25 2.25 0 0119 5.25v9.5A2.25 2.25 0 0116.75 17H3.25A2.25 2.25 0 011 14.75v-9.5zm1.5 5.81v3.69c0 .414.336.75.75.75h13.5a.75.75 0 00.75-.75v-2.69l-2.22-2.219a.75.75 0 00-1.06 0l-1.91 1.91-3.22-3.22a.75.75 0 00-1.06 0L2.5 11.06zm8.5-4.31a1 1 0 112 0 1 1 0 01-2 0z"
-													clip-rule="evenodd"
-												/>
-											{:else}
-												<path
-													fill-rule="evenodd"
-													d="M4.5 2A1.5 1.5 0 003 3.5v13A1.5 1.5 0 004.5 18h11a1.5 1.5 0 001.5-1.5V7.414a1.5 1.5 0 00-.44-1.06l-3.914-3.914A1.5 1.5 0 0011.586 2H4.5zM6 5.5a.75.75 0 01.75-.75h4.5a.75.75 0 010 1.5h-4.5A.75.75 0 016 5.5zM6.75 9a.75.75 0 000 1.5h6.5a.75.75 0 000-1.5h-6.5zM6 12.25a.75.75 0 01.75-.75h4.5a.75.75 0 010 1.5h-4.5a.75.75 0 01-.75-.75z"
-													clip-rule="evenodd"
-												/>
-											{/if}
-										</svg>
-										<span class="truncate text-sm font-medium text-slate-900" title={file.name}>
-											{file.name}
-										</span>
-									</div>
-								</td>
-								<td class="px-4 py-3 text-sm whitespace-nowrap text-slate-700"
-									>{fmtBytes(file.size_bytes)}</td
-								>
-								<td class="max-w-[10rem] px-4 py-3">
-									<span class="block truncate text-sm text-slate-600" title={file.content_type}>
-										{file.content_type}
-									</span>
-								</td>
-								<td class="px-4 py-3">
-									<span
-										class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset {scopePillClass(
-											file.scope
-										)}"
-									>
-										{scopeLabel(file.scope)}
-									</span>
-								</td>
-								<td class="px-4 py-3 text-sm whitespace-nowrap text-slate-600"
-									>{formatDateTime(file.created_at)}</td
-								>
-								<td class="px-4 py-3">
-									<div class="flex items-center justify-end gap-1">
-										<button
-											type="button"
-											onclick={() => openPreview(file)}
-											title="Preview"
-											class="{actionBtn} text-slate-600 hover:text-slate-900"
-										>
-											<svg
-												xmlns="http://www.w3.org/2000/svg"
-												viewBox="0 0 20 20"
-												fill="currentColor"
-												class="h-4 w-4"
-												aria-hidden="true"
-											>
-												<path d="M10 12.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z" />
-												<path
-													fill-rule="evenodd"
-													d="M.664 10.59a1.651 1.651 0 010-1.186A10.004 10.004 0 0110 3c4.257 0 7.893 2.66 9.336 6.41.147.381.146.804 0 1.186A10.004 10.004 0 0110 17c-4.257 0-7.893-2.66-9.336-6.41zM14 10a4 4 0 11-8 0 4 4 0 018 0z"
-													clip-rule="evenodd"
-												/>
-											</svg>
-											<span class="sr-only">Preview</span>
-										</button>
-										<button
-											type="button"
-											onclick={() => runDownload(file)}
-											class="{actionBtn} text-indigo-600 hover:text-indigo-700"
-										>
-											Download
-										</button>
-										<button
-											type="button"
-											disabled={!canAct}
-											title={canAct ? undefined : 'Not permitted at this scope.'}
-											onclick={() => openRename(file)}
-											class="{actionBtn} text-slate-600 hover:text-slate-900"
-										>
-											Rename
-										</button>
-										<button
-											type="button"
-											disabled={!canAct}
-											title={canAct ? undefined : 'Not permitted at this scope.'}
-											onclick={() => openMove(file)}
-											class="{actionBtn} text-slate-600 hover:text-slate-900"
-										>
-											Move
-										</button>
-										<button
-											type="button"
-											disabled={!canAct}
-											title={canAct ? undefined : 'Not permitted at this scope.'}
-											onclick={() => openDelete(file)}
-											class="{actionBtn} text-red-600 hover:text-red-700"
-										>
-											Delete
-										</button>
-									</div>
-								</td>
-							</tr>
-						{/each}
-					</tbody>
-				</table>
+			<div class="grid grid-cols-2 gap-4 p-4 sm:grid-cols-3 sm:p-6 lg:grid-cols-4 xl:grid-cols-5">
+				{#each data.files.items as file (file.id)}
+					{@const canAct = canActOnFile(file)}
+					<FileCard
+						{file}
+						{canAct}
+						{token}
+						busy={renameBusy || moveBusy || deleteBusy}
+						onpreview={() => openPreview(file)}
+						ondownload={() => runDownload(file)}
+						onrename={() => openRename(file)}
+						onmove={() => openMove(file)}
+						ondelete={() => openDelete(file)}
+					/>
+				{/each}
 			</div>
 			<Pagination
 				page={data.files.page}
