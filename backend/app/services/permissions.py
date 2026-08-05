@@ -35,6 +35,8 @@ _TENANT_MATRIX: dict[AdminUserRole, frozenset[PermissionEntry]] = {
             ("manage", "financial_reports"),
             ("manage", "comments"),
             ("manage", "profile"),
+            ("view", "files"),
+            ("manage", "files"),
         }
     ),
     AdminUserRole.MANAGER: frozenset(
@@ -49,6 +51,8 @@ _TENANT_MATRIX: dict[AdminUserRole, frozenset[PermissionEntry]] = {
             ("manage", "comments"),
             ("view", "financial_reports"),
             ("manage", "profile"),
+            ("view", "files"),
+            ("manage", "files"),
         }
     ),
     AdminUserRole.EMPLOYEE: frozenset(
@@ -59,6 +63,7 @@ _TENANT_MATRIX: dict[AdminUserRole, frozenset[PermissionEntry]] = {
             ("manage_assigned", "milestones"),
             ("manage_assigned", "comments"),
             ("manage", "profile"),
+            ("view", "files"),
         }
     ),
 }

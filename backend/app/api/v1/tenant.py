@@ -6,9 +6,7 @@ Base path: /api/v1/tenant
 
 from __future__ import annotations
 
-import asyncio
 import uuid
-from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, status
@@ -16,7 +14,6 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.core.config import get_settings
 from app.core.dependencies import get_current_admin_user, require_permission
 from app.db.session import get_session
 from app.models.admin_user import AdminUser
@@ -44,6 +41,7 @@ from app.services.settings import (
     should_mask_value,
     update_tenant_setting,
 )
+from app.storage import get_storage
 
 router = APIRouter(prefix="/tenant", tags=["tenant"])
 
@@ -54,14 +52,6 @@ _ALLOWED_IMAGE_TYPES = {
     "image/gif": ".gif",
 }
 _MAX_LOGO_BYTES = 2 * 1024 * 1024
-
-
-def _persist_logo(filename: str, data: bytes) -> str:
-    """Write logo bytes to the uploads dir. Blocking; run in a worker thread."""
-    uploads_dir = Path(get_settings().uploads_dir)
-    uploads_dir.mkdir(parents=True, exist_ok=True)
-    (uploads_dir / filename).write_bytes(data)
-    return f"/uploads/{filename}"
 
 
 async def _count_active_clients(session: AsyncSession, tenant_id: uuid.UUID) -> int:
@@ -276,8 +266,9 @@ async def upload_branding_logo(
 ) -> dict[str, str]:
     """Upload a tenant branding logo (PNG/JPEG/WebP/GIF, max 2MB).
 
-    Writes the file to the uploads dir, records /uploads/<filename> in both
-    the branding JSONB dict and the logo_url column, and audits the change.
+    Stores the bytes via the storage backend under the public namespace
+    (`public/{tenant_id}/...`), records the public logo URL in both the
+    branding JSONB dict and the logo_url column, and audits the change.
     """
     tenant_id = _get_tenant_or_raise(user)
     tenant = await session.get(Tenant, tenant_id)
@@ -304,11 +295,14 @@ async def upload_branding_logo(
             detail="Logo too large",
         )
 
-    filename = f"{uuid.uuid4().hex}{ext}"
-    logo_url = await asyncio.to_thread(_persist_logo, filename, data)
+    storage_key = f"public/{tenant_id}/{uuid.uuid4().hex}{ext}"
+    await get_storage().put(storage_key, data, content_type)
+
+    logo_url = f"/api/v1/public/tenant/{tenant_id}/logo"
 
     branding = dict(tenant.branding or {})
     branding["logo_url"] = logo_url
+    branding["logo_key"] = storage_key
     tenant.branding = branding
     tenant.logo_url = logo_url
 

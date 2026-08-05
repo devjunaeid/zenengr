@@ -16,6 +16,7 @@ from app.models.enums import (
     ClientStatus,
     ClientType,
     CommentAuthorType,
+    FileScope,
     InviteRole,
     InvoiceStatus,
     MilestoneStatus,
@@ -27,6 +28,8 @@ from app.models.enums import (
     SubscriptionStatus,
     TenantStatus,
 )
+from app.models.file_asset import FileAsset
+from app.models.file_folder import FileFolder
 from app.models.invite import Invite
 from app.models.invoice import Invoice, InvoiceLineItem
 from app.models.invoice_number_sequence import InvoiceNumberSequence
@@ -76,12 +79,15 @@ __all__ = [
     "EmailVerificationToken",
     "NotificationPreference",
     "UserActivity",
+    "FileFolder",
+    "FileAsset",
     "ActorType",
     "AdminUserRole",
     "BillingCycle",
     "ClientStatus",
     "ClientType",
     "CommentAuthorType",
+    "FileScope",
     "InviteRole",
     "InvoiceStatus",
     "MilestoneStatus",

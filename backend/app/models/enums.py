@@ -107,3 +107,9 @@ class NotificationEventType(enum.StrEnum):
     INVOICE_ISSUED = "invoice_issued"
     PAYMENT_RECEIVED = "payment_received"
     MILESTONE_COMPLETED = "milestone_completed"
+
+
+class FileScope(enum.StrEnum):
+    USER = "user"
+    TENANT = "tenant"
+    PROJECT = "project"

@@ -19,6 +19,7 @@ from app.core.dependencies import get_current_client_user
 from app.db.session import get_session
 from app.models.client_user import ClientUser
 from app.models.enums import MilestoneStatus, ProjectStatus
+from app.models.file_asset import FileAsset
 from app.models.project import Project
 from app.models.project_service import ProjectService
 from app.schemas.client_portal import (
@@ -30,8 +31,10 @@ from app.schemas.client_portal import (
     ClientProjectServiceItem,
 )
 from app.schemas.comments import CommentCreateRequest, CommentResponse
+from app.schemas.files import FileAssetItem, FileListResponse
 from app.schemas.projects import LinkedInvoiceItem
 from app.services import comments as comment_service
+from app.services import files as files_service
 from app.services import financials as financials_service
 
 router = APIRouter(prefix="/client/projects", tags=["client-projects"])
@@ -57,6 +60,22 @@ def _to_comment_response(comment: Any) -> CommentResponse:
         content=comment.content,
         is_internal=comment.is_internal,
         created_at=comment.created_at,
+    )
+
+
+def _to_asset_item(asset: FileAsset) -> FileAssetItem:
+    return FileAssetItem(
+        id=asset.id,
+        name=asset.name,
+        scope=asset.scope,
+        folder_id=asset.folder_id,
+        project_id=asset.project_id,
+        content_type=asset.content_type,
+        size_bytes=asset.size_bytes,
+        sha256=asset.sha256,
+        created_by_id=asset.created_by_id,
+        created_by_type=asset.created_by_type,
+        created_at=asset.created_at,
     )
 
 
@@ -215,6 +234,35 @@ async def get_client_project_endpoint(
             balance_due=financials["balance_due"],
         ),
         linked_invoices=[LinkedInvoiceItem(**inv) for inv in invoices],
+    )
+
+
+@router.get("/{project_id}/files", response_model=FileListResponse)
+async def list_client_project_files_endpoint(
+    project_id: str,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+    session: AsyncSession = Depends(get_session),
+    user: ClientUser = Depends(get_current_client_user),
+) -> FileListResponse:
+    """List PROJECT-scope files on one of the client's own projects.
+
+    404 for projects that do not belong to the caller's client (leak prevention).
+    """
+    pid = _parse_uuid(project_id, kind="Project")
+    result = await files_service.list_project_files_for_client(
+        session,
+        tenant_id=user.tenant_id,
+        client_id=user.client_id,
+        project_id=pid,
+        page=page,
+        page_size=page_size,
+    )
+    return FileListResponse(
+        items=[_to_asset_item(item) for item in result["items"]],
+        total=result["total"],
+        page=result["page"],
+        page_size=result["page_size"],
     )
 
 

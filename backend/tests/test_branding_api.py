@@ -1,12 +1,17 @@
-"""Integration tests for tenant branding (TODO-011): logo upload + PDF branding."""
+"""Integration tests for tenant branding (TODO-011 + FEAT-012 TODO-133):
+logo upload (storage backend), public logo endpoint, PDF branding, and the
+storage migration/backfill tool (TODO-126)."""
 
 from __future__ import annotations
 
 import base64
+import types
 import uuid
 
+import boto3
 import pytest
 from httpx import AsyncClient
+from moto import mock_aws
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import create_access_token, hash_password
@@ -18,6 +23,10 @@ from app.models.project import Project
 from app.models.project_service import ProjectService
 from app.models.service import Service
 from app.models.tenant import Tenant
+from app.storage import get_storage
+from app.storage.local import LocalStorageBackend
+from app.storage.s3 import S3StorageBackend
+from scripts import migrate_storage as migrate
 
 _TEST_PWD = "testpass123!"
 
@@ -193,11 +202,36 @@ class TestBrandingLogoUpload:
         )
         assert resp.status_code == 200
         data = resp.json()
-        assert data["logo_url"].startswith("/uploads/")
+        expected_url = f"/api/v1/public/tenant/{ctx['tenant'].id}/logo"
+        assert data["logo_url"] == expected_url
 
         profile = (await client.get("/api/v1/tenant/profile", headers=headers)).json()
-        assert profile["logo_url"] == data["logo_url"]
-        assert profile["branding"]["logo_url"] == data["logo_url"]
+        assert profile["logo_url"] == expected_url
+        assert profile["branding"]["logo_url"] == expected_url
+        assert profile["branding"]["logo_key"].startswith(f"public/{ctx['tenant'].id}/")
+
+    @pytest.mark.asyncio
+    async def test_public_logo_endpoint_unauthenticated(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        ctx = await _bootstrap(db_session)
+        headers = await _admin_auth_header(ctx["admin"])
+        resp = await client.post(
+            "/api/v1/tenant/branding/logo",
+            files={"file": ("logo.png", _ONE_PX_PNG, "image/png")},
+            headers=headers,
+        )
+        assert resp.status_code == 200
+        url = resp.json()["logo_url"]
+
+        # no auth header; local backend 307-redirects to the static mount
+        resp = await client.get(url, follow_redirects=True)
+        assert resp.status_code == 200
+        assert resp.content == _ONE_PX_PNG
+
+        # missing tenant -> 404
+        resp = await client.get(f"/api/v1/public/tenant/{uuid.uuid4()}/logo")
+        assert resp.status_code == 404
 
     @pytest.mark.asyncio
     async def test_upload_non_image_rejected(self, client: AsyncClient, db_session: AsyncSession):
@@ -255,14 +289,14 @@ class TestInvoicePdfBranding:
         )
         assert resp.status_code == 200
 
-        # logo upload (writes real file to the uploads dir)
+        # logo upload (stores via the storage backend)
         resp = await client.post(
             "/api/v1/tenant/branding/logo",
             files={"file": ("logo.png", _ONE_PX_PNG, "image/png")},
             headers=headers,
         )
         assert resp.status_code == 200
-        assert resp.json()["logo_url"].startswith("/uploads/")
+        assert resp.json()["logo_url"] == f"/api/v1/public/tenant/{ctx['tenant'].id}/logo"
 
         # invoice + issue
         inv_resp = await client.post(
@@ -310,3 +344,167 @@ class TestInvoicePdfBranding:
         resp = await client.get(f"/api/v1/tenant/invoices/{inv_id}/pdf", headers=headers)
         assert resp.status_code == 200
         assert resp.content[:4] == b"%PDF"
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# PDF branding via storage logo (FEAT-012, TODO-133)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestInvoicePdfStorageLogo:
+    @pytest.mark.asyncio
+    async def test_pdf_renders_with_storage_logo_and_color(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        ctx = await _bootstrap(db_session)
+        headers = await _admin_auth_header(ctx["admin"])
+
+        # seed logo bytes directly into storage + branding (as upload would)
+        tenant = ctx["tenant"]
+        key = f"public/{tenant.id}/logo.png"
+        await get_storage().put(key, _ONE_PX_PNG, "image/png")
+        tenant.branding = {
+            "color": "#336699",
+            "logo_key": key,
+            "logo_url": f"/api/v1/public/tenant/{tenant.id}/logo",
+        }
+        tenant.logo_url = tenant.branding["logo_url"]
+        await db_session.flush()
+
+        inv_resp = await client.post(
+            "/api/v1/tenant/invoices/",
+            json={
+                "project_id": str(ctx["project"].id),
+                "line_items": [{"project_service_id": str(ctx["ps"].id)}],
+            },
+            headers=headers,
+        )
+        assert inv_resp.status_code == 201
+        inv_id = inv_resp.json()["id"]
+        await client.post(f"/api/v1/tenant/invoices/{inv_id}/issue", headers=headers)
+
+        resp = await client.get(f"/api/v1/tenant/invoices/{inv_id}/pdf", headers=headers)
+        assert resp.status_code == 200
+        assert resp.headers["content-type"].startswith("application/pdf")
+        assert resp.content[:4] == b"%PDF"
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Storage migration/backfill tool (FEAT-012, TODO-126)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestBackfillLegacyLogos:
+    @pytest.mark.asyncio
+    async def test_backfill_migrates_legacy_uploads_logo(
+        self, db_session: AsyncSession, tmp_path, monkeypatch
+    ):
+        ctx = await _bootstrap(db_session)
+        tenant = ctx["tenant"]
+        tenant.branding = {"logo_url": "/uploads/legacy.png"}
+        await db_session.flush()
+
+        uploads_dir = tmp_path / "uploads"
+        uploads_dir.mkdir()
+        (uploads_dir / "legacy.png").write_bytes(b"legacy-logo-bytes")
+
+        store = LocalStorageBackend(tmp_path / "store")
+        monkeypatch.setattr(
+            migrate,
+            "get_settings",
+            lambda: types.SimpleNamespace(uploads_dir=str(uploads_dir)),
+        )
+        monkeypatch.setattr(migrate, "get_storage", lambda: store)
+
+        count = await migrate.backfill_legacy_logos(db_session)
+        assert count == 1
+
+        key = f"public/{tenant.id}/legacy.png"
+        assert tenant.branding["logo_key"] == key
+        assert tenant.branding["logo_url"] == f"/api/v1/public/tenant/{tenant.id}/logo"
+        assert tenant.logo_url == tenant.branding["logo_url"]
+        assert await store.get(key) == b"legacy-logo-bytes"
+
+    @pytest.mark.asyncio
+    async def test_backfill_idempotent_and_skips_missing(
+        self, db_session: AsyncSession, tmp_path, monkeypatch
+    ):
+        ctx = await _bootstrap(db_session)
+        tenant = ctx["tenant"]
+        tenant.branding = {"logo_url": "/uploads/ghost.png"}  # file missing on disk
+        await db_session.flush()
+
+        uploads_dir = tmp_path / "uploads"
+        uploads_dir.mkdir()
+        store = LocalStorageBackend(tmp_path / "store")
+        monkeypatch.setattr(
+            migrate,
+            "get_settings",
+            lambda: types.SimpleNamespace(uploads_dir=str(uploads_dir)),
+        )
+        monkeypatch.setattr(migrate, "get_storage", lambda: store)
+
+        assert await migrate.backfill_legacy_logos(db_session) == 0
+        # unchanged: still legacy URL, no key written
+        assert tenant.branding["logo_url"] == "/uploads/ghost.png"
+        assert "logo_key" not in tenant.branding
+
+
+class TestTransferKeys:
+    @pytest.mark.asyncio
+    async def test_transfer_local_to_s3(self, tmp_path):
+        local = LocalStorageBackend(tmp_path / "local")
+        await local.put("public/a.txt", b"aaa", "text/plain")
+        await local.put("public/b.txt", b"bbb", "text/plain")
+
+        with mock_aws():
+            boto3_client = boto3.client(
+                "s3",
+                region_name="us-east-1",
+                aws_access_key_id="testing",
+                aws_secret_access_key="testing",
+            )
+            boto3_client.create_bucket(Bucket="test-bucket")
+            s3 = S3StorageBackend(
+                bucket="test-bucket",
+                access_key_id="testing",
+                secret_access_key="testing",
+                region="us-east-1",
+            )
+
+            transferred, total_bytes = await migrate.transfer_keys(
+                local,
+                s3,
+                keys=["public/a.txt", "public/b.txt"],
+            )
+            assert transferred == 2
+            assert total_bytes == 6
+            assert await s3.get("public/a.txt") == b"aaa"
+            assert await s3.get("public/b.txt") == b"bbb"
+
+    @pytest.mark.asyncio
+    async def test_transfer_skips_missing_source_keys(self, tmp_path):
+        local = LocalStorageBackend(tmp_path / "local")
+        await local.put("a.txt", b"x", "text/plain")
+
+        with mock_aws():
+            boto3_client = boto3.client(
+                "s3",
+                region_name="us-east-1",
+                aws_access_key_id="testing",
+                aws_secret_access_key="testing",
+            )
+            boto3_client.create_bucket(Bucket="test-bucket")
+            s3 = S3StorageBackend(
+                bucket="test-bucket",
+                access_key_id="testing",
+                secret_access_key="testing",
+                region="us-east-1",
+            )
+
+            transferred, total_bytes = await migrate.transfer_keys(
+                local, s3, keys=["a.txt", "missing.txt"]
+            )
+            assert transferred == 1
+            assert total_bytes == 1
+            assert await s3.get("a.txt") == b"x"

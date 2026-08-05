@@ -25,10 +25,14 @@ def create_app() -> FastAPI:
 
     app.include_router(api_router)
 
-    # Serve uploaded files (tenant logos). Dir created at startup.
+    # Serve public files from the storage local backend namespace (legacy
+    # static path; branding logos now use the /api/v1/public/... endpoint).
+    # uploads_dir is kept as the backfill source for pre-storage logos.
     uploads_dir = Path(settings.uploads_dir)
     uploads_dir.mkdir(parents=True, exist_ok=True)
-    app.mount("/uploads", StaticFiles(directory=str(uploads_dir)), name="uploads")
+    public_dir = Path(settings.storage_local_dir) / "public"
+    public_dir.mkdir(parents=True, exist_ok=True)
+    app.mount("/uploads", StaticFiles(directory=str(public_dir)), name="uploads")
 
     return app
 

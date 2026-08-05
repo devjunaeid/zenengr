@@ -13,6 +13,7 @@ dependencies = [
     "email-validator>=2.0",
     "reportlab>=5.0.0",
     "python-multipart>=0.0.32",
+    "boto3>=1.43.64",
 ]
 
 [project.optional-dependencies]
@@ -62,6 +63,14 @@ ignore_missing_imports = true
 module = "reportlab.*"
 ignore_missing_imports = true
 
+[[tool.mypy.overrides]]
+module = "boto3"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "botocore.*"
+ignore_missing_imports = true
+
 [tool.pydantic-mypy]
 init_forbid_extra = true
 init_typed = true
@@ -77,6 +86,7 @@ dev = [
     "alembic>=1.18.5",
     "anyio>=4.14.2",
     "httpx>=0.28.1",
+    "moto>=5.2.2",
     "mypy>=2.3.0",
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
