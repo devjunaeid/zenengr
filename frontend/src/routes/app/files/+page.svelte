@@ -1030,6 +1030,7 @@
 						<select
 							id="up-project"
 							bind:value={uploadProjectId}
+							onchange={() => (uploadFolderId = '')}
 							required
 							class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
 						>
