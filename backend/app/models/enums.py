@@ -113,3 +113,9 @@ class FileScope(enum.StrEnum):
     USER = "user"
     TENANT = "tenant"
     PROJECT = "project"
+
+
+class SmtpSecurityMode(enum.StrEnum):
+    NONE = "none"
+    STARTTLS = "starttls"
+    SSL = "ssl"

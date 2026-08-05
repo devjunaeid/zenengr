@@ -23,7 +23,6 @@ from app.schemas.users import (
     UserListResponse,
 )
 from app.services.audit import log as audit_log
-from app.services.email import create_email_sender
 from app.services.users import (
     LastAdminError,
     create_password_reset_token,
@@ -319,8 +318,7 @@ async def admin_reset_password(
     token_obj, raw_token = await create_password_reset_token(session, target, current_user)
 
     # Send email
-    email_sender = create_email_sender()
-    await send_reset_email(email_sender, target, raw_token)
+    await send_reset_email(session, target, raw_token)
 
     await audit_log(
         session,

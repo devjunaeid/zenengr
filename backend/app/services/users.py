@@ -14,7 +14,7 @@ from app.models.admin_user import AdminUser
 from app.models.password_reset_token import PasswordResetToken
 from app.repositories import admin_users as admin_user_repo
 from app.repositories import password_reset_tokens as token_repo
-from app.services.email import EmailSender
+from app.services.smtp import send_tenant_email
 
 # ── Last-admin guard ────────────────────────────────────────────────────
 
@@ -77,7 +77,7 @@ async def create_password_reset_token(
 
 
 async def send_reset_email(
-    email_sender: EmailSender,
+    session: AsyncSession,
     user: AdminUser,
     raw_token: str,
 ) -> None:
@@ -91,4 +91,10 @@ async def send_reset_email(
         f"{reset_url}\n\n"
         f"This link expires in {settings.password_reset_ttl_hours} hours."
     )
-    await email_sender.send_email(to=user.email, subject=subject, body=body)
+    await send_tenant_email(
+        session,
+        tenant_id=user.tenant_id,
+        to=user.email,
+        subject=subject,
+        body=body,
+    )

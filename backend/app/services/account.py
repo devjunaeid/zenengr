@@ -29,8 +29,8 @@ from app.models.user_activity import UserActivity
 from app.repositories import admin_users as admin_user_repo
 from app.repositories import client_users as client_user_repo
 from app.services.audit import log as audit_log
-from app.services.email import create_email_sender
 from app.services.password_policy import get_min_password_length, validate_password_policy
+from app.services.smtp import send_tenant_email
 from app.services.users import create_password_reset_token
 
 # ── Helpers ────────────────────────────────────────────────────────────────
@@ -156,8 +156,13 @@ async def _request_email_change(
         f"{portal_base_url}/verify-email?token={raw_token}\n\n"
         f"This link expires in {settings.password_reset_ttl_hours} hours."
     )
-    email_sender = create_email_sender()
-    await email_sender.send_email(to=new_email, subject=subject, body=body)
+    await send_tenant_email(
+        session,
+        tenant_id=user.tenant_id,
+        to=new_email,
+        subject=subject,
+        body=body,
+    )
     return True
 
 
@@ -473,8 +478,13 @@ async def forgot_password_admin(session: AsyncSession, *, email: str) -> None:
         f"{reset_url}\n\n"
         f"This link expires in {settings.password_reset_ttl_hours} hours."
     )
-    email_sender = create_email_sender()
-    await email_sender.send_email(to=user.email, subject=subject, body=body)
+    await send_tenant_email(
+        session,
+        tenant_id=user.tenant_id,
+        to=user.email,
+        subject=subject,
+        body=body,
+    )
 
     await session.commit()
 
@@ -519,8 +529,13 @@ async def forgot_password_client(session: AsyncSession, *, email: str) -> None:
         f"{reset_url}\n\n"
         f"This link expires in {settings.password_reset_ttl_hours} hours."
     )
-    email_sender = create_email_sender()
-    await email_sender.send_email(to=user.email, subject=subject, body=body)
+    await send_tenant_email(
+        session,
+        tenant_id=user.tenant_id,
+        to=user.email,
+        subject=subject,
+        body=body,
+    )
 
     await session.commit()
 

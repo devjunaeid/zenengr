@@ -17,6 +17,7 @@ from app.api.v1.invoices import router as invoices_router
 from app.api.v1.projects import router as projects_router
 from app.api.v1.public import router as public_router
 from app.api.v1.services import router as services_router
+from app.api.v1.smtp import router as smtp_router
 from app.api.v1.tenant import router as tenant_router
 from app.api.v1.users import public_router as users_public_router
 from app.api.v1.users import tenant_router as users_tenant_router
@@ -42,3 +43,4 @@ api_router.include_router(projects_router)
 api_router.include_router(public_router)
 api_router.include_router(invoices_router)
 api_router.include_router(files_router)
+api_router.include_router(smtp_router)

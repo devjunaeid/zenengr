@@ -5,6 +5,6 @@ import { auth } from '$lib/stores/auth.svelte.js';
 export async function load({ fetch }) {
 	await auth.init(fetch);
 	const token = /** @type {string} */ (auth.token);
-	const profile = await tenantApi.getProfile(fetch, token);
-	return { profile };
+	const settings = await tenantApi.getSettings(fetch, token);
+	return { settings };
 }

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import secrets
+import uuid
 from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -25,7 +26,7 @@ from app.schemas.invites import (
     RegisterRequest,
 )
 from app.services.audit import log as audit_log
-from app.services.email import EmailSender, create_email_sender
+from app.services.smtp import send_tenant_email
 
 # ── Tenant-scoped (admin: manage admin_users) ──────────────────────────────
 
@@ -53,7 +54,9 @@ def _derive_status(invite: Invite) -> str:
 
 
 async def _send_invite_email(
-    email_sender: EmailSender,
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
     tenant_name: str,
     email: str,
     raw_token: str,
@@ -68,7 +71,7 @@ async def _send_invite_email(
         f"{accept_url}\n\n"
         f"This link expires in {settings.invite_ttl_hours} hours."
     )
-    await email_sender.send_email(to=email, subject=subject, body=body)
+    await send_tenant_email(session, tenant_id=tenant_id, to=email, subject=subject, body=body)
 
 
 # ── Tenant endpoints ───────────────────────────────────────────────────────
@@ -160,8 +163,13 @@ async def create_invite(
 
     inviter = await get_by_id(session, current_user.id)
     tenant_name = inviter.tenant.business_name if inviter and inviter.tenant else "the platform"
-    email_sender = create_email_sender()
-    await _send_invite_email(email_sender, tenant_name, email, raw_token)
+    await _send_invite_email(
+        session,
+        tenant_id=current_user.tenant_id,
+        tenant_name=tenant_name,
+        email=email,
+        raw_token=raw_token,
+    )
 
     await session.commit()
 

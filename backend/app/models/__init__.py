@@ -25,6 +25,7 @@ from app.models.enums import (
     PermissionLevel,
     ProjectServiceStatus,
     ProjectStatus,
+    SmtpSecurityMode,
     SubscriptionStatus,
     TenantStatus,
 )
@@ -45,6 +46,7 @@ from app.models.service import Service
 from app.models.tenant import Tenant
 from app.models.tenant_feature_flag import TenantFeatureFlag
 from app.models.tenant_setting import TenantSetting
+from app.models.tenant_smtp_config import TenantSmtpConfig
 from app.models.tenant_subscription import TenantSubscription
 from app.models.transaction import PaymentAllocation, Transaction
 from app.models.user_activity import UserActivity
@@ -54,6 +56,7 @@ __all__ = [
     "Tenant",
     "TenantSubscription",
     "TenantSetting",
+    "TenantSmtpConfig",
     "PlanFeatureDefault",
     "TenantFeatureFlag",
     "AuditLog",
@@ -96,6 +99,7 @@ __all__ = [
     "PermissionLevel",
     "ProjectServiceStatus",
     "ProjectStatus",
+    "SmtpSecurityMode",
     "SubscriptionStatus",
     "TenantStatus",
 ]

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import secrets
+import uuid
 from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -62,9 +63,9 @@ from app.services.client_auth import (
     authenticate_client_user,
     register_client_user_from_invite,
 )
-from app.services.email import EmailSender, create_email_sender
 from app.services.notification_preferences import list_preferences, update_preferences
 from app.services.password_policy import get_min_password_length
+from app.services.smtp import send_tenant_email
 
 # ── Tenant-scoped (admin: manage clients) ────────────────────────────────
 
@@ -95,7 +96,9 @@ def _derive_status(invite: ClientInvite) -> str:
 
 
 async def _send_client_invite_email(
-    email_sender: EmailSender,
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
     tenant_name: str,
     client_name: str,
     email: str,
@@ -111,7 +114,7 @@ async def _send_client_invite_email(
         f"{accept_url}\n\n"
         f"This link expires in {settings.invite_ttl_hours} hours."
     )
-    await email_sender.send_email(to=email, subject=subject, body=body)
+    await send_tenant_email(session, tenant_id=tenant_id, to=email, subject=subject, body=body)
 
 
 def _build_client_me_response(user: ClientUser) -> ClientMeResponse:
@@ -391,9 +394,7 @@ async def client_notification_preferences(
     return [NotificationPreferenceResponse(**p) for p in prefs]
 
 
-@auth_router.patch(
-    "/notification-preferences", response_model=list[NotificationPreferenceResponse]
-)
+@auth_router.patch("/notification-preferences", response_model=list[NotificationPreferenceResponse])
 async def client_update_notification_preferences(
     body: NotificationPreferencesUpdateRequest,
     user: ClientUser = Depends(get_current_client_user),
@@ -549,8 +550,14 @@ async def create_client_invite(
 
     # Send email
     tenant_name = current_user.tenant.business_name if current_user.tenant else "the platform"
-    email_sender = create_email_sender()
-    await _send_client_invite_email(email_sender, tenant_name, client.name, email, raw_token)
+    await _send_client_invite_email(
+        session,
+        tenant_id=current_user.tenant_id,
+        tenant_name=tenant_name,
+        client_name=client.name,
+        email=email,
+        raw_token=raw_token,
+    )
 
     await session.commit()
 

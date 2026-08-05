@@ -90,6 +90,7 @@ The project is developed against a **containerized stack** via Docker (OrbStack 
 - **Backend checks** (`uv run ruff check .`, `uv run mypy app`, `uv run pytest`) run from `backend/` on the host against the container services.
 - **Migrations**: `uv run alembic upgrade head` (host) applies to the containerized Postgres.
 - Check service state with `docker compose ps` / `docker ps` before blaming environment failures.
+- **After adding a backend dependency**, rebuild the backend image — a stale image crashes on import (seen with reportlab, boto3, aiosmtplib): `docker compose --profile dev up -d --build backend-dev` (or `docker exec zenengr-backend-dev-1 uv sync` + restart).
 
 > Lint/type/test commands marked "pending" need the corresponding dev dependency (`ruff`, `mypy`, `pytest`, `alembic`) added via `uv add --dev` before they will work.
 

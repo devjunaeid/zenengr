@@ -19,9 +19,9 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 
 | Area | Count | Key metric |
 | ---- | ----- | ---------- |
-| Features | 13 | approved: 12, proposed: 1 |
-| User stories | 52 | done: 13, in_progress: 4, proposed: 35 |
-| Todos | 137 | done: 137, in_progress: 0, proposed: 0 |
+| Features | 14 | approved: 13, proposed: 1 |
+| User stories | 54 | done: 14, in_progress: 4, proposed: 36 |
+| Todos | 144 | done: 144, in_progress: 0, proposed: 0 |
 | Decisions | 2 | accepted: 2 |
 
 ## Active sprint
@@ -54,6 +54,7 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | [FEAT-010](features/FEAT-010-comments.md) | Comments / Communication | approved | P0 |
 | [FEAT-011](features/FEAT-011-profile-self-service.md) | Profile Management (Self-Service) | approved | P0 |
 | [FEAT-012](features/FEAT-012-file-storage.md) | File Management & Storage | approved | P0 |
+| [FEAT-013](features/FEAT-013-email-smtp.md) | Per-Tenant Email (SMTP) & Settings Tabs | approved | P0 |
 
 ### Stories
 
@@ -111,6 +112,8 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | [US-050](stories/US-050.md) | Visibility scoping: user-isolated vs tenant-level | FEAT-012 | done |
 | [US-051](stories/US-051.md) | Protected project files with client access | FEAT-012 | done |
 | [US-052](stories/US-052.md) | Quota and limits | FEAT-012 | done |
+| [US-053](stories/US-053.md) | Tenant admin manages per-tenant SMTP for outgoing email | FEAT-013 | done |
+| [US-054](stories/US-054.md) | Settings reorganized into top-bar tabs | FEAT-013 | done |
 
 ### Todos
 
@@ -316,6 +319,18 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | [TODO-136](todos/TODO-136.md) | Quota enforcement + limits tests | US-052 | done |
 | [TODO-137](todos/TODO-137.md) | Auto-provisioning of root folders | US-049 | done |
 
+#### FEAT-013 — Per-Tenant Email (SMTP) & Settings Tabs
+
+| ID | Title | Story | Status |
+| -- | ----- | ----- | ------ |
+| [TODO-138](todos/TODO-138.md) | TenantSmtpConfig model + migration | US-053 | done |
+| [TODO-139](todos/TODO-139.md) | SMTP sender + tenant email factory | US-053 | done |
+| [TODO-140](todos/TODO-140.md) | SMTP config CRUD API | US-053 | done |
+| [TODO-141](todos/TODO-141.md) | Test SMTP endpoint | US-053 | done |
+| [TODO-142](todos/TODO-142.md) | Route email sites through tenant sender | US-053 | done |
+| [TODO-143](todos/TODO-143.md) | Settings tabs restructure | US-054 | done |
+| [TODO-144](todos/TODO-144.md) | SMTP settings UI | US-054 | done |
+
 ## Recently updated
 
 | Date | Item | Change |
@@ -343,7 +358,7 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 
 ## Next
 
-All 137 todos complete (Sprint 1 + FEAT-012 File Management & Storage shipped; 528 backend tests green, frontend clean).
+All 144 todos complete (FEAT-012 + FEAT-013 shipped; 550 backend tests green, frontend clean).
 
 1. Stakeholder walkthrough + demo.
-2. Phase 2 candidates: file versioning, virus scanning, thumbnails, client uploads, public share links, S3 lifecycle policies; cloud migration path ready (storage backend switch + transfer tool).
+2. Phase 2 candidates: credit notes, online payment gateway, milestone comments, client uploads, public share links, per-user email aliases, DKIM/SPF management, email templates editor, send history dashboard.

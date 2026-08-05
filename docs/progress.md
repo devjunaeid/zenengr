@@ -4,12 +4,14 @@
 
 - **Phase:** Sprint 1 — Admin Auth & Invites
 - **Last updated:** 2026-08-05
-- **Current focus:** FEAT-012 File Management & Storage shipped: pluggable storage (local + S3-compatible), tenant file gallery with folders, user/team/project visibility scopes, protected project files with client read access, quota, logo/PDF on storage, migration tool. All 137 todos complete.
+- **Current focus:** FEAT-013 per-tenant SMTP + settings tabs shipped. All 144 todos complete.
 
 ## What changed recently
 
 | Date | Item | Change |
 | ---- | ---- | ------ |
+| 2026-08-05 | FEAT-013 Per-Tenant Email (SMTP) & Settings Tabs shipped: TenantSmtpConfig model + migration f8a9b0c1d2e3 (password Fernet-encrypted, one per tenant), GET/PATCH /tenant/smtp-config (masked, upsert keeps password when omitted) + POST /tenant/smtp-config/test, SmtpEmailSender (aiosmtplib, none/starttls/ssl) + tenant sender factory with console fallback, ALL email sites routed via tenant sender, SMTP send failures → audit email.send_failed (action never breaks), settings top tab bar + SMTP UI. 550 backend tests green (TODO-138..144 done) | backend/app/models/tenant_smtp_config.py, app/services/smtp.py, app/services/tenant_smtp.py, app/api/v1/smtp.py, app/schemas/smtp.py, alembic/versions/f8a9b0c1d2e3_add_tenant_smtp_config.py, tests/test_smtp_api.py; frontend/src/routes/app/settings/* (+layout, configuration, email, plan), lib/api/smtp.js; docs/todos/TODO-138.md, docs/todos/TODO-139.md, docs/todos/TODO-140.md, docs/todos/TODO-141.md, docs/todos/TODO-142.md, docs/todos/TODO-143.md, docs/todos/TODO-144.md, docs/stories/US-053.md, docs/stories/US-054.md, docs/features/FEAT-013-email-smtp.md, docs/index.md, docs/progress.md. |
+| 2026-08-05 | FEAT-013 Per-Tenant Email (SMTP) & Settings Tabs docs drafted (feature + 2 stories + 7 todos); awaiting approval to implement | docs/features/FEAT-013-email-smtp.md, docs/stories/US-053.md, docs/stories/US-054.md, docs/todos/TODO-138.md, docs/todos/TODO-139.md, docs/todos/TODO-140.md, docs/todos/TODO-141.md, docs/todos/TODO-142.md, docs/todos/TODO-143.md, docs/todos/TODO-144.md, docs/index.md, docs/progress.md. |
 | 2026-08-05 | FEAT-012 File Management & Storage shipped: storage protocol + local + S3(boto3), FileFolder/FileAsset + 2 migrations, folders/upload/list/download/delete APIs, RBAC + quota, client portal file access, logo+PDF via storage, public logo endpoint, backfill/transfer tool, file explorer UI + client files UI | backend/app/storage/*, models/file_folder.py, file_asset.py, services/files.py, api/v1/files.py, client_files.py, public.py, tenant.py, pdf.py, scripts/migrate_storage.py, alembic/versions/c3d4e5f6a7b8_*.py, d4e5f6a7b8c9_*.py, tests/test_storage.py, test_files_api.py, test_client_files_api.py; frontend/src/routes/app/files/*, client/projects/[id], lib/api/files.js, portal.js; docker-compose.yml. |
 | 2026-08-05 | FEAT-012 File Management & Storage docs drafted (feature + 5 stories + 15 todos); awaiting approval to implement | docs/features/FEAT-012-file-storage.md, docs/stories/US-048.md, docs/stories/US-049.md, docs/stories/US-050.md, docs/stories/US-051.md, docs/stories/US-052.md, docs/todos/TODO-123.md, docs/todos/TODO-124.md, docs/todos/TODO-125.md, docs/todos/TODO-126.md, docs/todos/TODO-127.md, docs/todos/TODO-128.md, docs/todos/TODO-129.md, docs/todos/TODO-130.md, docs/todos/TODO-131.md, docs/todos/TODO-132.md, docs/todos/TODO-133.md, docs/todos/TODO-134.md, docs/todos/TODO-135.md, docs/todos/TODO-136.md, docs/todos/TODO-137.md, docs/index.md, docs/progress.md. |
 | 2026-08-03 | Final: logo upload + render + PDF branding (TODO-011), per-service financial breakdown (TODO-095), voided-invoice correction guidance UI (TODO-083) | backend/app/api/v1/tenant.py, services/pdf.py, financials.py, schemas/projects.py, services/projects.py, main.py, config.py, tests/test_branding_api.py; frontend/src/routes/app/invoices/[id]/+page.svelte, app/+layout.svelte, app/settings/+page.svelte, app/projects/[id]/+page.svelte, lib/api/tenant.js, invoices.js. |
@@ -116,7 +118,7 @@
 
 ## Next
 
-All 137 todos complete (Sprint 1 + FEAT-012 File Management & Storage shipped; 528 backend tests green, frontend clean).
+All 144 todos complete (FEAT-012 + FEAT-013 shipped; 550 backend tests green, frontend clean).
 
 1. Stakeholder walkthrough + demo.
-2. Phase 2 candidates: file versioning, virus scanning, thumbnails, client uploads, public share links, S3 lifecycle policies; cloud migration path ready (storage backend switch + transfer tool).
+2. Phase 2 candidates: credit notes, online payment gateway, milestone comments, client uploads, public share links, per-user email aliases, DKIM/SPF management, email templates editor, send history dashboard.

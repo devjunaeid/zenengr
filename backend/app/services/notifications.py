@@ -20,8 +20,8 @@ from app.models.client_user import ClientUser
 from app.models.comment import Comment
 from app.models.enums import NotificationEventType
 from app.models.project import Project
-from app.services.email import create_email_sender
 from app.services.notification_preferences import get_enabled_map
+from app.services.smtp import send_tenant_email
 
 logger = logging.getLogger(__name__)
 
@@ -89,19 +89,17 @@ async def dispatch_new_comment(
                 continue
             recipients.append((client_user.email, settings.client_portal_base_url))
 
-        sender = create_email_sender()
         for email, portal_base_url in recipients:
-            try:
-                await sender.send_email(
-                    to=email,
-                    subject=f"[{project.name}] New comment from {comment.author_name}",
-                    body=(
-                        f"{comment.author_name} commented on {project.name}:\n\n"
-                        f"{comment.content[:200]}\n\n"
-                        f"View the project: {portal_base_url}/projects/{project_id}"
-                    ),
-                )
-            except Exception:
-                logger.exception("Comment notification failed")
+            await send_tenant_email(
+                session,
+                tenant_id=tenant_id,
+                to=email,
+                subject=f"[{project.name}] New comment from {comment.author_name}",
+                body=(
+                    f"{comment.author_name} commented on {project.name}:\n\n"
+                    f"{comment.content[:200]}\n\n"
+                    f"View the project: {portal_base_url}/projects/{project_id}"
+                ),
+            )
     except Exception:
         logger.exception("Comment notification failed")
