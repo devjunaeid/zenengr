@@ -251,6 +251,75 @@ export function listClientTransactions(fetchFn, token, invoiceId) {
 }
 
 /**
+ * @typedef {object} ClientFileAssetItem
+ * @property {string} id
+ * @property {string} name
+ * @property {'user'|'tenant'|'project'} scope
+ * @property {string|null} folder_id
+ * @property {string|null} project_id
+ * @property {string} content_type
+ * @property {number} size_bytes
+ * @property {string} sha256
+ * @property {string} created_at
+ */
+
+/**
+ * Files shared with the client for one of their projects (read-only).
+ * @param {typeof fetch} fetchFn
+ * @param {string} token
+ * @param {string} projectId
+ * @param {{ page?: number, page_size?: number }} [params]
+ * @returns {Promise<{ items: ClientFileAssetItem[], total: number, page: number, page_size: number }>}
+ */
+export function listClientProjectFiles(fetchFn, token, projectId, params = {}) {
+	return apiFetch(fetchFn, `/client/projects/${encodeURIComponent(projectId)}/files`, {
+		token,
+		params
+	});
+}
+
+/**
+ * Download a file shared with the client. Must run in the browser (uses
+ * `document`); call from an event handler, not a load function.
+ *
+ * @param {typeof fetch} fetchFn
+ * @param {string} token
+ * @param {string} fileId
+ * @param {string} filename
+ * @returns {Promise<void>}
+ * @throws {ApiError}
+ */
+export async function downloadClientFile(fetchFn, token, fileId, filename) {
+	const res = await fetchFn(`${BASE_URL}/client/files/${encodeURIComponent(fileId)}/content`, {
+		headers: { Authorization: `Bearer ${token}` }
+	});
+	if (!res.ok) {
+		let data = null;
+		try {
+			data = await res.json();
+		} catch {
+			// non-JSON error body; fall through to generic error
+		}
+		const envelope = data && data.error ? data.error : {};
+		throw new ApiError(
+			res.status,
+			envelope.code ?? 'UNKNOWN',
+			envelope.message ?? res.statusText,
+			envelope.details ?? {}
+		);
+	}
+	const blob = await res.blob();
+	const url = URL.createObjectURL(blob);
+	const a = document.createElement('a');
+	a.href = url;
+	a.download = filename;
+	document.body.appendChild(a);
+	a.click();
+	a.remove();
+	URL.revokeObjectURL(url);
+}
+
+/**
  * Download one of the client's invoices as a PDF attachment. Must run in the
  * browser (uses `document`); call from an event handler, not a load function.
  *

@@ -1,13 +1,30 @@
 <script>
 	import { resolve } from '$app/paths';
+	import { ApiError } from '$lib/api/client.js';
+	import * as portalApi from '$lib/api/portal.js';
 	import CommentThread from '$lib/components/CommentThread.svelte';
 	import StatusBadge from '$lib/components/StatusBadge.svelte';
 	import { portalAuth } from '$lib/stores/portalAuth.svelte.js';
-	import { formatDate, fmtPrice } from '$lib/utils/format.js';
+	import { fmtBytes, formatDate, fmtPrice } from '$lib/utils/format.js';
 
 	let { data } = $props();
 
 	const token = /** @type {string} */ (portalAuth.token);
+
+	/** @type {string|null} */
+	let downloadErr = $state(null);
+
+	/**
+	 * @param {import('$lib/api/portal.js').ClientFileAssetItem} file
+	 */
+	async function runDownload(file) {
+		downloadErr = null;
+		try {
+			await portalApi.downloadClientFile(fetch, token, file.id, file.name);
+		} catch (e) {
+			downloadErr = e instanceof ApiError ? e.message : 'Download failed.';
+		}
+	}
 
 	const project = $derived(data.project);
 
@@ -258,4 +275,97 @@
 	<div class="mt-2">
 		<CommentThread projectId={project.id} {fetch} {token} realm="client" staff={false} />
 	</div>
+</section>
+
+<!-- Project files section -->
+<section
+	class="mt-6 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"
+	aria-labelledby="project-files-h"
+>
+	<div class="border-b border-slate-200 px-6 py-4">
+		<h2 id="project-files-h" class="text-base font-semibold text-slate-900">Project files</h2>
+		<p class="mt-0.5 text-sm text-slate-500">
+			{data.files.total}
+			{data.files.total === 1 ? 'file' : 'files'} shared with you
+		</p>
+	</div>
+
+	{#if data.filesError}
+		<p
+			role="alert"
+			class="mx-6 mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+		>
+			{data.filesError}
+		</p>
+	{/if}
+
+	{#if downloadErr}
+		<p
+			role="alert"
+			class="mx-6 mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+		>
+			{downloadErr}
+		</p>
+	{/if}
+
+	{#if data.files.items.length === 0}
+		<p class="px-6 py-8 text-sm text-slate-500">No files shared yet.</p>
+	{:else}
+		<div class="overflow-x-auto">
+			<table class="min-w-full divide-y divide-slate-200">
+				<thead class="bg-slate-50">
+					<tr>
+						<th
+							scope="col"
+							class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
+							>Name</th
+						>
+						<th
+							scope="col"
+							class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
+							>Size</th
+						>
+						<th
+							scope="col"
+							class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
+							>Uploaded</th
+						>
+						<th
+							scope="col"
+							class="px-4 py-3 text-right text-xs font-semibold tracking-wide text-slate-600 uppercase"
+							>Actions</th
+						>
+					</tr>
+				</thead>
+				<tbody class="divide-y divide-slate-200">
+					{#each data.files.items as file (file.id)}
+						<tr class="hover:bg-slate-50">
+							<td class="max-w-xs px-4 py-3">
+								<span class="block truncate text-sm font-medium text-slate-900" title={file.name}>
+									{file.name}
+								</span>
+							</td>
+							<td class="px-4 py-3 text-sm whitespace-nowrap text-slate-700"
+								>{fmtBytes(file.size_bytes)}</td
+							>
+							<td class="px-4 py-3 text-sm whitespace-nowrap text-slate-600"
+								>{formatDate(file.created_at)}</td
+							>
+							<td class="px-4 py-3">
+								<div class="flex items-center justify-end">
+									<button
+										type="button"
+										onclick={() => runDownload(file)}
+										class="rounded px-2 py-1 text-sm font-medium text-indigo-600 hover:bg-slate-100 hover:text-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+									>
+										Download
+									</button>
+								</div>
+							</td>
+						</tr>
+					{/each}
+				</tbody>
+			</table>
+		</div>
+	{/if}
 </section>

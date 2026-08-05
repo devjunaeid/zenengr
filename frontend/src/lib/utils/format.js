@@ -52,6 +52,28 @@ export function fmtPrice(v) {
 }
 
 /**
+ * Format a byte count as a human-readable size, e.g. "1.2 MB".
+ * @param {number|string|null|undefined} bytes
+ */
+export function fmtBytes(bytes) {
+	if (bytes == null || bytes === '') return '—';
+	const n = Number(bytes);
+	if (Number.isNaN(n) || n < 0) return '—';
+	if (n < 1024) return `${n} B`;
+	const units = ['KB', 'MB', 'GB', 'TB'];
+	let value = n;
+	let unit = 'B';
+	for (const u of units) {
+		value /= 1024;
+		if (value < 1024) {
+			unit = u;
+			break;
+		}
+	}
+	return `${value >= 100 ? Math.round(value) : value.toFixed(1)} ${unit}`;
+}
+
+/**
  * Slugify a business name: lowercase, alnum + dashes.
  * @param {string} value
  */

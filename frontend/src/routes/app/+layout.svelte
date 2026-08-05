@@ -14,6 +14,7 @@
 		{ href: '/app/services', label: 'Services', exact: false, adminOnly: false },
 		{ href: '/app/projects', label: 'Projects', exact: false, adminOnly: false },
 		{ href: '/app/invoices', label: 'Invoices', exact: false, adminOnly: false },
+		{ href: '/app/files', label: 'Files', exact: false, adminOnly: false },
 		{ href: '/app/settings', label: 'Settings', exact: false, adminOnly: true },
 		{ href: '/app/profile', label: 'Profile', exact: false, adminOnly: false },
 		{ href: '/app/audit', label: 'Audit log', exact: false, adminOnly: true }

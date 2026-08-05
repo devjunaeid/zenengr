@@ -10,7 +10,18 @@ export async function load({ fetch, params }) {
 
 	try {
 		const project = await portalApi.getClientProject(fetch, token, params.id);
-		return { project };
+		// Files degrade to an empty list on failure; the page shows a banner.
+		/** @type {string|null} */
+		let filesError = null;
+		/** @type {{ items: any[], total: number, page: number, page_size: number }} */
+		let files;
+		try {
+			files = await portalApi.listClientProjectFiles(fetch, token, params.id, { page_size: 50 });
+		} catch (e) {
+			files = { items: [], total: 0, page: 1, page_size: 50 };
+			filesError = e instanceof ApiError ? e.message : 'Could not load project files.';
+		}
+		return { project, files, filesError };
 	} catch (e) {
 		if (e instanceof ApiError && e.status === 404) {
 			throw error(404, 'Project not found');
