@@ -170,9 +170,20 @@ export function login(fetchFn, email, password) {
 
 /**
  * Fetch current client user + client details.
+ *
+ * Response is a FLAT body: user fields at top level plus `client` and
+ * `tenant_name` — there is no nested `user` property.
  * @param {typeof fetch} fetchFn
  * @param {string} token
- * @returns {Promise<{ user: PortalUser, client: PortalClient, tenant_name?: string }>}
+ * @returns {Promise<PortalUser & {
+ *   tenant_name?: string | null,
+ *   avatar_url?: string | null,
+ *   phone?: string | null,
+ *   timezone?: string | null,
+ *   language?: string | null,
+ *   pending_email?: string | null,
+ *   client: PortalClient
+ * }>}
  */
 export function me(fetchFn, token) {
 	return apiFetch(fetchFn, '/client/auth/me', { token });

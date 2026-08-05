@@ -66,7 +66,7 @@ export const portalAuth = {
 		const me = await portalApi.me(fetchFn, res.access_token);
 		client = me.client;
 		tenantName = me.tenant_name ?? '';
-		user = me.user;
+		user = me;
 		initialized = true;
 		if (browser) localStorage.setItem(TOKEN_KEY, res.access_token);
 		return res.user;
@@ -84,7 +84,7 @@ export const portalAuth = {
 		const me = await portalApi.me(fetchFn, res.access_token);
 		client = me.client;
 		tenantName = me.tenant_name ?? '';
-		user = me.user;
+		user = me;
 		initialized = true;
 		if (browser) localStorage.setItem(TOKEN_KEY, res.access_token);
 		return res.user;
@@ -107,7 +107,7 @@ async function restore(fetchFn) {
 	if (saved) {
 		try {
 			const me = await portalApi.me(fetchFn, saved);
-			user = me.user;
+			user = me;
 			client = me.client;
 			tenantName = me.tenant_name ?? '';
 			token = saved;

@@ -116,8 +116,8 @@
 			// Refresh session store user (getter exposes the reactive object)
 			const me = await portalApi.me(fetch, token);
 			if (portalAuth.user) {
-				portalAuth.user.full_name = me.user.full_name;
-				portalAuth.user.email = me.user.email;
+				portalAuth.user.full_name = me.full_name;
+				portalAuth.user.email = me.email;
 			}
 			accountFullName = updated.full_name;
 			accountEmail = updated.email;
