@@ -499,6 +499,98 @@ class TestTenantSettings:
         assert entry.details.get("old_value") == "USD"
         assert entry.details.get("new_value") == "GBP"
 
+    @pytest.mark.anyio
+    async def test_list_settings_no_rows_returns_defaults(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        from app.services.settings import DEFAULT_SETTINGS
+
+        # Tenant with NO tenant_settings rows
+        plan = await _create_plan(db_session)
+        tenant = Tenant(
+            business_name="NoSettingsCo",
+            slug=f"nosettings-{uuid.uuid4().hex[:8]}",
+            status=TenantStatus.ACTIVE,
+            plan_id=plan.id,
+        )
+        db_session.add(tenant)
+        await db_session.flush()
+        sub = TenantSubscription(
+            tenant_id=tenant.id,
+            plan_id=plan.id,
+            status=SubscriptionStatus.ACTIVE,
+            billing_cycle=BillingCycle.MONTHLY,
+        )
+        db_session.add(sub)
+        admin = AdminUser(
+            tenant_id=tenant.id,
+            email=f"nosettings-admin-{uuid.uuid4().hex[:8]}@testco.com",
+            full_name="No Settings Admin",
+            hashed_password=hash_password(_TEST_PWD),
+            role=AdminUserRole.ADMIN,
+            is_active=True,
+        )
+        db_session.add(admin)
+        await db_session.commit()
+        await db_session.refresh(tenant)
+        await db_session.refresh(admin)
+
+        headers = await _auth_header(admin)
+        resp = await client.get("/api/v1/tenant/settings", headers=headers)
+        assert resp.status_code == 200
+        data = resp.json()
+
+        defaults_by_key = {d["key"]: d for d in DEFAULT_SETTINGS}
+        assert len(data) == len(DEFAULT_SETTINGS)
+        assert set(d["key"] for d in data) == set(defaults_by_key)
+
+        for item in data:
+            assert item["value"] == defaults_by_key[item["key"]]["value"]
+            assert item["permission_level"] == defaults_by_key[item["key"]][
+                "permission_level"
+            ].value
+            assert isinstance(item["editable"], bool)
+
+        by_key = {d["key"]: d for d in data}
+        assert by_key["invoice_number_format"]["value"] == "INV-{YYYY}-{SEQ:04d}"
+        assert by_key["password_min_length"]["value"] == "10"
+        assert by_key["currency"]["value"] == "USD"
+        assert by_key["email_sender_identity"]["permission_level"] == "tenant_admin_viewable"
+        assert by_key["email_sender_identity"]["editable"] is False
+
+    @pytest.mark.anyio
+    async def test_list_settings_shows_stored_override_and_defaults(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        tenant, admin = await _create_tenant_and_admin(db_session)
+        headers = await _auth_header(admin)
+
+        resp = await client.patch(
+            "/api/v1/tenant/settings/invoice_number_format",
+            json={"value": "INV-{YYYY}-{seq}"},
+            headers=headers,
+        )
+        assert resp.status_code == 200
+
+        resp = await client.get("/api/v1/tenant/settings", headers=headers)
+        assert resp.status_code == 200
+        data = resp.json()
+        by_key = {d["key"]: d for d in data}
+
+        # Stored override wins for the patched key
+        assert by_key["invoice_number_format"]["value"] == "INV-{YYYY}-{seq}"
+        assert by_key["invoice_number_format"]["permission_level"] == "tenant_admin_editable"
+        assert by_key["invoice_number_format"]["editable"] is True
+
+        # Unpatched keys fall back to defaults
+        assert by_key["password_min_length"]["value"] == "10"
+        assert by_key["currency"]["value"] == "USD"
+        assert by_key["date_format"]["value"] == "YYYY-MM-DD"
+
+        # permission_level present on every entry
+        allowed = {"tenant_admin_editable", "tenant_admin_viewable"}
+        assert all(item["permission_level"] in allowed for item in data)
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Tenant Plan + Usage (TODO-014)

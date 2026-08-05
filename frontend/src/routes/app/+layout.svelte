@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
+	import { assetUrl } from '$lib/api/client.js';
 	import { auth } from '$lib/stores/auth.svelte.js';
 
 	let { data, children } = $props();
@@ -43,7 +44,11 @@
 	<header class="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-3">
 		<span class="flex items-center gap-2 text-sm font-semibold text-slate-900">
 			{#if logoUrl}
-				<img src={logoUrl} alt={`${data.profile.business_name} logo`} class="h-7 w-auto" />
+				<img
+					src={assetUrl(logoUrl)}
+					alt={`${data.profile.business_name} logo`}
+					class="h-7 w-auto"
+				/>
 			{:else if brandColor}
 				<span
 					class="inline-block h-2.5 w-2.5 rounded-full"

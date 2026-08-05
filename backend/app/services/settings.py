@@ -151,6 +151,10 @@ async def get_tenant_settings(
 ) -> list[dict[str, Any]]:
     """Get all settings for a tenant with editable flag and masking.
 
+    Returns every DEFAULT_SETTINGS entry merged with stored overrides:
+    value is the stored row value when present, else the default. Extra
+    stored rows (e.g. super_admin_only) are appended after the defaults.
+
     Masking: super_admin_only values shown as null for tenant callers.
     """
     result = await session.execute(
@@ -158,16 +162,44 @@ async def get_tenant_settings(
     )
     settings = result.scalars().all()
 
+    stored = {s.key: s for s in settings}
+    default_keys = {d["key"] for d in DEFAULT_SETTINGS}
+
     items: list[dict[str, Any]] = []
-    for s in settings:
-        value: str | None = s.value
-        if should_mask_value(s.permission_level, role):
+    for default in DEFAULT_SETTINGS:
+        key = default["key"]
+        setting = stored.get(key)
+        if setting is not None:
+            value: str | None = setting.value
+            permission_level = setting.permission_level
+        else:
+            value = default["value"]
+            permission_level = default["permission_level"]
+
+        if should_mask_value(permission_level, role):
             value = None
 
         items.append(
             {
-                "key": s.key,
+                "key": key,
                 "value": value,
+                "permission_level": permission_level.value,
+                "editable": can_edit_setting(permission_level, role),
+            }
+        )
+
+    # Stored rows not covered by DEFAULT_SETTINGS (e.g. super_admin_only)
+    for s in settings:
+        if s.key in default_keys:
+            continue
+        extra_value: str | None = s.value
+        if should_mask_value(s.permission_level, role):
+            extra_value = None
+
+        items.append(
+            {
+                "key": s.key,
+                "value": extra_value,
                 "permission_level": s.permission_level.value,
                 "editable": can_edit_setting(s.permission_level, role),
             }

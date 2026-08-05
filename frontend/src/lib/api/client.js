@@ -3,6 +3,17 @@ import { env } from '$env/dynamic/public';
 export const BASE_URL = (env.PUBLIC_API_URL ?? 'http://localhost:8000/api/v1').replace(/\/$/, '');
 
 /**
+ * Resolve a backend-relative asset URL (e.g. /uploads/logo.png) to an absolute URL on the API origin.
+ * @param {string|null|undefined} path
+ * @returns {string}
+ */
+export function assetUrl(path) {
+	if (!path) return '';
+	if (/^https?:\/\//.test(path)) return path;
+	return `${BASE_URL.replace(/\/api\/v1\/?$/, '')}${path.startsWith('/') ? path : `/${path}`}`;
+}
+
+/**
  * Error thrown for any non-2xx backend response, parsed from the
  * backend error envelope `{ "error": { code, message, details } }`.
  */

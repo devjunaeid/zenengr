@@ -2,7 +2,7 @@
 	import { untrack } from 'svelte';
 	import { resolve } from '$app/paths';
 	import { invalidateAll } from '$app/navigation';
-	import { ApiError } from '$lib/api/client.js';
+	import { ApiError, assetUrl } from '$lib/api/client.js';
 	import * as tenantApi from '$lib/api/tenant.js';
 	import Spinner from '$lib/components/Spinner.svelte';
 	import { auth } from '$lib/stores/auth.svelte.js';
@@ -243,7 +243,7 @@
 			Upload
 		</button>
 		{#if logoUrl}
-			<img src={logoUrl} alt="Current business logo" class="h-10 w-auto" />
+			<img src={assetUrl(logoUrl)} alt="Current business logo" class="h-10 w-auto" />
 		{/if}
 	</div>
 </section>
