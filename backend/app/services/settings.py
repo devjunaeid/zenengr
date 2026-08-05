@@ -227,16 +227,32 @@ async def update_tenant_setting(
     key: str,
     value: str,
 ) -> dict[str, Any]:
-    """Update a tenant setting. Validates value. Returns {key, old_value, new_value}.
+    """Update a tenant setting, creating the row on first write (upsert).
 
-    Raises 404 if key not found, 422 if value invalid.
+    Validates the value with validate_setting_value. Unknown keys (no stored
+    row and no DEFAULT_SETTINGS entry) raise 404; invalid values raise 422.
+    Returns {key, old_value, new_value} (old_value None when creating).
     """
     setting = await get_tenant_setting_by_key(session, tenant_id, key)
     if setting is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Setting '{key}' not found",
+        default = next((d for d in DEFAULT_SETTINGS if d["key"] == key), None)
+        if default is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Setting '{key}' not found",
+            )
+
+        validate_setting_value(key, value)
+        setting = TenantSetting(
+            tenant_id=tenant_id,
+            key=key,
+            value=value,
+            permission_level=default["permission_level"],
         )
+        session.add(setting)
+        await session.flush()
+        await session.refresh(setting)
+        return {"key": key, "old_value": None, "new_value": setting.value}
 
     # Validate
     validate_setting_value(key, value)

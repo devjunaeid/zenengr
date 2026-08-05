@@ -149,17 +149,15 @@ export function getFile(fetchFn, token, id) {
 }
 
 /**
- * Download a file's content as an attachment. Must run in the browser
- * (uses `document`); call from an event handler, not a load function.
+ * Fetch a file's binary content as a Blob (no download side effect).
  *
  * @param {typeof fetch} fetchFn
  * @param {string} token
  * @param {string} id
- * @param {string} filename
- * @returns {Promise<void>}
+ * @returns {Promise<Blob>}
  * @throws {ApiError}
  */
-export async function downloadFile(fetchFn, token, id, filename) {
+export async function getFileBlob(fetchFn, token, id) {
 	const res = await fetchFn(`${BASE_URL}/tenant/files/${encodeURIComponent(id)}/content`, {
 		headers: { Authorization: `Bearer ${token}` }
 	});
@@ -178,7 +176,22 @@ export async function downloadFile(fetchFn, token, id, filename) {
 			envelope.details ?? {}
 		);
 	}
-	const blob = await res.blob();
+	return res.blob();
+}
+
+/**
+ * Download a file's content as an attachment. Must run in the browser
+ * (uses `document`); call from an event handler, not a load function.
+ *
+ * @param {typeof fetch} fetchFn
+ * @param {string} token
+ * @param {string} id
+ * @param {string} filename
+ * @returns {Promise<void>}
+ * @throws {ApiError}
+ */
+export async function downloadFile(fetchFn, token, id, filename) {
+	const blob = await getFileBlob(fetchFn, token, id);
 	const url = URL.createObjectURL(blob);
 	const a = document.createElement('a');
 	a.href = url;

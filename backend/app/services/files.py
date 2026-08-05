@@ -8,9 +8,9 @@ B1 (provisioning):
 B2 (tenant file API):
 - Folder CRUD + tree, scoped upload, listing, auth-gated download,
   delete/rename/move with RBAC, quota enforcement, audit trail.
-- USER scope has no folders (virtual "My files" root): user files with
-  folder_id NULL belong to the caller only. TENANT/PROJECT folders and files
-  are visible to all tenant staff.
+- USER scope folders are per-user: "My files" is a virtual root, and the
+  caller's USER folders (created_by_id = caller) hang under it. TENANT/
+  PROJECT folders and files are shared and visible to all tenant staff.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import HTTPException, status
-from sqlalchemy import Select, func, select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
@@ -191,14 +191,6 @@ async def get_tenant_storage_used(
     return int((await session.execute(stmt)).scalar_one())
 
 
-def _visible_folder_query(tenant_id: uuid.UUID) -> Select[tuple[FileFolder]]:
-    """Tenant-scoped folders; USER folders excluded (USER has no folders)."""
-    return select(FileFolder).where(
-        FileFolder.tenant_id == tenant_id,
-        FileFolder.scope != FileScope.USER,
-    )
-
-
 def _build_storage_key(
     tenant_id: uuid.UUID,
     scope: FileScope,
@@ -302,7 +294,12 @@ async def _get_or_create_folder(
     actor_id: uuid.UUID,
 ) -> FileFolder:
     """Look up by the unique key (tenant_id, parent_id, scope, name, project_id);
-    create if absent."""
+    create if absent.
+
+    Shared TENANT/PROJECT roots are created with created_by_id NULL. When
+    legacy duplicates exist (same key, multiple rows), keep the first and
+    delete the extras.
+    """
     q = select(FileFolder).where(
         FileFolder.tenant_id == tenant_id,
         FileFolder.parent_id == parent_id,
@@ -310,17 +307,22 @@ async def _get_or_create_folder(
         FileFolder.name == name,
         FileFolder.project_id == project_id,
     )
-    existing = (await session.execute(q)).scalar_one_or_none()
-    if existing is not None:
-        return existing
+    existing = (await session.execute(q)).scalars().all()
+    if existing:
+        for extra in existing[1:]:
+            await session.delete(extra)
+        if len(existing) > 1:
+            await session.flush()
+        return existing[0]
 
+    created_by_id: uuid.UUID | None = actor_id if scope == FileScope.USER else None
     folder = FileFolder(
         tenant_id=tenant_id,
         parent_id=parent_id,
         name=name,
         scope=scope,
         project_id=project_id,
-        created_by_id=actor_id,
+        created_by_id=created_by_id,
         created_by_type=_DEFAULT_CREATED_BY_TYPE,
     )
     session.add(folder)
@@ -339,26 +341,38 @@ async def list_folder_tree(
 ) -> list[FolderTreeNode]:
     """Return the visible folder tree.
 
-    Roots: virtual "My files" (USER, no DB row; the caller's folder-less
-    USER files surface under it in the UI) plus the real TENANT "Team files"
-    and PROJECT "Project files" roots with nested children (provisioned
-    lazily on first access), plus any user-created root-level folders.
-    USER folder rows are excluded — USER has no folders in B2.
+    Roots: virtual "My files" (no visible DB row; the caller's USER folders
+    hang under it, recursive) plus the real TENANT "Team files" and PROJECT
+    "Project files" roots with nested children (provisioned lazily on first
+    access), plus any user-created root-level folders. USER folders are
+    creator-scoped: only the caller's own appear in the tree.
     """
     await ensure_root_folders(session, tenant_id=tenant_id, actor_id=actor_id)
 
     rows = list(
-        (await session.execute(_visible_folder_query(tenant_id).order_by(FileFolder.name)))
+        (await session.execute(select(FileFolder).where(FileFolder.tenant_id == tenant_id)))
         .scalars()
         .all()
     )
-    children_map: dict[uuid.UUID | None, list[FileFolder]] = {}
-    for folder in rows:
-        children_map.setdefault(folder.parent_id, []).append(folder)
+    # Shared TENANT/PROJECT folders: visible to all staff, no creator filter.
+    shared = [f for f in rows if f.scope != FileScope.USER]
+    # USER folders: creator-scoped. The provisioned "My files" stand-in row
+    # (parent None, name "My files") stays invisible under the virtual root.
+    user_rows = [
+        f
+        for f in rows
+        if f.scope == FileScope.USER
+        and f.created_by_id == actor_id
+        and not (f.parent_id is None and f.name == "My files")
+    ]
+
+    shared_children: dict[uuid.UUID | None, list[FileFolder]] = {}
+    for folder in shared:
+        shared_children.setdefault(folder.parent_id, []).append(folder)
 
     def build(parent_id: uuid.UUID | None) -> list[FolderTreeNode]:
         nodes: list[FolderTreeNode] = []
-        for folder in sorted(children_map.get(parent_id, []), key=lambda f: f.name):
+        for folder in sorted(shared_children.get(parent_id, []), key=lambda f: f.name):
             nodes.append(
                 FolderTreeNode(
                     id=folder.id,
@@ -370,12 +384,30 @@ async def list_folder_tree(
             )
         return nodes
 
+    user_children: dict[uuid.UUID | None, list[FileFolder]] = {}
+    for folder in user_rows:
+        user_children.setdefault(folder.parent_id, []).append(folder)
+
+    def build_user(parent_id: uuid.UUID | None) -> list[FolderTreeNode]:
+        nodes: list[FolderTreeNode] = []
+        for folder in sorted(user_children.get(parent_id, []), key=lambda f: f.name):
+            nodes.append(
+                FolderTreeNode(
+                    id=folder.id,
+                    name=folder.name,
+                    scope=folder.scope,
+                    project_id=folder.project_id,
+                    children=build_user(folder.id),
+                )
+            )
+        return nodes
+
     my_files = FolderTreeNode(
         id=None,
         name="My files",
         scope=FileScope.USER,
         project_id=None,
-        children=[],
+        children=build_user(None),
     )
     return [my_files] + build(None)
 
@@ -390,11 +422,18 @@ async def create_folder(
     project_id: uuid.UUID | None,
     actor_id: uuid.UUID,
 ) -> FileFolder:
-    """Create a TENANT or PROJECT folder (USER folders are rejected)."""
-    if scope == FileScope.USER:
-        raise FileFolderScopeError()
+    """Create a TENANT, PROJECT, or USER folder.
 
-    if scope == FileScope.PROJECT:
+    USER folders are per-user: the parent must be None or a USER-scope
+    folder of the same creator; created_by_id = actor_id. TENANT/PROJECT
+    folders are shared (created_by_id NULL).
+    """
+    if scope == FileScope.USER:
+        if parent_id is not None:
+            parent = await _get_folder_for_tenant(session, tenant_id, parent_id)
+            if parent.scope != FileScope.USER or parent.created_by_id != actor_id:
+                raise FileFolderScopeError()
+    elif scope == FileScope.PROJECT:
         if project_id is None:
             raise FileProjectRequiredError()
         project = await session.get(Project, project_id)
@@ -413,6 +452,7 @@ async def create_folder(
             if parent.scope != FileScope.TENANT:
                 raise FileFolderScopeError()
 
+    created_by_id: uuid.UUID | None = actor_id if scope == FileScope.USER else None
     await _ensure_folder_name_available(
         session,
         tenant_id=tenant_id,
@@ -420,6 +460,7 @@ async def create_folder(
         scope=scope,
         name=name,
         project_id=project_id,
+        created_by_id=created_by_id,
     )
 
     folder = FileFolder(
@@ -428,7 +469,7 @@ async def create_folder(
         name=name,
         scope=scope,
         project_id=project_id,
-        created_by_id=actor_id,
+        created_by_id=created_by_id,
         created_by_type=_DEFAULT_CREATED_BY_TYPE,
     )
     session.add(folder)
@@ -471,6 +512,7 @@ async def rename_folder(
             scope=folder.scope,
             name=name,
             project_id=folder.project_id,
+            created_by_id=folder.created_by_id,
         )
     old_name = folder.name
     folder.name = name
@@ -532,8 +574,14 @@ async def _ensure_folder_name_available(
     scope: FileScope,
     name: str,
     project_id: uuid.UUID | None,
+    created_by_id: uuid.UUID | None,
 ) -> None:
-    """Raise 409 when a sibling folder with the same key already exists."""
+    """Raise 409 when a sibling folder with the same key already exists.
+
+    Matches the DB unique index: key = (tenant_id, parent_id, scope, name,
+    project_id) + COALESCE(created_by_id, <null-uuid>) — shared folders
+    (created_by_id NULL) are unique per name, USER folders per creator.
+    """
     q = select(FileFolder).where(
         FileFolder.tenant_id == tenant_id,
         FileFolder.parent_id == parent_id,
@@ -541,6 +589,10 @@ async def _ensure_folder_name_available(
         FileFolder.name == name,
         FileFolder.project_id == project_id,
     )
+    if created_by_id is None:
+        q = q.where(FileFolder.created_by_id.is_(None))
+    else:
+        q = q.where(FileFolder.created_by_id == created_by_id)
     existing = (await session.execute(q)).scalar_one_or_none()
     if existing is not None:
         raise FileFolderNameConflictError()
@@ -564,7 +616,9 @@ async def upload_file(
 ) -> FileAsset:
     """Upload a file into the given visibility scope (all staff may upload).
 
-    - scope USER: no folder (virtual root); the file belongs to the actor.
+    - scope USER: optional folder must be a USER-scope folder of the actor
+      (other users' USER folders 404); otherwise the file belongs to the
+      actor at the virtual root.
     - scope TENANT: optional folder must be TENANT-scope.
     - scope PROJECT: project_id required (tenant-owned); optional folder must
       be PROJECT-scope and belong to the same project.
@@ -578,7 +632,11 @@ async def upload_file(
 
     if scope == FileScope.USER:
         if folder_id is not None:
-            raise FileFolderScopeError()
+            folder = await _get_folder_for_tenant(session, tenant_id, folder_id)
+            if folder.scope != FileScope.USER:
+                raise FileFolderScopeError()
+            if folder.created_by_id != actor_id:
+                raise FileFolderNotFoundError()
     elif scope == FileScope.TENANT:
         if folder_id is not None:
             folder = await _get_folder_for_tenant(session, tenant_id, folder_id)
@@ -656,17 +714,17 @@ async def list_files(
 ) -> dict[str, Any]:
     """List files tenant-scoped.
 
-    - scope USER: only the caller's own files with folder_id NULL
-      (virtual "My files" root).
+    - scope USER: only the caller's own files with folder_id NULL (virtual
+      "My files" root).
     - folder_id given: files inside that folder (TENANT/PROJECT folders are
-      visible to all staff; USER folders are excluded).
+      visible to all staff; USER folders only to their creator).
     - optional q: name ILIKE filter. Ordered by created_at desc.
     """
     query = select(FileAsset).where(FileAsset.tenant_id == tenant_id)
 
     if folder_id is not None:
         folder = await _get_folder_for_tenant(session, tenant_id, folder_id)
-        if folder.scope == FileScope.USER:
+        if folder.scope == FileScope.USER and folder.created_by_id != actor_id:
             raise FileFolderNotFoundError()
         query = query.where(FileAsset.folder_id == folder_id)
     elif scope == FileScope.USER:

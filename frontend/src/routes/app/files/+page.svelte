@@ -1,6 +1,6 @@
 <script>
 	import { untrack } from 'svelte';
-	import { SvelteURLSearchParams } from 'svelte/reactivity';
+	import { SvelteSet, SvelteURLSearchParams } from 'svelte/reactivity';
 	import { goto, invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { Dialog } from 'bits-ui';
@@ -70,12 +70,36 @@
 
 	// ---- folder dropdown (replaces the sidebar tree) ----
 	/**
-	 * Flat list of tenant folders with breadcrumb-style path labels.
+	 * Drop duplicate options from a list, keyed by option value.
+	 * First occurrence wins. Guards against duplicate values regardless of
+	 * tree payload quirks or option builders re-emitting the same root.
+	 * @template T
+	 * @param {T[]} opts
+	 * @param {(opt: T) => string} keyOf
+	 * @returns {T[]}
+	 */
+	function dedupeByValue(opts, keyOf) {
+		/** @type {SvelteSet<string>} */
+		const seen = new SvelteSet();
+		const out = [];
+		for (const opt of opts) {
+			const k = keyOf(opt);
+			if (seen.has(k)) continue;
+			seen.add(k);
+			out.push(opt);
+		}
+		return out;
+	}
+
+	/**
+	 * Flat list of tenant folders: scope root (`tenant:`) followed by children
+	 * with breadcrumb-style path labels. Final value-keyed dedupe guarantees
+	 * the root appears exactly once and no value is repeated.
 	 * @type {Array<{ label: string, value: string }>}
 	 */
 	let teamOptions = $derived.by(() => {
 		/** @type {Array<{ label: string, value: string }>} */
-		const out = [{ label: 'Team files', value: 'tenant:' }];
+		const raw = [{ label: 'Team files', value: 'tenant:' }];
 		/**
 		 * @param {FolderTreeNode} node
 		 * @param {string[]} path
@@ -83,36 +107,35 @@
 		const walk = (node, path) => {
 			for (const child of node.children) {
 				const p = [...path, child.name];
-				out.push({ label: `Team files / ${p.join(' / ')}`, value: `tenant:${child.id}` });
+				raw.push({ label: `Team files / ${p.join(' / ')}`, value: `tenant:${child.id}` });
 				walk(child, p);
 			}
 		};
 		walk(treeRoots[1], []);
-		return out;
+		return dedupeByValue(raw, (o) => o.value);
 	});
 
 	/**
-	 * Flat list of project folders (per-project root folders + nested).
+	 * Flat list of project folders: scope root (`project:`) followed by
+	 * per-project root folders + nested children. Final value-keyed dedupe
+	 * guarantees the root appears exactly once and no value is repeated.
 	 * @type {Array<{ label: string, value: string, projectId: string|null }>}
 	 */
 	let projectOptions = $derived.by(() => {
 		/** @type {Array<{ label: string, value: string, projectId: string|null }>} */
-		const out = [{ label: 'Project files', value: 'project:', projectId: null }];
+		const raw = [{ label: 'Project files', value: 'project:', projectId: null }];
 		/**
 		 * @param {FolderTreeNode} node
 		 */
 		const walk = (node) => {
 			for (const child of node.children) {
-				out.push({
-					label: `Project files / ${child.name}`,
-					value: `project:${child.project_id ?? ''}:${child.id}`,
-					projectId: child.project_id
-				});
+				const value = `project:${child.project_id ?? ''}:${child.id}`;
+				raw.push({ label: `Project files / ${child.name}`, value, projectId: child.project_id });
 				walk(child);
 			}
 		};
 		walk(treeRoots[2]);
-		return out;
+		return dedupeByValue(raw, (o) => o.value);
 	});
 
 	let activeFolderValue = $derived(
@@ -306,7 +329,7 @@
 			folderErr = 'Enter a folder name.';
 			return;
 		}
-		if (scope === 'project' && !folderProjectId) {
+		if (scope === 'project' && !folderId && !folderProjectId) {
 			folderErr = 'Pick a project.';
 			return;
 		}
@@ -468,6 +491,57 @@
 		}
 	}
 
+	// ---- preview dialog ----
+	let previewOpen = $state(false);
+	let previewBusy = $state(false);
+	/** @type {string|null} */
+	let previewErr = $state(null);
+	/** @type {import('$lib/api/files.js').FileAssetItem|null} */
+	let previewTarget = $state(/** @type {import('$lib/api/files.js').FileAssetItem|null} */ (null));
+	/** @type {string|null} */
+	let previewUrl = $state(null);
+
+	let previewIsImage = $derived(
+		previewTarget ? (previewTarget.content_type ?? '').toLowerCase().startsWith('image/') : false
+	);
+
+	/**
+	 * @param {import('$lib/api/files.js').FileAssetItem} file
+	 */
+	async function openPreview(file) {
+		if (previewUrl) {
+			URL.revokeObjectURL(previewUrl);
+			previewUrl = null;
+		}
+		previewTarget = file;
+		previewErr = null;
+		previewOpen = true;
+		if (!(file.content_type ?? '').toLowerCase().startsWith('image/')) return;
+		previewBusy = true;
+		try {
+			const blob = await filesApi.getFileBlob(fetch, token, file.id);
+			const url = URL.createObjectURL(blob);
+			// Dialog may have been closed while the fetch was in flight.
+			if (previewTarget !== file || !previewOpen) {
+				URL.revokeObjectURL(url);
+				return;
+			}
+			previewUrl = url;
+		} catch (e) {
+			previewErr = e instanceof ApiError ? e.message : 'Could not load preview.';
+		} finally {
+			previewBusy = false;
+		}
+	}
+
+	function closePreview() {
+		if (previewUrl) {
+			URL.revokeObjectURL(previewUrl);
+			previewUrl = null;
+		}
+		previewTarget = null;
+	}
+
 	// ---- display helpers ----
 	/**
 	 * @param {string|null|undefined} scopeValue
@@ -520,30 +594,28 @@
 						<option value="user:">My files</option>
 					</optgroup>
 					<optgroup label="Team files">
-						<option value="tenant:">Team files</option>
 						{#each teamOptions as opt (opt.value)}
 							<option value={opt.value}>{opt.label}</option>
 						{/each}
 					</optgroup>
 					<optgroup label="Project files">
-						<option value="project:">Project files</option>
 						{#each projectOptions as opt (opt.value)}
 							<option value={opt.value}>{opt.label}</option>
 						{/each}
 					</optgroup>
 				</select>
 			</div>
-			{#if scope !== 'user'}
-				<button
-					type="button"
-					disabled={!canManage}
-					title={canManage ? undefined : 'Only admins and managers create team or project folders.'}
-					onclick={openNewFolder}
-					class="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
-				>
-					New folder
-				</button>
-			{/if}
+			<button
+				type="button"
+				disabled={scope !== 'user' && !canManage}
+				title={scope !== 'user' && !canManage
+					? 'Only admins and managers create team or project folders.'
+					: undefined}
+				onclick={openNewFolder}
+				class="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+			>
+				New folder
+			</button>
 			<button
 				type="button"
 				disabled={!uploadAllowed}
@@ -655,7 +727,26 @@
 					<tbody class="divide-y divide-slate-200">
 						{#each data.files.items as file (file.id)}
 							{@const canAct = canActOnFile(file)}
-							<tr class="hover:bg-slate-50">
+							<tr
+								class="cursor-pointer hover:bg-slate-50"
+								tabindex="0"
+								role="button"
+								aria-label={`Preview ${file.name}`}
+								onclick={(e) => {
+									if (
+										e.target instanceof Element &&
+										e.target.closest('button, a, input, select, textarea')
+									) {
+										return;
+									}
+									openPreview(file);
+								}}
+								onkeydown={(e) => {
+									if (e.key !== 'Enter' && e.key !== ' ') return;
+									e.preventDefault();
+									openPreview(file);
+								}}
+							>
 								<td class="max-w-xs px-4 py-3">
 									<div class="flex items-center gap-2">
 										<svg
@@ -706,6 +797,28 @@
 								>
 								<td class="px-4 py-3">
 									<div class="flex items-center justify-end gap-1">
+										<button
+											type="button"
+											onclick={() => openPreview(file)}
+											title="Preview"
+											class="{actionBtn} text-slate-600 hover:text-slate-900"
+										>
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												viewBox="0 0 20 20"
+												fill="currentColor"
+												class="h-4 w-4"
+												aria-hidden="true"
+											>
+												<path d="M10 12.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z" />
+												<path
+													fill-rule="evenodd"
+													d="M.664 10.59a1.651 1.651 0 010-1.186A10.004 10.004 0 0110 3c4.257 0 7.893 2.66 9.336 6.41.147.381.146.804 0 1.186A10.004 10.004 0 0110 17c-4.257 0-7.893-2.66-9.336-6.41zM14 10a4 4 0 11-8 0 4 4 0 018 0z"
+													clip-rule="evenodd"
+												/>
+											</svg>
+											<span class="sr-only">Preview</span>
+										</button>
 										<button
 											type="button"
 											onclick={() => runDownload(file)}
@@ -949,7 +1062,7 @@
 						class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
 					/>
 				</div>
-				{#if scope === 'project'}
+				{#if scope === 'project' && !folderId}
 					<div>
 						<label for="nf-project" class="block text-sm font-medium text-slate-700"
 							>Project *</label
@@ -1123,3 +1236,147 @@
 	busy={deleteBusy}
 	onconfirm={runDelete}
 />
+
+<!-- Preview file dialog (bits-ui Dialog) -->
+<Dialog.Root
+	bind:open={previewOpen}
+	onOpenChange={(o) => {
+		if (!o) closePreview();
+	}}
+>
+	<Dialog.Portal>
+		<Dialog.Overlay class="fixed inset-0 z-40 bg-black/50" />
+		<Dialog.Content
+			class="fixed top-1/2 left-1/2 z-50 w-full max-w-2xl -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-6 shadow-xl focus:outline-none"
+		>
+			<div class="flex items-center justify-between gap-4">
+				<Dialog.Title class="truncate text-lg font-semibold text-slate-900">
+					{previewTarget?.name ?? 'Preview'}
+				</Dialog.Title>
+				<Dialog.Close
+					type="button"
+					aria-label="Close"
+					class="shrink-0 rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+				>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						viewBox="0 0 20 20"
+						fill="currentColor"
+						class="h-5 w-5"
+						aria-hidden="true"
+					>
+						<path
+							d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"
+						/>
+					</svg>
+				</Dialog.Close>
+			</div>
+
+			{#if previewErr}
+				<p
+					role="alert"
+					class="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+				>
+					{previewErr}
+				</p>
+			{/if}
+
+			{#if previewTarget}
+				{#if previewIsImage}
+					<div
+						class="mt-4 flex items-center justify-center rounded-lg border border-slate-200 bg-slate-50 p-4"
+					>
+						{#if previewBusy}
+							<Spinner class="h-8 w-8" />
+						{:else if previewUrl}
+							<img src={previewUrl} alt={previewTarget.name} class="max-h-96 w-auto rounded" />
+						{:else if !previewErr}
+							<span class="text-sm text-slate-500">Loading preview…</span>
+						{:else}
+							<span class="text-sm text-slate-500">Preview unavailable.</span>
+						{/if}
+					</div>
+				{:else}
+					<div class="mt-4 flex items-center gap-3">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							viewBox="0 0 20 20"
+							fill="currentColor"
+							class="h-8 w-8 shrink-0 text-slate-400"
+							aria-hidden="true"
+						>
+							<path
+								fill-rule="evenodd"
+								d="M4.5 2A1.5 1.5 0 003 3.5v13A1.5 1.5 0 004.5 18h11a1.5 1.5 0 001.5-1.5V7.414a1.5 1.5 0 00-.44-1.06l-3.914-3.914A1.5 1.5 0 0011.586 2H4.5zM6 5.5a.75.75 0 01.75-.75h4.5a.75.75 0 010 1.5h-4.5A.75.75 0 016 5.5zM6.75 9a.75.75 0 000 1.5h6.5a.75.75 0 000-1.5h-6.5zM6 12.25a.75.75 0 01.75-.75h4.5a.75.75 0 010 1.5h-4.5a.75.75 0 01-.75-.75z"
+								clip-rule="evenodd"
+							/>
+						</svg>
+						<div class="min-w-0">
+							<p class="truncate text-base font-medium text-slate-900" title={previewTarget.name}>
+								{previewTarget.name}
+							</p>
+							<p class="text-sm text-slate-500">{previewTarget.content_type}</p>
+						</div>
+					</div>
+					<dl class="mt-4 grid gap-4 sm:grid-cols-3">
+						<div>
+							<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Type</dt>
+							<dd class="mt-1 text-sm text-slate-900">{previewTarget.content_type}</dd>
+						</div>
+						<div>
+							<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Size</dt>
+							<dd class="mt-1 text-sm text-slate-900">{fmtBytes(previewTarget.size_bytes)}</dd>
+						</div>
+						<div>
+							<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Scope</dt>
+							<dd class="mt-1">
+								<span
+									class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset {scopePillClass(
+										previewTarget.scope
+									)}"
+								>
+									{scopeLabel(previewTarget.scope)}
+								</span>
+							</dd>
+						</div>
+						<div>
+							<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Uploaded</dt>
+							<dd class="mt-1 text-sm text-slate-900">
+								{formatDateTime(previewTarget.created_at)}
+							</dd>
+						</div>
+					</dl>
+				{/if}
+
+				<div
+					class="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-4"
+				>
+					<div class="min-w-0 text-xs text-slate-500">
+						<span class="block truncate">{previewTarget.name}</span>
+						<span class="block truncate">
+							{fmtBytes(previewTarget.size_bytes)} · {previewTarget.content_type} ·
+							{formatDateTime(previewTarget.created_at)}
+						</span>
+					</div>
+					<div class="flex shrink-0 items-center gap-3">
+						<button
+							type="button"
+							onclick={() => {
+								if (previewTarget) runDownload(previewTarget);
+							}}
+							class="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-indigo-600 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+						>
+							Download
+						</button>
+						<Dialog.Close
+							type="button"
+							class="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+						>
+							Close
+						</Dialog.Close>
+					</div>
+				</div>
+			{/if}
+		</Dialog.Content>
+	</Dialog.Portal>
+</Dialog.Root>

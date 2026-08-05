@@ -501,14 +501,104 @@ class TestFolders:
         assert resp.status_code == 204
 
     @pytest.mark.asyncio
-    async def test_user_scope_folder_rejected(self, client: AsyncClient, db_session: AsyncSession):
+    async def test_user_scope_folder_per_user_isolation(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
         ctx = await _bootstrap(db_session)
+        other = await _create_admin(
+            db_session,
+            f"other-{uuid.uuid4().hex[:8]}@filesco.com",
+            AdminUserRole.ADMIN,
+            ctx["tenant"].id,
+        )
+        headers = _auth_header(ctx["admin"])
+        other_headers = _auth_header(other)
+
+        def _all_ids(nodes: list[dict]) -> set[str]:
+            ids: set[str] = set()
+            for node in nodes:
+                if node["id"] is not None:
+                    ids.add(node["id"])
+                ids |= _all_ids(node["children"])
+            return ids
+
+        # own USER folder -> 201
         resp = await client.post(
             "/api/v1/tenant/files/folders",
             json={"name": "MyStuff", "scope": "user"},
-            headers=_auth_header(ctx["admin"]),
+            headers=headers,
+        )
+        assert resp.status_code == 201
+        assert resp.json()["scope"] == "user"
+        folder_id = resp.json()["id"]
+
+        # same user, same name -> 409
+        resp = await client.post(
+            "/api/v1/tenant/files/folders",
+            json={"name": "MyStuff", "scope": "user"},
+            headers=headers,
+        )
+        assert resp.status_code == 409
+
+        # second user, same name -> 201 (per-user isolation)
+        resp = await client.post(
+            "/api/v1/tenant/files/folders",
+            json={"name": "MyStuff", "scope": "user"},
+            headers=other_headers,
+        )
+        assert resp.status_code == 201
+        other_folder_id = resp.json()["id"]
+        assert other_folder_id != folder_id
+
+        # nested USER folder under own USER folder -> 201 (recursive tree)
+        resp = await client.post(
+            "/api/v1/tenant/files/folders",
+            json={"name": "Sub", "scope": "user", "parent_id": str(folder_id)},
+            headers=headers,
+        )
+        assert resp.status_code == 201
+
+        # USER folder under a TENANT folder -> 422 (parent scope mismatch)
+        resp = await client.post(
+            "/api/v1/tenant/files/folders",
+            json={"name": "TeamStuff", "scope": "tenant"},
+            headers=headers,
+        )
+        assert resp.status_code == 201
+        team_id = resp.json()["id"]
+        resp = await client.post(
+            "/api/v1/tenant/files/folders",
+            json={"name": "Nested", "scope": "user", "parent_id": str(team_id)},
+            headers=headers,
         )
         assert resp.status_code == 422
+
+        # USER folder appears in own tree only (recursive), hidden from others
+        resp = await client.get("/api/v1/tenant/files/folders", headers=headers)
+        assert resp.status_code == 200
+        my_files = next(n for n in resp.json() if n["name"] == "My files")
+        assert [c["name"] for c in my_files["children"]] == ["MyStuff"]
+        assert [c["name"] for c in my_files["children"][0]["children"]] == ["Sub"]
+        assert folder_id in _all_ids(resp.json())
+        assert other_folder_id not in _all_ids(resp.json())
+
+        resp = await client.get("/api/v1/tenant/files/folders", headers=other_headers)
+        assert resp.status_code == 200
+        assert other_folder_id in _all_ids(resp.json())
+        assert folder_id not in _all_ids(resp.json())
+
+        # upload into own USER folder works; other user -> 404
+        resp = await _upload(client, headers, scope="user", folder_id=folder_id)
+        assert resp.status_code == 201
+        resp = await client.get(
+            f"/api/v1/tenant/files/?folder_id={folder_id}",
+            headers=headers,
+        )
+        assert resp.status_code == 200
+        assert resp.json()["total"] == 1
+
+        resp = await _upload(client, other_headers, scope="user", folder_id=folder_id)
+        assert resp.status_code == 404
 
 
 # ═══════════════════════════════════════════════════════════════════════════

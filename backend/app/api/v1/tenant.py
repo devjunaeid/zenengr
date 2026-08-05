@@ -207,26 +207,36 @@ async def update_tenant_setting_endpoint(
     session: AsyncSession = Depends(get_session),
     user: AdminUser = Depends(require_permission("manage", "tenant_settings")),
 ) -> TenantSettingItem:
-    """Update a tenant setting. Admin only, key must be tenant_admin_editable."""
+    """Update a tenant setting. Admin only, key must be tenant_admin_editable.
+
+    When no row exists yet for a known (default) key, the row is created on
+    first write instead of 404ing. Unknown keys still 404.
+    """
     tenant_id = _get_tenant_or_raise(user)
 
-    # Fetch setting to check permission level
-    from app.services.settings import get_tenant_setting_by_key
+    # Fetch setting to check permission level (fall back to the default's
+    # level when the tenant has no stored row yet).
+    from app.services.settings import DEFAULT_SETTINGS, get_tenant_setting_by_key
 
     setting = await get_tenant_setting_by_key(session, tenant_id, key)
     if setting is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Setting '{key}' not found",
-        )
+        default = next((d for d in DEFAULT_SETTINGS if d["key"] == key), None)
+        if default is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Setting '{key}' not found",
+            )
+        permission_level = default["permission_level"]
+    else:
+        permission_level = setting.permission_level
 
-    if not can_edit_setting(setting.permission_level, user.role):
+    if not can_edit_setting(permission_level, user.role):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"Setting '{key}' is not editable by your role",
         )
 
-    # Update
+    # Update (creates the row on first write)
     result = await update_tenant_setting(session, tenant_id, key, body.value)
 
     await audit_log(

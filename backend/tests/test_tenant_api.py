@@ -138,6 +138,41 @@ async def _create_user(
     return user
 
 
+async def _create_tenant_without_settings(
+    session: AsyncSession,
+) -> tuple[Tenant, AdminUser]:
+    """Tenant + admin with NO tenant_settings rows (defaults only)."""
+    plan = await _create_plan(session)
+    tenant = Tenant(
+        business_name="UpsertCo",
+        slug=f"upsert-{uuid.uuid4().hex[:8]}",
+        status=TenantStatus.ACTIVE,
+        plan_id=plan.id,
+    )
+    session.add(tenant)
+    await session.flush()
+    sub = TenantSubscription(
+        tenant_id=tenant.id,
+        plan_id=plan.id,
+        status=SubscriptionStatus.ACTIVE,
+        billing_cycle=BillingCycle.MONTHLY,
+    )
+    session.add(sub)
+    admin = AdminUser(
+        tenant_id=tenant.id,
+        email=f"upsert-admin-{uuid.uuid4().hex[:8]}@testco.com",
+        full_name="Upsert Admin",
+        hashed_password=hash_password(_TEST_PWD),
+        role=AdminUserRole.ADMIN,
+        is_active=True,
+    )
+    session.add(admin)
+    await session.commit()
+    await session.refresh(tenant)
+    await session.refresh(admin)
+    return tenant, admin
+
+
 async def _auth_header(user: AdminUser) -> dict[str, str]:
     token = create_access_token(
         user_id=str(user.id),
@@ -441,6 +476,68 @@ class TestTenantSettings:
     @pytest.mark.anyio
     async def test_patch_setting_not_found_404(self, client: AsyncClient, db_session: AsyncSession):
         tenant, admin = await _create_tenant_and_admin(db_session)
+        headers = await _auth_header(admin)
+
+        resp = await client.patch(
+            "/api/v1/tenant/settings/nonexistent",
+            json={"value": "val"},
+            headers=headers,
+        )
+        assert resp.status_code == 404
+
+    @pytest.mark.anyio
+    async def test_patch_default_setting_upserts_for_fresh_tenant(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        tenant, admin = await _create_tenant_without_settings(db_session)
+        headers = await _auth_header(admin)
+
+        resp = await client.patch(
+            "/api/v1/tenant/settings/invoice_number_format",
+            json={"value": "INV-{YYYY}-{seq}"},
+            headers=headers,
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["key"] == "invoice_number_format"
+        assert data["value"] == "INV-{YYYY}-{seq}"
+
+        # Row was created with the default's permission level
+        stmt = select(TenantSetting).where(
+            TenantSetting.tenant_id == tenant.id,
+            TenantSetting.key == "invoice_number_format",
+        )
+        result = await db_session.execute(stmt)
+        setting = result.scalar_one_or_none()
+        assert setting is not None
+        assert setting.value == "INV-{YYYY}-{seq}"
+        assert setting.permission_level == PermissionLevel.TENANT_ADMIN_EDITABLE
+
+        # Subsequent GET shows the override
+        resp = await client.get("/api/v1/tenant/settings", headers=headers)
+        assert resp.status_code == 200
+        by_key = {d["key"]: d for d in resp.json()}
+        assert by_key["invoice_number_format"]["value"] == "INV-{YYYY}-{seq}"
+
+    @pytest.mark.anyio
+    async def test_patch_default_setting_upsert_validates_value(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        tenant, admin = await _create_tenant_without_settings(db_session)
+        headers = await _auth_header(admin)
+
+        resp = await client.patch(
+            "/api/v1/tenant/settings/invoice_number_format",
+            json={"value": "NO-TOKEN"},
+            headers=headers,
+        )
+        assert resp.status_code == 422
+
+    @pytest.mark.anyio
+    async def test_patch_unknown_key_fresh_tenant_404(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        tenant, admin = await _create_tenant_without_settings(db_session)
         headers = await _auth_header(admin)
 
         resp = await client.patch(
