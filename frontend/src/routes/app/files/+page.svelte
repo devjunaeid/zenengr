@@ -212,6 +212,23 @@
 	}
 
 	/**
+	 * Node chain from the scope root (inclusive) down to the folder with the
+	 * given id, depth-first. Empty (or unmatched) id yields just the root.
+	 * @param {FolderTreeNode} root
+	 * @param {string} id
+	 * @returns {FolderTreeNode[]}
+	 */
+	function chainToNode(root, id) {
+		if (!id) return [root];
+		if (root.id === id) return [root];
+		for (const child of root.children) {
+			const path = chainToNode(child, id);
+			if (path.length) return [root, ...path];
+		}
+		return [];
+	}
+
+	/**
 	 * Child folders of the current location, sorted by name. Root views
 	 * (My files, Team files, Project files) show their direct children.
 	 * @type {FolderTreeNode[]}
@@ -221,6 +238,41 @@
 		const node = folderId ? findNode(root, folderId) : root;
 		if (!node) return [];
 		return [...node.children].sort((a, b) => a.name.localeCompare(b.name));
+	});
+
+	/**
+	 * Breadcrumb for the current location: scope root label + the folder
+	 * chain down to the current folder, each carrying the ancestor's
+	 * selectFolderValue-format value. The last segment is the current
+	 * location (plain text); earlier segments navigate when clicked.
+	 * @type {Array<{ label: string, value: string }>}
+	 */
+	let breadcrumb = $derived.by(() => {
+		const rootValue = scope === 'user' ? 'user:' : scope === 'tenant' ? 'tenant:' : 'project:';
+		const rootLabel =
+			scope === 'user' ? 'My files' : scope === 'tenant' ? 'Team files' : 'Project files';
+		/** @type {FolderTreeNode[]} */
+		let chain;
+		if (scope === 'user') {
+			chain = chainToNode(treeRoots[0], folderId);
+		} else if (scope === 'tenant') {
+			chain = chainToNode(treeRoots[1], folderId);
+		} else {
+			const projFolder = treeRoots[2].children.find((c) => c.project_id === projectId);
+			chain = projFolder ? [treeRoots[2], ...chainToNode(projFolder, folderId)] : [treeRoots[2]];
+		}
+		/** @type {Array<{ label: string, value: string }>} */
+		const segs = [{ label: rootLabel, value: rootValue }];
+		for (const node of chain.slice(1)) {
+			segs.push({
+				label: node.name,
+				value:
+					scope === 'project'
+						? `project:${node.project_id ?? ''}:${node.id}`
+						: `${scope}:${node.id}`
+			});
+		}
+		return segs;
 	});
 
 	/**
@@ -755,6 +807,39 @@
 			/>
 		</form>
 	</div>
+
+	<nav aria-label="Folder path" class="mt-4 flex flex-wrap items-center gap-1 text-sm">
+		{#each breadcrumb as seg, i (seg.value)}
+			{#if i > 0}
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					viewBox="0 0 20 20"
+					fill="currentColor"
+					class="h-3.5 w-3.5 shrink-0 text-slate-400"
+					aria-hidden="true"
+				>
+					<path
+						fill-rule="evenodd"
+						d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z"
+						clip-rule="evenodd"
+					/>
+				</svg>
+			{/if}
+			{#if i === breadcrumb.length - 1}
+				<span aria-current="page" class="rounded px-1.5 py-0.5 font-medium text-slate-900">
+					{seg.label}
+				</span>
+			{:else}
+				<button
+					type="button"
+					onclick={() => selectFolderValue(seg.value)}
+					class="rounded px-1.5 py-0.5 text-slate-600 hover:bg-slate-100 hover:text-indigo-600 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+				>
+					{seg.label}
+				</button>
+			{/if}
+		{/each}
+	</nav>
 
 	{#if actionErr}
 		<p
