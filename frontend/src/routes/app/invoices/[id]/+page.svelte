@@ -28,6 +28,39 @@
 
 	const number = $derived(data.invoice.invoice_number ?? 'Draft');
 
+	/** @type {string|null} */
+	let pdfErr = $state(null);
+	let downloading = $state(false);
+	let viewing = $state(false);
+
+	async function downloadPdf() {
+		if (downloading) return;
+		downloading = true;
+		pdfErr = null;
+		try {
+			const filename = `${data.invoice.invoice_number ?? 'invoice'}.pdf`;
+			await invoiceApi.downloadInvoicePdf(fetch, token, data.invoice.id, filename);
+		} catch (e) {
+			pdfErr = e instanceof ApiError ? e.message : 'Could not download the invoice PDF.';
+		} finally {
+			downloading = false;
+		}
+	}
+
+	async function viewPdf() {
+		if (viewing) return;
+		viewing = true;
+		pdfErr = null;
+		try {
+			const filename = `${data.invoice.invoice_number ?? 'invoice'}.pdf`;
+			await invoiceApi.viewInvoicePdf(fetch, token, data.invoice.id, filename);
+		} catch (e) {
+			pdfErr = e instanceof ApiError ? e.message : 'Could not open the invoice PDF.';
+		} finally {
+			viewing = false;
+		}
+	}
+
 	async function runIssue() {
 		issueBusy = true;
 		actionErr = null;
@@ -185,8 +218,62 @@
 		<h1 class="text-2xl font-semibold text-slate-900">{number}</h1>
 		<StatusBadge status={data.invoice.status} />
 	</div>
-	{#if data.invoice.status === 'draft'}
-		<div class="flex flex-wrap items-center gap-2">
+	<div class="flex flex-wrap items-center gap-2">
+		<button
+			type="button"
+			onclick={downloadPdf}
+			disabled={downloading || viewing}
+			aria-busy={downloading}
+			class="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+		>
+			{#if downloading}
+				<Spinner class="h-4 w-4 text-indigo-600" />
+			{:else}
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					viewBox="0 0 20 20"
+					fill="currentColor"
+					class="h-4 w-4"
+					aria-hidden="true"
+				>
+					<path
+						d="M10.75 2.75a.75.75 0 00-1.5 0v8.614L6.295 8.235a.75.75 0 10-1.09 1.03l4.25 4.5a.75.75 0 001.09 0l4.25-4.5a.75.75 0 00-1.09-1.03l-2.955 3.129V2.75z"
+					/>
+					<path
+						d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z"
+					/>
+				</svg>
+			{/if}
+			Download PDF
+		</button>
+		<button
+			type="button"
+			onclick={viewPdf}
+			disabled={downloading || viewing}
+			aria-busy={viewing}
+			class="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+		>
+			{#if viewing}
+				<Spinner class="h-4 w-4 text-indigo-600" />
+			{:else}
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					viewBox="0 0 20 20"
+					fill="currentColor"
+					class="h-4 w-4"
+					aria-hidden="true"
+				>
+					<path d="M10 12.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z" />
+					<path
+						fill-rule="evenodd"
+						d="M.664 10.59a1.651 1.651 0 010-1.186A10.004 10.004 0 0110 3c4.257 0 7.893 2.66 9.336 6.41.147.381.146.804 0 1.186A10.004 10.004 0 0110 17c-4.257 0-7.893-2.66-9.336-6.41zM14 10a4 4 0 11-8 0 4 4 0 018 0z"
+						clip-rule="evenodd"
+					/>
+				</svg>
+			{/if}
+			View
+		</button>
+		{#if data.invoice.status === 'draft'}
 			<a
 				href={resolve('/app/invoices/[id]/edit', { id: data.invoice.id })}
 				class="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
@@ -207,16 +294,16 @@
 			>
 				Delete
 			</button>
-		</div>
-	{:else if data.invoice.status === 'issued' || data.invoice.status === 'partially_paid' || data.invoice.status === 'paid'}
-		<button
-			type="button"
-			onclick={() => (voidOpen = true)}
-			class="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none"
-		>
-			Void
-		</button>
-	{/if}
+		{:else if data.invoice.status === 'issued' || data.invoice.status === 'partially_paid' || data.invoice.status === 'paid'}
+			<button
+				type="button"
+				onclick={() => (voidOpen = true)}
+				class="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none"
+			>
+				Void
+			</button>
+		{/if}
+	</div>
 </div>
 
 {#if actionErr}
@@ -233,6 +320,15 @@
 		class="mt-3 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800"
 	>
 		{actionMsg}
+	</p>
+{/if}
+
+{#if pdfErr}
+	<p
+		role="alert"
+		class="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+	>
+		{pdfErr}
 	</p>
 {/if}
 

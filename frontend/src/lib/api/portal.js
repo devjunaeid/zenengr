@@ -279,18 +279,16 @@ export function listClientProjectFiles(fetchFn, token, projectId, params = {}) {
 }
 
 /**
- * Download a file shared with the client. Must run in the browser (uses
- * `document`); call from an event handler, not a load function.
+ * Fetch a raw binary payload with a Bearer token.
  *
  * @param {typeof fetch} fetchFn
+ * @param {string} path API path starting with '/', relative to /api/v1
  * @param {string} token
- * @param {string} fileId
- * @param {string} filename
- * @returns {Promise<void>}
+ * @returns {Promise<Blob>}
  * @throws {ApiError}
  */
-export async function downloadClientFile(fetchFn, token, fileId, filename) {
-	const res = await fetchFn(`${BASE_URL}/client/files/${encodeURIComponent(fileId)}/content`, {
+async function fetchBlob(fetchFn, path, token) {
+	const res = await fetchFn(`${BASE_URL}${path}`, {
 		headers: { Authorization: `Bearer ${token}` }
 	});
 	if (!res.ok) {
@@ -308,7 +306,26 @@ export async function downloadClientFile(fetchFn, token, fileId, filename) {
 			envelope.details ?? {}
 		);
 	}
-	const blob = await res.blob();
+	return res.blob();
+}
+
+/**
+ * Download a file shared with the client. Must run in the browser (uses
+ * `document`); call from an event handler, not a load function.
+ *
+ * @param {typeof fetch} fetchFn
+ * @param {string} token
+ * @param {string} fileId
+ * @param {string} filename
+ * @returns {Promise<void>}
+ * @throws {ApiError}
+ */
+export async function downloadClientFile(fetchFn, token, fileId, filename) {
+	const blob = await fetchBlob(
+		fetchFn,
+		`/client/files/${encodeURIComponent(fileId)}/content`,
+		token
+	);
 	const url = URL.createObjectURL(blob);
 	const a = document.createElement('a');
 	a.href = url;
@@ -331,25 +348,11 @@ export async function downloadClientFile(fetchFn, token, fileId, filename) {
  * @throws {ApiError}
  */
 export async function downloadClientInvoicePdf(fetchFn, token, invoiceId, filename) {
-	const res = await fetchFn(`${BASE_URL}/client/invoices/${encodeURIComponent(invoiceId)}/pdf`, {
-		headers: { Authorization: `Bearer ${token}` }
-	});
-	if (!res.ok) {
-		let data = null;
-		try {
-			data = await res.json();
-		} catch {
-			// non-JSON error body; fall through to generic error
-		}
-		const envelope = data && data.error ? data.error : {};
-		throw new ApiError(
-			res.status,
-			envelope.code ?? 'UNKNOWN',
-			envelope.message ?? res.statusText,
-			envelope.details ?? {}
-		);
-	}
-	const blob = await res.blob();
+	const blob = await fetchBlob(
+		fetchFn,
+		`/client/invoices/${encodeURIComponent(invoiceId)}/pdf`,
+		token
+	);
 	const url = URL.createObjectURL(blob);
 	const a = document.createElement('a');
 	a.href = url;
@@ -358,4 +361,28 @@ export async function downloadClientInvoicePdf(fetchFn, token, invoiceId, filena
 	a.click();
 	a.remove();
 	URL.revokeObjectURL(url);
+}
+
+/**
+ * Open one of the client's invoices as a PDF in a new tab. The PDF endpoint
+ * requires an Authorization header, so the blob is fetched first and opened via
+ * an object URL (revoked after 60s so the new tab keeps the loaded document).
+ *
+ * @param {typeof fetch} fetchFn
+ * @param {string} token
+ * @param {string} invoiceId
+ * @param {string} filename e.g. "INV-0001.pdf"
+ * @returns {Promise<void>}
+ * @throws {ApiError}
+ */
+// eslint-disable-next-line no-unused-vars -- filename kept for parity with the download helper
+export async function viewClientInvoicePdf(fetchFn, token, invoiceId, filename) {
+	const blob = await fetchBlob(
+		fetchFn,
+		`/client/invoices/${encodeURIComponent(invoiceId)}/pdf`,
+		token
+	);
+	const url = URL.createObjectURL(blob);
+	window.open(url, '_blank');
+	setTimeout(() => URL.revokeObjectURL(url), 60000);
 }

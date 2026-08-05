@@ -1,4 +1,4 @@
-import { apiFetch } from './client.js';
+import { ApiError, apiFetch, BASE_URL } from './client.js';
 
 /**
  * Tenant invoicing API endpoints (FR-7.6).
@@ -217,4 +217,86 @@ export function voidInvoice(fetchFn, token, id) {
  */
 export function getProjectOverview(fetchFn, token, projectId) {
 	return apiFetch(fetchFn, `/tenant/projects/${encodeURIComponent(projectId)}/overview`, { token });
+}
+
+/**
+ * Fetch a raw binary payload with a Bearer token.
+ *
+ * @param {typeof fetch} fetchFn
+ * @param {string} path API path starting with '/', relative to /api/v1
+ * @param {string} token
+ * @returns {Promise<Blob>}
+ * @throws {ApiError}
+ */
+async function fetchBlob(fetchFn, path, token) {
+	const res = await fetchFn(`${BASE_URL}${path}`, {
+		headers: { Authorization: `Bearer ${token}` }
+	});
+	if (!res.ok) {
+		let data = null;
+		try {
+			data = await res.json();
+		} catch {
+			// non-JSON error body; fall through to generic error
+		}
+		const envelope = data && data.error ? data.error : {};
+		throw new ApiError(
+			res.status,
+			envelope.code ?? 'UNKNOWN',
+			envelope.message ?? res.statusText,
+			envelope.details ?? {}
+		);
+	}
+	return res.blob();
+}
+
+/**
+ * Download an invoice PDF attachment. Must run in the browser (uses
+ * `document`); call from an event handler, not a load function.
+ *
+ * @param {typeof fetch} fetchFn
+ * @param {string} token
+ * @param {string} invoiceId
+ * @param {string} filename e.g. "INV-0001.pdf"
+ * @returns {Promise<void>}
+ * @throws {ApiError}
+ */
+export async function downloadInvoicePdf(fetchFn, token, invoiceId, filename) {
+	const blob = await fetchBlob(
+		fetchFn,
+		`/tenant/invoices/${encodeURIComponent(invoiceId)}/pdf`,
+		token
+	);
+	const url = URL.createObjectURL(blob);
+	const a = document.createElement('a');
+	a.href = url;
+	a.download = filename;
+	document.body.appendChild(a);
+	a.click();
+	a.remove();
+	URL.revokeObjectURL(url);
+}
+
+/**
+ * Open an invoice PDF in a new tab. The PDF endpoint requires an Authorization
+ * header, so the blob is fetched first and opened via an object URL (revoked
+ * after 60s so the new tab keeps the loaded document).
+ *
+ * @param {typeof fetch} fetchFn
+ * @param {string} token
+ * @param {string} invoiceId
+ * @param {string} filename e.g. "INV-0001.pdf"
+ * @returns {Promise<void>}
+ * @throws {ApiError}
+ */
+// eslint-disable-next-line no-unused-vars -- filename kept for parity with the download helper
+export async function viewInvoicePdf(fetchFn, token, invoiceId, filename) {
+	const blob = await fetchBlob(
+		fetchFn,
+		`/tenant/invoices/${encodeURIComponent(invoiceId)}/pdf`,
+		token
+	);
+	const url = URL.createObjectURL(blob);
+	window.open(url, '_blank');
+	setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
