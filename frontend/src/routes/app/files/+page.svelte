@@ -9,6 +9,7 @@
 	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
 	import EmptyState from '$lib/components/EmptyState.svelte';
 	import FileCard from '$lib/components/FileCard.svelte';
+	import FolderCard from '$lib/components/FolderCard.svelte';
 	import Pagination from '$lib/components/Pagination.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
 	import { auth } from '$lib/stores/auth.svelte.js';
@@ -157,6 +158,10 @@
 			scope = v === 'user:' ? 'user' : 'tenant';
 			folderId = '';
 			projectId = '';
+		} else if (v.startsWith('user:')) {
+			scope = 'user';
+			folderId = v.slice(5);
+			projectId = '';
 		} else if (v.startsWith('tenant:')) {
 			scope = 'tenant';
 			folderId = v.slice(7);
@@ -190,6 +195,51 @@
 	}
 
 	let tenantFolders = $derived(flattenByScope(treeRoots[1]));
+
+	/**
+	 * Find a tree node by id under a scope root.
+	 * @param {FolderTreeNode} root
+	 * @param {string} id
+	 * @returns {FolderTreeNode|null}
+	 */
+	function findNode(root, id) {
+		if (root.id === id) return root;
+		for (const child of root.children) {
+			const hit = findNode(child, id);
+			if (hit) return hit;
+		}
+		return null;
+	}
+
+	/**
+	 * Child folders of the current location, sorted by name. Root views
+	 * (My files, Team files, Project files) show their direct children.
+	 * @type {FolderTreeNode[]}
+	 */
+	let childFolders = $derived.by(() => {
+		const root = scope === 'user' ? treeRoots[0] : scope === 'tenant' ? treeRoots[1] : treeRoots[2];
+		const node = folderId ? findNode(root, folderId) : root;
+		if (!node) return [];
+		return [...node.children].sort((a, b) => a.name.localeCompare(b.name));
+	});
+
+	/**
+	 * @param {FolderTreeNode} folder
+	 */
+	function canActOnFolder(folder) {
+		// USER-scope folders in the tree always belong to the current actor.
+		return folder.scope === 'user' ? true : canManage;
+	}
+
+	/**
+	 * Navigate into a folder card (same mechanism as the dropdown).
+	 * @param {FolderTreeNode} folder
+	 */
+	function openFolder(folder) {
+		if (folder.scope === 'user') selectFolderValue(`user:${folder.id}`);
+		else if (folder.scope === 'tenant') selectFolderValue(`tenant:${folder.id}`);
+		else selectFolderValue(`project:${folder.project_id ?? ''}:${folder.id}`);
+	}
 
 	/**
 	 * Project-scope folders for one project (the per-project folder + nested).
@@ -492,6 +542,77 @@
 		}
 	}
 
+	// folder rename
+	let folderRenameOpen = $state(false);
+	let folderRenameBusy = $state(false);
+	/** @type {string|null} */
+	let folderRenameErr = $state(null);
+	let folderRenameName = $state('');
+	/** @type {FolderTreeNode|null} */
+	let folderRenameTarget = $state(/** @type {FolderTreeNode|null} */ (null));
+
+	/**
+	 * @param {FolderTreeNode} folder
+	 */
+	function openFolderRename(folder) {
+		folderRenameTarget = folder;
+		folderRenameName = folder.name;
+		folderRenameErr = null;
+		folderRenameOpen = true;
+	}
+
+	async function submitFolderRename() {
+		if (!folderRenameTarget?.id) return;
+		folderRenameErr = null;
+		if (!folderRenameName.trim()) {
+			folderRenameErr = 'Enter a name.';
+			return;
+		}
+		folderRenameBusy = true;
+		try {
+			await filesApi.renameFolder(fetch, token, folderRenameTarget.id, {
+				name: folderRenameName.trim()
+			});
+			folderRenameOpen = false;
+			await invalidateAll();
+		} catch (e) {
+			folderRenameErr = e instanceof ApiError ? e.message : 'Rename failed.';
+		} finally {
+			folderRenameBusy = false;
+		}
+	}
+
+	// folder delete
+	let folderDeleteOpen = $state(false);
+	let folderDeleteBusy = $state(false);
+	/** @type {FolderTreeNode|null} */
+	let folderDeleteTarget = $state(/** @type {FolderTreeNode|null} */ (null));
+
+	/**
+	 * @param {FolderTreeNode} folder
+	 */
+	function openFolderDelete(folder) {
+		folderDeleteTarget = folder;
+		folderDeleteOpen = true;
+	}
+
+	async function runFolderDelete() {
+		if (!folderDeleteTarget?.id) return;
+		folderDeleteBusy = true;
+		actionErr = null;
+		try {
+			await filesApi.deleteFolder(fetch, token, folderDeleteTarget.id);
+			folderDeleteTarget = null;
+			folderDeleteOpen = false;
+			await invalidateAll();
+		} catch (e) {
+			// 409 (folder not empty) lands here with the server message.
+			actionErr = e instanceof ApiError ? e.message : 'Could not delete folder.';
+		} finally {
+			folderDeleteBusy = false;
+		}
+	}
+
 	// ---- preview dialog ----
 	let previewOpen = $state(false);
 	let previewBusy = $state(false);
@@ -657,7 +778,7 @@
 				</p>
 			</div>
 		</div>
-		{#if data.files.items.length === 0}
+		{#if data.files.items.length === 0 && childFolders.length === 0}
 			{#if q.trim()}
 				<p class="px-6 py-8 text-sm text-slate-500">No files match "{q}".</p>
 			{:else}
@@ -678,6 +799,17 @@
 			{/if}
 		{:else}
 			<div class="grid grid-cols-2 gap-4 p-4 sm:grid-cols-3 sm:p-6 lg:grid-cols-4 xl:grid-cols-5">
+				{#each childFolders as folder (folder.id)}
+					{@const folderCanAct = canActOnFolder(folder)}
+					<FolderCard
+						{folder}
+						canAct={folderCanAct}
+						busy={folderRenameBusy || folderDeleteBusy}
+						onopen={() => openFolder(folder)}
+						onrename={() => openFolderRename(folder)}
+						ondelete={() => openFolderDelete(folder)}
+					/>
+				{/each}
 				{#each data.files.items as file (file.id)}
 					{@const canAct = canActOnFile(file)}
 					<FileCard
@@ -693,12 +825,14 @@
 					/>
 				{/each}
 			</div>
-			<Pagination
-				page={data.files.page}
-				pageSize={data.files.page_size}
-				total={data.files.total}
-				onpage={applyUrl}
-			/>
+			{#if data.files.total > 0}
+				<Pagination
+					page={data.files.page}
+					pageSize={data.files.page_size}
+					total={data.files.total}
+					onpage={applyUrl}
+				/>
+			{/if}
 		{/if}
 	</section>
 </div>
@@ -994,6 +1128,64 @@
 	</Dialog.Portal>
 </Dialog.Root>
 
+<!-- Rename folder dialog -->
+<Dialog.Root bind:open={folderRenameOpen}>
+	<Dialog.Portal>
+		<Dialog.Overlay class="fixed inset-0 z-40 bg-black/50" />
+		<Dialog.Content
+			class="fixed top-1/2 left-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-6 shadow-xl focus:outline-none"
+		>
+			<Dialog.Title class="text-lg font-semibold text-slate-900">Rename folder</Dialog.Title>
+
+			{#if folderRenameErr}
+				<p
+					role="alert"
+					class="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+				>
+					{folderRenameErr}
+				</p>
+			{/if}
+
+			<form
+				class="mt-4 space-y-4"
+				onsubmit={(e) => {
+					e.preventDefault();
+					submitFolderRename();
+				}}
+			>
+				<div>
+					<label for="fr-name" class="block text-sm font-medium text-slate-700">Name *</label>
+					<input
+						id="fr-name"
+						type="text"
+						bind:value={folderRenameName}
+						required
+						class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+					/>
+				</div>
+
+				<div class="mt-6 flex justify-end gap-3">
+					<Dialog.Close
+						type="button"
+						class="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+					>
+						Cancel
+					</Dialog.Close>
+					<button
+						type="submit"
+						disabled={folderRenameBusy}
+						aria-busy={folderRenameBusy}
+						class="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+					>
+						{#if folderRenameBusy}<Spinner class="h-4 w-4 text-white" />{/if}
+						Save
+					</button>
+				</div>
+			</form>
+		</Dialog.Content>
+	</Dialog.Portal>
+</Dialog.Root>
+
 <!-- Move file dialog -->
 <Dialog.Root bind:open={moveOpen}>
 	<Dialog.Portal>
@@ -1068,6 +1260,18 @@
 	destructive
 	busy={deleteBusy}
 	onconfirm={runDelete}
+/>
+
+<ConfirmDialog
+	bind:open={folderDeleteOpen}
+	title="Delete folder"
+	description={folderDeleteTarget
+		? `Permanently delete "${folderDeleteTarget.name}"? This cannot be undone.`
+		: ''}
+	confirmLabel="Delete"
+	destructive
+	busy={folderDeleteBusy}
+	onconfirm={runFolderDelete}
 />
 
 <!-- Preview file dialog (bits-ui Dialog) -->
