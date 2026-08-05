@@ -397,7 +397,9 @@
 		const fd = new FormData();
 		fd.append('file', uploadFileSel);
 		fd.append('scope', uploadScope);
-		if (uploadScope !== 'user' && uploadFolderId) fd.append('folder_id', uploadFolderId);
+		// The scope radios clear uploadFolderId on change, so a non-empty value
+		// here always belongs to the selected scope (user subfolders included).
+		if (uploadFolderId) fd.append('folder_id', uploadFolderId);
 		if (uploadScope === 'project') fd.append('project_id', uploadProjectId);
 		uploadBusy = true;
 		try {
@@ -990,6 +992,7 @@
 								name="up-scope"
 								value="user"
 								bind:group={uploadScope}
+								onchange={() => (uploadFolderId = '')}
 								class="text-indigo-600 focus:ring-indigo-500"
 							/>
 							My files
@@ -1000,6 +1003,7 @@
 								name="up-scope"
 								value="tenant"
 								bind:group={uploadScope}
+								onchange={() => (uploadFolderId = '')}
 								class="text-indigo-600 focus:ring-indigo-500"
 							/>
 							Team files
@@ -1010,6 +1014,7 @@
 								name="up-scope"
 								value="project"
 								bind:group={uploadScope}
+								onchange={() => (uploadFolderId = '')}
 								class="text-indigo-600 focus:ring-indigo-500"
 							/>
 							Project files
