@@ -19,9 +19,9 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 
 | Area | Count | Key metric |
 | ---- | ----- | ---------- |
-| Features | 12 | approved: 11, proposed: 1 |
-| User stories | 47 | done: 8, in_progress: 4, proposed: 35 |
-| Todos | 122 | done: 122, in_progress: 0, proposed: 0 |
+| Features | 13 | approved: 12, proposed: 1 |
+| User stories | 52 | done: 13, in_progress: 4, proposed: 35 |
+| Todos | 137 | done: 137, in_progress: 0, proposed: 0 |
 | Decisions | 2 | accepted: 2 |
 
 ## Active sprint
@@ -53,6 +53,7 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | [FEAT-009](features/FEAT-009-payments.md) | Payments & Financial Tracking | approved | P0 |
 | [FEAT-010](features/FEAT-010-comments.md) | Comments / Communication | approved | P0 |
 | [FEAT-011](features/FEAT-011-profile-self-service.md) | Profile Management (Self-Service) | approved | P0 |
+| [FEAT-012](features/FEAT-012-file-storage.md) | File Management & Storage | approved | P0 |
 
 ### Stories
 
@@ -105,6 +106,11 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | [US-045](stories/US-045.md) | User views account security history | FEAT-011 | proposed |
 | [US-046](stories/US-046.md) | Backend application skeleton and tooling | FEAT-000 (infra) | done |
 | [US-047](stories/US-047.md) | Admin realm authentication (JWT login, password hashing, /me) | FEAT-004 | proposed |
+| [US-048](stories/US-048.md) | Storage abstraction: local today, S3-compatible switchable | FEAT-012 | done |
+| [US-049](stories/US-049.md) | Tenant file gallery with folder tree | FEAT-012 | done |
+| [US-050](stories/US-050.md) | Visibility scoping: user-isolated vs tenant-level | FEAT-012 | done |
+| [US-051](stories/US-051.md) | Protected project files with client access | FEAT-012 | done |
+| [US-052](stories/US-052.md) | Quota and limits | FEAT-012 | done |
 
 ### Todos
 
@@ -290,6 +296,26 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | [TODO-119](todos/TODO-119.md) | User activity history model + logging | US-045 | done |
 | [TODO-120](todos/TODO-120.md) | Activity history UI component | US-045 | done |
 
+#### FEAT-012 — File Management & Storage
+
+| ID | Title | Story | Status |
+| -- | ----- | ----- | ------ |
+| [TODO-123](todos/TODO-123.md) | Storage backend protocol + local implementation + config factory | US-048 | done |
+| [TODO-124](todos/TODO-124.md) | S3-compatible storage backend (boto3, presigned URLs) | US-048 | done |
+| [TODO-125](todos/TODO-125.md) | FileFolder + FileAsset models + migration | US-049 | done |
+| [TODO-126](todos/TODO-126.md) | Storage migration/backfill tool | US-048 | done |
+| [TODO-127](todos/TODO-127.md) | Folders API | US-049 | done |
+| [TODO-128](todos/TODO-128.md) | Upload API | US-049/050 | done |
+| [TODO-129](todos/TODO-129.md) | File list/metadata API | US-050 | done |
+| [TODO-130](todos/TODO-130.md) | Download API + protected serving | US-051 | done |
+| [TODO-131](todos/TODO-131.md) | Delete/rename/move API + RBAC | US-050 | done |
+| [TODO-132](todos/TODO-132.md) | Client portal file access | US-051 | done |
+| [TODO-133](todos/TODO-133.md) | Logo upload + PDF branding via storage backend | US-048 | done |
+| [TODO-134](todos/TODO-134.md) | File explorer UI (Admin Portal) | US-049/050 | done |
+| [TODO-135](todos/TODO-135.md) | Client portal project files UI | US-051 | done |
+| [TODO-136](todos/TODO-136.md) | Quota enforcement + limits tests | US-052 | done |
+| [TODO-137](todos/TODO-137.md) | Auto-provisioning of root folders | US-049 | done |
+
 ## Recently updated
 
 | Date | Item | Change |
@@ -317,8 +343,7 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 
 ## Next
 
-All 122 implementation todos complete (Sprint 1 backlog fully shipped).
+All 137 todos complete (Sprint 1 + FEAT-012 File Management & Storage shipped; 528 backend tests green, frontend clean).
 
-1. Commit + PR for the full delivery (backend 7 migrations + frontend; 483 tests green).
-2. Stakeholder walkthrough + demo.
-3. Phase 2 candidates: credit notes, online payment gateway, milestone-level comment threads, avatar upload, per-service portal scoping refinements.
+1. Stakeholder walkthrough + demo.
+2. Phase 2 candidates: file versioning, virus scanning, thumbnails, client uploads, public share links, S3 lifecycle policies; cloud migration path ready (storage backend switch + transfer tool).

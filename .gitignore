@@ -69,3 +69,4 @@ logs/
 
 # Local runtime
 uploads/
+backend/storage/

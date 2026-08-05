@@ -3,13 +3,15 @@
 ## Project status
 
 - **Phase:** Sprint 1 — Admin Auth & Invites
-- **Last updated:** 2026-08-03
-- **Current focus:** Sprint 1 backlog complete — all 122 todos shipped (FEAT-001..011 core). 483 backend tests green, frontend check/lint/build clean. Remaining: commit/PR + stakeholder walkthrough.
+- **Last updated:** 2026-08-05
+- **Current focus:** FEAT-012 File Management & Storage shipped: pluggable storage (local + S3-compatible), tenant file gallery with folders, user/team/project visibility scopes, protected project files with client read access, quota, logo/PDF on storage, migration tool. All 137 todos complete.
 
 ## What changed recently
 
 | Date | Item | Change |
 | ---- | ---- | ------ |
+| 2026-08-05 | FEAT-012 File Management & Storage shipped: storage protocol + local + S3(boto3), FileFolder/FileAsset + 2 migrations, folders/upload/list/download/delete APIs, RBAC + quota, client portal file access, logo+PDF via storage, public logo endpoint, backfill/transfer tool, file explorer UI + client files UI | backend/app/storage/*, models/file_folder.py, file_asset.py, services/files.py, api/v1/files.py, client_files.py, public.py, tenant.py, pdf.py, scripts/migrate_storage.py, alembic/versions/c3d4e5f6a7b8_*.py, d4e5f6a7b8c9_*.py, tests/test_storage.py, test_files_api.py, test_client_files_api.py; frontend/src/routes/app/files/*, client/projects/[id], lib/api/files.js, portal.js; docker-compose.yml. |
+| 2026-08-05 | FEAT-012 File Management & Storage docs drafted (feature + 5 stories + 15 todos); awaiting approval to implement | docs/features/FEAT-012-file-storage.md, docs/stories/US-048.md, docs/stories/US-049.md, docs/stories/US-050.md, docs/stories/US-051.md, docs/stories/US-052.md, docs/todos/TODO-123.md, docs/todos/TODO-124.md, docs/todos/TODO-125.md, docs/todos/TODO-126.md, docs/todos/TODO-127.md, docs/todos/TODO-128.md, docs/todos/TODO-129.md, docs/todos/TODO-130.md, docs/todos/TODO-131.md, docs/todos/TODO-132.md, docs/todos/TODO-133.md, docs/todos/TODO-134.md, docs/todos/TODO-135.md, docs/todos/TODO-136.md, docs/todos/TODO-137.md, docs/index.md, docs/progress.md. |
 | 2026-08-03 | Final: logo upload + render + PDF branding (TODO-011), per-service financial breakdown (TODO-095), voided-invoice correction guidance UI (TODO-083) | backend/app/api/v1/tenant.py, services/pdf.py, financials.py, schemas/projects.py, services/projects.py, main.py, config.py, tests/test_branding_api.py; frontend/src/routes/app/invoices/[id]/+page.svelte, app/+layout.svelte, app/settings/+page.svelte, app/projects/[id]/+page.svelte, lib/api/tenant.js, invoices.js. |
 | 2026-08-03 | Void API, invoice PDF (reportlab), client-detail financials, service in-use flag, client-portal data endpoints; frontend invoices + payments + comments UI (TODO-081/082/084/085/091/094/096/097/101/102/105/072/077 done) | backend/app/services/pdf.py, api/v1/invoices.py, client_invoices.py, clients.py, services.py, schemas, tests; frontend src/lib/api/invoices.js, comments.js, src/routes/app/invoices/*, app/projects/[id], components/CommentThread.svelte, StatusBadge.svelte, format.js. |
 | 2026-08-03 | FEAT-011 part 2: notification preferences model + endpoints both portals, preference-aware comment dispatch (TODO-108), email change + verification flow (TODO-109/110/116 done) | backend/app/models/notification_preference.py, email_verification_token.py, app/services/notification_preferences.py, account.py, notifications.py, app/api/v1/auth.py, client_auth.py, app/schemas/account.py, alembic/versions/b2c3d4e5f6a7_add_notification_prefs_email.py, tests/test_feat011_api.py, docs/todos/TODO-109/110/116/108.md. |
@@ -114,8 +116,7 @@
 
 ## Next
 
-All 122 implementation todos complete (Sprint 1 backlog fully shipped).
+All 137 todos complete (Sprint 1 + FEAT-012 File Management & Storage shipped; 528 backend tests green, frontend clean).
 
-1. Commit + PR for the full delivery (backend 7 migrations + frontend; 483 tests green).
-2. Stakeholder walkthrough + demo.
-3. Phase 2 candidates: credit notes, online payment gateway, milestone-level comment threads, avatar upload, per-service portal scoping refinements.
+1. Stakeholder walkthrough + demo.
+2. Phase 2 candidates: file versioning, virus scanning, thumbnails, client uploads, public share links, S3 lifecycle policies; cloud migration path ready (storage backend switch + transfer tool).

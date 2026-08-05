@@ -75,6 +75,7 @@ services:
       - ./backend/pyproject.toml:/app/pyproject.toml
       - ./backend/uv.lock:/app/uv.lock
       - ./backend/scripts:/app/scripts
+      - storage_data:/app/storage
     env_file: .env
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://app:app@postgres:5432/app}
@@ -101,6 +102,8 @@ services:
     restart: unless-stopped
     ports:
       - "8000:8000"
+    volumes:
+      - storage_data:/app/storage
     env_file: .env
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://app:app@postgres:5432/app}
@@ -114,3 +117,4 @@ services:
 volumes:
   postgres_data:
   pgadmin_config:
+  storage_data:
