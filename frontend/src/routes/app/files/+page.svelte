@@ -1,6 +1,6 @@
 <script>
 	import { untrack } from 'svelte';
-	import { SvelteSet, SvelteURLSearchParams } from 'svelte/reactivity';
+	import { SvelteURLSearchParams } from 'svelte/reactivity';
 	import { goto, invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { Dialog } from 'bits-ui';
@@ -68,71 +68,88 @@
 		return [my, team, proj];
 	});
 
-	/** Collapsed node keys; empty = everything expanded */
-	let collapsed = new SvelteSet(/** @type {string[]} */ ([]));
+	// ---- folder dropdown (replaces the sidebar tree) ----
+	/**
+	 * Flat list of tenant folders with breadcrumb-style path labels.
+	 * @type {Array<{ label: string, value: string }>}
+	 */
+	let teamOptions = $derived.by(() => {
+		/** @type {Array<{ label: string, value: string }>} */
+		const out = [{ label: 'Team files', value: 'tenant:' }];
+		/**
+		 * @param {FolderTreeNode} node
+		 * @param {string[]} path
+		 */
+		const walk = (node, path) => {
+			for (const child of node.children) {
+				const p = [...path, child.name];
+				out.push({ label: `Team files / ${p.join(' / ')}`, value: `tenant:${child.id}` });
+				walk(child, p);
+			}
+		};
+		walk(treeRoots[1], []);
+		return out;
+	});
 
 	/**
-	 * @param {FolderTreeNode} node
+	 * Flat list of project folders (per-project root folders + nested).
+	 * @type {Array<{ label: string, value: string, projectId: string|null }>}
 	 */
-	function nodeKey(node) {
-		return node.id ?? `root:${node.scope}`;
-	}
+	let projectOptions = $derived.by(() => {
+		/** @type {Array<{ label: string, value: string, projectId: string|null }>} */
+		const out = [{ label: 'Project files', value: 'project:', projectId: null }];
+		/**
+		 * @param {FolderTreeNode} node
+		 */
+		const walk = (node) => {
+			for (const child of node.children) {
+				out.push({
+					label: `Project files / ${child.name}`,
+					value: `project:${child.project_id ?? ''}:${child.id}`,
+					projectId: child.project_id
+				});
+				walk(child);
+			}
+		};
+		walk(treeRoots[2]);
+		return out;
+	});
+
+	let activeFolderValue = $derived(
+		scope === 'user'
+			? 'user:'
+			: scope === 'tenant'
+				? `tenant:${folderId}`
+				: folderId
+					? `project:${projectId}:${folderId}`
+					: 'project:'
+	);
 
 	/**
-	 * @param {FolderTreeNode} node
+	 * @param {string} v
 	 */
-	function isScopeRoot(node) {
-		return treeRoots.some((r) => r === node);
-	}
-
-	/**
-	 * @param {string} key
-	 */
-	function toggleExpand(key) {
-		if (collapsed.has(key)) {
-			collapsed.delete(key);
+	function selectFolderValue(v) {
+		if (v === 'user:' || v === 'tenant:') {
+			scope = v === 'user:' ? 'user' : 'tenant';
+			folderId = '';
+			projectId = '';
+		} else if (v.startsWith('tenant:')) {
+			scope = 'tenant';
+			folderId = v.slice(7);
+			projectId = '';
 		} else {
-			collapsed.add(key);
+			scope = 'project';
+			if (v === 'project:') {
+				folderId = '';
+				projectId = '';
+			} else {
+				const rest = v.slice(8);
+				const sep = rest.indexOf(':');
+				projectId = sep >= 0 ? rest.slice(0, sep) : '';
+				folderId = sep >= 0 ? rest.slice(sep + 1) : '';
+			}
 		}
-	}
-
-	/**
-	 * @param {FolderTreeNode} node
-	 */
-	function isActiveNode(node) {
-		if (isScopeRoot(node)) {
-			return (
-				node.scope === scope &&
-				folderId === '' &&
-				(node.scope !== 'project' || String(node.project_id ?? '') === String(projectId ?? ''))
-			);
-		}
-		return node.scope === scope && String(node.id ?? '') === String(folderId ?? '');
-	}
-
-	/**
-	 * @param {FolderTreeNode} node
-	 */
-	function selectNode(node) {
-		scope = node.scope;
-		projectId = node.scope === 'project' ? (node.project_id ?? '') : '';
-		folderId = isScopeRoot(node) ? '' : (node.id ?? '');
 		applyUrl(1);
-	}
-
-	/**
-	 * Find the active folder node and its ancestor path (roots included).
-	 * @param {FolderTreeNode[]} nodes
-	 * @param {FolderTreeNode[]} ancestors
-	 * @returns {FolderTreeNode[]|null}
-	 */
-	function findNodePath(nodes, ancestors) {
-		for (const node of nodes) {
-			if (isActiveNode(node)) return [...ancestors, node];
-			const found = findNodePath(node.children, [...ancestors, node]);
-			if (found) return found;
-		}
-		return null;
 	}
 
 	/**
@@ -173,22 +190,14 @@
 		return data.projects.find((p) => p.id === pid)?.name;
 	}
 
-	// ---- breadcrumb ----
-	/** @type {Array<{ label: string, node: FolderTreeNode|null }>} */
-	let breadcrumb = $derived.by(() => {
-		if (scope === 'user') {
-			return [{ label: 'My files', node: treeRoots[0] }];
-		}
-		const rootLabel = scope === 'tenant' ? 'Team files' : 'Project files';
-		const rootNode = scope === 'tenant' ? treeRoots[1] : treeRoots[2];
-		const segs = [{ label: rootLabel, node: rootNode }];
-		const path = findNodePath(data.folders, []);
-		for (const n of path ?? []) {
-			if (isScopeRoot(n)) continue;
-			segs.push({ label: n.name, node: n });
-		}
-		return segs;
-	});
+	// ---- current location label (used by the new-folder dialog) ----
+	let locationLabel = $derived(
+		scope === 'user'
+			? 'My files'
+			: ((scope === 'tenant' ? teamOptions : projectOptions).find(
+					(o) => o.value === activeFolderValue
+				)?.label ?? (scope === 'tenant' ? 'Team files' : 'Project files'))
+	);
 
 	// ---- navigation ----
 	/**
@@ -461,34 +470,6 @@
 
 	// ---- display helpers ----
 	/**
-	 * @typedef {object} FlatNode
-	 * @property {FolderTreeNode} node
-	 * @property {number} depth
-	 * @property {boolean} hasKids
-	 * @property {string} key
-	 */
-
-	/** @type {FlatNode[]} */
-	let flatNodes = $derived.by(() => {
-		/** @type {FlatNode[]} */
-		const out = [];
-		/**
-		 * @param {FolderTreeNode} n
-		 * @param {number} depth
-		 */
-		const walk = (n, depth) => {
-			const key = nodeKey(n);
-			const hasKids = n.children.length > 0;
-			out.push({ node: n, depth, hasKids, key });
-			if (hasKids && !collapsed.has(key)) {
-				for (const c of n.children) walk(c, depth + 1);
-			}
-		};
-		for (const root of treeRoots) walk(root, 0);
-		return out;
-	});
-
-	/**
 	 * @param {string|null|undefined} scopeValue
 	 */
 	function scopeLabel(scopeValue) {
@@ -523,305 +504,257 @@
 
 <svelte:head><title>Files — ZenEngr</title></svelte:head>
 
-<div class="grid gap-6 lg:grid-cols-4">
-	<aside class="lg:col-span-1">
-		<div class="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-			<p class="px-2 pb-2 text-xs font-semibold tracking-wide text-slate-500 uppercase">Folders</p>
-			<nav aria-label="Files" class="space-y-0.5">
-				{#each flatNodes as row (row.key)}
-					{@const node = row.node}
-					{@const active = isActiveNode(node)}
-					<div class="flex items-center gap-0.5" style="padding-left: {row.depth * 0.75}rem">
-						<button
-							type="button"
-							aria-label={row.hasKids
-								? collapsed.has(row.key)
-									? `Expand ${node.name}`
-									: `Collapse ${node.name}`
-								: undefined}
-							onclick={() => row.hasKids && toggleExpand(row.key)}
-							class="flex h-6 w-6 shrink-0 items-center justify-center rounded text-slate-400 hover:bg-slate-100 hover:text-slate-600 {row.hasKids
-								? ''
-								: 'invisible'}"
-						>
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								viewBox="0 0 20 20"
-								fill="currentColor"
-								class="h-3.5 w-3.5 transition-transform {collapsed.has(row.key) ? '' : 'rotate-90'}"
-								aria-hidden="true"
-							>
-								<path
-									fill-rule="evenodd"
-									d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z"
-									clip-rule="evenodd"
-								/>
-							</svg>
-						</button>
-						<button
-							type="button"
-							onclick={() => selectNode(node)}
-							class="min-w-0 flex-1 rounded-md px-2 py-1 text-left text-sm {active
-								? 'bg-indigo-50 font-medium text-indigo-700'
-								: 'text-slate-700 hover:bg-slate-100'}"
-						>
-							<span class="block truncate">{node.name}</span>
-						</button>
-					</div>
-				{/each}
-			</nav>
-		</div>
-	</aside>
-
-	<div class="min-w-0 lg:col-span-3">
-		<nav aria-label="Breadcrumb" class="text-sm text-slate-500">
-			<ol class="flex flex-wrap items-center gap-1">
-				{#each breadcrumb as seg, i (seg.label + i)}
-					{#if i > 0}<li aria-hidden="true">/</li>{/if}
-					<li>
-						{#if i < breadcrumb.length - 1 && seg.node}
-							<button
-								type="button"
-								onclick={() => selectNode(/** @type {FolderTreeNode} */ (seg.node))}
-								class="hover:text-indigo-600"
-							>
-								{seg.label}
-							</button>
-						{:else}
-							<span class="font-medium text-slate-700">{seg.label}</span>
-						{/if}
-					</li>
-				{/each}
-			</ol>
-		</nav>
-
-		<div class="mt-3 flex flex-wrap items-center justify-between gap-3">
-			<div class="flex flex-wrap items-center gap-2">
+<div class="min-w-0">
+	<div class="flex flex-wrap items-end justify-between gap-3">
+		<div class="flex flex-wrap items-end gap-3">
+			<div>
+				<label for="f-folder" class="block text-xs font-medium text-slate-600">Folder</label>
+				<select
+					id="f-folder"
+					value={activeFolderValue}
+					onchange={(e) =>
+						selectFolderValue(/** @type {HTMLSelectElement} */ (e.currentTarget).value)}
+					class="mt-1 block w-64 rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+				>
+					<optgroup label="My files">
+						<option value="user:">My files</option>
+					</optgroup>
+					<optgroup label="Team files">
+						<option value="tenant:">Team files</option>
+						{#each teamOptions as opt (opt.value)}
+							<option value={opt.value}>{opt.label}</option>
+						{/each}
+					</optgroup>
+					<optgroup label="Project files">
+						<option value="project:">Project files</option>
+						{#each projectOptions as opt (opt.value)}
+							<option value={opt.value}>{opt.label}</option>
+						{/each}
+					</optgroup>
+				</select>
+			</div>
+			{#if scope !== 'user'}
 				<button
 					type="button"
-					disabled={!uploadAllowed}
-					title={uploadAllowed ? undefined : 'Admins and managers upload team and project files.'}
-					onclick={openUpload}
-					class="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+					disabled={!canManage}
+					title={canManage ? undefined : 'Only admins and managers create team or project folders.'}
+					onclick={openNewFolder}
+					class="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
 				>
-					Upload
+					New folder
 				</button>
-				{#if scope !== 'user'}
-					<button
-						type="button"
-						disabled={!canManage}
-						title={canManage
-							? undefined
-							: 'Only admins and managers create team or project folders.'}
-						onclick={openNewFolder}
-						class="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
-					>
-						New folder
-					</button>
-				{/if}
-			</div>
-			<form
-				role="search"
-				onsubmit={(e) => {
-					e.preventDefault();
-					clearTimeout(qTimer);
-					applyUrl(1);
-				}}
-			>
-				<label for="files-q" class="sr-only">Search files</label>
-				<input
-					id="files-q"
-					type="search"
-					placeholder="Search files…"
-					bind:value={q}
-					oninput={onQInput}
-					class="block w-64 rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-				/>
-			</form>
-		</div>
-
-		{#if actionErr}
-			<p
-				role="alert"
-				class="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
-			>
-				{actionErr}
-			</p>
-		{/if}
-
-		<section
-			class="mt-4 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"
-			aria-labelledby="files-h"
-		>
-			<div class="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-				<div>
-					<h2 id="files-h" class="text-base font-semibold text-slate-900">Files</h2>
-					<p class="mt-0.5 text-sm text-slate-500">
-						{data.files.total}
-						{data.files.total === 1 ? 'file' : 'files'}
-					</p>
-				</div>
-			</div>
-			{#if data.files.items.length === 0}
-				{#if q.trim()}
-					<p class="px-6 py-8 text-sm text-slate-500">No files match "{q}".</p>
-				{:else}
-					<EmptyState
-						title="No files yet"
-						description="Upload a file to share it with your team or a project."
-					>
-						{#if uploadAllowed}
-							<button
-								type="button"
-								onclick={openUpload}
-								class="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
-							>
-								Upload a file
-							</button>
-						{/if}
-					</EmptyState>
-				{/if}
-			{:else}
-				<div class="overflow-x-auto">
-					<table class="min-w-full divide-y divide-slate-200">
-						<thead class="bg-slate-50">
-							<tr>
-								<th
-									scope="col"
-									class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
-									>Name</th
-								>
-								<th
-									scope="col"
-									class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
-									>Size</th
-								>
-								<th
-									scope="col"
-									class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
-									>Type</th
-								>
-								<th
-									scope="col"
-									class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
-									>Scope</th
-								>
-								<th
-									scope="col"
-									class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
-									>Uploaded</th
-								>
-								<th
-									scope="col"
-									class="px-4 py-3 text-right text-xs font-semibold tracking-wide text-slate-600 uppercase"
-									>Actions</th
-								>
-							</tr>
-						</thead>
-						<tbody class="divide-y divide-slate-200">
-							{#each data.files.items as file (file.id)}
-								{@const canAct = canActOnFile(file)}
-								<tr class="hover:bg-slate-50">
-									<td class="max-w-xs px-4 py-3">
-										<div class="flex items-center gap-2">
-											<svg
-												xmlns="http://www.w3.org/2000/svg"
-												viewBox="0 0 20 20"
-												fill="currentColor"
-												class="h-4 w-4 shrink-0 text-slate-400"
-												aria-hidden="true"
-											>
-												{#if fileKind(file.content_type) === 'image'}
-													<path
-														fill-rule="evenodd"
-														d="M1 5.25A2.25 2.25 0 013.25 3h13.5A2.25 2.25 0 0119 5.25v9.5A2.25 2.25 0 0116.75 17H3.25A2.25 2.25 0 011 14.75v-9.5zm1.5 5.81v3.69c0 .414.336.75.75.75h13.5a.75.75 0 00.75-.75v-2.69l-2.22-2.219a.75.75 0 00-1.06 0l-1.91 1.91-3.22-3.22a.75.75 0 00-1.06 0L2.5 11.06zm8.5-4.31a1 1 0 112 0 1 1 0 01-2 0z"
-														clip-rule="evenodd"
-													/>
-												{:else}
-													<path
-														fill-rule="evenodd"
-														d="M4.5 2A1.5 1.5 0 003 3.5v13A1.5 1.5 0 004.5 18h11a1.5 1.5 0 001.5-1.5V7.414a1.5 1.5 0 00-.44-1.06l-3.914-3.914A1.5 1.5 0 0011.586 2H4.5zM6 5.5a.75.75 0 01.75-.75h4.5a.75.75 0 010 1.5h-4.5A.75.75 0 016 5.5zM6.75 9a.75.75 0 000 1.5h6.5a.75.75 0 000-1.5h-6.5zM6 12.25a.75.75 0 01.75-.75h4.5a.75.75 0 010 1.5h-4.5a.75.75 0 01-.75-.75z"
-														clip-rule="evenodd"
-													/>
-												{/if}
-											</svg>
-											<span class="truncate text-sm font-medium text-slate-900" title={file.name}>
-												{file.name}
-											</span>
-										</div>
-									</td>
-									<td class="px-4 py-3 text-sm whitespace-nowrap text-slate-700"
-										>{fmtBytes(file.size_bytes)}</td
-									>
-									<td class="max-w-[10rem] px-4 py-3">
-										<span class="block truncate text-sm text-slate-600" title={file.content_type}>
-											{file.content_type}
-										</span>
-									</td>
-									<td class="px-4 py-3">
-										<span
-											class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset {scopePillClass(
-												file.scope
-											)}"
-										>
-											{scopeLabel(file.scope)}
-										</span>
-									</td>
-									<td class="px-4 py-3 text-sm whitespace-nowrap text-slate-600"
-										>{formatDateTime(file.created_at)}</td
-									>
-									<td class="px-4 py-3">
-										<div class="flex items-center justify-end gap-1">
-											<button
-												type="button"
-												onclick={() => runDownload(file)}
-												class="{actionBtn} text-indigo-600 hover:text-indigo-700"
-											>
-												Download
-											</button>
-											<button
-												type="button"
-												disabled={!canAct}
-												title={canAct ? undefined : 'Not permitted at this scope.'}
-												onclick={() => openRename(file)}
-												class="{actionBtn} text-slate-600 hover:text-slate-900"
-											>
-												Rename
-											</button>
-											<button
-												type="button"
-												disabled={!canAct}
-												title={canAct ? undefined : 'Not permitted at this scope.'}
-												onclick={() => openMove(file)}
-												class="{actionBtn} text-slate-600 hover:text-slate-900"
-											>
-												Move
-											</button>
-											<button
-												type="button"
-												disabled={!canAct}
-												title={canAct ? undefined : 'Not permitted at this scope.'}
-												onclick={() => openDelete(file)}
-												class="{actionBtn} text-red-600 hover:text-red-700"
-											>
-												Delete
-											</button>
-										</div>
-									</td>
-								</tr>
-							{/each}
-						</tbody>
-					</table>
-				</div>
-				<Pagination
-					page={data.files.page}
-					pageSize={data.files.page_size}
-					total={data.files.total}
-					onpage={applyUrl}
-				/>
 			{/if}
-		</section>
+			<button
+				type="button"
+				disabled={!uploadAllowed}
+				title={uploadAllowed ? undefined : 'Admins and managers upload team and project files.'}
+				onclick={openUpload}
+				class="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+			>
+				Upload
+			</button>
+		</div>
+		<form
+			role="search"
+			onsubmit={(e) => {
+				e.preventDefault();
+				clearTimeout(qTimer);
+				applyUrl(1);
+			}}
+		>
+			<label for="files-q" class="sr-only">Search files</label>
+			<input
+				id="files-q"
+				type="search"
+				placeholder="Search files…"
+				bind:value={q}
+				oninput={onQInput}
+				class="block w-64 rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+			/>
+		</form>
 	</div>
+
+	{#if actionErr}
+		<p
+			role="alert"
+			class="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+		>
+			{actionErr}
+		</p>
+	{/if}
+
+	<section
+		class="mt-4 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"
+		aria-labelledby="files-h"
+	>
+		<div class="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+			<div>
+				<h2 id="files-h" class="text-base font-semibold text-slate-900">Files</h2>
+				<p class="mt-0.5 text-sm text-slate-500">
+					{data.files.total}
+					{data.files.total === 1 ? 'file' : 'files'}
+				</p>
+			</div>
+		</div>
+		{#if data.files.items.length === 0}
+			{#if q.trim()}
+				<p class="px-6 py-8 text-sm text-slate-500">No files match "{q}".</p>
+			{:else}
+				<EmptyState
+					title="No files yet"
+					description="Upload a file to share it with your team or a project."
+				>
+					{#if uploadAllowed}
+						<button
+							type="button"
+							onclick={openUpload}
+							class="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+						>
+							Upload a file
+						</button>
+					{/if}
+				</EmptyState>
+			{/if}
+		{:else}
+			<div class="overflow-x-auto">
+				<table class="min-w-full divide-y divide-slate-200">
+					<thead class="bg-slate-50">
+						<tr>
+							<th
+								scope="col"
+								class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
+								>Name</th
+							>
+							<th
+								scope="col"
+								class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
+								>Size</th
+							>
+							<th
+								scope="col"
+								class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
+								>Type</th
+							>
+							<th
+								scope="col"
+								class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
+								>Scope</th
+							>
+							<th
+								scope="col"
+								class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
+								>Uploaded</th
+							>
+							<th
+								scope="col"
+								class="px-4 py-3 text-right text-xs font-semibold tracking-wide text-slate-600 uppercase"
+								>Actions</th
+							>
+						</tr>
+					</thead>
+					<tbody class="divide-y divide-slate-200">
+						{#each data.files.items as file (file.id)}
+							{@const canAct = canActOnFile(file)}
+							<tr class="hover:bg-slate-50">
+								<td class="max-w-xs px-4 py-3">
+									<div class="flex items-center gap-2">
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											viewBox="0 0 20 20"
+											fill="currentColor"
+											class="h-4 w-4 shrink-0 text-slate-400"
+											aria-hidden="true"
+										>
+											{#if fileKind(file.content_type) === 'image'}
+												<path
+													fill-rule="evenodd"
+													d="M1 5.25A2.25 2.25 0 013.25 3h13.5A2.25 2.25 0 0119 5.25v9.5A2.25 2.25 0 0116.75 17H3.25A2.25 2.25 0 011 14.75v-9.5zm1.5 5.81v3.69c0 .414.336.75.75.75h13.5a.75.75 0 00.75-.75v-2.69l-2.22-2.219a.75.75 0 00-1.06 0l-1.91 1.91-3.22-3.22a.75.75 0 00-1.06 0L2.5 11.06zm8.5-4.31a1 1 0 112 0 1 1 0 01-2 0z"
+													clip-rule="evenodd"
+												/>
+											{:else}
+												<path
+													fill-rule="evenodd"
+													d="M4.5 2A1.5 1.5 0 003 3.5v13A1.5 1.5 0 004.5 18h11a1.5 1.5 0 001.5-1.5V7.414a1.5 1.5 0 00-.44-1.06l-3.914-3.914A1.5 1.5 0 0011.586 2H4.5zM6 5.5a.75.75 0 01.75-.75h4.5a.75.75 0 010 1.5h-4.5A.75.75 0 016 5.5zM6.75 9a.75.75 0 000 1.5h6.5a.75.75 0 000-1.5h-6.5zM6 12.25a.75.75 0 01.75-.75h4.5a.75.75 0 010 1.5h-4.5a.75.75 0 01-.75-.75z"
+													clip-rule="evenodd"
+												/>
+											{/if}
+										</svg>
+										<span class="truncate text-sm font-medium text-slate-900" title={file.name}>
+											{file.name}
+										</span>
+									</div>
+								</td>
+								<td class="px-4 py-3 text-sm whitespace-nowrap text-slate-700"
+									>{fmtBytes(file.size_bytes)}</td
+								>
+								<td class="max-w-[10rem] px-4 py-3">
+									<span class="block truncate text-sm text-slate-600" title={file.content_type}>
+										{file.content_type}
+									</span>
+								</td>
+								<td class="px-4 py-3">
+									<span
+										class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset {scopePillClass(
+											file.scope
+										)}"
+									>
+										{scopeLabel(file.scope)}
+									</span>
+								</td>
+								<td class="px-4 py-3 text-sm whitespace-nowrap text-slate-600"
+									>{formatDateTime(file.created_at)}</td
+								>
+								<td class="px-4 py-3">
+									<div class="flex items-center justify-end gap-1">
+										<button
+											type="button"
+											onclick={() => runDownload(file)}
+											class="{actionBtn} text-indigo-600 hover:text-indigo-700"
+										>
+											Download
+										</button>
+										<button
+											type="button"
+											disabled={!canAct}
+											title={canAct ? undefined : 'Not permitted at this scope.'}
+											onclick={() => openRename(file)}
+											class="{actionBtn} text-slate-600 hover:text-slate-900"
+										>
+											Rename
+										</button>
+										<button
+											type="button"
+											disabled={!canAct}
+											title={canAct ? undefined : 'Not permitted at this scope.'}
+											onclick={() => openMove(file)}
+											class="{actionBtn} text-slate-600 hover:text-slate-900"
+										>
+											Move
+										</button>
+										<button
+											type="button"
+											disabled={!canAct}
+											title={canAct ? undefined : 'Not permitted at this scope.'}
+											onclick={() => openDelete(file)}
+											class="{actionBtn} text-red-600 hover:text-red-700"
+										>
+											Delete
+										</button>
+									</div>
+								</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</div>
+			<Pagination
+				page={data.files.page}
+				pageSize={data.files.page_size}
+				total={data.files.total}
+				onpage={applyUrl}
+			/>
+		{/if}
+	</section>
 </div>
 
 <!-- Upload dialog (bits-ui Dialog) -->
@@ -986,8 +919,7 @@
 		>
 			<Dialog.Title class="text-lg font-semibold text-slate-900">New folder</Dialog.Title>
 			<Dialog.Description class="mt-2 text-sm text-slate-600">
-				Create a subfolder inside
-				{breadcrumb.length > 0 ? breadcrumb[breadcrumb.length - 1].label : 'this location'}.
+				Create a subfolder inside {locationLabel}.
 			</Dialog.Description>
 
 			{#if folderErr}
