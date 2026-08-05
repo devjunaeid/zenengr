@@ -27,6 +27,11 @@
 	let projectId = $state(untrack(() => data.filters.project_id));
 	let q = $state(untrack(() => data.filters.q));
 
+	// ---- search input focus/caret preservation across debounced reload ----
+	let searchInput = $state(/** @type {HTMLInputElement|null} */ (null));
+	let searchCaret = $state(0);
+	let searchFocusPending = $state(false);
+
 	let uploadAllowed = $derived(scope === 'user' || canManage);
 
 	/** @type {string|null} */
@@ -350,10 +355,32 @@
 
 	/** @type {ReturnType<typeof setTimeout>|undefined} */
 	let qTimer;
-	function onQInput() {
+	/**
+	 * @param {Event} e
+	 */
+	function onQInput(e) {
 		clearTimeout(qTimer);
-		qTimer = setTimeout(() => applyUrl(1), 400);
+		searchCaret = /** @type {HTMLInputElement} */ (e.currentTarget).selectionStart ?? 0;
+		qTimer = setTimeout(() => {
+			searchFocusPending = true;
+			applyUrl(1);
+		}, 400);
 	}
+
+	$effect(() => {
+		if (searchFocusPending && searchInput) {
+			const el = searchInput;
+			searchFocusPending = false;
+			queueMicrotask(() => {
+				el.focus();
+				try {
+					el.setSelectionRange(searchCaret, searchCaret);
+				} catch {
+					/* noop */
+				}
+			});
+		}
+	});
 
 	// ---- upload dialog ----
 	let uploadOpen = $state(false);
@@ -804,6 +831,7 @@
 				type="search"
 				placeholder="Search files…"
 				bind:value={q}
+				bind:this={searchInput}
 				oninput={onQInput}
 				class="block w-64 rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
 			/>
