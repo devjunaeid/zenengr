@@ -43,6 +43,30 @@
 		kind === 'pdf' ? 'PDF' : kind === 'text' ? 'Text' : kind === 'image' ? 'Image' : 'File'
 	);
 
+	/**
+	 * Non-image cover: show the real file extension (e.g. `zenengr-report.pdf`
+	 * → `PDF`). No extension → fall back to the kind label. Truncate at 5
+	 * chars for display, keep the full value as the tile `title` tooltip.
+	 */
+	let extFull = $derived.by(() => {
+		const name = file.name ?? '';
+		const i = name.lastIndexOf('.');
+		if (i < 0 || i === name.length - 1) return kindLabel;
+		return name.slice(i + 1).toUpperCase();
+	});
+	let extShort = $derived(extFull.length > 5 ? extFull.slice(0, 5) : extFull);
+	let tileTint = $derived.by(() => {
+		const ext = extFull.toLowerCase();
+		if (ext === 'pdf') return 'bg-red-50 text-red-700';
+		if (ext === 'doc' || ext === 'docx') return 'bg-blue-50 text-blue-700';
+		if (ext === 'xls' || ext === 'xlsx' || ext === 'csv') return 'bg-green-50 text-green-700';
+		if (ext === 'zip' || ext === 'rar' || ext === '7z' || ext === 'tar' || ext === 'gz')
+			return 'bg-amber-50 text-amber-700';
+		if (ext === 'text' || ext === 'md' || ext === 'txt' || ext === 'log')
+			return 'bg-slate-100 text-slate-700';
+		return 'bg-indigo-50 text-indigo-700';
+	});
+
 	/** @type {string|null} */
 	let thumbUrl = $state(null);
 	let thumbLoading = $state(false);
@@ -111,8 +135,8 @@
 			{:else if isImage && thumbLoading}
 				<Spinner class="h-6 w-6" />
 			{:else}
-				<div class="flex flex-col items-center gap-1 px-2">
-					{#if kind === 'image'}
+				{#if kind === 'image'}
+					<div class="flex flex-col items-center gap-1 px-2">
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
 							viewBox="0 0 20 20"
@@ -126,12 +150,20 @@
 								clip-rule="evenodd"
 							/>
 						</svg>
-					{:else}
+						<span class="text-xs font-medium tracking-wide text-slate-400 uppercase"
+							>{kindLabel}</span
+						>
+					</div>
+				{:else}
+					<div
+						class="flex h-full w-full flex-col items-center justify-center gap-1 {tileTint}"
+						title={extFull}
+					>
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
 							viewBox="0 0 20 20"
 							fill="currentColor"
-							class="h-10 w-10 text-slate-400"
+							class="h-5 w-5"
 							aria-hidden="true"
 						>
 							<path
@@ -140,10 +172,9 @@
 								clip-rule="evenodd"
 							/>
 						</svg>
-					{/if}
-					<span class="text-xs font-medium tracking-wide text-slate-400 uppercase">{kindLabel}</span
-					>
-				</div>
+						<span class="text-lg font-bold tracking-wide uppercase">{extShort}</span>
+					</div>
+				{/if}
 			{/if}
 		</div>
 		<div
