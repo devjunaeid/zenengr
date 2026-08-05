@@ -458,6 +458,7 @@ async def api_update_tenant_setting(
         entity_id=key,
         details={"key": key, "old_value": result["old_value"], "new_value": result["new_value"]},
     )
+    await session.commit()
 
     updated = await get_tenant_setting_by_key(session, uid, key)
     return TenantSettingItem(

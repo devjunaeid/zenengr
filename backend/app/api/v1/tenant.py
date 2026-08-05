@@ -249,6 +249,7 @@ async def update_tenant_setting_endpoint(
         entity_id=key,
         details={"key": key, "old_value": result["old_value"], "new_value": result["new_value"]},
     )
+    await session.commit()
 
     updated = await get_tenant_setting_by_key(session, tenant_id, key)
     value: str | None = updated.value if updated else None

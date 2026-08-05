@@ -521,8 +521,10 @@
 		try {
 			const blob = await filesApi.getFileBlob(fetch, token, file.id);
 			const url = URL.createObjectURL(blob);
-			// Dialog may have been closed while the fetch was in flight.
-			if (previewTarget !== file || !previewOpen) {
+			// Dialog may have been closed (or a different file opened) while the
+			// fetch was in flight. Compare ids: previewTarget is a $state proxy,
+			// never identity-equal to the raw `file` passed in.
+			if (previewTarget?.id !== file.id || !previewOpen) {
 				URL.revokeObjectURL(url);
 				return;
 			}

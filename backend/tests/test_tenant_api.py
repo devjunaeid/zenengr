@@ -520,6 +520,82 @@ class TestTenantSettings:
         assert by_key["invoice_number_format"]["value"] == "INV-{YYYY}-{seq}"
 
     @pytest.mark.anyio
+    async def test_patch_setting_persists_across_sessions(self, app: Any):
+        """PATCH must COMMIT: value survives a fresh DB session.
+
+        Regression for the persistence bug where update_tenant_setting
+        flushed but never committed, so a subsequent request (new session)
+        read the old default value.
+
+        Uses its own engine because the shared fixture session joins an
+        outer transaction via savepoint (session.commit() only releases the
+        savepoint there), so a cross-session check needs a session that
+        owns its transaction for real.
+        """
+        from httpx import ASGITransport
+        from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
+        from app.core.config import get_settings
+        from app.db.session import get_session
+
+        test_url = get_settings().database_url.rsplit("/", 1)[0] + "/app_test"
+        engine = create_async_engine(test_url)
+        try:
+            maker = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+
+            async with maker() as write_session:
+                tenant, admin = await _create_tenant_and_admin(write_session)
+                headers = await _auth_header(admin)
+
+                async def _override_session():
+                    yield write_session
+
+                app.dependency_overrides[get_session] = _override_session
+                transport = ASGITransport(app=app)
+                async with AsyncClient(transport=transport, base_url="http://test") as ac:
+                    resp = await ac.patch(
+                        "/api/v1/tenant/settings/timezone",
+                        json={"value": "Asia/Kolkata"},
+                        headers=headers,
+                    )
+                    assert resp.status_code == 200
+                    data = resp.json()
+                    assert data["key"] == "timezone"
+                    assert data["value"] == "Asia/Kolkata"
+
+                    # Immediate GET in the same request session still shows the override
+                    resp = await ac.get("/api/v1/tenant/settings", headers=headers)
+                    assert resp.status_code == 200
+                    by_key = {d["key"]: d for d in resp.json()}
+                    assert by_key["timezone"]["value"] == "Asia/Kolkata"
+
+                # Write session closed; the service must have committed.
+                # A brand-new session on the test engine must see the row.
+                async with maker() as fresh:
+                    stmt = select(TenantSetting).where(
+                        TenantSetting.tenant_id == tenant.id,
+                        TenantSetting.key == "timezone",
+                    )
+                    result = await fresh.execute(stmt)
+                    setting = result.scalar_one()
+                    assert setting.value == "Asia/Kolkata"
+
+                    # The audit row written by the endpoint must also be
+                    # committed: a fresh session must see it too.
+                    stmt = select(AuditLog).where(
+                        AuditLog.tenant_id == tenant.id,
+                        AuditLog.action == "tenant.setting_updated",
+                    )
+                    result = await fresh.execute(stmt)
+                    entry = result.scalar_one_or_none()
+                    assert entry is not None
+                    assert entry.details.get("key") == "timezone"
+                    assert entry.details.get("old_value") == "UTC"
+                    assert entry.details.get("new_value") == "Asia/Kolkata"
+        finally:
+            await engine.dispose()
+
+    @pytest.mark.anyio
     async def test_patch_default_setting_upsert_validates_value(
         self, client: AsyncClient, db_session: AsyncSession
     ):

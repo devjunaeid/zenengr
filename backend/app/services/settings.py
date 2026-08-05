@@ -252,6 +252,7 @@ async def update_tenant_setting(
         session.add(setting)
         await session.flush()
         await session.refresh(setting)
+        await session.commit()
         return {"key": key, "old_value": None, "new_value": setting.value}
 
     # Validate
@@ -261,5 +262,6 @@ async def update_tenant_setting(
     setting.value = value
     await session.flush()
     await session.refresh(setting)
+    await session.commit()
 
     return {"key": key, "old_value": old_value, "new_value": setting.value}
