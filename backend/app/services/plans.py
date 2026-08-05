@@ -53,6 +53,7 @@ async def create_plan(
         entity_id=str(plan.id),
         details={"name": plan.name},
     )
+    await session.commit()
 
     return plan
 
@@ -156,6 +157,7 @@ async def update_plan(
         entity_id=str(plan.id),
         details={"updated_fields": list(filtered.keys())},
     )
+    await session.commit()
 
     return plan
 
@@ -192,3 +194,4 @@ async def delete_plan(session: AsyncSession, actor_id: uuid.UUID, plan_id: uuid.
         entity_id=str(plan.id),
         details={"name": plan.name},
     )
+    await session.commit()

@@ -526,6 +526,7 @@ async def api_set_tenant_flag_override(
         entity_id=str(flag.id),
         details={"key": key, "enabled": body.enabled},
     )
+    await session.commit()
 
     return {"key": flag.key, "enabled": flag.enabled}
 
@@ -560,6 +561,7 @@ async def api_remove_tenant_flag_override(
         entity_id=key,
         details={"key": key},
     )
+    await session.commit()
 
     return {"status": "ok"}
 
@@ -623,6 +625,7 @@ async def api_set_plan_flag_default(
         entity_id=str(pd.id),
         details={"plan_id": str(uid), "key": key, "enabled": body.enabled},
     )
+    await session.commit()
 
     return {"key": pd.key, "enabled": pd.enabled}
 

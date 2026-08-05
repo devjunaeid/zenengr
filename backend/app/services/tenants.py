@@ -148,6 +148,7 @@ async def create_tenant(
             "admin_email": email,
         },
     )
+    await session.commit()
 
     return {
         "id": tenant.id,
@@ -293,6 +294,7 @@ async def update_tenant(
         entity_id=str(tenant.id),
         details={"updated_fields": list(filtered.keys())},
     )
+    await session.commit()
 
     return tenant
 
@@ -345,6 +347,7 @@ async def suspend_tenant(
         entity_type="tenant",
         entity_id=str(tenant.id),
     )
+    await session.commit()
 
     return tenant
 
@@ -386,6 +389,7 @@ async def reactivate_tenant(
         entity_type="tenant",
         entity_id=str(tenant.id),
     )
+    await session.commit()
 
     return tenant
 
@@ -413,6 +417,7 @@ async def cancel_tenant(session: AsyncSession, actor_id: uuid.UUID, tenant_id: u
         entity_type="tenant",
         entity_id=str(tenant.id),
     )
+    await session.commit()
 
     return tenant
 
@@ -519,6 +524,7 @@ async def update_subscription(
         entity_id=str(sub.id),
         details={"before": before, "after": after},
     )
+    await session.commit()
 
     # Return fresh data
     plan = await plan_repo.get_by_id(session, sub.plan_id)

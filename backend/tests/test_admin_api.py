@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from typing import Any
 
 import pytest
 from httpx import AsyncClient
@@ -667,6 +668,71 @@ class TestTenantUpdate:
             headers=headers,
         )
         assert resp.status_code == 404
+
+    @pytest.mark.anyio
+    async def test_update_persists_across_sessions(self, app: Any):
+        """PATCH /api/v1/admin/tenants/{id} must COMMIT: business_name
+        survives a fresh DB session.
+
+        Regression for the persistence bug where update_tenant flushed
+        (via the repository) but never committed.
+        """
+        from httpx import ASGITransport
+        from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
+        from app.core.config import get_settings
+        from app.db.session import get_session
+
+        test_url = get_settings().database_url.rsplit("/", 1)[0] + "/app_test"
+        engine = create_async_engine(test_url)
+        try:
+            maker = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+
+            async with maker() as write_session:
+                sa = await _create_user(
+                    write_session,
+                    f"sa-{uuid.uuid4().hex[:8]}@zenengr.dev",
+                    AdminUserRole.SUPER_ADMIN,
+                    None,
+                )
+                headers = await _auth_header(sa)
+                plan = await _create_plan(write_session)
+                tenant = await _create_tenant(write_session, plan.id)
+
+                async def _override_session():
+                    yield write_session
+
+                app.dependency_overrides[get_session] = _override_session
+                transport = ASGITransport(app=app)
+                async with AsyncClient(transport=transport, base_url="http://test") as ac:
+                    resp = await ac.patch(
+                        f"/api/v1/admin/tenants/{tenant.id}",
+                        json={"business_name": "SA-PersistedCo"},
+                        headers=headers,
+                    )
+                    assert resp.status_code == 200
+                    assert resp.json()["business_name"] == "SA-PersistedCo"
+
+                # Write session closed; the service must have committed.
+                # A brand-new session on the test engine must see the row.
+                async with maker() as fresh:
+                    stmt = select(Tenant).where(Tenant.id == tenant.id)
+                    result = await fresh.execute(stmt)
+                    fresh_tenant = result.scalar_one()
+                    assert fresh_tenant.business_name == "SA-PersistedCo"
+
+                    # The audit row written by the service must also be
+                    # committed: a fresh session must see it too.
+                    stmt = select(AuditLog).where(
+                        AuditLog.tenant_id == tenant.id,
+                        AuditLog.action == "tenant.updated",
+                    )
+                    result = await fresh.execute(stmt)
+                    entry = result.scalar_one_or_none()
+                    assert entry is not None
+                    assert "business_name" in entry.details.get("updated_fields", [])
+        finally:
+            await engine.dispose()
 
 
 # ═══════════════════════════════════════════════════════════════════════════

@@ -326,6 +326,79 @@ class TestTenantProfile:
         assert entry.actor_type.value == "admin_user"
         assert "business_name" in entry.details.get("updated_fields", [])
 
+    @pytest.mark.anyio
+    async def test_patch_profile_persists_across_sessions(self, app: Any):
+        """PATCH /tenant/profile must COMMIT: business_name + contact_info
+        survive a fresh DB session.
+
+        Regression for the persistence bug where the endpoint flushed but
+        never committed, so a subsequent request (new session) read the old
+        tenant values.
+        """
+        from httpx import ASGITransport
+        from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
+        from app.core.config import get_settings
+        from app.db.session import get_session
+
+        test_url = get_settings().database_url.rsplit("/", 1)[0] + "/app_test"
+        engine = create_async_engine(test_url)
+        try:
+            maker = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+
+            async with maker() as write_session:
+                tenant, admin = await _create_tenant_and_admin(write_session)
+                headers = await _auth_header(admin)
+
+                async def _override_session():
+                    yield write_session
+
+                app.dependency_overrides[get_session] = _override_session
+                transport = ASGITransport(app=app)
+                async with AsyncClient(transport=transport, base_url="http://test") as ac:
+                    resp = await ac.patch(
+                        "/api/v1/tenant/profile",
+                        json={
+                            "business_name": "PersistedCo",
+                            "contact_info": {"phone": "555-1234"},
+                        },
+                        headers=headers,
+                    )
+                    assert resp.status_code == 200
+                    data = resp.json()
+                    assert data["business_name"] == "PersistedCo"
+                    assert data["contact_info"]["phone"] == "555-1234"
+
+                    # Immediate GET in the same request session shows the new values
+                    resp = await ac.get("/api/v1/tenant/profile", headers=headers)
+                    assert resp.status_code == 200
+                    data = resp.json()
+                    assert data["business_name"] == "PersistedCo"
+                    assert data["contact_info"]["phone"] == "555-1234"
+
+                # Write session closed; the endpoint must have committed.
+                # A brand-new session on the test engine must see the row.
+                async with maker() as fresh:
+                    stmt = select(Tenant).where(Tenant.id == tenant.id)
+                    result = await fresh.execute(stmt)
+                    fresh_tenant = result.scalar_one()
+                    assert fresh_tenant.business_name == "PersistedCo"
+                    assert fresh_tenant.contact_info is not None
+                    assert fresh_tenant.contact_info["phone"] == "555-1234"
+
+                    # The audit row written by the endpoint must also be
+                    # committed: a fresh session must see it too.
+                    stmt = select(AuditLog).where(
+                        AuditLog.tenant_id == tenant.id,
+                        AuditLog.action == "tenant.profile_updated",
+                    )
+                    result = await fresh.execute(stmt)
+                    entry = result.scalar_one_or_none()
+                    assert entry is not None
+                    assert "business_name" in entry.details.get("updated_fields", [])
+        finally:
+            await engine.dispose()
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Tenant Settings (TODO-018, TODO-019)
@@ -934,6 +1007,69 @@ class TestTenantFeatureFlags:
         tenant_headers = await _auth_header(admin)
         resp2 = await client.get("/api/v1/tenant/flags", headers=tenant_headers)
         assert resp2.json()[0]["enabled"] is True
+
+    @pytest.mark.anyio
+    async def test_sa_set_override_persists_across_sessions(self, app: Any):
+        """PUT /api/v1/admin/tenants/{id}/flags/{key} must COMMIT: the
+        override survives a fresh DB session.
+
+        Regression for the persistence bug where set_override flushed but
+        the router never committed (audit row included).
+        """
+        from httpx import ASGITransport
+        from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
+        from app.core.config import get_settings
+        from app.db.session import get_session
+
+        test_url = get_settings().database_url.rsplit("/", 1)[0] + "/app_test"
+        engine = create_async_engine(test_url)
+        try:
+            maker = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+
+            async with maker() as write_session:
+                plan = await _create_plan(write_session)
+                tenant, admin = await _create_tenant_and_admin(write_session, plan)
+                sa = await _create_sa(write_session)
+                sa_headers = await _auth_header(sa)
+
+                async def _override_session():
+                    yield write_session
+
+                app.dependency_overrides[get_session] = _override_session
+                transport = ASGITransport(app=app)
+                async with AsyncClient(transport=transport, base_url="http://test") as ac:
+                    resp = await ac.put(
+                        f"/api/v1/admin/tenants/{tenant.id}/flags/comments_module",
+                        json={"enabled": True},
+                        headers=sa_headers,
+                    )
+                    assert resp.status_code == 200
+                    assert resp.json()["enabled"] is True
+
+                # Write session closed; the router must have committed.
+                # A brand-new session on the test engine must see the override.
+                async with maker() as fresh:
+                    stmt = select(TenantFeatureFlag).where(
+                        TenantFeatureFlag.tenant_id == tenant.id,
+                        TenantFeatureFlag.key == "comments_module",
+                    )
+                    result = await fresh.execute(stmt)
+                    flag = result.scalar_one_or_none()
+                    assert flag is not None
+                    assert flag.enabled is True
+
+                    # The audit row written by the router must also be committed.
+                    stmt = select(AuditLog).where(
+                        AuditLog.tenant_id == tenant.id,
+                        AuditLog.action == "tenant.flag_set",
+                    )
+                    result = await fresh.execute(stmt)
+                    entry = result.scalar_one_or_none()
+                    assert entry is not None
+                    assert entry.details.get("key") == "comments_module"
+        finally:
+            await engine.dispose()
 
     @pytest.mark.anyio
     async def test_tenant_cannot_write_flags(self, client: AsyncClient, db_session: AsyncSession):

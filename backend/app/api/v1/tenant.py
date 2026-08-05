@@ -166,6 +166,7 @@ async def update_tenant_profile(
             entity_id=str(tenant.id),
             details={"updated_fields": list(update_kwargs.keys())},
         )
+        await session.commit()
     else:
         plan_name = tenant.plan.name if tenant.plan else "Unknown"
         sub_status = tenant.subscription.status if tenant.subscription else None

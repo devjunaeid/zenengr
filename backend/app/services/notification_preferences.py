@@ -41,6 +41,7 @@ async def list_preferences(
     existing = {row.event_type: row for row in result.scalars().all()}
 
     rows: list[dict[str, Any]] = []
+    created = False
     for event_type in NotificationEventType:
         row = existing.get(event_type)
         if row is None:
@@ -53,7 +54,10 @@ async def list_preferences(
             )
             session.add(row)
             await session.flush()
+            created = True
         rows.append({"event_type": event_type.value, "enabled": bool(row.enabled)})
+    if created:
+        await session.commit()
     return rows
 
 
