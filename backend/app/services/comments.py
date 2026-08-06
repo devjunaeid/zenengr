@@ -103,13 +103,11 @@ async def post_comment(
     is_internal: bool,
     actor: AdminUser,
 ) -> Comment:
-    """Post a tenant comment. Employees may only comment on projects they own."""
+    """Post a tenant comment. Permission decided at the endpoint layer
+    (FEAT-016: no employee/owner restriction — any staff may comment)."""
     project = await _get_project_for_tenant(session, tenant_id, project_id)
     if project is None:
         raise CommentProjectNotFoundError()
-
-    if actor.role == AdminUserRole.EMPLOYEE and project.owner_id != actor.id:
-        raise CommentForbiddenError()
 
     content = content.strip()
     if not content:
@@ -163,9 +161,7 @@ async def list_comments(
         raise CommentProjectNotFoundError()
 
     stmt = (
-        select(Comment)
-        .where(Comment.project_id == project_id)
-        .order_by(Comment.created_at.asc())
+        select(Comment).where(Comment.project_id == project_id).order_by(Comment.created_at.asc())
     )
     result = await session.execute(stmt)
     return list(result.scalars().all())

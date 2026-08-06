@@ -6,6 +6,8 @@ import { apiFetch } from './client.js';
  * @property {string} email
  * @property {string} full_name
  * @property {'super_admin'|'admin'|'manager'|'employee'} role
+ * @property {string|null} role_id
+ * @property {string[]} [permissions] granted permissions as "action.resource"
  * @property {string|null} tenant_id
  */
 

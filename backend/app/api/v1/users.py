@@ -16,12 +16,13 @@ from app.models.admin_user import AdminUser
 from app.models.enums import ActorType, AdminUserRole
 from app.repositories import admin_users as admin_user_repo
 from app.repositories import password_reset_tokens as token_repo
+from app.schemas.roles import UserRoleUpdateRequest
 from app.schemas.users import (
     ResetPasswordRequest,
-    RoleChangeRequest,
     UserListItem,
     UserListResponse,
 )
+from app.services import roles as role_service
 from app.services.audit import log as audit_log
 from app.services.users import (
     LastAdminError,
@@ -114,11 +115,11 @@ async def list_users(
 @tenant_router.patch("/users/{user_id}/role", status_code=status.HTTP_200_OK)
 async def change_user_role(
     user_id: str,
-    body: RoleChangeRequest,
+    body: UserRoleUpdateRequest,
     session: AsyncSession = Depends(get_session),
     current_user: AdminUser = Depends(require_permission("manage", "admin_users")),
-) -> dict[str, str]:
-    """Change an admin user's role. Last-admin guard applies."""
+) -> dict[str, str | None]:
+    """Change an admin user's role by role_id. Last-admin guard applies."""
     if current_user.tenant_id is None:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -142,35 +143,20 @@ async def change_user_role(
             detail="Cannot change your own role",
         )
 
-    old_role = target.role
-    new_role = body.role
-
-    # Last-admin guard: if changing away from Admin, check not last
-    if old_role == AdminUserRole.ADMIN and new_role != AdminUserRole.ADMIN:
-        try:
-            await ensure_not_last_admin(session, current_user.tenant_id, target.id)
-        except LastAdminError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail=str(exc),
-            ) from exc
-
-    target.role = new_role
-    await session.flush()
-
-    await audit_log(
+    await role_service.assign_user_role(
         session,
         tenant_id=current_user.tenant_id,
+        target_user_id=target.id,
+        role_id=body.role_id,
         actor_id=current_user.id,
-        actor_type=ActorType.ADMIN_USER,
-        action="user.role_changed",
-        entity_type="admin_user",
-        entity_id=str(target.id),
-        details={"from": old_role.value, "to": new_role.value},
     )
 
-    await session.commit()
-    return {"status": "ok"}
+    return {
+        "status": "ok",
+        "role": target.role.value,
+        "role_id": str(target.role_id) if target.role_id else None,
+        "role_name": target.role_ref.name if target.role_ref else None,
+    }
 
 
 @tenant_router.post("/users/{user_id}/deactivate", status_code=status.HTTP_200_OK)

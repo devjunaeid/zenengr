@@ -16,7 +16,7 @@
 	let { data } = $props();
 
 	const token = /** @type {string} */ (auth.token);
-	let canManage = $derived(auth.user?.role === 'admin' || auth.user?.role === 'manager');
+	let canManage = $derived(auth.can('manage', 'clients'));
 	let isEmployee = $derived(auth.user?.role === 'employee');
 
 	// Archive / unarchive confirmation

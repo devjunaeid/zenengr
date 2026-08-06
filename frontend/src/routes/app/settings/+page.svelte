@@ -9,7 +9,7 @@
 	let { data } = $props();
 
 	const token = /** @type {string} */ (auth.token);
-	let isAdmin = $derived(auth.isTenantAdmin);
+	let isAdmin = $derived(auth.can('manage', 'tenant_settings'));
 
 	// ---- Profile form ----
 	let businessName = $state(untrack(() => data.profile.business_name));

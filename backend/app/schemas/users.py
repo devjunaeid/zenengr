@@ -28,10 +28,6 @@ class UserListResponse(BaseModel):
     page_size: int
 
 
-class RoleChangeRequest(BaseModel):
-    role: AdminUserRole
-
-
 class ResetPasswordRequest(BaseModel):
     token: str
     new_password: str

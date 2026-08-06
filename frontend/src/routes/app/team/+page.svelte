@@ -11,12 +11,33 @@
 	let { data } = $props();
 
 	const token = /** @type {string} */ (auth.token);
-	const roles = ['admin', 'manager', 'employee'];
+	/** Enum roles still used for invites (backend invites take enum values). */
+	const enumRoles = ['admin', 'manager', 'employee'];
 
-	let isAdmin = $derived(auth.isTenantAdmin);
+	let canManageTeam = $derived(auth.can('manage', 'admin_users'));
 	let activeAdminCount = $derived(
 		data.users.items.filter((u) => u.role === 'admin' && u.is_active).length
 	);
+
+	/**
+	 * Assignable roles for the role select: tenant roles (system + custom),
+	 * excluding super_admin. Super admin only exists in the global realm.
+	 * @type {Array<{ id: string, name: string }>}
+	 */
+	let roleOptions = $derived(data.roles.filter((r) => r.name !== 'super_admin'));
+
+	/**
+	 * Current role id for a user: prefer the server role_id, fall back to
+	 * mapping the legacy enum role to the matching system role (defensive
+	 * while the backend permissions-in-me change lands).
+	 * @param {any} u
+	 * @returns {string}
+	 */
+	function currentRoleId(u) {
+		if (u.role_id) return u.role_id;
+		const sys = data.roles.find((r) => r.is_system && r.name === u.role);
+		return sys?.id ?? '';
+	}
 
 	/**
 	 * True when this user is the last active admin — controls get disabled as a
@@ -79,18 +100,13 @@
 
 	/**
 	 * @param {any} u
-	 * @param {string} role
+	 * @param {string} roleId
 	 */
-	async function changeRole(u, role) {
-		if (role === u.role) return;
+	async function changeRole(u, roleId) {
+		if (roleId === currentRoleId(u)) return;
 		userErr = null;
 		try {
-			await tenantApi.changeRole(
-				fetch,
-				token,
-				u.id,
-				/** @type {'admin'|'manager'|'employee'} */ (role)
-			);
+			await tenantApi.changeRole(fetch, token, u.id, roleId);
 			await invalidateAll();
 		} catch (e) {
 			userErr = e instanceof ApiError ? e.message : 'Role change failed.';
@@ -173,8 +189,8 @@
 						class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
 						>Joined</th
 					>
-					{#if isAdmin}<th scope="col" class="px-4 py-3"><span class="sr-only">Actions</span></th
-						>{/if}
+					{#if canManageTeam}
+						<th scope="col" class="px-4 py-3"><span class="sr-only">Actions</span></th>{/if}
 				</tr>
 			</thead>
 			<tbody class="divide-y divide-slate-200">
@@ -188,18 +204,18 @@
 						</td>
 						<td class="px-4 py-3 text-sm text-slate-600">{u.email}</td>
 						<td class="px-4 py-3">
-							{#if isAdmin}
+							{#if canManageTeam}
 								<label class="sr-only" for="role-{u.id}">Role for {u.full_name}</label>
 								<select
 									id="role-{u.id}"
-									value={u.role}
+									value={currentRoleId(u)}
 									disabled={isLastAdmin(u)}
 									title={isLastAdmin(u) ? 'The last active admin cannot be demoted' : undefined}
 									onchange={(e) => changeRole(u, e.currentTarget.value)}
 									class="block rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
 								>
-									{#each roles as r (r)}
-										<option value={r}>{humanize(r)}</option>
+									{#each roleOptions as r (r.id)}
+										<option value={r.id}>{r.name}</option>
 									{/each}
 								</select>
 							{:else}
@@ -208,7 +224,7 @@
 						</td>
 						<td class="px-4 py-3"><StatusBadge status={u.is_active ? 'active' : 'inactive'} /></td>
 						<td class="px-4 py-3 text-sm text-slate-600">{formatDate(u.created_at)}</td>
-						{#if isAdmin}
+						{#if canManageTeam}
 							<td class="px-4 py-3 text-right">
 								{#if u.id !== auth.user?.id}
 									{#if u.is_active}
@@ -242,7 +258,7 @@
 	</div>
 </div>
 
-{#if isAdmin}
+{#if canManageTeam}
 	<!-- Invite form -->
 	<section
 		class="mt-6 rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
@@ -289,7 +305,7 @@
 					bind:value={inviteRole}
 					class="mt-1 block rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
 				>
-					{#each roles as r (r)}
+					{#each enumRoles as r (r)}
 						<option value={r}>{humanize(r)}</option>
 					{/each}
 				</select>
@@ -345,7 +361,8 @@
 							class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
 							>Expires</th
 						>
-						{#if isAdmin}<th scope="col" class="px-4 py-3"><span class="sr-only">Actions</span></th
+						{#if canManageTeam}<th scope="col" class="px-4 py-3"
+								><span class="sr-only">Actions</span></th
 							>{/if}
 					</tr>
 				</thead>
@@ -356,7 +373,7 @@
 							<td class="px-4 py-3 text-sm text-slate-600">{humanize(invite.role)}</td>
 							<td class="px-4 py-3"><StatusBadge status={invite.status} /></td>
 							<td class="px-4 py-3 text-sm text-slate-600">{formatDate(invite.expires_at)}</td>
-							{#if isAdmin}
+							{#if canManageTeam}
 								<td class="px-4 py-3 text-right">
 									{#if invite.status === 'pending'}
 										<button

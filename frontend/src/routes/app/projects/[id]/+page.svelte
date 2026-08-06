@@ -18,7 +18,8 @@
 
 	const token = /** @type {string} */ (auth.token);
 
-	let canManage = $derived(auth.user?.role === 'admin' || auth.user?.role === 'manager');
+	let canManage = $derived(auth.can('manage', 'projects'));
+	let canManageMilestones = $derived(auth.can('manage', 'milestones'));
 	let isEmployee = $derived(auth.user?.role === 'employee');
 
 	// ---- status + errors ----
@@ -595,7 +596,7 @@
 									<MilestoneStatusSelector
 										value={m.status}
 										busy={mBusy}
-										disabled={!canManage || isCancelled}
+										disabled={!canManageMilestones || isCancelled}
 										onchange={(next) => patchMilestone(m, { status: next })}
 										id={`m-status-${m.id}`}
 									/>
@@ -615,7 +616,7 @@
 										value={m.assignee_id}
 										users={data.users}
 										busy={mBusy}
-										disabled={!canManage || isCancelled}
+										disabled={!canManageMilestones || isCancelled}
 										onchange={(uid) => patchMilestone(m, { assignee_id: uid })}
 										id={`m-assignee-${m.id}`}
 									/>

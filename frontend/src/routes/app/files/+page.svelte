@@ -19,7 +19,7 @@
 
 	const token = /** @type {string} */ (auth.token);
 
-	let canManage = $derived(auth.user?.role === 'admin' || auth.user?.role === 'manager');
+	let canManage = $derived(auth.can('manage', 'files'));
 
 	// ---- current location (folder/scope/project), mirrors URL params ----
 	let folderId = $state(untrack(() => data.filters.folder_id));

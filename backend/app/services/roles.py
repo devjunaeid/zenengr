@@ -1,0 +1,514 @@
+"""Role service — system role lookup, default attachment, seed data, CRUD.
+
+FEAT-016 (TODO-161/162/163): roles are first-class rows. System (built-in)
+roles mirror the permission matrix in app/services/permissions.py; tenant
+admins can create custom roles (tenant_id set) with their own permission
+rows.
+
+SYSTEM_ROLE_PERMISSIONS is the single seed source used by the roles
+migration (alembic/versions/e1f2a3b4c5d6_add_roles_permissions.py) and by
+tests. super_admin carries no permission rows — platform access stays
+code-gated (permissions.py platform_has_permission).
+
+Part 2 (TODO-163) adds the tenant role-management operations: list/create/
+update/delete/reset/assign, all audited and cache-aware.
+"""
+
+from __future__ import annotations
+
+import uuid
+
+from fastapi import HTTPException, status
+from sqlalchemy import func, or_, select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+
+from app.models.admin_user import AdminUser
+from app.models.enums import ActorType, AdminUserRole
+from app.models.role import Role, RolePermission
+from app.schemas.roles import RolePermissionInput
+from app.services.audit import log as audit_log
+from app.services.permissions import (
+    _TENANT_MATRIX,
+    PERMISSION_CATALOG,
+    clear_permission_cache,
+    has_permission,
+)
+
+# Role name -> granted (action, resource) tuples. Mirrors _TENANT_MATRIX.
+SYSTEM_ROLE_PERMISSIONS: dict[str, frozenset[tuple[str, str]]] = {
+    AdminUserRole.SUPER_ADMIN.value: frozenset(),
+    **{role.value: frozenset(perms) for role, perms in _TENANT_MATRIX.items()},
+}
+
+# Names that may never be used for tenant custom roles (collide with the
+# built-in role semantics / enforcement bypasses).
+_RESERVED_ROLE_NAMES: frozenset[str] = frozenset(
+    {
+        AdminUserRole.SUPER_ADMIN.value,
+        AdminUserRole.ADMIN.value,
+        AdminUserRole.MANAGER.value,
+        AdminUserRole.EMPLOYEE.value,
+    }
+)
+
+
+# ── Exceptions ────────────────────────────────────────────────────────────
+
+
+class RoleNotFoundError(HTTPException):
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Role not found",
+        )
+
+
+class RoleNameConflictError(HTTPException):
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Role name is already in use",
+        )
+
+
+class RoleImmutableError(HTTPException):
+    def __init__(self, detail: str = "Role is immutable") -> None:
+        super().__init__(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=detail,
+        )
+
+
+class RoleAssignedError(HTTPException):
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Role is assigned to users",
+        )
+
+
+class RoleNotCustomError(HTTPException):
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Only custom roles support this operation",
+        )
+
+
+class SuperAdminRoleError(HTTPException):
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="The super_admin role cannot be modified",
+        )
+
+
+class LastAdminError(HTTPException):
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Cannot remove the last tenant admin",
+        )
+
+
+# ── Helpers ───────────────────────────────────────────────────────────────
+
+
+async def get_system_role(session: AsyncSession, name: str) -> Role | None:
+    """Fetch a system built-in role by name (tenant_id IS NULL)."""
+    result = await session.execute(select(Role).where(Role.tenant_id.is_(None), Role.name == name))
+    return result.scalar_one_or_none()
+
+
+async def _get_role_for_tenant(
+    session: AsyncSession, tenant_id: uuid.UUID, role_id: uuid.UUID
+) -> Role:
+    """Fetch a role by id: system built-in or this tenant's custom role.
+
+    Returns None-style 404 via RoleNotFoundError for unknown roles or
+    other tenants' custom roles (no cross-tenant leak).
+    """
+    stmt = select(Role).options(selectinload(Role.permissions)).where(Role.id == role_id)
+    role = (await session.execute(stmt)).scalar_one_or_none()
+    if role is None or (role.tenant_id is not None and role.tenant_id != tenant_id):
+        raise RoleNotFoundError()
+    return role
+
+
+async def _replace_permissions(
+    session: AsyncSession,
+    role: Role,
+    permissions: list[RolePermissionInput] | None,
+) -> None:
+    """Replace a role's permission rows with the granted inputs (None = no-op)."""
+    if permissions is None:
+        return
+    # Ensure the collection is loaded (new roles have an unloaded empty set).
+    await session.refresh(role, attribute_names=["permissions"])
+    for old in list(role.permissions):
+        await session.delete(old)
+    role.permissions.clear()
+    # Flush the DELETEs before inserting replacement rows (same unique keys).
+    await session.flush()
+
+    seen: set[tuple[str, str]] = set()
+    for entry in permissions:
+        if not entry.granted:
+            continue
+        pair = (entry.action, entry.resource)
+        if pair in seen:
+            continue
+        seen.add(pair)
+        row = RolePermission(
+            role_id=role.id,
+            action=entry.action,
+            resource=entry.resource,
+            granted=True,
+        )
+        session.add(row)
+        role.permissions.append(row)
+
+
+async def _assert_name_available(
+    session: AsyncSession,
+    tenant_id: uuid.UUID,
+    name: str,
+    *,
+    exclude_role_id: uuid.UUID | None = None,
+) -> None:
+    """Raise RoleNameConflictError for reserved names or per-tenant dupes."""
+    if name in _RESERVED_ROLE_NAMES:
+        raise RoleNameConflictError()
+    stmt = select(Role.id).where(Role.tenant_id == tenant_id, Role.name == name)
+    if exclude_role_id is not None:
+        stmt = stmt.where(Role.id != exclude_role_id)
+    existing = (await session.execute(stmt)).scalar_one_or_none()
+    if existing is not None:
+        raise RoleNameConflictError()
+
+
+# ── Default role attachment ───────────────────────────────────────────────
+
+
+async def attach_default_role(session: AsyncSession, user: AdminUser) -> None:
+    """Set user.role_id from the role enum when missing (system role).
+
+    Custom-role users (role not resolvable as a system role) fall back to
+    the EMPLOYEE system role. No-op once role_id is already set.
+    """
+    if user.role_id is not None:
+        return
+    role = await get_system_role(session, user.role.value)
+    if role is None:
+        role = await get_system_role(session, AdminUserRole.EMPLOYEE.value)
+    if role is not None:
+        user.role_id = role.id
+
+
+# ── CRUD ──────────────────────────────────────────────────────────────────
+
+
+async def list_roles(session: AsyncSession, *, tenant_id: uuid.UUID) -> list[Role]:
+    """List system built-in roles + this tenant's custom roles.
+
+    Permissions are eager-loaded for response serialization.
+    """
+    stmt = (
+        select(Role)
+        .where(or_(Role.tenant_id.is_(None), Role.tenant_id == tenant_id))
+        .options(selectinload(Role.permissions))
+        .order_by(Role.tenant_id.is_not(None), Role.name)
+    )
+    result = await session.execute(stmt)
+    return list(result.scalars().all())
+
+
+async def create_role(
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    name: str,
+    description: str | None,
+    permissions: list[RolePermissionInput],
+    actor_id: uuid.UUID,
+) -> Role:
+    """Create a tenant custom role with its granted permission rows."""
+    await _assert_name_available(session, tenant_id, name)
+
+    role = Role(
+        tenant_id=tenant_id,
+        name=name,
+        description=description or "",
+        is_system=False,
+    )
+    session.add(role)
+    await session.flush()
+
+    await _replace_permissions(session, role, permissions)
+    await session.flush()
+
+    await audit_log(
+        session,
+        tenant_id=tenant_id,
+        actor_id=actor_id,
+        actor_type=ActorType.ADMIN_USER,
+        action="role.created",
+        entity_type="role",
+        entity_id=str(role.id),
+        details={"name": role.name},
+    )
+    clear_permission_cache()
+    await session.commit()
+    return role
+
+
+async def update_role(
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    role_id: uuid.UUID,
+    name: str | None,
+    description: str | None,
+    permissions: list[RolePermissionInput] | None,
+    actor_id: uuid.UUID,
+) -> Role:
+    """Update a role: system built-in or this tenant's custom role.
+
+    super_admin/admin are immutable. Other system roles allow permission
+    edits only (name/description locked). Custom roles allow everything.
+    """
+    role = await _get_role_for_tenant(session, tenant_id, role_id)
+
+    if role.name == AdminUserRole.SUPER_ADMIN.value:
+        raise SuperAdminRoleError()
+
+    if role.name == AdminUserRole.ADMIN.value:
+        if name is not None or description is not None or permissions is not None:
+            raise RoleImmutableError("Full tenant access role cannot be edited")
+        return role
+
+    changed = False
+    if role.is_system:
+        # System roles other than admin: name/description immutable
+        if name is not None or description is not None:
+            raise RoleImmutableError("System role name and description are immutable")
+    else:
+        if name is not None and name != role.name:
+            await _assert_name_available(session, tenant_id, name, exclude_role_id=role.id)
+            role.name = name
+            changed = True
+        if description is not None and description != role.description:
+            role.description = description
+            changed = True
+
+    if permissions is not None:
+        await _replace_permissions(session, role, permissions)
+        changed = True
+
+    if changed:
+        await session.flush()
+        await audit_log(
+            session,
+            tenant_id=tenant_id,
+            actor_id=actor_id,
+            actor_type=ActorType.ADMIN_USER,
+            action="role.updated",
+            entity_type="role",
+            entity_id=str(role.id),
+            details={"name": role.name},
+        )
+        clear_permission_cache()
+        await session.commit()
+
+    return role
+
+
+async def delete_role(
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    role_id: uuid.UUID,
+    actor_id: uuid.UUID,
+) -> None:
+    """Delete a tenant custom role. System roles and assigned roles are blocked."""
+    role = await _get_role_for_tenant(session, tenant_id, role_id)
+
+    if role.is_system:
+        raise RoleNotCustomError()
+
+    assigned_q = select(func.count()).select_from(AdminUser).where(AdminUser.role_id == role.id)
+    assigned = (await session.execute(assigned_q)).scalar_one()
+    if assigned > 0:
+        raise RoleAssignedError()
+
+    await audit_log(
+        session,
+        tenant_id=tenant_id,
+        actor_id=actor_id,
+        actor_type=ActorType.ADMIN_USER,
+        action="role.deleted",
+        entity_type="role",
+        entity_id=str(role.id),
+        details={"name": role.name},
+    )
+    clear_permission_cache()
+    await session.delete(role)
+    await session.commit()
+
+
+async def reset_role_defaults(
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    role_id: uuid.UUID,
+    actor_id: uuid.UUID,
+) -> Role:
+    """Restore a system role's permissions to the seed matrix (manager/employee).
+
+    super_admin/admin are immutable; custom roles have no defaults to reset.
+    """
+    role = await _get_role_for_tenant(session, tenant_id, role_id)
+
+    if role.name == AdminUserRole.SUPER_ADMIN.value:
+        raise SuperAdminRoleError()
+    if role.name == AdminUserRole.ADMIN.value:
+        raise RoleImmutableError("Full tenant access role cannot be edited")
+    if not role.is_system:
+        raise RoleNotCustomError()
+
+    seed = SYSTEM_ROLE_PERMISSIONS[role.name]
+    await _replace_permissions(
+        session,
+        role,
+        [RolePermissionInput(action=a, resource=r, granted=True) for a, r in sorted(seed)],
+    )
+    await session.flush()
+
+    await audit_log(
+        session,
+        tenant_id=tenant_id,
+        actor_id=actor_id,
+        actor_type=ActorType.ADMIN_USER,
+        action="role.updated",
+        entity_type="role",
+        entity_id=str(role.id),
+        details={"name": role.name, "reset": True},
+    )
+    clear_permission_cache()
+    await session.commit()
+    return role
+
+
+# ── Assignment ────────────────────────────────────────────────────────────
+
+
+async def assign_user_role(
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    target_user_id: uuid.UUID,
+    role_id: uuid.UUID,
+    actor_id: uuid.UUID,
+) -> AdminUser:
+    """Assign a system or tenant custom role to a user in the tenant.
+
+    Syncs user.role_id + the legacy role enum (system roles map by name,
+    custom roles map to EMPLOYEE). Last-admin guard: demoting the only
+    effective admin (enum ADMIN or role_ref "admin") is rejected.
+    """
+    stmt = (
+        select(AdminUser)
+        .where(AdminUser.id == target_user_id)
+        .options(selectinload(AdminUser.role_ref))
+    )
+    target = (await session.execute(stmt)).scalar_one_or_none()
+    if target is None or target.tenant_id != tenant_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+
+    role = await _get_role_for_tenant(session, tenant_id, role_id)
+    if role.name == AdminUserRole.SUPER_ADMIN.value:
+        raise SuperAdminRoleError()
+
+    old_enum = target.role
+    is_admin_now = old_enum == AdminUserRole.ADMIN or (
+        target.role_ref is not None and target.role_ref.name == AdminUserRole.ADMIN.value
+    )
+    new_is_admin = role.name == AdminUserRole.ADMIN.value
+
+    if is_admin_now and not new_is_admin:
+        other_admins_q = (
+            select(func.count())
+            .select_from(AdminUser)
+            .outerjoin(Role, Role.id == AdminUser.role_id)
+            .where(
+                AdminUser.tenant_id == tenant_id,
+                AdminUser.id != target_user_id,
+                or_(
+                    AdminUser.role == AdminUserRole.ADMIN,
+                    Role.name == AdminUserRole.ADMIN.value,
+                ),
+            )
+        )
+        other_admins = (await session.execute(other_admins_q)).scalar_one()
+        if other_admins == 0:
+            raise LastAdminError()
+
+    new_enum = AdminUserRole[role.name.upper()] if role.is_system else AdminUserRole.EMPLOYEE
+
+    target.role_id = role.id
+    target.role_ref = role
+    target.role = new_enum
+
+    await audit_log(
+        session,
+        tenant_id=tenant_id,
+        actor_id=actor_id,
+        actor_type=ActorType.ADMIN_USER,
+        action="user.role_changed",
+        entity_type="admin_user",
+        entity_id=str(target.id),
+        details={"from": old_enum.value, "to": new_enum.value},
+    )
+    await session.commit()
+    return target
+
+
+# ── Effective permissions (for auth responses) ─────────────────────────────
+
+
+async def effective_permissions(session: AsyncSession, *, user: AdminUser) -> list[str]:
+    """Effective "action.resource" grants for a user.
+
+    super_admin + tenant-admin roles bypass: return the full catalog (all granted).
+    Otherwise return the role's granted pairs from role_permissions.
+    Falls back to the static matrix (has_permission) when role_id is None.
+    """
+    if user.role_id is None:
+        return sorted(
+            f"{p['action']}.{p['resource']}"
+            for p in PERMISSION_CATALOG
+            if has_permission(user.role, p["action"], p["resource"])
+        )
+
+    role = await session.get(Role, user.role_id)
+    if role is not None and role.name in (
+        AdminUserRole.SUPER_ADMIN.value,
+        AdminUserRole.ADMIN.value,
+    ):
+        return [f"{p['action']}.{p['resource']}" for p in PERMISSION_CATALOG]
+
+    stmt = select(RolePermission).where(RolePermission.role_id == user.role_id)
+    rows = (await session.execute(stmt)).scalars().all()
+    return sorted({f"{p.action}.{p.resource}" for p in rows if p.granted})
+
+
+# ── Catalog ───────────────────────────────────────────────────────────────
+
+
+def get_permission_catalog() -> list[dict[str, str]]:
+    """Return the permission catalog (action/resource/label/group) for the UI."""
+    return PERMISSION_CATALOG

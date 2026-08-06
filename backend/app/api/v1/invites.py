@@ -26,6 +26,7 @@ from app.schemas.invites import (
     RegisterRequest,
 )
 from app.services.audit import log as audit_log
+from app.services.roles import attach_default_role, effective_permissions
 from app.services.smtp import send_tenant_email
 
 # ── Tenant-scoped (admin: manage admin_users) ──────────────────────────────
@@ -346,6 +347,7 @@ async def register_from_invite(
         is_active=True,
     )
     session.add(new_user)
+    await attach_default_role(session, new_user)
     await session.flush()
 
     # Mark invite accepted
@@ -383,5 +385,7 @@ async def register_from_invite(
             full_name=new_user.full_name,
             role=new_user.role.value,
             tenant_id=str(new_user.tenant_id) if new_user.tenant_id else None,
+            role_id=new_user.role_id,
+            permissions=await effective_permissions(session, user=new_user),
         ),
     )

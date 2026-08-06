@@ -233,16 +233,18 @@ class TestTenantComments:
         assert resp.json()["author_type"] == "tenant_employee"
 
     @pytest.mark.asyncio
-    async def test_employee_non_owner_forbidden(
+    async def test_employee_can_post_on_any_project(
         self, client: AsyncClient, db_session: AsyncSession
     ):
+        """FEAT-016: employee/owner restriction removed - any staff may comment."""
         ctx = await _bootstrap(db_session)
         resp = await client.post(
             f"/api/v1/tenant/projects/{ctx['project'].id}/comments",
-            json={"content": "nope"},
+            json={"content": "anywhere"},
             headers=await _admin_auth_header(ctx["employee"]),
         )
-        assert resp.status_code == 403
+        assert resp.status_code == 201
+        assert resp.json()["author_type"] == "tenant_employee"
 
     @pytest.mark.asyncio
     async def test_empty_content_422(self, client: AsyncClient, db_session: AsyncSession):

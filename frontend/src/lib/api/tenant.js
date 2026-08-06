@@ -137,16 +137,17 @@ export function deleteInvite(fetchFn, token, inviteId) {
 }
 
 /**
+ * Assign a tenant role (by role id) to a staff user.
  * @param {typeof fetch} fetchFn
  * @param {string} token
  * @param {string} userId
- * @param {'admin'|'manager'|'employee'} role
+ * @param {string} roleId
  */
-export function changeRole(fetchFn, token, userId, role) {
+export function changeRole(fetchFn, token, userId, roleId) {
 	return apiFetch(fetchFn, `/tenant/users/${userId}/role`, {
 		method: 'PATCH',
 		token,
-		body: { role }
+		body: { role_id: roleId }
 	});
 }
 

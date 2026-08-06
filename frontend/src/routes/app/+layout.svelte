@@ -7,6 +7,7 @@
 
 	let { data, children } = $props();
 
+	/** @type {Array<{ href: string, label: string, exact: boolean, adminOnly?: boolean, perm?: [string, string] }>} */
 	const nav = [
 		{ href: '/app', label: 'Dashboard', exact: true, adminOnly: false },
 		{ href: '/app/team', label: 'Team', exact: false, adminOnly: false },
@@ -15,12 +16,23 @@
 		{ href: '/app/projects', label: 'Projects', exact: false, adminOnly: false },
 		{ href: '/app/invoices', label: 'Invoices', exact: false, adminOnly: false },
 		{ href: '/app/files', label: 'Files', exact: false, adminOnly: false },
-		{ href: '/app/settings', label: 'Settings', exact: false, adminOnly: true },
+		{ href: '/app/settings', label: 'Settings', exact: false, perm: ['manage', 'tenant_settings'] },
+		{ href: '/app/roles', label: 'Roles', exact: false, perm: ['manage', 'roles'] },
 		{ href: '/app/profile', label: 'Profile', exact: false, adminOnly: false },
 		{ href: '/app/audit', label: 'Audit log', exact: false, adminOnly: true }
 	];
 
-	let visibleNav = $derived(nav.filter((i) => !i.adminOnly || auth.isTenantAdmin));
+	/**
+	 * Permission-gated nav items are filtered by auth.can; adminOnly items
+	 * stay tenant-admin-only (audit log has no permission mapping yet).
+	 */
+	let visibleNav = $derived(
+		nav.filter((i) => {
+			if (i.adminOnly) return auth.isTenantAdmin;
+			if (i.perm) return auth.can(i.perm[0], i.perm[1]);
+			return true;
+		})
+	);
 
 	// Tenant branding accent (FEAT-011). Defensive: render nothing when unset.
 	const brandColor = $derived(data.profile.branding?.color);

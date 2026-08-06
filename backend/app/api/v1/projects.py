@@ -413,8 +413,8 @@ async def post_comment_endpoint(
     session: AsyncSession = Depends(get_session),
     user: AdminUser = Depends(get_current_admin_user),
 ) -> CommentResponse:
-    """Post a comment on a project. All staff may attempt; employees are
-    restricted to projects they own (enforced in the service)."""
+    """Post a comment on a project. Any authenticated staff may post
+    (FEAT-016: employee/owner restriction removed)."""
     tenant_id = _get_tenant_id(user)
     pid = _parse_uuid(project_id, kind="Project")
     comment = await comment_service.post_comment(

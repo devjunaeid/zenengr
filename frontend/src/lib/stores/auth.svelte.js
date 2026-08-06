@@ -5,6 +5,12 @@ const TOKEN_KEY = 'zenengr.token';
 
 /** @type {import('$lib/api/auth.js').AuthUser|null} */
 let user = $state(null);
+/**
+ * Granted permissions as "action.resource" strings. Null when the backend
+ * session lacks a permissions list (legacy role-based backend).
+ * @type {Set<string>|null}
+ */
+let perms = $state(null);
 /** @type {string|null} */
 let token = $state(null);
 let initialized = $state(false);
@@ -37,6 +43,28 @@ export const auth = {
 	},
 
 	/**
+	 * Permission check for the staff session. Admin and super_admin bypass
+	 * everything. When the session carries no `permissions` list (legacy
+	 * backend), fall back to role-based approximation: managers may 'manage',
+	 * everyone else cannot — mirrors the old admin/manager manage gate so
+	 * pages don't flash-denied during the parallel backend change.
+	 * @param {string} action
+	 * @param {string} resource
+	 * @returns {boolean}
+	 */
+	can(action, resource) {
+		const u = user;
+		if (!u) return false;
+		const r = u.role;
+		if (r === 'super_admin' || r === 'admin') return true;
+		if (Array.isArray(u.permissions)) {
+			return perms?.has(`${action}.${resource}`) ?? false;
+		}
+		// Legacy fallback (permissions missing from the session).
+		return r === 'manager' && action === 'manage';
+	},
+
+	/**
 	 * Restore the session once. Idempotent; safe to call from every guard.
 	 * @param {typeof fetch} [fetchFn]
 	 */
@@ -56,7 +84,7 @@ export const auth = {
 	async login(fetchFn, email, password) {
 		const res = await authApi.login(fetchFn, email, password);
 		token = res.access_token;
-		user = res.user;
+		setUser(res.user);
 		initialized = true;
 		if (browser) localStorage.setItem(TOKEN_KEY, res.access_token);
 		return res.user;
@@ -72,7 +100,7 @@ export const auth = {
 	async register(fetchFn, payload) {
 		const res = await authApi.register(fetchFn, payload);
 		token = res.access_token;
-		user = res.user;
+		setUser(res.user);
 		initialized = true;
 		if (browser) localStorage.setItem(TOKEN_KEY, res.access_token);
 		return res.user;
@@ -80,6 +108,7 @@ export const auth = {
 
 	logout() {
 		user = null;
+		perms = null;
 		token = null;
 		if (browser) localStorage.removeItem(TOKEN_KEY);
 	}
@@ -92,13 +121,22 @@ async function restore(fetchFn) {
 	const saved = browser ? localStorage.getItem(TOKEN_KEY) : null;
 	if (saved) {
 		try {
-			user = await authApi.me(fetchFn, saved);
+			setUser(await authApi.me(fetchFn, saved));
 			token = saved;
 		} catch {
 			if (browser) localStorage.removeItem(TOKEN_KEY);
 		}
 	}
 	initialized = true;
+}
+
+/**
+ * Set the current user and normalize its permission list into a reactive Set.
+ * @param {import('$lib/api/auth.js').AuthUser} u
+ */
+function setUser(u) {
+	user = u;
+	perms = Array.isArray(u.permissions) ? new Set(u.permissions) : null;
 }
 
 /**

@@ -24,6 +24,7 @@ from app.models.tenant_setting import TenantSetting
 from app.repositories import plans as plan_repo
 from app.repositories import tenants as tenant_repo
 from app.services.audit import log as audit_log
+from app.services.roles import attach_default_role
 from app.services.settings import DEFAULT_SETTINGS
 from app.utils.slug import validate_slug
 
@@ -129,6 +130,7 @@ async def create_tenant(
         is_active=True,
     )
     session.add(admin_user)
+    await attach_default_role(session, admin_user)
     await session.flush()
     await session.refresh(tenant)
 

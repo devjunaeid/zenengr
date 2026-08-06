@@ -18,6 +18,7 @@ from app.api.v1.invites import tenant_router as invite_tenant_router
 from app.api.v1.invoices import router as invoices_router
 from app.api.v1.projects import router as projects_router
 from app.api.v1.public import router as public_router
+from app.api.v1.roles import router as roles_router
 from app.api.v1.services import router as services_router
 from app.api.v1.smtp import router as smtp_router
 from app.api.v1.tenant import router as tenant_router
@@ -44,6 +45,7 @@ api_router.include_router(client_invoices_router)
 api_router.include_router(client_ledger_router)
 api_router.include_router(services_router)
 api_router.include_router(projects_router)
+api_router.include_router(roles_router)
 api_router.include_router(public_router)
 api_router.include_router(invoices_router)
 api_router.include_router(files_router)

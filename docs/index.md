@@ -19,9 +19,9 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 
 | Area | Count | Key metric |
 | ---- | ----- | ---------- |
-| Features | 16 | approved: 15, proposed: 1 |
-| User stories | 57 | done: 17, in_progress: 4, proposed: 36 |
-| Todos | 160 | done: 160, in_progress: 0, proposed: 0 |
+| Features | 17 | approved: 16, proposed: 1 |
+| User stories | 58 | done: 18, in_progress: 4, proposed: 36 |
+| Todos | 167 | done: 167, in_progress: 0, proposed: 0 |
 | Decisions | 2 | accepted: 2 |
 
 ## Active sprint
@@ -57,6 +57,7 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | [FEAT-013](features/FEAT-013-email-smtp.md) | Per-Tenant Email (SMTP) & Settings Tabs | approved | P0 |
 | [FEAT-014](features/FEAT-014-tenant-formatting.md) | Tenant-Wide Formatting (Currency / Timezone / Date & Time) | approved | P0 |
 | [FEAT-015](features/FEAT-015-advances-ledger-general-invoices.md) | Advances, Ledger Transactions & General Invoices | approved | P0 |
+| [FEAT-016](features/FEAT-016-custom-roles-permissions.md) | Custom Roles & Permission Management | approved | P0 |
 
 ### Stories
 
@@ -119,6 +120,7 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | [US-055](stories/US-055.md) | Tenant-wide currency/date/timezone formatting | FEAT-014 | done |
 | [US-056](stories/US-056.md) | General (internal) invoices without project or client | FEAT-015 | done |
 | [US-057](stories/US-057.md) | Advance payments + ledger transactions (debit/credit, refunds) | FEAT-015 | done |
+| [US-058](stories/US-058.md) | Tenant admin manages custom roles & permissions | FEAT-016 | done |
 
 ### Todos
 
@@ -362,6 +364,18 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | [TODO-159](todos/TODO-159.md) | Frontend: general invoice UI + advance apply + ledger views + refund | US-056 | done |
 | [TODO-160](todos/TODO-160.md) | Full test pass + docs sync | US-056 | done |
 
+#### FEAT-016 — Custom Roles & Permission Management
+
+| ID | Title | Story | Status |
+| -- | ----- | ----- | ------ |
+| [TODO-161](todos/TODO-161.md) | Role + RolePermission models + migration | US-058 | done |
+| [TODO-162](todos/TODO-162.md) | Permission catalog + DB-backed enforcement + cache | US-058 | done |
+| [TODO-163](todos/TODO-163.md) | Roles CRUD + assignment API | US-058 | done |
+| [TODO-164](todos/TODO-164.md) | Frontend permissions store + gating sweep | US-058 | done |
+| [TODO-165](todos/TODO-165.md) | Roles management UI | US-058 | done |
+| [TODO-166](todos/TODO-166.md) | Team page role assignment | US-058 | done |
+| [TODO-167](todos/TODO-167.md) | Tests + verification + docs sync | US-058 | done |
+
 ## Recently updated
 
 | Date | Item | Change |
@@ -389,7 +403,7 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 
 ## Next
 
-All 160 todos complete (FEAT-012..015 shipped; 576 backend tests green, frontend clean).
+All 167 todos complete (FEAT-012..016 shipped; 602 backend tests green, frontend clean).
 
 1. Stakeholder walkthrough + demo.
-2. Phase 2 candidates: credit notes, automatic advance application, multi-currency invoices, online payment gateway, milestone comments, client uploads, public share links, i18n, Unicode PDF fonts.
+2. Phase 2 candidates: project-scoped roles/grants (team collaboration), client-side roles, role hierarchy, credit notes, automatic advance application, multi-currency invoices, online payment gateway, milestone comments, client uploads, public share links, i18n, Unicode PDF fonts.

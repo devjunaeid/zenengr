@@ -17,10 +17,35 @@ from app.models.admin_user import AdminUser
 from app.models.enums import AdminUserRole, TenantStatus
 from app.models.password_reset_token import PasswordResetToken
 from app.models.plan import Plan
+from app.models.role import Role, RolePermission
 from app.models.tenant import Tenant
+from app.services.roles import SYSTEM_ROLE_PERMISSIONS, get_system_role
 from app.services.users import LastAdminError, ensure_not_last_admin
 
 _TEST_PWD = "testpass123!"
+
+
+async def _seed_system_roles(session: AsyncSession) -> None:
+    """Insert system roles + permissions from SYSTEM_ROLE_PERMISSIONS."""
+    for name, perms in SYSTEM_ROLE_PERMISSIONS.items():
+        role = Role(
+            tenant_id=None,
+            name=name,
+            description=f"System role: {name}",
+            is_system=True,
+        )
+        session.add(role)
+        await session.flush()
+        for action, resource in perms:
+            session.add(
+                RolePermission(
+                    role_id=role.id,
+                    action=action,
+                    resource=resource,
+                    granted=True,
+                )
+            )
+    await session.commit()
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────
@@ -242,7 +267,8 @@ class TestChangeRole:
 
     @pytest.mark.anyio
     async def test_role_change_success(self, client: AsyncClient, db_session: AsyncSession):
-        """Happy path: role updated, audit logged."""
+        """Happy path: role updated by role_id, audit logged."""
+        await _seed_system_roles(db_session)
         plan = await _create_plan(db_session)
         tenant = await _create_tenant(db_session, plan.id)
         admin = await _create_user(
@@ -255,34 +281,41 @@ class TestChangeRole:
             tenant.id,
         )
         headers = await _auth_header(admin)
+        manager_role = await get_system_role(db_session, "manager")
+        assert manager_role is not None
 
         resp = await client.patch(
             f"/api/v1/tenant/users/{target.id}/role",
-            json={"role": "manager"},
+            json={"role_id": str(manager_role.id)},
             headers=headers,
         )
         assert resp.status_code == 200
         assert resp.json()["status"] == "ok"
+        assert resp.json()["role"] == "manager"
 
         # Verify DB
         await db_session.refresh(target)
         assert target.role == AdminUserRole.MANAGER
+        assert target.role_id == manager_role.id
 
     @pytest.mark.anyio
     async def test_role_change_self_returns_422(
         self, client: AsyncClient, db_session: AsyncSession
     ):
         """Cannot change own role -> 422."""
+        await _seed_system_roles(db_session)
         plan = await _create_plan(db_session)
         tenant = await _create_tenant(db_session, plan.id)
         admin = await _create_user(
             db_session, f"self-{uuid.uuid4().hex[:8]}@testco.com", AdminUserRole.ADMIN, tenant.id
         )
         headers = await _auth_header(admin)
+        manager_role = await get_system_role(db_session, "manager")
+        assert manager_role is not None
 
         resp = await client.patch(
             f"/api/v1/tenant/users/{admin.id}/role",
-            json={"role": "manager"},
+            json={"role_id": str(manager_role.id)},
             headers=headers,
         )
         assert resp.status_code == 422
@@ -293,6 +326,7 @@ class TestChangeRole:
         self, client: AsyncClient, db_session: AsyncSession
     ):
         """Cross-tenant target -> 404 (no existence leak)."""
+        await _seed_system_roles(db_session)
         plan = await _create_plan(db_session)
         tenant_a = await _create_tenant(db_session, plan.id)
         tenant_b = await _create_tenant(db_session, plan.id)
@@ -306,10 +340,12 @@ class TestChangeRole:
             tenant_b.id,
         )
         headers = await _auth_header(admin_a)
+        manager_role = await get_system_role(db_session, "manager")
+        assert manager_role is not None
 
         resp = await client.patch(
             f"/api/v1/tenant/users/{user_b.id}/role",
-            json={"role": "manager"},
+            json={"role_id": str(manager_role.id)},
             headers=headers,
         )
         assert resp.status_code == 404
@@ -319,6 +355,7 @@ class TestChangeRole:
         self, client: AsyncClient, db_session: AsyncSession
     ):
         """Changing one admin's role to manager ok when another admin remains."""
+        await _seed_system_roles(db_session)
         plan = await _create_plan(db_session)
         tenant = await _create_tenant(db_session, plan.id)
         admin = await _create_user(
@@ -331,10 +368,12 @@ class TestChangeRole:
             tenant.id,
         )
         headers = await _auth_header(admin)
+        manager_role = await get_system_role(db_session, "manager")
+        assert manager_role is not None
 
         resp = await client.patch(
             f"/api/v1/tenant/users/{other_admin.id}/role",
-            json={"role": "manager"},
+            json={"role_id": str(manager_role.id)},
             headers=headers,
         )
         assert resp.status_code == 200
@@ -344,6 +383,7 @@ class TestChangeRole:
     @pytest.mark.anyio
     async def test_manager_cannot_change_role(self, client: AsyncClient, db_session: AsyncSession):
         """Manager -> 403."""
+        await _seed_system_roles(db_session)
         plan = await _create_plan(db_session)
         tenant = await _create_tenant(db_session, plan.id)
         mgr = await _create_user(
@@ -359,10 +399,12 @@ class TestChangeRole:
             tenant.id,
         )
         headers = await _auth_header(mgr)
+        manager_role = await get_system_role(db_session, "manager")
+        assert manager_role is not None
 
         resp = await client.patch(
             f"/api/v1/tenant/users/{emp.id}/role",
-            json={"role": "manager"},
+            json={"role_id": str(manager_role.id)},
             headers=headers,
         )
         assert resp.status_code == 403
@@ -923,6 +965,7 @@ class TestAuditEntries:
     async def test_role_change_audit(self, client: AsyncClient, db_session: AsyncSession):
         from app.models.audit_log import AuditLog
 
+        await _seed_system_roles(db_session)
         plan = await _create_plan(db_session)
         tenant = await _create_tenant(db_session, plan.id)
         admin = await _create_user(
@@ -935,10 +978,12 @@ class TestAuditEntries:
             tenant.id,
         )
         headers = await _auth_header(admin)
+        manager_role = await get_system_role(db_session, "manager")
+        assert manager_role is not None
 
         await client.patch(
             f"/api/v1/tenant/users/{target.id}/role",
-            json={"role": "manager"},
+            json={"role_id": str(manager_role.id)},
             headers=headers,
         )
 

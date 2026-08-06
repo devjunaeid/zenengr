@@ -21,8 +21,9 @@ from app.db.session import get_session
 from app.models.admin_user import AdminUser
 from app.models.client_user import ClientUser
 from app.models.enums import AdminUserRole, TenantStatus
+from app.models.role import Role
 from app.repositories import admin_users as admin_user_repo
-from app.services.permissions import has_permission
+from app.services.permissions import has_permission, role_has_permission
 
 _security_scheme = HTTPBearer()
 
@@ -177,15 +178,34 @@ def require_permission(action: str, resource: str) -> type:
 
     Super admin bypasses tenant permission check — use require_super_admin
     for platform endpoints instead.
+
+    Users with a role_id are checked against their DB-backed role row
+    (role_permissions, cached per role); legacy users (role_id NULL) fall
+    back to the static matrix in app/services/permissions.py.
     """
 
     async def _permission_checker(
+        session: AsyncSession = Depends(get_session),
         user: AdminUser = Depends(get_current_admin_user),
     ) -> AdminUser:
         # Super admin not in tenant matrix; platform check separate
         if user.role == AdminUserRole.SUPER_ADMIN:
             return user
-        if not has_permission(user.role, action, resource):
+
+        role: Role | None = None
+        if user.role_id is not None:
+            role = await session.get(Role, user.role_id)
+
+        if role is None:
+            # Legacy: no role row (or row vanished) -> static matrix fallback
+            if not has_permission(user.role, action, resource):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Insufficient permissions",
+                )
+            return user
+
+        if not await role_has_permission(session, role=role, action=action, resource=resource):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Insufficient permissions",

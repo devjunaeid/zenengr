@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import uuid
+
 from pydantic import BaseModel, EmailStr
 
 
@@ -16,6 +18,8 @@ class UserResponse(BaseModel):
     full_name: str
     role: str
     tenant_id: str | None = None
+    role_id: uuid.UUID | None = None
+    permissions: list[str] = []
     avatar_url: str | None = None
     phone: str | None = None
     timezone: str | None = None

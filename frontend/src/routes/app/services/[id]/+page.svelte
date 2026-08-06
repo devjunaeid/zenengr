@@ -11,7 +11,7 @@
 	let { data } = $props();
 
 	const token = /** @type {string} */ (auth.token);
-	let canManage = $derived(auth.user?.role === 'admin' || auth.user?.role === 'manager');
+	let canManage = $derived(auth.can('manage', 'services'));
 	let isEmployee = $derived(auth.user?.role === 'employee');
 
 	/** @type {null | 'activate' | 'deactivate'} */

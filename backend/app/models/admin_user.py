@@ -11,6 +11,7 @@ from app.models.base import TimestampMixin
 from app.models.enums import AdminUserRole
 
 if TYPE_CHECKING:
+    from app.models.role import Role
     from app.models.tenant import Tenant
 
 
@@ -27,6 +28,13 @@ class AdminUser(TimestampMixin, Base):
     full_name: Mapped[str] = mapped_column(String(255), nullable=False)
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[AdminUserRole] = mapped_column(nullable=False)
+    # role_id points at the backing roles row (system role for built-in
+    # assignments, custom-role users fall back to EMPLOYEE). System
+    # assignment syncs it; NULL => enforcement falls back to the role enum
+    # column (next batch).
+    role_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("roles.id"), nullable=True
+    )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     avatar_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     phone: Mapped[str | None] = mapped_column(String(50), nullable=True)
@@ -34,5 +42,6 @@ class AdminUser(TimestampMixin, Base):
     language: Mapped[str | None] = mapped_column(String(10), nullable=True)
 
     tenant: Mapped[Tenant | None] = relationship("Tenant", back_populates="admin_users")
+    role_ref: Mapped[Role | None] = relationship("Role")
 
     __table_args__ = (Index("ix_admin_users_email", "email", unique=True),)

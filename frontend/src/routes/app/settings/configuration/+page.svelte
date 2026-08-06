@@ -14,7 +14,7 @@
 	const DEMO_ISO = '2026-03-05T14:30:00.000Z';
 
 	const token = /** @type {string} */ (auth.token);
-	let isAdmin = $derived(auth.isTenantAdmin);
+	let isAdmin = $derived(auth.can('manage', 'tenant_settings'));
 
 	// ---- Settings table ----
 	// Draft values keyed by setting key; masked (null) values start empty.

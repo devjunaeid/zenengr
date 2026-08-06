@@ -34,17 +34,20 @@ from app.services.auth import (
 )
 from app.services.notification_preferences import list_preferences, update_preferences
 from app.services.password_policy import get_min_password_length
+from app.services.roles import effective_permissions
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-def _to_user_response(user: AdminUser) -> UserResponse:
+async def _to_user_response(session: AsyncSession, user: AdminUser) -> UserResponse:
     return UserResponse(
         id=str(user.id),
         email=user.email,
         full_name=user.full_name,
         role=user.role.value,
         tenant_id=str(user.tenant_id) if user.tenant_id else None,
+        role_id=user.role_id,
+        permissions=await effective_permissions(session, user=user),
         avatar_url=user.avatar_url,
         phone=user.phone,
         timezone=user.timezone,
@@ -77,16 +80,17 @@ async def login(body: LoginRequest, session: AsyncSession = Depends(get_session)
     return LoginResponse(
         access_token=token,
         token_type=token_type,
-        user=_to_user_response(user),
+        user=await _to_user_response(session, user),
     )
 
 
 @router.get("/me", response_model=UserResponse)
 async def me(
     user: AdminUser = Depends(get_current_admin_user),
+    session: AsyncSession = Depends(get_session),
 ) -> UserResponse:
     """Return authenticated user profile."""
-    return _to_user_response(user)
+    return await _to_user_response(session, user)
 
 
 @router.patch("/profile", response_model=UserResponse)
@@ -106,7 +110,7 @@ async def update_profile(
         language=body.language,
         email=body.email,
     )
-    return _to_user_response(updated)
+    return await _to_user_response(session, updated)
 
 
 @router.post("/change-password", status_code=status.HTTP_200_OK)

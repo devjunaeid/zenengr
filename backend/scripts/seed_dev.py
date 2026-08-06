@@ -35,6 +35,7 @@ from app.models.enums import (
 from app.models.plan import Plan
 from app.models.project import Project
 from app.models.tenant import Tenant
+from app.services.roles import attach_default_role
 
 SEED_SUPERADMIN_EMAIL = os.getenv("SEED_SUPERADMIN_EMAIL", "admin@zenengr.dev")
 SEED_SUPERADMIN_PASSWORD = os.getenv("SEED_SUPERADMIN_PASSWORD", "changeme123!")
@@ -102,6 +103,7 @@ async def _seed() -> None:
                 role=AdminUserRole.SUPER_ADMIN,
             )
             session.add(super_admin)
+            await attach_default_role(session, super_admin)
             await session.flush()
             print("Created super admin")
         else:
@@ -121,6 +123,7 @@ async def _seed() -> None:
                 role=AdminUserRole.ADMIN,
             )
             session.add(demo_user)
+            await attach_default_role(session, demo_user)
             await session.flush()
             print("Created demo admin: demo@demo-agency.dev")
         else:

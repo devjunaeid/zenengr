@@ -11,7 +11,7 @@
 
 	let { data } = $props();
 
-	let canManage = $derived(auth.user?.role === 'admin' || auth.user?.role === 'manager');
+	let canManage = $derived(auth.can('manage', 'services'));
 	let hasFilter = $derived(
 		Boolean(untrack(() => data.filters.q)) || Boolean(untrack(() => data.filters.is_active))
 	);

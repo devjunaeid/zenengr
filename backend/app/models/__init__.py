@@ -44,6 +44,7 @@ from app.models.plan_feature_default import PlanFeatureDefault
 from app.models.project import Project
 from app.models.project_milestone import ProjectMilestone
 from app.models.project_service import ProjectService
+from app.models.role import Role, RolePermission
 from app.models.service import Service
 from app.models.tenant import Tenant
 from app.models.tenant_feature_flag import TenantFeatureFlag
@@ -79,6 +80,8 @@ __all__ = [
     "Project",
     "ProjectService",
     "ProjectMilestone",
+    "Role",
+    "RolePermission",
     "Transaction",
     "PaymentAllocation",
     "ClientPasswordResetToken",
