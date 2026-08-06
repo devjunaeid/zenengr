@@ -21,16 +21,18 @@ MATRIX: list[tuple[AdminUserRole, str, str, bool]] = [
     (AdminUserRole.ADMIN, "manage", "invoices", True),
     (AdminUserRole.ADMIN, "manage", "payments", True),
     (AdminUserRole.ADMIN, "manage", "financial_reports", True),
-    (AdminUserRole.ADMIN, "manage", "comments", True),
+    (AdminUserRole.ADMIN, "post", "comments", True),
+    (AdminUserRole.ADMIN, "edit", "comments", True),
     (AdminUserRole.ADMIN, "manage", "profile", True),
-    # Manager: manage clients/services/projects/milestones/invoices/payments/comments
+    # Manager: manage clients/services/projects/milestones/invoices/payments; post/edit comments
     (AdminUserRole.MANAGER, "manage", "clients", True),
     (AdminUserRole.MANAGER, "manage", "services", True),
     (AdminUserRole.MANAGER, "manage", "projects", True),
     (AdminUserRole.MANAGER, "manage", "milestones", True),
     (AdminUserRole.MANAGER, "manage", "invoices", True),
     (AdminUserRole.MANAGER, "manage", "payments", True),
-    (AdminUserRole.MANAGER, "manage", "comments", True),
+    (AdminUserRole.MANAGER, "post", "comments", True),
+    (AdminUserRole.MANAGER, "edit", "comments", True),
     (AdminUserRole.MANAGER, "view", "financial_reports", True),
     (AdminUserRole.MANAGER, "manage", "profile", True),
     # Manager: view admin_users, but not manage
@@ -43,10 +45,11 @@ MATRIX: list[tuple[AdminUserRole, str, str, bool]] = [
     # Employee: view clients, view services
     (AdminUserRole.EMPLOYEE, "view", "clients", True),
     (AdminUserRole.EMPLOYEE, "view", "services", True),
-    # Employee: manage_assigned projects/milestones/comments
+    # Employee: manage_assigned projects/milestones; post comments
     (AdminUserRole.EMPLOYEE, "manage_assigned", "projects", True),
     (AdminUserRole.EMPLOYEE, "manage_assigned", "milestones", True),
-    (AdminUserRole.EMPLOYEE, "manage_assigned", "comments", True),
+    (AdminUserRole.EMPLOYEE, "post", "comments", True),
+    (AdminUserRole.EMPLOYEE, "edit", "comments", False),
     # Employee: manage profile
     (AdminUserRole.EMPLOYEE, "manage", "profile", True),
     # Employee: blocked

@@ -4,7 +4,7 @@ Data-driven immutable mappings:
 - TENANT_PERMISSIONS: tenant-scoped roles (admin, manager, employee)
 - PLATFORM_PERMISSIONS: super_admin platform-level access
 
-Actions vocabulary: view, manage, manage_assigned
+Actions vocabulary: view, manage, manage_assigned, post, edit
 
 FEAT-016 part 2 (TODO-162): DB-backed enforcement lives alongside the
 static matrix. The matrix remains the seed source for system roles and the
@@ -44,7 +44,8 @@ _TENANT_MATRIX: dict[AdminUserRole, frozenset[PermissionEntry]] = {
             ("manage", "invoices"),
             ("manage", "payments"),
             ("manage", "financial_reports"),
-            ("manage", "comments"),
+            ("post", "comments"),
+            ("edit", "comments"),
             ("manage", "profile"),
             ("view", "files"),
             ("manage", "files"),
@@ -61,7 +62,8 @@ _TENANT_MATRIX: dict[AdminUserRole, frozenset[PermissionEntry]] = {
             ("manage", "milestones"),
             ("manage", "invoices"),
             ("manage", "payments"),
-            ("manage", "comments"),
+            ("post", "comments"),
+            ("edit", "comments"),
             ("view", "financial_reports"),
             ("manage", "profile"),
             ("view", "files"),
@@ -76,7 +78,7 @@ _TENANT_MATRIX: dict[AdminUserRole, frozenset[PermissionEntry]] = {
             ("view", "services"),
             ("manage_assigned", "projects"),
             ("manage_assigned", "milestones"),
-            ("manage_assigned", "comments"),
+            ("post", "comments"),
             ("manage", "profile"),
             ("view", "files"),
             ("view", "roles"),

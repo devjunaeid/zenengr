@@ -19,6 +19,8 @@ from app.models.enums import AdminUserRole, ClientStatus, ClientType, TenantStat
 from app.models.plan import Plan
 from app.models.project import Project
 from app.models.tenant import Tenant
+from app.schemas.roles import RolePermissionInput
+from app.services.roles import assign_user_role, create_role
 
 _TEST_PWD = "testpass123!"
 
@@ -302,6 +304,166 @@ class TestTenantComments:
         assert len(rows) == 1
         assert rows[0].entity_type == "comment"
         assert rows[0].details["project_id"] == str(ctx["project"].id)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Comment permission gates (FEAT-016/010 refinement)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestCommentPermissionGates:
+    @pytest.mark.asyncio
+    async def test_employee_post_comment_201(self, client: AsyncClient, db_session: AsyncSession):
+        """Employee has post/comments -> POST returns 201."""
+        ctx = await _bootstrap(db_session)
+        resp = await client.post(
+            f"/api/v1/tenant/projects/{ctx['project'].id}/comments",
+            json={"content": "emp post"},
+            headers=await _admin_auth_header(ctx["employee"]),
+        )
+        assert resp.status_code == 201, resp.text
+
+    @pytest.mark.asyncio
+    async def test_custom_role_without_post_comments_403(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        """Custom role without post/comments -> POST returns 403."""
+        ctx = await _bootstrap(db_session)
+        role = await create_role(
+            db_session,
+            tenant_id=ctx["tenant"].id,
+            name="viewonly",
+            description="",
+            permissions=[RolePermissionInput(action="view", resource="clients", granted=True)],
+            actor_id=ctx["admin"].id,
+        )
+        await assign_user_role(
+            db_session,
+            tenant_id=ctx["tenant"].id,
+            target_user_id=ctx["employee"].id,
+            role_id=role.id,
+            actor_id=ctx["admin"].id,
+        )
+
+        resp = await client.post(
+            f"/api/v1/tenant/projects/{ctx['project'].id}/comments",
+            json={"content": "blocked"},
+            headers=await _admin_auth_header(ctx["employee"]),
+        )
+        assert resp.status_code == 403, resp.text
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Comment edit/delete (FEAT-016/010 refinement)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestEditDeleteComments:
+    async def _post_comment(self, client: AsyncClient, ctx: dict, headers: dict) -> str:
+        resp = await client.post(
+            f"/api/v1/tenant/projects/{ctx['project'].id}/comments",
+            json={"content": "original"},
+            headers=headers,
+        )
+        assert resp.status_code == 201, resp.text
+        return resp.json()["id"]
+
+    @pytest.mark.asyncio
+    async def test_admin_edits_comment(self, client: AsyncClient, db_session: AsyncSession):
+        """Admin (edit/comments) PATCH -> 200, content updated, audit comment.updated."""
+        ctx = await _bootstrap(db_session)
+        admin_headers = await _admin_auth_header(ctx["admin"])
+        cid = await self._post_comment(client, ctx, admin_headers)
+
+        resp = await client.patch(
+            f"/api/v1/tenant/projects/{ctx['project'].id}/comments/{cid}",
+            json={"content": "edited"},
+            headers=admin_headers,
+        )
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["content"] == "edited"
+        assert resp.json()["id"] == cid
+
+        rows = (
+            (
+                await db_session.execute(
+                    select(AuditLog).where(
+                        AuditLog.tenant_id == ctx["tenant"].id,
+                        AuditLog.action == "comment.updated",
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        assert len(rows) == 1
+        assert rows[0].entity_type == "comment"
+        assert rows[0].entity_id == cid
+
+    @pytest.mark.asyncio
+    async def test_employee_cannot_edit_comment(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        """Employee (post/comments only) PATCH -> 403."""
+        ctx = await _bootstrap(db_session)
+        admin_headers = await _admin_auth_header(ctx["admin"])
+        cid = await self._post_comment(client, ctx, admin_headers)
+
+        resp = await client.patch(
+            f"/api/v1/tenant/projects/{ctx['project'].id}/comments/{cid}",
+            json={"content": "nope"},
+            headers=await _admin_auth_header(ctx["employee"]),
+        )
+        assert resp.status_code == 403, resp.text
+
+    @pytest.mark.asyncio
+    async def test_admin_deletes_comment(self, client: AsyncClient, db_session: AsyncSession):
+        """Admin (edit/comments) DELETE -> 204, audit comment.deleted, row gone."""
+        ctx = await _bootstrap(db_session)
+        admin_headers = await _admin_auth_header(ctx["admin"])
+        cid = await self._post_comment(client, ctx, admin_headers)
+
+        resp = await client.delete(
+            f"/api/v1/tenant/projects/{ctx['project'].id}/comments/{cid}",
+            headers=admin_headers,
+        )
+        assert resp.status_code == 204, resp.text
+
+        rows = (
+            (
+                await db_session.execute(
+                    select(AuditLog).where(
+                        AuditLog.tenant_id == ctx["tenant"].id,
+                        AuditLog.action == "comment.deleted",
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        assert len(rows) == 1
+        assert rows[0].entity_type == "comment"
+        assert rows[0].entity_id == cid
+
+        lst = await client.get(
+            f"/api/v1/tenant/projects/{ctx['project'].id}/comments",
+            headers=admin_headers,
+        )
+        assert lst.status_code == 200
+        assert all(c["id"] != cid for c in lst.json())
+
+    @pytest.mark.asyncio
+    async def test_missing_comment_404(self, client: AsyncClient, db_session: AsyncSession):
+        """PATCH/DELETE on unknown comment id -> 404."""
+        ctx = await _bootstrap(db_session)
+        admin_headers = await _admin_auth_header(ctx["admin"])
+        missing = uuid.uuid4()
+        url = f"/api/v1/tenant/projects/{ctx['project'].id}/comments/{missing}"
+
+        resp = await client.patch(url, json={"content": "x"}, headers=admin_headers)
+        assert resp.status_code == 404, resp.text
+        resp = await client.delete(url, headers=admin_headers)
+        assert resp.status_code == 404, resp.text
 
 
 # ═══════════════════════════════════════════════════════════════════════════

@@ -578,6 +578,53 @@ class TestAssignUserRole:
         r = await client.patch(url, json={"role_id": str(super_role.id)}, headers=headers)
         assert r.status_code == 422
 
+
+# ── FEAT-016/010 refinement: comment permissions rework ────────────────────
+
+
+class TestCommentPermissionRework:
+    @pytest.mark.anyio
+    async def test_catalog_has_post_and_edit_comments_no_legacy(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        """Catalog exposes post/comments + edit/comments; legacy keys removed."""
+        ctx = await _bootstrap_admin(db_session)
+        headers = await _auth_header(ctx["user"])
+
+        resp = await client.get("/api/v1/tenant/roles/permissions", headers=headers)
+        assert resp.status_code == 200
+        items = resp.json()
+        pairs = {(i["action"], i["resource"]) for i in items}
+
+        assert ("post", "comments") in pairs
+        assert ("edit", "comments") in pairs
+        assert ("manage", "comments") not in pairs
+        assert ("manage_assigned", "comments") not in pairs
+
+        comments = [i for i in items if i["resource"] == "comments"]
+        assert {i["action"] for i in comments} == {"post", "edit"}
+
+    @pytest.mark.anyio
+    async def test_system_roles_comment_permissions(self, db_session: AsyncSession):
+        """Seeded system roles: admin/manager post+edit, employee post only."""
+        await _seed_system_roles(db_session)
+
+        expected = [
+            ("admin", "post", "comments", True),
+            ("admin", "edit", "comments", True),
+            ("manager", "post", "comments", True),
+            ("manager", "edit", "comments", True),
+            ("employee", "post", "comments", True),
+            ("employee", "edit", "comments", False),
+        ]
+        for name, action, resource, want in expected:
+            role = await get_system_role(db_session, name)
+            assert role is not None, name
+            got = await role_has_permission(
+                db_session, role=role, action=action, resource=resource
+            )
+            assert got is want, f"{name}: {action}/{resource} expected {want}, got {got}"
+
     @pytest.mark.anyio
     async def test_last_admin_guard(self, client: AsyncClient, db_session: AsyncSession):
         """Demoting the only effective admin -> 409; with another admin -> 200."""

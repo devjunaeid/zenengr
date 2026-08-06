@@ -16,6 +16,11 @@ class CommentCreateRequest(BaseModel):
     model_config = {"extra": "forbid"}
 
 
+class CommentEditRequest(BaseModel):
+    content: str = Field(min_length=1, max_length=2000)
+    model_config = {"extra": "forbid"}
+
+
 class CommentResponse(BaseModel):
     id: uuid.UUID
     project_id: uuid.UUID

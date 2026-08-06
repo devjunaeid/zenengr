@@ -68,3 +68,46 @@ export function postComment(fetchFn, token, projectId, body, options = {}) {
 		body: payload
 	});
 }
+
+/**
+ * Edit a comment's content (tenant realm only; requires edit/comments).
+ *
+ * @param {typeof fetch} fetchFn
+ * @param {string} token
+ * @param {string} projectId
+ * @param {string} commentId
+ * @param {string} content
+ * @returns {Promise<CommentResponse>}
+ */
+export function editComment(fetchFn, token, projectId, commentId, content) {
+	return apiFetch(
+		fetchFn,
+		`/tenant/projects/${encodeURIComponent(projectId)}/comments/${encodeURIComponent(commentId)}`,
+		{
+			method: 'PATCH',
+			token,
+			body: { content }
+		}
+	);
+}
+
+/**
+ * Delete a comment (tenant realm only; requires edit/comments). Resolves to
+ * null on success (HTTP 204).
+ *
+ * @param {typeof fetch} fetchFn
+ * @param {string} token
+ * @param {string} projectId
+ * @param {string} commentId
+ * @returns {Promise<null>}
+ */
+export function deleteComment(fetchFn, token, projectId, commentId) {
+	return apiFetch(
+		fetchFn,
+		`/tenant/projects/${encodeURIComponent(projectId)}/comments/${encodeURIComponent(commentId)}`,
+		{
+			method: 'DELETE',
+			token
+		}
+	);
+}

@@ -34,6 +34,14 @@ class CommentProjectNotFoundError(HTTPException):
         )
 
 
+class CommentNotFoundError(HTTPException):
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Comment not found",
+        )
+
+
 class CommentForbiddenError(HTTPException):
     def __init__(self) -> None:
         super().__init__(
@@ -73,6 +81,28 @@ async def _get_project_for_tenant(
     stmt = select(Project).where(Project.id == project_id, Project.tenant_id == tenant_id)
     result = await session.execute(stmt)
     return result.scalar_one_or_none()
+
+
+async def _get_comment_for_tenant(
+    session: AsyncSession,
+    tenant_id: uuid.UUID,
+    comment_id: uuid.UUID,
+) -> Comment:
+    """Fetch a comment that belongs to one of the tenant's projects.
+
+    Raises CommentNotFoundError when the comment is missing or the project
+    belongs to another tenant (no cross-tenant leak).
+    """
+    stmt = (
+        select(Comment)
+        .join(Project, Project.id == Comment.project_id)
+        .where(Comment.id == comment_id, Project.tenant_id == tenant_id)
+    )
+    result = await session.execute(stmt)
+    comment = result.scalar_one_or_none()
+    if comment is None:
+        raise CommentNotFoundError()
+    return comment
 
 
 async def _get_project_for_client(
@@ -165,6 +195,65 @@ async def list_comments(
     )
     result = await session.execute(stmt)
     return list(result.scalars().all())
+
+
+async def edit_comment(
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    comment_id: uuid.UUID,
+    content: str,
+    actor_id: uuid.UUID,
+) -> Comment:
+    """Edit a comment's content. Permission decided at the endpoint layer
+    (FEAT-016/010: gated by edit/comments)."""
+    comment = await _get_comment_for_tenant(session, tenant_id, comment_id)
+
+    content = content.strip()
+    if not content:
+        raise CommentContentError()
+
+    comment.content = content
+    await session.flush()
+
+    await audit_log(
+        session,
+        tenant_id=tenant_id,
+        actor_id=actor_id,
+        actor_type=ActorType.ADMIN_USER,
+        action="comment.updated",
+        entity_type="comment",
+        entity_id=str(comment.id),
+        details={"project_id": str(comment.project_id)},
+    )
+    await session.commit()
+    return comment
+
+
+async def delete_comment(
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    comment_id: uuid.UUID,
+    actor_id: uuid.UUID,
+) -> None:
+    """Delete a comment. Permission decided at the endpoint layer
+    (FEAT-016/010: gated by edit/comments)."""
+    comment = await _get_comment_for_tenant(session, tenant_id, comment_id)
+    project_id = comment.project_id
+
+    await audit_log(
+        session,
+        tenant_id=tenant_id,
+        actor_id=actor_id,
+        actor_type=ActorType.ADMIN_USER,
+        action="comment.deleted",
+        entity_type="comment",
+        entity_id=str(comment.id),
+        details={"project_id": str(project_id)},
+    )
+    await session.delete(comment)
+    await session.commit()
 
 
 async def post_client_comment(

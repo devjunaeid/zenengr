@@ -16,7 +16,7 @@ from app.core.dependencies import get_current_admin_user, require_permission
 from app.db.session import get_session
 from app.models.admin_user import AdminUser
 from app.models.enums import ProjectStatus
-from app.schemas.comments import CommentCreateRequest, CommentResponse
+from app.schemas.comments import CommentCreateRequest, CommentEditRequest, CommentResponse
 from app.schemas.projects import (
     AttachServiceRequest,
     AttachServiceResponse,
@@ -411,10 +411,10 @@ async def post_comment_endpoint(
     project_id: str,
     body: CommentCreateRequest,
     session: AsyncSession = Depends(get_session),
-    user: AdminUser = Depends(get_current_admin_user),
+    user: AdminUser = Depends(require_permission("post", "comments")),
 ) -> CommentResponse:
-    """Post a comment on a project. Any authenticated staff may post
-    (FEAT-016: employee/owner restriction removed)."""
+    """Post a comment on a project. Any staff with post/comments may post
+    (FEAT-016/010: employee/owner restriction removed)."""
     tenant_id = _get_tenant_id(user)
     pid = _parse_uuid(project_id, kind="Project")
     comment = await comment_service.post_comment(
@@ -426,6 +426,53 @@ async def post_comment_endpoint(
         actor=user,
     )
     return _to_comment_response(comment)
+
+
+@router.patch("/{project_id}/comments/{comment_id}", response_model=CommentResponse)
+async def edit_comment_endpoint(
+    project_id: str,
+    comment_id: str,
+    body: CommentEditRequest,
+    session: AsyncSession = Depends(get_session),
+    user: AdminUser = Depends(require_permission("edit", "comments")),
+) -> CommentResponse:
+    """Edit a comment's content. Staff with edit/comments only."""
+    tenant_id = _get_tenant_id(user)
+    # Validate path UUIDs (404 on bad format)
+    _parse_uuid(project_id, kind="Project")
+    cid = _parse_uuid(comment_id, kind="Comment")
+    comment = await comment_service.edit_comment(
+        session,
+        tenant_id=tenant_id,
+        comment_id=cid,
+        content=body.content,
+        actor_id=user.id,
+    )
+    return _to_comment_response(comment)
+
+
+@router.delete(
+    "/{project_id}/comments/{comment_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_comment_endpoint(
+    project_id: str,
+    comment_id: str,
+    session: AsyncSession = Depends(get_session),
+    user: AdminUser = Depends(require_permission("edit", "comments")),
+) -> Response:
+    """Delete a comment. Staff with edit/comments only."""
+    tenant_id = _get_tenant_id(user)
+    # Validate path UUIDs (404 on bad format)
+    _parse_uuid(project_id, kind="Project")
+    cid = _parse_uuid(comment_id, kind="Comment")
+    await comment_service.delete_comment(
+        session,
+        tenant_id=tenant_id,
+        comment_id=cid,
+        actor_id=user.id,
+    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/{project_id}/comments", response_model=list[CommentResponse])
