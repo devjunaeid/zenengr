@@ -82,6 +82,7 @@ The project is developed against a **containerized stack** via Docker (OrbStack 
 
 - **Postgres**: container, postgres:16-alpine, host port 5432, creds `app`/`app`, database `app`. Backend config default in `backend/app/core/config.py` points at `postgresql+asyncpg://app:app@localhost:5432/app`.
 - **Redis**: container, host port 6379.
+- **MailHog**: container (dev profile), SMTP on host port 1025 (no auth), web UI http://localhost:8025. Point a tenant's SMTP config at `127.0.0.1:1025`, mode None, no username/password to capture outgoing email (invites, resets, notifications) and view it in the UI.
 - **pgAdmin**: container, host port 5050 (`admin@zenengr.dev` / `admin`).
 - **Backend dev server**: container `zenengr-backend-dev`, port 8000, `./backend/app` volume-mounted for hot reload.
 - **Frontend dev server**: container `zenengr-frontend-dev`, port 5173, `./frontend/src` volume-mounted.
