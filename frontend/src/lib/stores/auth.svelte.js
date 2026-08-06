@@ -62,6 +62,22 @@ export const auth = {
 		return res.user;
 	},
 
+	/**
+	 * Register from an invite (auto-login). LoginResponse already carries the
+	 * full user, so no extra /auth/me fetch is needed.
+	 * @param {typeof fetch} fetchFn
+	 * @param {{ token: string, full_name: string, password: string }} payload
+	 * @returns {Promise<import('$lib/api/auth.js').AuthUser>}
+	 */
+	async register(fetchFn, payload) {
+		const res = await authApi.register(fetchFn, payload);
+		token = res.access_token;
+		user = res.user;
+		initialized = true;
+		if (browser) localStorage.setItem(TOKEN_KEY, res.access_token);
+		return res.user;
+	},
+
 	logout() {
 		user = null;
 		token = null;
