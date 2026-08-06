@@ -229,6 +229,138 @@ class TestSmtpConfigCrud:
         assert smtp_service.decrypt_password(row.password_ciphertext) == "orig-secret"
 
     @pytest.mark.anyio
+    async def test_upsert_blank_username_password_no_auth(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        tenant, admin = await _create_tenant_and_admin(db_session)
+        headers = await _auth_header(admin)
+
+        resp = await client.patch(
+            "/api/v1/tenant/smtp-config/",
+            json={
+                "host": "127.0.0.1",
+                "port": 1025,
+                "username": "",
+                "password": "",
+                "from_email": "noreply@example.com",
+                "enabled": True,
+            },
+            headers=headers,
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["username"] is None
+        assert data["has_password"] is False
+
+        row = await _get_row(db_session, tenant.id)
+        assert row is not None
+        assert row.username is None
+        assert row.password_ciphertext is None
+
+    @pytest.mark.anyio
+    async def test_clear_password_flag(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        tenant, admin = await _create_tenant_and_admin(db_session)
+        headers = await _auth_header(admin)
+
+        await client.patch(
+            "/api/v1/tenant/smtp-config/",
+            json={
+                "host": "smtp.example.com",
+                "port": 587,
+                "username": "app@example.com",
+                "password": "orig-secret",
+                "from_email": "noreply@example.com",
+                "enabled": True,
+            },
+            headers=headers,
+        )
+
+        resp = await client.patch(
+            "/api/v1/tenant/smtp-config/",
+            json={"clear_password": True},
+            headers=headers,
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["username"] == "app@example.com"
+        assert data["has_password"] is False
+
+        row = await _get_row(db_session, tenant.id)
+        assert row is not None
+        assert row.username == "app@example.com"
+        assert row.password_ciphertext is None
+
+    @pytest.mark.anyio
+    async def test_blank_password_keeps_existing(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        tenant, admin = await _create_tenant_and_admin(db_session)
+        headers = await _auth_header(admin)
+
+        await client.patch(
+            "/api/v1/tenant/smtp-config/",
+            json={
+                "host": "smtp.example.com",
+                "port": 587,
+                "username": "app@example.com",
+                "password": "orig-secret",
+                "from_email": "noreply@example.com",
+                "enabled": True,
+            },
+            headers=headers,
+        )
+
+        resp = await client.patch(
+            "/api/v1/tenant/smtp-config/",
+            json={"password": ""},
+            headers=headers,
+        )
+        assert resp.status_code == 200
+        assert resp.json()["has_password"] is True
+
+        row = await _get_row(db_session, tenant.id)
+        assert row is not None
+        assert row.password_ciphertext is not None
+        assert smtp_service.decrypt_password(row.password_ciphertext) == "orig-secret"
+
+    @pytest.mark.anyio
+    async def test_null_username_clears_password(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        tenant, admin = await _create_tenant_and_admin(db_session)
+        headers = await _auth_header(admin)
+
+        await client.patch(
+            "/api/v1/tenant/smtp-config/",
+            json={
+                "host": "smtp.example.com",
+                "port": 587,
+                "username": "app@example.com",
+                "password": "orig-secret",
+                "from_email": "noreply@example.com",
+                "enabled": True,
+            },
+            headers=headers,
+        )
+
+        resp = await client.patch(
+            "/api/v1/tenant/smtp-config/",
+            json={"username": None},
+            headers=headers,
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["username"] is None
+        assert data["has_password"] is False
+
+        row = await _get_row(db_session, tenant.id)
+        assert row is not None
+        assert row.username is None
+        assert row.password_ciphertext is None
+
+    @pytest.mark.anyio
     async def test_validation(self, client: AsyncClient, db_session: AsyncSession):
         tenant, admin = await _create_tenant_and_admin(db_session)
         headers = await _auth_header(admin)

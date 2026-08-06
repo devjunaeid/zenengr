@@ -66,7 +66,7 @@ async def upsert_smtp_config_endpoint(
     data = await smtp_service.upsert_smtp_config(
         session,
         tenant_id=tenant_id,
-        data=body.model_dump(),
+        data=body.model_dump(exclude_unset=True),
         actor_id=user.id,
     )
     return TenantSmtpConfigResponse(**data)

@@ -21,6 +21,8 @@
 	let fromName = $state(initial.from_name);
 	/** @type {'none'|'starttls'|'ssl'} */
 	let mode = $state(initial.mode);
+	let hasPassword = $state(initial.has_password);
+	let clearPassword = $state(false);
 
 	let saving = $state(false);
 	/** @type {string|null} */
@@ -44,17 +46,18 @@
 		}
 		saving = true;
 		try {
-			/** @type {Partial<Omit<import('$lib/api/smtp.js').SmtpConfig, 'has_password'>> & { password?: string }} */
+			/** @type {Partial<Omit<import('$lib/api/smtp.js').SmtpConfig, 'has_password'>> & { password?: string; clear_password?: boolean }} */
 			const payload = {
 				enabled,
 				host: host.trim(),
 				port,
-				username: username.trim(),
+				username: (username ?? '').trim() === '' ? null : (username ?? '').trim(),
 				from_email: fromEmail.trim(),
 				from_name: fromName.trim(),
 				mode
 			};
-			if (password !== '') payload.password = password;
+			if (password !== '' && !clearPassword) payload.password = password;
+			if (clearPassword) payload.clear_password = true;
 			const updated = await smtpApi.updateSmtpConfig(fetch, token, payload);
 			enabled = updated.enabled;
 			host = updated.host;
@@ -63,7 +66,9 @@
 			fromEmail = updated.from_email;
 			fromName = updated.from_name;
 			mode = updated.mode;
+			hasPassword = updated.has_password;
 			password = '';
+			clearPassword = false;
 			saveMsg = 'Saved.';
 			await invalidateAll();
 		} catch (e) {
@@ -170,11 +175,31 @@
 					id="smtp-password"
 					type="password"
 					bind:value={password}
+					disabled={clearPassword}
 					placeholder={initial.has_password ? '•••••• (unchanged)' : ''}
 					autocomplete="new-password"
-					class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+					class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
 				/>
-				<p class="mt-1 text-xs text-slate-500">Leave blank to keep the current password.</p>
+				{#if hasPassword}
+					<label class="mt-2 inline-flex cursor-pointer items-center gap-2 text-xs text-slate-600">
+						<input
+							type="checkbox"
+							bind:checked={clearPassword}
+							class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+						/>
+						Clear saved password
+					</label>
+					<p class="mt-1 text-xs text-slate-500">Leave blank to keep the current password.</p>
+					{#if (username ?? '').trim() === ''}
+						<p class="mt-1 text-xs text-amber-600">
+							Username is empty — saving will also clear the saved password.
+						</p>
+					{/if}
+				{:else}
+					<p class="mt-1 text-xs text-slate-500">
+						No password saved — fine for unauthenticated SMTP (e.g. Mailpit).
+					</p>
+				{/if}
 			</div>
 			<div>
 				<label for="smtp-from-email" class="block text-sm font-medium text-slate-700"

@@ -12,6 +12,7 @@ class TenantSmtpConfigUpdateRequest(BaseModel):
     port: int | None = Field(default=None, ge=1, le=65535)
     username: str | None = Field(default=None, max_length=255)
     password: str | None = Field(default=None, max_length=255)
+    clear_password: bool | None = None
     from_email: EmailStr | None = None
     from_name: str | None = Field(default=None, max_length=255)
     mode: SmtpSecurityMode | None = None

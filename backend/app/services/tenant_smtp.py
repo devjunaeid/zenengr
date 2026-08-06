@@ -123,9 +123,11 @@ async def upsert_smtp_config(
 ) -> dict[str, Any]:
     """Create-or-update the tenant's SMTP config.
 
-    Password handling: when a non-None password is provided it is encrypted
-    and stored; when omitted the existing ciphertext is kept (has_password
-    preserved). Returns the masked response shape.
+    Password handling: only a non-empty password string is encrypted and
+    stored; an omitted, blank ("") or None password keeps the existing
+    ciphertext (has_password preserved). Setting clear_password True (or
+    clearing username to None, the no-auth case) removes the stored
+    ciphertext. Returns the masked response shape.
     """
     config = await _get_row(session, tenant_id)
     if config is None:
@@ -137,8 +139,10 @@ async def upsert_smtp_config(
         config.host = data["host"]
     if data.get("port") is not None:
         config.port = data["port"]
-    if data.get("username") is not None:
-        config.username = data["username"]
+    if "username" in data:
+        # Normalize blank/None username to None (clearing the field).
+        username = data["username"]
+        config.username = username if username not in ("", None) else None
     if data.get("from_email") is not None:
         config.from_email = data["from_email"]
     if data.get("from_name") is not None:
@@ -147,8 +151,17 @@ async def upsert_smtp_config(
         config.mode = data["mode"]
     if data.get("enabled") is not None:
         config.enabled = data["enabled"]
-    if data.get("password") is not None:
-        config.password_ciphertext = smtp.encrypt_password(data["password"])
+    if "password" in data:
+        # Blank/None password means "no change"; only non-empty strings
+        # are treated as a new password to encrypt.
+        password = data["password"]
+        if password:
+            config.password_ciphertext = smtp.encrypt_password(password)
+    if data.get("clear_password") is True:
+        config.password_ciphertext = None
+    if config.username is None:
+        # No-auth intent (username cleared): drop any saved password too.
+        config.password_ciphertext = None
 
     _validate(config)
 
