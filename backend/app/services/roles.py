@@ -196,12 +196,18 @@ async def attach_default_role(session: AsyncSession, user: AdminUser) -> None:
 
     Custom-role users (role not resolvable as a system role) fall back to
     the EMPLOYEE system role. No-op once role_id is already set.
+
+    The lookups run inside a no_autoflush block: callers commonly add the
+    user to the session before this runs, and a Query-invoked autoflush
+    would try to INSERT the user with role_id still NULL (the column is
+    NOT NULL per the FEAT-016 migration), raising IntegrityError.
     """
     if user.role_id is not None:
         return
-    role = await get_system_role(session, user.role.value)
-    if role is None:
-        role = await get_system_role(session, AdminUserRole.EMPLOYEE.value)
+    with session.no_autoflush:
+        role = await get_system_role(session, user.role.value)
+        if role is None:
+            role = await get_system_role(session, AdminUserRole.EMPLOYEE.value)
     if role is not None:
         user.role_id = role.id
 

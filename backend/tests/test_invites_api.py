@@ -9,6 +9,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from httpx import AsyncClient
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import create_access_token, hash_password
@@ -16,7 +17,9 @@ from app.models.admin_user import AdminUser
 from app.models.enums import AdminUserRole, InviteRole, TenantStatus
 from app.models.invite import Invite
 from app.models.plan import Plan
+from app.models.role import Role, RolePermission
 from app.models.tenant import Tenant
+from app.services.roles import SYSTEM_ROLE_PERMISSIONS
 
 _TEST_PWD = "testpass123!"
 
@@ -92,6 +95,33 @@ def _extract_raw_token_from_log(caplog, email: str) -> str | None:
             if match:
                 return match.group(1)
     return None
+
+
+async def _seed_system_roles(session: AsyncSession) -> None:
+    """Insert system roles + permissions from SYSTEM_ROLE_PERMISSIONS.
+
+    The test DB is built from Base.metadata (no migrations), so roles are
+    not pre-seeded like they are in the dev/prod database.
+    """
+    for name, perms in SYSTEM_ROLE_PERMISSIONS.items():
+        role = Role(
+            tenant_id=None,
+            name=name,
+            description=f"System role: {name}",
+            is_system=True,
+        )
+        session.add(role)
+        await session.flush()
+        for action, resource in perms:
+            session.add(
+                RolePermission(
+                    role_id=role.id,
+                    action=action,
+                    resource=resource,
+                    granted=True,
+                )
+            )
+    await session.flush()
 
 
 # ── Tests ──────────────────────────────────────────────────────────────────
@@ -623,6 +653,75 @@ class TestRegisterFromInvite:
         # Invite marked accepted
         await db_session.refresh(invite)
         assert invite.accepted_at is not None
+
+    @pytest.mark.anyio
+    async def test_register_sets_role_id_and_permissions(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        """Register wires role_id + permissions (regression: NULL role_id flush crash).
+
+        FEAT-016 made admin_users.role_id NOT NULL; attach_default_role used
+        to trigger a Query-invoked autoflush that INSERTed the pending user
+        with role_id NULL -> IntegrityError 500 on /auth/register.
+        """
+        await _seed_system_roles(db_session)
+        plan = await _create_plan(db_session)
+        tenant = await _create_tenant(db_session, plan.id, TenantStatus.ACTIVE)
+        admin = await _create_user(
+            db_session, "inviter-roles@testco.com", AdminUserRole.ADMIN, tenant.id
+        )
+        raw_token = "registertoken-roles"
+        token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
+
+        invite = Invite(
+            tenant_id=tenant.id,
+            email="register-roles@testco.com",
+            role=InviteRole.MANAGER,
+            token=token_hash,
+            expires_at=datetime.now(UTC) + timedelta(days=3),
+            invited_by=admin.id,
+        )
+        db_session.add(invite)
+        await db_session.commit()
+
+        resp = await client.post(
+            "/api/v1/auth/register",
+            json={
+                "token": raw_token,
+                "full_name": "Roles User",
+                "password": "strongpassword123",
+            },
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "access_token" in data
+        assert data["user"]["role"] == "manager"
+        assert data["user"]["role_id"] is not None
+
+        # Created user has role_id persisted (NOT NULL column)
+        created = (
+            (
+                await db_session.execute(
+                    select(AdminUser).where(AdminUser.email == "register-roles@testco.com")
+                )
+            )
+            .scalars()
+            .one()
+        )
+        assert created.role_id is not None
+        assert created.role == AdminUserRole.MANAGER
+
+        # /auth/me returns role_id + permissions
+        me_resp = await client.get(
+            "/api/v1/auth/me",
+            headers={"Authorization": f"Bearer {data['access_token']}"},
+        )
+        assert me_resp.status_code == 200
+        me = me_resp.json()
+        assert me["role_id"] == str(created.role_id)
+        assert "manager" in me["role"]
+        assert isinstance(me["permissions"], list)
+        assert len(me["permissions"]) > 0
 
     @pytest.mark.anyio
     async def test_register_short_password_returns_422(
