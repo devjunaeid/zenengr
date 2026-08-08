@@ -15,7 +15,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.dependencies import require_super_admin
 from app.db.session import get_session
 from app.models.admin_user import AdminUser
-from app.models.audit_log import AuditLog
 from app.models.enums import ActorType, AdminUserRole, TenantStatus
 from app.schemas.admin import (
     PlanCreateRequest,
@@ -41,6 +40,7 @@ from app.schemas.tenant import (
     TenantSettingItem,
     TenantSettingUpdateRequest,
 )
+from app.services.audit import audit_names, list_audit_logs
 from app.services.plans import (
     create_plan,
     delete_plan,
@@ -647,8 +647,6 @@ async def api_list_tenant_audit_logs(
     _admin: AdminUser = Depends(require_super_admin),
 ) -> AuditLogPage:
     """Get paginated audit logs for a specific tenant. SA only."""
-    from sqlalchemy import func, select
-
     try:
         uid = uuid.UUID(tenant_id)
     except ValueError:
@@ -656,47 +654,34 @@ async def api_list_tenant_audit_logs(
             status_code=status.HTTP_404_NOT_FOUND, detail="Tenant not found"
         ) from None
 
-    query = select(AuditLog).where(AuditLog.tenant_id == uid)
-
-    if action:
-        query = query.where(AuditLog.action.startswith(action))
-    if from_date:
-        from datetime import datetime
-
-        try:
-            from_dt = datetime.fromisoformat(from_date)
-        except ValueError:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail="Invalid 'from' date format",
-            ) from None
-        query = query.where(AuditLog.created_at >= from_dt)
-    if to_date:
-        from datetime import datetime
-
-        try:
-            to_dt = datetime.fromisoformat(to_date)
-        except ValueError:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail="Invalid 'to' date format",
-            ) from None
-        query = query.where(AuditLog.created_at <= to_dt)
-
-    count_q = select(func.count()).select_from(query.subquery())
-    total_result = await session.execute(count_q)
-    total: int = total_result.scalar_one()
-
-    offset = (page - 1) * page_size
-    query = query.order_by(AuditLog.created_at.desc()).offset(offset).limit(page_size)
-    result = await session.execute(query)
-    entries = list(result.scalars().all())
-
-    return AuditLogPage(
-        items=[AuditLogEntry.model_validate(e) for e in entries],
-        total=total,
+    data = await list_audit_logs(
+        session,
+        tenant_id=uid,
         page=page,
         page_size=page_size,
+        action=action,
+        from_date=from_date,
+        to_date=to_date,
+    )
+    names = await audit_names(session, entries=data["items"])
+    items: list[AuditLogEntry] = []
+    for e in data["items"]:
+        item = AuditLogEntry.model_validate(e)
+        resolved = names[str(e.id)]
+        items.append(
+            item.model_copy(
+                update={
+                    "actor_name": resolved["actor_name"],
+                    "entity_label": resolved["entity_label"],
+                }
+            )
+        )
+
+    return AuditLogPage(
+        items=items,
+        total=data["total"],
+        page=data["page"],
+        page_size=data["page_size"],
     )
 
 
@@ -711,47 +696,32 @@ async def api_list_platform_audit_logs(
     _admin: AdminUser = Depends(require_super_admin),
 ) -> AuditLogPage:
     """Get paginated platform-scope audit logs (tenant_id is null). SA only."""
-    from sqlalchemy import func, select
-
-    query = select(AuditLog).where(AuditLog.tenant_id.is_(None))
-
-    if action:
-        query = query.where(AuditLog.action.startswith(action))
-    if from_date:
-        from datetime import datetime
-
-        try:
-            from_dt = datetime.fromisoformat(from_date)
-        except ValueError:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail="Invalid 'from' date format",
-            ) from None
-        query = query.where(AuditLog.created_at >= from_dt)
-    if to_date:
-        from datetime import datetime
-
-        try:
-            to_dt = datetime.fromisoformat(to_date)
-        except ValueError:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail="Invalid 'to' date format",
-            ) from None
-        query = query.where(AuditLog.created_at <= to_dt)
-
-    count_q = select(func.count()).select_from(query.subquery())
-    total_result = await session.execute(count_q)
-    total: int = total_result.scalar_one()
-
-    offset = (page - 1) * page_size
-    query = query.order_by(AuditLog.created_at.desc()).offset(offset).limit(page_size)
-    result = await session.execute(query)
-    entries = list(result.scalars().all())
-
-    return AuditLogPage(
-        items=[AuditLogEntry.model_validate(e) for e in entries],
-        total=total,
+    data = await list_audit_logs(
+        session,
+        tenant_id=None,
         page=page,
         page_size=page_size,
+        action=action,
+        from_date=from_date,
+        to_date=to_date,
+    )
+    names = await audit_names(session, entries=data["items"])
+    items: list[AuditLogEntry] = []
+    for e in data["items"]:
+        item = AuditLogEntry.model_validate(e)
+        resolved = names[str(e.id)]
+        items.append(
+            item.model_copy(
+                update={
+                    "actor_name": resolved["actor_name"],
+                    "entity_label": resolved["entity_label"],
+                }
+            )
+        )
+
+    return AuditLogPage(
+        items=items,
+        total=data["total"],
+        page=data["page"],
+        page_size=data["page_size"],
     )

@@ -4,12 +4,14 @@
 	import { resolve } from '$app/paths';
 	import * as adminApi from '$lib/api/admin.js';
 	import { ApiError } from '$lib/api/client.js';
+	import AuditLogList from '$lib/components/AuditLogList.svelte';
 	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
 	import Pagination from '$lib/components/Pagination.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
 	import StatusBadge from '$lib/components/StatusBadge.svelte';
 	import { auth } from '$lib/stores/auth.svelte.js';
-	import { formatDate, formatDateTime, humanize } from '$lib/utils/format.js';
+	import { AUDIT_ACTION_OPTIONS } from '$lib/utils/audit.js';
+	import { formatDate, humanize } from '$lib/utils/format.js';
 
 	let { data } = $props();
 
@@ -195,10 +197,17 @@
 	}
 
 	// ---- Audit pagination ----
+	let auditAction = $state(untrack(() => data.auditAction));
+
 	/** @param {number} page */
 	function gotoAuditPage(page) {
+		const url = `${resolve('/admin/tenants/[id]', { id: tenantId })}?action=${encodeURIComponent(auditAction)}&apage=${page}`;
 		// eslint-disable-next-line svelte/no-navigation-without-resolve -- query string appended to a resolved route
-		goto(`${resolve('/admin/tenants/[id]', { id: tenantId })}?apage=${page}`);
+		goto(url);
+	}
+
+	function applyAuditAction() {
+		gotoAuditPage(1);
 	}
 </script>
 
@@ -632,55 +641,46 @@
 	class="mt-6 rounded-lg border border-slate-200 bg-white shadow-sm"
 	aria-labelledby="audit-h"
 >
-	<h2
-		id="audit-h"
-		class="border-b border-slate-200 px-6 py-4 text-base font-semibold text-slate-900"
+	<div
+		class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-6 py-4"
 	>
-		Audit log
-	</h2>
+		<h2 id="audit-h" class="text-base font-semibold text-slate-900">Audit log</h2>
+		<form
+			class="flex items-end gap-3"
+			onsubmit={(e) => {
+				e.preventDefault();
+				applyAuditAction();
+			}}
+		>
+			<div>
+				<label for="f-audit-action" class="block text-xs font-medium text-slate-600">Action</label>
+				<select
+					id="f-audit-action"
+					bind:value={auditAction}
+					class="mt-1 block w-72 rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+				>
+					<option value="">All actions</option>
+					{#each AUDIT_ACTION_OPTIONS as group (group.group)}
+						<optgroup label={group.group}>
+							{#each group.items as item (item.value)}
+								<option value={item.value}>{item.label}</option>
+							{/each}
+						</optgroup>
+					{/each}
+				</select>
+			</div>
+			<button
+				type="submit"
+				class="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+			>
+				Apply
+			</button>
+		</form>
+	</div>
 	{#if data.audit.items.length === 0}
 		<p class="px-6 py-8 text-sm text-slate-500">No audit events recorded for this tenant yet.</p>
 	{:else}
-		<div class="overflow-x-auto">
-			<table class="min-w-full divide-y divide-slate-200">
-				<thead class="bg-slate-50">
-					<tr>
-						<th
-							scope="col"
-							class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
-							>When</th
-						>
-						<th
-							scope="col"
-							class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
-							>Action</th
-						>
-						<th
-							scope="col"
-							class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
-							>Actor</th
-						>
-						<th
-							scope="col"
-							class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
-							>Entity</th
-						>
-					</tr>
-				</thead>
-				<tbody class="divide-y divide-slate-200">
-					{#each data.audit.items as row (row.id)}
-						<tr>
-							<td class="px-4 py-3 text-sm whitespace-nowrap text-slate-600"
-								>{formatDateTime(row.created_at)}</td
-							>
-							<td class="px-4 py-3 font-mono text-sm text-slate-800">{row.action}</td>
-							<td class="px-4 py-3 text-sm text-slate-600">{row.actor_type}</td>
-							<td class="px-4 py-3 text-sm text-slate-600">{row.entity_type}</td>
-						</tr>
-					{/each}
-				</tbody>
-			</table>
-		</div>
+		<AuditLogList entries={data.audit.items} linkPrefix={null} />
 		<Pagination
 			page={data.audit.page}
 			pageSize={data.audit.page_size}

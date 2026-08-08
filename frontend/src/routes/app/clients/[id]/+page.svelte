@@ -3,6 +3,7 @@
 	import { goto, invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
+	import Icon from '@iconify/svelte';
 	import { ApiError } from '$lib/api/client.js';
 	import * as clientApi from '$lib/api/clients.js';
 	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
@@ -10,6 +11,12 @@
 	import Pagination from '$lib/components/Pagination.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
 	import StatusBadge from '$lib/components/StatusBadge.svelte';
+	import {
+		auditActionLabel,
+		auditGroup,
+		formatClientActivityDetails,
+		groupIcon
+	} from '$lib/utils/audit.js';
 	import { Dialog } from 'bits-ui';
 	import { auth } from '$lib/stores/auth.svelte.js';
 	import { formatAddress } from '$lib/utils/address.js';
@@ -537,17 +544,49 @@
 			{:else}
 				<ol class="mt-4 space-y-3">
 					{#each data.activity.items as a (a.id)}
+						{@const rows = formatClientActivityDetails(a.details)}
 						<li class="flex gap-3 text-sm">
-							<div class="w-32 shrink-0 text-xs text-slate-500">
-								{formatDateTime(a.created_at)}
-							</div>
-							<div class="flex-1">
-								<p class="font-mono text-slate-800">{a.action}</p>
-								<p class="text-xs text-slate-500">
-									{a.entity_type}{#if a.entity_id}
-										· {a.entity_id.slice(0, 8)}{/if}
-									· {a.actor_type}
-								</p>
+							<span
+								class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500"
+							>
+								<Icon icon={groupIcon(auditGroup(a.action))} class="h-4 w-4" />
+							</span>
+							<div class="min-w-0 flex-1">
+								<div class="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+									<span class="text-sm font-medium text-slate-900">
+										{auditActionLabel(a.action)}
+									</span>
+									<span class="text-xs text-slate-500">
+										{formatDateTime(a.created_at)}
+									</span>
+								</div>
+								<div
+									class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-500"
+								>
+									<span
+										class="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-slate-600"
+									>
+										{a.actor_name || (a.actor_type ? humanize(a.actor_type) : 'System')}
+									</span>
+									<span>{a.entity_label || (a.entity_type ? humanize(a.entity_type) : '—')}</span>
+								</div>
+								{#if rows.length > 0}
+									<details class="mt-1">
+										<summary
+											class="cursor-pointer text-xs font-medium text-indigo-600 select-none hover:text-indigo-500"
+										>
+											Details
+										</summary>
+										<dl class="mt-2 space-y-1 rounded-md bg-slate-50 px-3 py-2">
+											{#each rows as row (row.label)}
+												<div class="flex gap-2 text-xs">
+													<dt class="w-32 shrink-0 text-slate-500">{row.label}</dt>
+													<dd class="min-w-0 break-words text-slate-700">{row.value}</dd>
+												</div>
+											{/each}
+										</dl>
+									</details>
+								{/if}
 							</div>
 						</li>
 					{/each}

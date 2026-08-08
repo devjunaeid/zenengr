@@ -8,12 +8,17 @@ export async function load({ fetch, params, url }) {
 	const token = /** @type {string} */ (auth.token);
 	const id = params.id;
 	const auditPage = Math.max(1, Number(url.searchParams.get('apage') ?? '1') || 1);
+	const auditAction = url.searchParams.get('action') ?? '';
 
 	const [tenant, plans, flags, audit, settings] = await Promise.all([
 		adminApi.getTenant(fetch, token, id),
 		adminApi.listPlans(fetch, token),
 		adminApi.getFlags(fetch, token, id),
-		adminApi.getAuditLogs(fetch, token, id, { page: auditPage, page_size: 20 }),
+		adminApi.getAuditLogs(fetch, token, id, {
+			page: auditPage,
+			page_size: 20,
+			action: auditAction
+		}),
 		adminApi.getTenantSettings(fetch, token, id)
 	]);
 
@@ -25,5 +30,5 @@ export async function load({ fetch, params, url }) {
 		if (!(e instanceof ApiError && e.status === 404)) throw e;
 	}
 
-	return { tenant, plans, flags, subscription, audit, settings };
+	return { tenant, plans, flags, subscription, audit, settings, auditAction };
 }

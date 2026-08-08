@@ -55,6 +55,8 @@ import { apiFetch } from './client.js';
  * @property {string|null} actor_id
  * @property {string} actor_type
  * @property {string} created_at
+ * @property {string|null} [actor_name] display name of the actor (enriched)
+ * @property {string|null} [entity_label] display label of the entity (enriched)
  */
 
 /**

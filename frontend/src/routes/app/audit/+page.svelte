@@ -2,8 +2,9 @@
 	import { untrack } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import AuditLogList from '$lib/components/AuditLogList.svelte';
 	import Pagination from '$lib/components/Pagination.svelte';
-	import { formatDateTime } from '$lib/utils/format.js';
+	import { AUDIT_ACTION_OPTIONS } from '$lib/utils/audit.js';
 
 	let { data } = $props();
 
@@ -37,14 +38,21 @@
 	}}
 >
 	<div>
-		<label for="f-action" class="block text-xs font-medium text-slate-600">Action contains</label>
-		<input
+		<label for="f-action" class="block text-xs font-medium text-slate-600">Action</label>
+		<select
 			id="f-action"
-			type="search"
 			bind:value={action}
-			placeholder="invite.created"
-			class="mt-1 block w-56 rounded-md border-slate-300 font-mono text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-		/>
+			class="mt-1 block w-72 rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+		>
+			<option value="">All actions</option>
+			{#each AUDIT_ACTION_OPTIONS as group (group.group)}
+				<optgroup label={group.group}>
+					{#each group.items as item (item.value)}
+						<option value={item.value}>{item.label}</option>
+					{/each}
+				</optgroup>
+			{/each}
+		</select>
 	</div>
 	<div>
 		<label for="f-from" class="block text-xs font-medium text-slate-600">From</label>
@@ -78,46 +86,7 @@
 			No results match your search. Try different filters.
 		</p>
 	{:else}
-		<div class="overflow-x-auto">
-			<table class="min-w-full divide-y divide-slate-200">
-				<thead class="bg-slate-50">
-					<tr>
-						<th
-							scope="col"
-							class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
-							>When</th
-						>
-						<th
-							scope="col"
-							class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
-							>Action</th
-						>
-						<th
-							scope="col"
-							class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
-							>Actor</th
-						>
-						<th
-							scope="col"
-							class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
-							>Entity</th
-						>
-					</tr>
-				</thead>
-				<tbody class="divide-y divide-slate-200">
-					{#each data.audit.items as row (row.id)}
-						<tr>
-							<td class="px-4 py-3 text-sm whitespace-nowrap text-slate-600"
-								>{formatDateTime(row.created_at)}</td
-							>
-							<td class="px-4 py-3 font-mono text-sm text-slate-800">{row.action}</td>
-							<td class="px-4 py-3 text-sm text-slate-600">{row.actor_type}</td>
-							<td class="px-4 py-3 text-sm text-slate-600">{row.entity_type}</td>
-						</tr>
-					{/each}
-				</tbody>
-			</table>
-		</div>
+		<AuditLogList entries={data.audit.items} />
 		<Pagination
 			page={data.audit.page}
 			pageSize={data.audit.page_size}

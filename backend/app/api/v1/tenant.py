@@ -17,7 +17,6 @@ from sqlalchemy.orm import selectinload
 from app.core.dependencies import get_current_admin_user, require_permission
 from app.db.session import get_session
 from app.models.admin_user import AdminUser
-from app.models.audit_log import AuditLog
 from app.models.enums import ActorType
 from app.models.plan import Plan
 from app.models.tenant import Tenant
@@ -33,6 +32,7 @@ from app.schemas.tenant import (
     TenantSettingUpdateRequest,
     UsageCounts,
 )
+from app.services.audit import audit_names, list_audit_logs
 from app.services.audit import log as audit_log
 from app.services.feature_flags import get_resolved_flags
 from app.services.settings import (
@@ -413,47 +413,32 @@ async def list_tenant_audit_logs(
     """Get paginated audit logs for current tenant. Admin only."""
     tenant_id = _get_tenant_or_raise(user)
 
-    query = select(AuditLog).where(AuditLog.tenant_id == tenant_id)
-
-    if action:
-        query = query.where(AuditLog.action.startswith(action))
-    if from_date:
-        from datetime import datetime
-
-        try:
-            from_dt = datetime.fromisoformat(from_date)
-        except ValueError:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail="Invalid 'from' date format. Use ISO 8601.",
-            ) from None
-        query = query.where(AuditLog.created_at >= from_dt)
-    if to_date:
-        from datetime import datetime
-
-        try:
-            to_dt = datetime.fromisoformat(to_date)
-        except ValueError:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail="Invalid 'to' date format. Use ISO 8601.",
-            ) from None
-        query = query.where(AuditLog.created_at <= to_dt)
-
-    # Count
-    count_q = select(func.count()).select_from(query.subquery())
-    total_result = await session.execute(count_q)
-    total: int = total_result.scalar_one()
-
-    # Fetch page
-    offset = (page - 1) * page_size
-    query = query.order_by(AuditLog.created_at.desc()).offset(offset).limit(page_size)
-    result = await session.execute(query)
-    entries = list(result.scalars().all())
-
-    return AuditLogPage(
-        items=[AuditLogEntry.model_validate(e) for e in entries],
-        total=total,
+    data = await list_audit_logs(
+        session,
+        tenant_id=tenant_id,
         page=page,
         page_size=page_size,
+        action=action,
+        from_date=from_date,
+        to_date=to_date,
+    )
+    names = await audit_names(session, entries=data["items"])
+    items: list[AuditLogEntry] = []
+    for e in data["items"]:
+        item = AuditLogEntry.model_validate(e)
+        resolved = names[str(e.id)]
+        items.append(
+            item.model_copy(
+                update={
+                    "actor_name": resolved["actor_name"],
+                    "entity_label": resolved["entity_label"],
+                }
+            )
+        )
+
+    return AuditLogPage(
+        items=items,
+        total=data["total"],
+        page=data["page"],
+        page_size=data["page_size"],
     )

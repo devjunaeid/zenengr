@@ -112,6 +112,8 @@ class AuditLogEntry(BaseModel):
     entity_id: str | None = None
     details: dict[str, Any] = {}
     created_at: datetime
+    actor_name: str | None = None
+    entity_label: str | None = None
 
     model_config = {"from_attributes": True}
 
