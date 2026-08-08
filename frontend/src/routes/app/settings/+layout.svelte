@@ -42,7 +42,10 @@
 </script>
 
 <div class="mx-auto w-full max-w-5xl">
-	<nav class="mb-6 flex flex-wrap gap-1" aria-label="Settings sections">
+	<nav
+		class="mb-6 flex flex-wrap gap-1 rounded-xl border border-slate-200 bg-white p-1.5 shadow-sm"
+		aria-label="Settings sections"
+	>
 		{#each visibleTabs as tab (tab.href)}
 			{@const active = isActive(tab)}
 			<a
