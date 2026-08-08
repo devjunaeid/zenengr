@@ -44,7 +44,7 @@
 		actionErr = null;
 		try {
 			await serviceApi.deleteService(fetch, token, data.service.id);
-			goto(resolve('/app/services'));
+			goto(resolve('/app/settings/services'));
 		} catch (e) {
 			actionErr = e instanceof ApiError ? e.message : 'Delete failed.';
 			deleteOpen = false;
@@ -58,7 +58,7 @@
 <nav aria-label="Breadcrumb" class="text-sm text-slate-500">
 	<ol class="flex items-center gap-1">
 		<li>
-			<a href={resolve('/app/services')} class="hover:text-indigo-600">Services</a>
+			<a href={resolve('/app/settings/services')} class="hover:text-indigo-600">Services</a>
 		</li>
 		<li aria-hidden="true">/</li>
 		<li class="font-medium text-slate-700">{data.service.name}</li>
@@ -73,7 +73,7 @@
 	{#if canManage}
 		<div class="flex items-center gap-2">
 			<a
-				href={resolve('/app/services/[id]/edit', { id: data.service.id })}
+				href={resolve('/app/settings/services/[id]/edit', { id: data.service.id })}
 				class="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
 			>
 				Edit

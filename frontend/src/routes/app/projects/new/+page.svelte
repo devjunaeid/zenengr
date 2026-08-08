@@ -250,7 +250,7 @@
 		{#if data.services.length === 0}
 			<p class="mt-4 text-sm text-slate-500">
 				No active services. <a
-					href={resolve('/app/services/new')}
+					href={resolve('/app/settings/services/new')}
 					class="text-indigo-600 hover:text-indigo-500">Create one</a
 				> first.
 			</p>

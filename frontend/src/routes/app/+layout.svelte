@@ -13,7 +13,6 @@
 		{ href: '/app', label: 'Dashboard', exact: true, adminOnly: false },
 		{ href: '/app/team', label: 'Team', exact: false, adminOnly: false },
 		{ href: '/app/clients', label: 'Clients', exact: false, adminOnly: false },
-		{ href: '/app/services', label: 'Services', exact: false, adminOnly: false },
 		{ href: '/app/projects', label: 'Projects', exact: false, adminOnly: false },
 		{ href: '/app/invoices', label: 'Invoices', exact: false, adminOnly: false },
 		{ href: '/app/files', label: 'Files', exact: false, adminOnly: false },

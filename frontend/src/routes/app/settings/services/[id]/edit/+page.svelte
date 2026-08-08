@@ -1,4 +1,5 @@
 <script>
+	import { untrack } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { ApiError } from '$lib/api/client.js';
@@ -7,16 +8,30 @@
 	import Spinner from '$lib/components/Spinner.svelte';
 	import { auth } from '$lib/stores/auth.svelte.js';
 
-	const token = /** @type {string} */ (auth.token);
+	let { data } = $props();
 
-	let name = $state('');
-	let description = $state('');
-	let defaultPrice = $state('');
-	let isActive = $state(true);
+	const token = /** @type {string} */ (auth.token);
+	const initial = untrack(() => data.service);
+
+	let name = $state(initial.name);
+	let description = $state(initial.description ?? '');
+	let defaultPrice = $state(
+		initial.default_price !== null && initial.default_price !== undefined
+			? String(initial.default_price)
+			: ''
+	);
+	let isActive = $state(initial.is_active);
 	/**
 	 * @type {Array<{ name: string, expected_duration_days: number|null, description: string|null, _key: string }>}
 	 */
-	let steps = $state([]);
+	let steps = $state(
+		initial.steps.map((s) => ({
+			name: s.name,
+			expected_duration_days: s.expected_duration_days,
+			description: s.description ?? '',
+			_key: `s_${s.id}`
+		}))
+	);
 	let busy = $state(false);
 	/** @type {string|null} */
 	let err = $state(null);
@@ -57,36 +72,41 @@
 			/** @type {Record<string, any>} */
 			const body = {
 				name: name.trim(),
-				is_active: isActive
+				description: description.trim() ? description.trim() : null,
+				default_price: parsePrice(defaultPrice),
+				is_active: isActive,
+				steps: serializeSteps()
 			};
-			if (description.trim()) body.description = description.trim();
-			const price = parsePrice(defaultPrice);
-			if (price !== null) body.default_price = price;
-			if (steps.length) body.steps = serializeSteps();
-
-			const created = await serviceApi.createService(fetch, token, /** @type {any} */ (body));
-			goto(resolve('/app/services/[id]', { id: created.id }));
+			await serviceApi.updateService(fetch, token, initial.id, body);
+			goto(resolve('/app/settings/services/[id]', { id: initial.id }));
 		} catch (e) {
-			err = e instanceof ApiError ? e.message : 'Create failed.';
+			err = e instanceof ApiError ? e.message : 'Save failed.';
 		} finally {
 			busy = false;
 		}
 	}
 </script>
 
-<svelte:head><title>New service — ZenEngr</title></svelte:head>
+<svelte:head><title>Edit {initial.name} — ZenEngr</title></svelte:head>
 
 <nav aria-label="Breadcrumb" class="text-sm text-slate-500">
 	<ol class="flex items-center gap-1">
 		<li>
-			<a href={resolve('/app/services')} class="hover:text-indigo-600">Services</a>
+			<a href={resolve('/app/settings/services')} class="hover:text-indigo-600">Services</a>
 		</li>
 		<li aria-hidden="true">/</li>
-		<li class="font-medium text-slate-700">New</li>
+		<li>
+			<a
+				href={resolve('/app/settings/services/[id]', { id: initial.id })}
+				class="hover:text-indigo-600">{initial.name}</a
+			>
+		</li>
+		<li aria-hidden="true">/</li>
+		<li class="font-medium text-slate-700">Edit</li>
 	</ol>
 </nav>
 
-<h1 class="mt-2 text-2xl font-semibold text-slate-900">New service</h1>
+<h1 class="mt-2 text-2xl font-semibold text-slate-900">Edit service</h1>
 
 {#if err}
 	<p
@@ -95,6 +115,17 @@
 	>
 		{err}
 	</p>
+{/if}
+
+{#if initial.in_use}
+	<div
+		role="alert"
+		class="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800"
+	>
+		This service is used in {initial.project_count ?? 0}
+		{initial.project_count === 1 ? 'project' : 'projects'}. Template edits do not change existing
+		project milestones.
+	</div>
 {/if}
 
 <form
@@ -167,7 +198,7 @@
 			</span>
 		</div>
 		<p class="mt-1 text-sm text-slate-500">
-			Optional. Order here is the order projects will follow.
+			Reorder with the arrow buttons. Sequence is saved as 1..N.
 		</p>
 		<div class="mt-4">
 			<MilestoneStepEditor bind:steps />
@@ -182,10 +213,10 @@
 			class="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
 		>
 			{#if busy}<Spinner class="h-4 w-4 text-white" />{/if}
-			Create service
+			Save changes
 		</button>
 		<a
-			href={resolve('/app/services')}
+			href={resolve('/app/settings/services/[id]', { id: initial.id })}
 			class="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
 		>
 			Cancel

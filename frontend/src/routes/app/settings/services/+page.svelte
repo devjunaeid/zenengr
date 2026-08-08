@@ -28,7 +28,7 @@
 		if (isActive) params.set('is_active', isActive);
 		if (p > 1) params.set('page', String(p));
 		const qs = params.toString();
-		return qs ? `${resolve('/app/services')}?${qs}` : resolve('/app/services');
+		return qs ? `${resolve('/app/settings/services')}?${qs}` : resolve('/app/settings/services');
 	}
 
 	function applyFilters() {
@@ -55,7 +55,7 @@
 	</div>
 	{#if canManage}
 		<a
-			href={resolve('/app/services/new')}
+			href={resolve('/app/settings/services/new')}
 			class="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
 		>
 			New service
@@ -113,7 +113,7 @@
 			>
 				{#if canManage}
 					<a
-						href={resolve('/app/services/new')}
+						href={resolve('/app/settings/services/new')}
 						class="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
 					>
 						New service
@@ -163,7 +163,7 @@
 						<tr class="hover:bg-slate-50">
 							<td class="px-4 py-3 text-sm font-medium text-slate-900">
 								<a
-									href={resolve('/app/services/[id]', { id: s.id })}
+									href={resolve('/app/settings/services/[id]', { id: s.id })}
 									class="text-indigo-600 hover:text-indigo-500"
 								>
 									{s.name}
