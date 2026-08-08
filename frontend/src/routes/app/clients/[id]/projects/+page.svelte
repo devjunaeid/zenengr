@@ -1,5 +1,7 @@
 <script>
 	import Icon from '@iconify/svelte';
+	import eye from '@iconify-icons/mdi/eye';
+	import pencil from '@iconify-icons/mdi/pencil';
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -162,7 +164,7 @@
 										title="View project"
 										class="inline-flex rounded-md p-1.5 text-slate-600 hover:bg-slate-100 hover:text-indigo-600 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
 									>
-										<Icon icon="mdi:eye" class="h-4 w-4" />
+										<Icon icon={eye} class="h-4 w-4" />
 									</a>
 									{#if canManage}
 										<a
@@ -171,7 +173,7 @@
 											title="Edit project"
 											class="inline-flex rounded-md p-1.5 text-slate-600 hover:bg-slate-100 hover:text-indigo-600 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
 										>
-											<Icon icon="mdi:pencil" class="h-4 w-4" />
+											<Icon icon={pencil} class="h-4 w-4" />
 										</a>
 									{/if}
 								</div>

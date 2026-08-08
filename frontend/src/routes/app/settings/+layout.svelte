@@ -1,24 +1,29 @@
 <script>
 	import Icon from '@iconify/svelte';
+	import accountCog from '@iconify-icons/mdi/account-cog';
+	import cog from '@iconify-icons/mdi/cog';
+	import apps from '@iconify-icons/mdi/apps';
+	import emailEdit from '@iconify-icons/mdi/email-edit';
+	import chartBox from '@iconify-icons/mdi/chart-box';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { auth } from '$lib/stores/auth.svelte.js';
 
-	/** @type {Array<{ href: string, label: string, icon: string, exact: boolean, perm?: [string, string] }>} */
+	/** @type {Array<{ href: string, label: string, icon: any, exact: boolean, perm?: [string, string] }>} */
 	const tabs = [
-		{ href: '/app/settings', label: 'Business profile', icon: 'mdi:account-cog', exact: true },
+		{ href: '/app/settings', label: 'Business profile', icon: accountCog, exact: true },
 		{
 			href: '/app/settings/configuration',
 			label: 'Configuration',
-			icon: 'mdi:cog',
+			icon: cog,
 			exact: false
 		},
-		{ href: '/app/settings/email', label: 'Email (SMTP)', icon: 'mdi:email-cog', exact: false },
-		{ href: '/app/settings/plan', label: 'Plan & usage', icon: 'mdi:chart-box', exact: false },
+		{ href: '/app/settings/email', label: 'Email (SMTP)', icon: emailEdit, exact: false },
+		{ href: '/app/settings/plan', label: 'Plan & usage', icon: chartBox, exact: false },
 		{
 			href: '/app/settings/services',
 			label: 'Services',
-			icon: 'mdi:apps',
+			icon: apps,
 			exact: false,
 			perm: ['view', 'services']
 		}
@@ -29,7 +34,7 @@
 	let { children } = $props();
 
 	/**
-	 * @param {{ href: string, icon: string, exact: boolean }} tab
+	 * @param {{ href: string, exact: boolean }} tab
 	 */
 	function isActive(tab) {
 		return tab.exact ? page.url.pathname === tab.href : page.url.pathname.startsWith(tab.href);

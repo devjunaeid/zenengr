@@ -1,5 +1,8 @@
 <script>
 	import Icon from '@iconify/svelte';
+	import viewDashboard from '@iconify-icons/mdi/view-dashboard';
+	import folderMultiple from '@iconify-icons/mdi/folder-multiple';
+	import receiptText from '@iconify-icons/mdi/receipt-text';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 
@@ -11,25 +14,25 @@
 		{
 			href: `/app/clients/${data.client.id}`,
 			label: 'Overview',
-			icon: 'mdi:view-dashboard',
+			icon: viewDashboard,
 			exact: true
 		},
 		{
 			href: `/app/clients/${data.client.id}/projects`,
 			label: 'Projects',
-			icon: 'mdi:folder-multiple',
+			icon: folderMultiple,
 			exact: false
 		},
 		{
 			href: `/app/clients/${data.client.id}/invoices`,
 			label: 'Invoices',
-			icon: 'mdi:receipt-text',
+			icon: receiptText,
 			exact: false
 		}
 	]);
 
 	/**
-	 * @param {{ href: string, icon: string, exact: boolean }} tab
+	 * @param {{ href: string, exact: boolean }} tab
 	 */
 	function isActive(tab) {
 		return tab.exact ? page.url.pathname === tab.href : page.url.pathname.startsWith(tab.href);
