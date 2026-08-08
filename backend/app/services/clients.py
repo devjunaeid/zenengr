@@ -8,6 +8,7 @@ from typing import Any
 from fastapi import HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.models.audit_log import AuditLog
 from app.models.client import Client
@@ -363,7 +364,9 @@ async def list_notes(
     if client is None:
         raise ClientNotFoundError()
 
-    query = select(ClientNote).where(ClientNote.client_id == client_id)
+    query = select(ClientNote).options(selectinload(ClientNote.author)).where(
+        ClientNote.client_id == client_id
+    )
 
     # Count
     count_q = select(func.count()).select_from(query.subquery())

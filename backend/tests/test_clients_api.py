@@ -695,6 +695,7 @@ class TestClientNotes:
         data = resp.json()
         assert data["body"] == "Important note about this client"
         assert data["author_id"] == str(admin.id)
+        assert data["author_name"] == admin.full_name
 
     @pytest.mark.asyncio
     async def test_list_notes(self, client: AsyncClient, db_session: AsyncSession):
@@ -725,6 +726,48 @@ class TestClientNotes:
         # Both notes present (order non-deterministic within same DB transaction)
         note_bodies = [item["body"] for item in data["items"]]
         assert set(note_bodies) == {"First note", "Second note"}
+        # Author name included for each note
+        for item in data["items"]:
+            assert item["author_id"] == str(admin.id)
+            assert item["author_name"] == admin.full_name
+
+    @pytest.mark.asyncio
+    async def test_list_notes_different_authors_show_correct_names(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        plan = await _create_plan(db_session)
+        tenant = await _create_tenant(db_session, plan.id)
+        admin1 = await _create_admin(
+            db_session, f"admin1-{uuid.uuid4().hex[:8]}@testco.com", AdminUserRole.ADMIN, tenant.id
+        )
+        admin2 = await _create_admin(
+            db_session,
+            f"admin2-{uuid.uuid4().hex[:8]}@testco.com",
+            AdminUserRole.MANAGER,
+            tenant.id,
+        )
+        cli = await _create_client(db_session, tenant.id)
+        headers1 = await _admin_auth_header(admin1)
+        headers2 = await _admin_auth_header(admin2)
+
+        await client.post(
+            f"/api/v1/tenant/clients/{cli.id}/notes",
+            json={"body": "Note by admin1"},
+            headers=headers1,
+        )
+        await client.post(
+            f"/api/v1/tenant/clients/{cli.id}/notes",
+            json={"body": "Note by admin2"},
+            headers=headers2,
+        )
+
+        resp = await client.get(f"/api/v1/tenant/clients/{cli.id}/notes", headers=headers1)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] == 2
+        by_author = {item["author_id"]: item["author_name"] for item in data["items"]}
+        assert by_author[str(admin1.id)] == admin1.full_name
+        assert by_author[str(admin2.id)] == admin2.full_name
 
     @pytest.mark.asyncio
     async def test_notes_no_patch_delete_routes(

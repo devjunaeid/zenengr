@@ -102,6 +102,7 @@ class ClientNoteResponse(BaseModel):
     id: uuid.UUID
     body: str
     author_id: uuid.UUID
+    author_name: str | None = None
     created_at: datetime
 
 

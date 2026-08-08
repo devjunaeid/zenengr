@@ -414,6 +414,7 @@ async def add_note_endpoint(
         id=note.id,
         body=note.body,
         author_id=note.author_id,
+        author_name=note.author.full_name if note.author else None,
         created_at=note.created_at,
     )
 
@@ -453,6 +454,7 @@ async def list_notes_endpoint(
             id=n.id,
             body=n.body,
             author_id=n.author_id,
+            author_name=n.author.full_name if n.author else None,
             created_at=n.created_at,
         )
         for n in result["items"]

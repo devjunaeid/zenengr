@@ -518,8 +518,8 @@
 							<p class="text-sm whitespace-pre-wrap text-slate-800">{n.body}</p>
 							<p class="mt-1 text-xs text-slate-500">
 								{formatDateTime(n.created_at)}
-								{#if n.author_id}
-									· <span class="font-mono">{n.author_id.slice(0, 8)}</span>
+								{#if n.author_id || n.author_name}
+									· {n.author_name ?? 'Unknown'}
 								{/if}
 							</p>
 						</li>

@@ -161,7 +161,7 @@ export function unarchiveClient(fetchFn, token, id) {
  * @param {string} token
  * @param {string} id
  * @param {{ page?: number, page_size?: number }} [params]
- * @returns {Promise<{ items: Array<{ id: string, body: string, author_id: string|null, created_at: string }>, total: number, page: number, page_size: number }>}
+ * @returns {Promise<{ items: Array<{ id: string, body: string, author_id: string|null, author_name: string|null, created_at: string }>, total: number, page: number, page_size: number }>}
  */
 export function listNotes(fetchFn, token, id, params = {}) {
 	return apiFetch(fetchFn, `/tenant/clients/${encodeURIComponent(id)}/notes`, { token, params });
