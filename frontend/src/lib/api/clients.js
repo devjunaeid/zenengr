@@ -37,6 +37,15 @@ import { apiFetch } from './client.js';
  */
 
 /**
+ * @typedef {object} ClientInvite
+ * @property {string} id
+ * @property {string} email
+ * @property {string} expires_at ISO datetime
+ * @property {string|null} accepted_at ISO datetime or null while pending
+ * @property {'pending'|'accepted'|'expired'|'revoked'} status
+ */
+
+/**
  * @typedef {object} ClientActivityEntry
  * @property {string} id
  * @property {string} action
@@ -195,4 +204,45 @@ export function listActivity(fetchFn, token, id, params = {}) {
  */
 export function getClientLedger(fetchFn, token, clientId) {
 	return apiFetch(fetchFn, `/tenant/clients/${encodeURIComponent(clientId)}/ledger`, { token });
+}
+
+/**
+ * List client-user invites for a client.
+ * @param {typeof fetch} fetchFn
+ * @param {string} token
+ * @param {string} clientId
+ * @returns {Promise<ClientInvite[]>}
+ */
+export function listClientInvites(fetchFn, token, clientId) {
+	return apiFetch(fetchFn, `/tenant/clients/${encodeURIComponent(clientId)}/invites`, { token });
+}
+
+/**
+ * Create (or resend, regenerating the token) a client-user invite.
+ * 409 when an active client user already uses the email; 422 when invalid.
+ * @param {typeof fetch} fetchFn
+ * @param {string} token
+ * @param {string} clientId
+ * @param {{ email: string }} body
+ * @returns {Promise<ClientInvite>}
+ */
+export function createClientInvite(fetchFn, token, clientId, body) {
+	return apiFetch(fetchFn, `/tenant/clients/${encodeURIComponent(clientId)}/invites`, {
+		method: 'POST',
+		token,
+		body
+	});
+}
+
+/**
+ * Revoke a pending client-user invite. 409 when the invite was already accepted.
+ * @param {typeof fetch} fetchFn
+ * @param {string} token
+ * @param {string} inviteId
+ */
+export function revokeClientInvite(fetchFn, token, inviteId) {
+	return apiFetch(fetchFn, `/tenant/client-invites/${encodeURIComponent(inviteId)}`, {
+		method: 'DELETE',
+		token
+	});
 }

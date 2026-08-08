@@ -180,7 +180,26 @@
 
 	// ── Notification preferences ────────────────────────────────────────────
 
-	const EVENT_TYPES = ['new_comment', 'invoice_issued', 'payment_received', 'milestone_completed'];
+	const EVENT_TYPES = [
+		'new_comment',
+		'invoice_issued',
+		'payment_received',
+		'refund_recorded',
+		'advance_applied',
+		'milestone_completed',
+		'project_created'
+	];
+
+	/** @type {Record<string, string>} */
+	const EVENT_LABELS = {
+		new_comment: 'New comment',
+		invoice_issued: 'Invoice issued',
+		payment_received: 'Payment received',
+		refund_recorded: 'Refund recorded',
+		advance_applied: 'Advance applied',
+		milestone_completed: 'Milestone completed',
+		project_created: 'Project created'
+	};
 
 	/**
 	 * @param {Array<{ event_type: string, enabled: boolean }>} loaded
@@ -192,47 +211,53 @@
 		});
 	}
 
-	let prefs = $state(buildPrefs([]));
+	let emailPrefs = $state(buildPrefs([]));
+	let inappPrefs = $state(buildPrefs([]));
 	/** @type {string|null} */
 	let savingPref = $state(null);
 	/** @type {string|null} */
 	let prefsError = $state(null);
 	let prefsSaved = $state(false);
 
-	accountApi
-		.getNotificationPreferences(fetch, token, { realm: 'client' })
-		.then((loaded) => {
-			prefs = buildPrefs(loaded);
+	Promise.all([
+		accountApi.getNotificationPreferences(fetch, token, { realm: 'client' }),
+		accountApi.getNotificationPreferences(fetch, token, { realm: 'client', channel: 'inapp' })
+	])
+		.then(([email, inapp]) => {
+			emailPrefs = buildPrefs(email);
+			inappPrefs = buildPrefs(inapp);
 		})
 		.catch((e) => {
 			prefsError = e instanceof ApiError ? e.message : 'Unable to load preferences.';
 		});
 
 	/**
+	 * @param {'email'|'inapp'} channel
 	 * @param {string} eventType
 	 * @param {boolean} enabled
 	 */
-	async function togglePref(eventType, enabled) {
+	async function togglePref(channel, eventType, enabled) {
 		if (savingPref) return;
-		savingPref = eventType;
+		savingPref = `${channel}:${eventType}`;
 		prefsError = null;
 		prefsSaved = false;
+		const arr = channel === 'inapp' ? inappPrefs : emailPrefs;
 		try {
 			const updated = await accountApi.updateNotificationPreferences(
 				fetch,
 				token,
-				{ preferences: [{ event_type: eventType, enabled }] },
+				{ channel, preferences: [{ event_type: eventType, enabled }] },
 				{ realm: 'client' }
 			);
 			for (const p of updated) {
-				const idx = prefs.findIndex((x) => x.event_type === p.event_type);
-				if (idx >= 0) prefs[idx].enabled = p.enabled;
+				const idx = arr.findIndex((x) => x.event_type === p.event_type);
+				if (idx >= 0) arr[idx].enabled = p.enabled;
 			}
 			prefsSaved = true;
 			setTimeout(() => (prefsSaved = false), 2000);
 		} catch (e) {
-			const idx = prefs.findIndex((x) => x.event_type === eventType);
-			if (idx >= 0) prefs[idx].enabled = !enabled;
+			const idx = arr.findIndex((x) => x.event_type === eventType);
+			if (idx >= 0) arr[idx].enabled = !enabled;
 			prefsError = e instanceof ApiError ? e.message : 'Unable to save preference. Try again.';
 		} finally {
 			savingPref = null;
@@ -575,7 +600,7 @@
 		<!-- Notification preferences -->
 		<h3 class="mt-8 text-sm font-semibold text-slate-900">Notification preferences</h3>
 		<p class="mt-1 text-sm text-slate-500">
-			Choose which email notifications you receive. Saves immediately.
+			Choose which email and in-app notifications you receive. Saves immediately.
 		</p>
 
 		{#if prefsError}
@@ -595,11 +620,14 @@
 			</div>
 		{/if}
 
-		<ul class="mt-4 max-w-md divide-y divide-slate-200">
-			{#each prefs as pref (pref.event_type)}
+		<h4 class="mt-5 text-sm font-semibold text-slate-900">Email notifications</h4>
+		<ul class="mt-2 max-w-md divide-y divide-slate-200">
+			{#each emailPrefs as pref (pref.event_type)}
 				<li class="flex items-center justify-between py-3">
 					<div>
-						<p class="text-sm font-medium text-slate-800">{humanize(pref.event_type)}</p>
+						<p class="text-sm font-medium text-slate-800">
+							{EVENT_LABELS[pref.event_type] ?? humanize(pref.event_type)}
+						</p>
 						<p class="text-xs text-slate-500">{pref.event_type}</p>
 					</div>
 					<label class="inline-flex items-center gap-2 text-sm text-slate-700">
@@ -607,7 +635,31 @@
 							type="checkbox"
 							checked={pref.enabled}
 							disabled={savingPref !== null}
-							onchange={(e) => togglePref(pref.event_type, e.currentTarget.checked)}
+							onchange={(e) => togglePref('email', pref.event_type, e.currentTarget.checked)}
+							class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+						/>
+						{pref.enabled ? 'On' : 'Off'}
+					</label>
+				</li>
+			{/each}
+		</ul>
+
+		<h4 class="mt-5 text-sm font-semibold text-slate-900">In-app notifications</h4>
+		<ul class="mt-2 max-w-md divide-y divide-slate-200">
+			{#each inappPrefs as pref (pref.event_type)}
+				<li class="flex items-center justify-between py-3">
+					<div>
+						<p class="text-sm font-medium text-slate-800">
+							{EVENT_LABELS[pref.event_type] ?? humanize(pref.event_type)}
+						</p>
+						<p class="text-xs text-slate-500">{pref.event_type}</p>
+					</div>
+					<label class="inline-flex items-center gap-2 text-sm text-slate-700">
+						<input
+							type="checkbox"
+							checked={pref.enabled}
+							disabled={savingPref !== null}
+							onchange={(e) => togglePref('inapp', pref.event_type, e.currentTarget.checked)}
 							class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
 						/>
 						{pref.enabled ? 'On' : 'Off'}

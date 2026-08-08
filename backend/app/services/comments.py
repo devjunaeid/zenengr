@@ -176,6 +176,9 @@ async def post_comment(
         )
 
     await session.commit()
+    await notifications.safe_notify(
+        notifications.notify_comment_created(session, comment_id=comment.id)
+    )
     return comment
 
 
@@ -310,6 +313,9 @@ async def post_client_comment(
     )
 
     await session.commit()
+    await notifications.safe_notify(
+        notifications.notify_comment_created(session, comment_id=comment.id)
+    )
     return comment
 
 

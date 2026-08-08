@@ -9,7 +9,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
 from app.models.base import TimestampMixin
-from app.models.enums import NotificationEventType
+from app.models.enums import NotificationChannel, NotificationEventType
 
 
 class NotificationPreference(TimestampMixin, Base):
@@ -19,7 +19,8 @@ class NotificationPreference(TimestampMixin, Base):
             "user_id",
             "user_type",
             "event_type",
-            name="uq_notification_preferences_user_event",
+            "channel",
+            name="uq_notification_preferences_user_event_channel",
         ),
         Index("ix_notification_preferences_user_id", "user_id"),
     )
@@ -34,4 +35,7 @@ class NotificationPreference(TimestampMixin, Base):
         Uuid, ForeignKey("tenants.id", ondelete="CASCADE"), nullable=True
     )
     event_type: Mapped[NotificationEventType] = mapped_column(nullable=False)
+    channel: Mapped[NotificationChannel] = mapped_column(
+        default=NotificationChannel.EMAIL, nullable=False
+    )
     enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)

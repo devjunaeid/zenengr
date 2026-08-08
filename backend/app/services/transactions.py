@@ -30,6 +30,12 @@ from app.models.invoice import Invoice, InvoiceLineItem
 from app.models.project import Project
 from app.models.transaction import PaymentAllocation, Transaction
 from app.services.audit import log as audit_log
+from app.services.notifications import (
+    notify_advance_applied,
+    notify_payment_recorded,
+    notify_refund_recorded,
+    safe_notify,
+)
 
 # ── Exceptions ──────────────────────────────────────────────────────────────
 
@@ -344,6 +350,9 @@ async def record_transaction(
     await _recompute_invoice_status(session, invoice)
     await session.commit()
 
+    if tx.direction == TransactionDirection.DEBIT:
+        await safe_notify(notify_payment_recorded(session, transaction_id=tx.id))
+
     # Re-fetch with allocations eager-loaded (fresh after commit).
     fresh_q = (
         select(Transaction)
@@ -408,6 +417,8 @@ async def refund_invoice(
 
     await _recompute_invoice_status(session, invoice)
     await session.commit()
+
+    await safe_notify(notify_refund_recorded(session, transaction_id=tx.id))
 
     fresh_q = (
         select(Transaction)
@@ -504,6 +515,8 @@ async def apply_advance(
 
     await _recompute_invoice_status(session, invoice)
     await session.commit()
+
+    await safe_notify(notify_advance_applied(session, invoice_id=invoice.id, amount=apply))
 
     return {
         "applied": f"{apply:.2f}",

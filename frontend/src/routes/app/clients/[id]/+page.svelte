@@ -10,6 +10,7 @@
 	import Pagination from '$lib/components/Pagination.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
 	import StatusBadge from '$lib/components/StatusBadge.svelte';
+	import { Dialog } from 'bits-ui';
 	import { auth } from '$lib/stores/auth.svelte.js';
 	import { formatDateTime, fmtPrice, humanize } from '$lib/utils/format.js';
 
@@ -18,6 +19,76 @@
 	const token = /** @type {string} */ (auth.token);
 	let canManage = $derived(auth.can('manage', 'clients'));
 	let isEmployee = $derived(auth.user?.role === 'employee');
+
+	// Client-user invite dialog
+	let inviteOpen = $state(false);
+	let inviteEmail = $state('');
+	let inviteBusy = $state(false);
+	/** @type {string|null} */
+	let inviteErr = $state(null);
+	/** @type {string|null} */
+	let inviteMsg = $state(null);
+
+	async function sendInvite() {
+		inviteBusy = true;
+		inviteErr = null;
+		inviteMsg = null;
+		try {
+			await clientApi.createClientInvite(fetch, token, data.client.id, {
+				email: inviteEmail.trim()
+			});
+			inviteMsg = `Invite sent to ${inviteEmail.trim()}.`;
+			inviteEmail = '';
+			inviteOpen = false;
+			await invalidateAll();
+		} catch (e) {
+			inviteErr = e instanceof ApiError ? e.message : 'Invite failed.';
+		} finally {
+			inviteBusy = false;
+		}
+	}
+
+	/** @type {string|null} */
+	let resendBusyId = $state(null);
+
+	/**
+	 * Re-POST the invite for a pending client user — the server regenerates
+	 * the token and resends the email.
+	 * @param {import('$lib/api/clients.js').ClientInvite} invite
+	 */
+	async function resendInvite(invite) {
+		inviteErr = null;
+		inviteMsg = null;
+		resendBusyId = invite.id;
+		try {
+			await clientApi.createClientInvite(fetch, token, data.client.id, { email: invite.email });
+			inviteMsg = `Invite resent to ${invite.email}.`;
+			await invalidateAll();
+		} catch (e) {
+			inviteErr = e instanceof ApiError ? e.message : 'Resend failed.';
+		} finally {
+			resendBusyId = null;
+		}
+	}
+
+	/** @type {{ id: string, email: string }|null} */
+	let revokeTarget = $state(null);
+	let revokeBusy = $state(false);
+
+	async function revokeInvite() {
+		if (!revokeTarget) return;
+		revokeBusy = true;
+		inviteErr = null;
+		try {
+			await clientApi.revokeClientInvite(fetch, token, revokeTarget.id);
+			revokeTarget = null;
+			await invalidateAll();
+		} catch (e) {
+			inviteErr = e instanceof ApiError ? e.message : 'Revoke failed.';
+		} finally {
+			revokeBusy = false;
+		}
+	}
 
 	// Archive / unarchive confirmation
 	/** @type {null | 'archive' | 'unarchive'} */
@@ -283,7 +354,41 @@
 			class="rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
 			aria-labelledby="contacts-h"
 		>
-			<h2 id="contacts-h" class="text-base font-semibold text-slate-900">Contacts</h2>
+			<div class="flex flex-wrap items-center justify-between gap-3">
+				<h2 id="contacts-h" class="text-base font-semibold text-slate-900">Contacts</h2>
+				{#if canManage}
+					<button
+						type="button"
+						onclick={() => {
+							inviteErr = null;
+							inviteMsg = null;
+							inviteEmail = '';
+							inviteOpen = true;
+						}}
+						class="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+					>
+						Invite client user
+					</button>
+				{/if}
+			</div>
+
+			{#if inviteMsg}
+				<p
+					role="status"
+					class="mt-3 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800"
+				>
+					{inviteMsg}
+				</p>
+			{/if}
+			{#if inviteErr}
+				<p
+					role="alert"
+					class="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+				>
+					{inviteErr}
+				</p>
+			{/if}
+
 			{#if data.client.client_users.length === 0}
 				<p class="mt-3 text-sm text-slate-500">No contacts yet.</p>
 			{:else}
@@ -316,6 +421,51 @@
 					{/each}
 				</ul>
 			{/if}
+
+			<!-- Pending invites -->
+			<div class="mt-6 border-t border-slate-200 pt-5">
+				<h3 class="text-sm font-semibold text-slate-900">Pending invites</h3>
+				{#if data.invites.length === 0}
+					<p class="mt-2 text-sm text-slate-500">No pending invites.</p>
+				{:else}
+					<ul class="mt-2 divide-y divide-slate-200">
+						{#each data.invites as invite (invite.id)}
+							<li class="flex flex-wrap items-center justify-between gap-2 py-3">
+								<div>
+									<p class="text-sm font-medium text-slate-900">{invite.email}</p>
+									<p class="text-xs text-slate-500">
+										Expires {formatDateTime(invite.expires_at)}
+									</p>
+								</div>
+								<div class="flex flex-wrap items-center gap-3">
+									<StatusBadge status={invite.status} />
+									{#if canManage && invite.status === 'pending'}
+										<button
+											type="button"
+											disabled={resendBusyId === invite.id}
+											aria-busy={resendBusyId === invite.id}
+											onclick={() => resendInvite(invite)}
+											class="inline-flex items-center gap-2 text-sm font-medium text-indigo-600 hover:text-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+										>
+											{#if resendBusyId === invite.id}
+												<Spinner class="h-3.5 w-3.5 text-indigo-600" />{/if}
+											Resend
+										</button>
+										<button
+											type="button"
+											onclick={() => (revokeTarget = { id: invite.id, email: invite.email })}
+											class="text-sm font-medium text-red-600 hover:text-red-500"
+											aria-label={`Revoke invite for ${invite.email}`}
+										>
+											Revoke
+										</button>
+									{/if}
+								</div>
+							</li>
+						{/each}
+					</ul>
+				{/if}
+			</div>
 		</section>
 	</div>
 
@@ -469,4 +619,81 @@
 	destructive={archiveAction === 'archive'}
 	busy={archiveBusy}
 	onconfirm={runArchiveAction}
+/>
+
+<!-- Invite client user dialog -->
+<Dialog.Root bind:open={inviteOpen}>
+	<Dialog.Portal>
+		<Dialog.Overlay class="fixed inset-0 z-40 bg-black/50" />
+		<Dialog.Content
+			class="fixed top-1/2 left-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-6 shadow-xl focus:outline-none"
+		>
+			<Dialog.Title class="text-lg font-semibold text-slate-900">Invite client user</Dialog.Title>
+			<Dialog.Description class="mt-2 text-sm text-slate-600">
+				They will receive an email with a link to create their account and access {data.client
+					.name}.
+			</Dialog.Description>
+
+			{#if inviteErr}
+				<p
+					role="alert"
+					class="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+				>
+					{inviteErr}
+				</p>
+			{/if}
+
+			<form
+				class="mt-4"
+				onsubmit={(e) => {
+					e.preventDefault();
+					sendInvite();
+				}}
+			>
+				<div>
+					<label for="invite-email" class="block text-sm font-medium text-slate-700">Email</label>
+					<input
+						id="invite-email"
+						type="email"
+						bind:value={inviteEmail}
+						required
+						autocomplete="email"
+						class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+					/>
+				</div>
+				<div class="mt-6 flex justify-end gap-3">
+					<Dialog.Close
+						type="button"
+						class="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+					>
+						Cancel
+					</Dialog.Close>
+					<button
+						type="submit"
+						disabled={inviteBusy || !inviteEmail.trim()}
+						aria-busy={inviteBusy}
+						class="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+					>
+						{#if inviteBusy}<Spinner class="h-4 w-4 text-white" />{/if}
+						Send invite
+					</button>
+				</div>
+			</form>
+		</Dialog.Content>
+	</Dialog.Portal>
+</Dialog.Root>
+
+<ConfirmDialog
+	bind:open={
+		() => revokeTarget !== null,
+		(v) => {
+			if (!v) revokeTarget = null;
+		}
+	}
+	title="Revoke invite"
+	description={revokeTarget ? `Revoke the pending invite for ${revokeTarget.email}?` : ''}
+	confirmLabel="Revoke"
+	destructive
+	busy={revokeBusy}
+	onconfirm={revokeInvite}
 />

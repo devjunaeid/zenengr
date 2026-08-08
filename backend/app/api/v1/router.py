@@ -16,6 +16,8 @@ from app.api.v1.health import router as health_router
 from app.api.v1.invites import public_router as invite_public_router
 from app.api.v1.invites import tenant_router as invite_tenant_router
 from app.api.v1.invoices import router as invoices_router
+from app.api.v1.notifications import client_router as notifications_client_router
+from app.api.v1.notifications import router as notifications_router
 from app.api.v1.projects import router as projects_router
 from app.api.v1.public import router as public_router
 from app.api.v1.roles import router as roles_router
@@ -24,6 +26,7 @@ from app.api.v1.smtp import router as smtp_router
 from app.api.v1.tenant import router as tenant_router
 from app.api.v1.users import public_router as users_public_router
 from app.api.v1.users import tenant_router as users_tenant_router
+from app.api.v1.ws import router as ws_router
 
 api_router = APIRouter(prefix="/api/v1")
 api_router.include_router(health_router, tags=["health"])
@@ -50,3 +53,6 @@ api_router.include_router(public_router)
 api_router.include_router(invoices_router)
 api_router.include_router(files_router)
 api_router.include_router(smtp_router)
+api_router.include_router(notifications_router)
+api_router.include_router(notifications_client_router)
+api_router.include_router(ws_router)

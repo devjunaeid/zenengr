@@ -43,6 +43,7 @@ import { apiFetch } from './client.js';
 /**
  * @typedef {object} RealmOptions
  * @property {AccountRealm} [realm]
+ * @property {'email'|'inapp'} [channel] notification channel; defaults to 'email'
  */
 
 /**
@@ -158,23 +159,23 @@ export function getActivity(fetchFn, token, options = {}) {
 }
 
 /**
- * List the current user's per-event notification preferences.
+ * List the current user's per-event notification preferences for a channel.
  * @param {typeof fetch} fetchFn
  * @param {string} token
  * @param {RealmOptions} [options]
  * @returns {Promise<NotificationPreference[]>}
  */
 export function getNotificationPreferences(fetchFn, token, options = {}) {
-	const { realm = 'admin' } = options;
-	return apiFetch(fetchFn, preferencesPath(realm), { token });
+	const { realm = 'admin', channel } = options;
+	return apiFetch(fetchFn, preferencesPath(realm), { token, params: { channel } });
 }
 
 /**
- * Upsert notification preferences. Backend upserts, so sending a single
- * preference is fine for per-toggle saves.
+ * Upsert notification preferences for a channel. Backend upserts, so sending
+ * a single preference is fine for per-toggle saves.
  * @param {typeof fetch} fetchFn
  * @param {string} token
- * @param {{ preferences: NotificationPreference[] }} payload
+ * @param {{ channel?: 'email'|'inapp', preferences: NotificationPreference[] }} payload
  * @param {RealmOptions} [options]
  * @returns {Promise<NotificationPreference[]>}
  */

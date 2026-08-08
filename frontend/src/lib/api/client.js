@@ -39,6 +39,7 @@ export class ApiError extends Error {
  * @property {string|null} [token] Bearer token
  * @property {any} [body] JSON body (ignored for GET)
  * @property {Record<string, any>} [params] query string params (null/undefined/'' skipped)
+ * @property {AbortSignal} [signal] optional caller-owned abort signal, forwarded to fetch
  */
 
 /**
@@ -52,7 +53,13 @@ export class ApiError extends Error {
  * @throws {ApiError}
  */
 export async function apiFetch(fetchFn, path, options = {}) {
-	const { method = 'GET', token = null, body = undefined, params = {} } = options;
+	const {
+		method = 'GET',
+		token = null,
+		body = undefined,
+		params = {},
+		signal = undefined
+	} = options;
 
 	const url = new URL(`${BASE_URL}${path}`);
 	for (const [key, value] of Object.entries(params)) {
@@ -66,11 +73,40 @@ export async function apiFetch(fetchFn, path, options = {}) {
 	if (body !== undefined) headers['Content-Type'] = 'application/json';
 	if (token) headers.Authorization = `Bearer ${token}`;
 
-	const res = await fetchFn(url.toString(), {
-		method,
-		headers,
-		body: body === undefined ? undefined : JSON.stringify(body)
-	});
+	// 15s ceiling on every request so API loads can never hang forever.
+	// Caller-supplied aborts are forwarded as-is; only the timeout becomes an ApiError.
+	const controller = new AbortController();
+	let timedOut = false;
+	const timeoutId = setTimeout(() => {
+		timedOut = true;
+		controller.abort();
+	}, 15000);
+	const onCallerAbort = () => controller.abort();
+	if (signal) {
+		if (signal.aborted) {
+			controller.abort();
+		} else {
+			signal.addEventListener('abort', onCallerAbort, { once: true });
+		}
+	}
+
+	let res;
+	try {
+		res = await fetchFn(url.toString(), {
+			method,
+			headers,
+			body: body === undefined ? undefined : JSON.stringify(body),
+			signal: controller.signal
+		});
+	} catch (err) {
+		if (timedOut) {
+			throw new ApiError(0, 'TIMEOUT', 'Request timed out');
+		}
+		throw err;
+	} finally {
+		clearTimeout(timeoutId);
+		if (signal) signal.removeEventListener('abort', onCallerAbort);
+	}
 
 	if (res.status === 204) return null;
 

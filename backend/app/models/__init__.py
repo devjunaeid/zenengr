@@ -21,6 +21,7 @@ from app.models.enums import (
     InviteRole,
     InvoiceStatus,
     MilestoneStatus,
+    NotificationChannel,
     NotificationEventType,
     PaymentMethod,
     PermissionLevel,
@@ -37,6 +38,7 @@ from app.models.invite import Invite
 from app.models.invoice import Invoice, InvoiceLineItem
 from app.models.invoice_number_sequence import InvoiceNumberSequence
 from app.models.milestone_step_template import MilestoneStepTemplate
+from app.models.notification import Notification
 from app.models.notification_preference import NotificationPreference
 from app.models.password_reset_token import PasswordResetToken
 from app.models.plan import Plan
@@ -87,6 +89,7 @@ __all__ = [
     "ClientPasswordResetToken",
     "EmailVerificationToken",
     "NotificationPreference",
+    "Notification",
     "UserActivity",
     "FileFolder",
     "FileAsset",
@@ -100,6 +103,7 @@ __all__ = [
     "InviteRole",
     "InvoiceStatus",
     "MilestoneStatus",
+    "NotificationChannel",
     "NotificationEventType",
     "PaymentMethod",
     "PermissionLevel",

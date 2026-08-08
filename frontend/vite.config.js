@@ -13,5 +13,21 @@ export default defineConfig({
 			},
 			adapter: adapter()
 		})
-	]
+	],
+	server: {
+		// Dockerized dev: bind-mount filesystem misses native fs events, so poll.
+		watch: {
+			usePolling: true,
+			interval: 300,
+			awaitWriteFinish: {
+				stabilityThreshold: 100,
+				pollInterval: 100
+			}
+		},
+		hmr: {
+			// HMR websocket must reach the host browser through the published port.
+			host: 'localhost',
+			clientPort: 5173
+		}
+	}
 });

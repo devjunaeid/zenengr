@@ -12,7 +12,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.enums import NotificationEventType
+from app.models.enums import NotificationChannel, NotificationEventType
 from app.models.notification_preference import NotificationPreference
 
 _USER_TYPES = ("admin_user", "client_user")
@@ -24,10 +24,12 @@ async def list_preferences(
     user_id: uuid.UUID,
     user_type: str,
     tenant_id: uuid.UUID | None,
+    channel: NotificationChannel,
 ) -> list[dict[str, Any]]:
-    """Get-or-create a preference row per event type; return enabled map list.
+    """Get-or-create a preference row per event type for a channel; return enabled map list.
 
-    Order: new_comment, invoice_issued, payment_received, milestone_completed.
+    Order: new_comment, invoice_issued, payment_received, milestone_completed,
+    refund_recorded, advance_applied, project_created.
     """
     if user_type not in _USER_TYPES:
         raise ValueError(f"Unknown user_type: {user_type}")
@@ -36,6 +38,7 @@ async def list_preferences(
         select(NotificationPreference).where(
             NotificationPreference.user_id == user_id,
             NotificationPreference.user_type == user_type,
+            NotificationPreference.channel == channel,
         )
     )
     existing = {row.event_type: row for row in result.scalars().all()}
@@ -50,6 +53,7 @@ async def list_preferences(
                 user_type=user_type,
                 tenant_id=tenant_id,
                 event_type=event_type,
+                channel=channel,
                 enabled=True,
             )
             session.add(row)
@@ -67,9 +71,10 @@ async def update_preferences(
     user_id: uuid.UUID,
     user_type: str,
     tenant_id: uuid.UUID | None,
+    channel: NotificationChannel,
     entries: list[tuple[NotificationEventType, bool]],
 ) -> list[dict[str, Any]]:
-    """Upsert preferences for the given entries; commit; return full list."""
+    """Upsert preferences for the given entries on a channel; commit; return full list."""
     if user_type not in _USER_TYPES:
         raise ValueError(f"Unknown user_type: {user_type}")
 
@@ -77,6 +82,7 @@ async def update_preferences(
         select(NotificationPreference).where(
             NotificationPreference.user_id == user_id,
             NotificationPreference.user_type == user_type,
+            NotificationPreference.channel == channel,
         )
     )
     existing = {row.event_type: row for row in result.scalars().all()}
@@ -89,6 +95,7 @@ async def update_preferences(
                 user_type=user_type,
                 tenant_id=tenant_id,
                 event_type=event_type,
+                channel=channel,
                 enabled=enabled,
             )
             session.add(row)
@@ -97,7 +104,11 @@ async def update_preferences(
 
     await session.commit()
     return await list_preferences(
-        session, user_id=user_id, user_type=user_type, tenant_id=tenant_id
+        session,
+        user_id=user_id,
+        user_type=user_type,
+        tenant_id=tenant_id,
+        channel=channel,
     )
 
 
@@ -107,8 +118,9 @@ async def get_enabled_map(
     user_type: str,
     user_ids: list[uuid.UUID],
     event_type: NotificationEventType,
+    channel: NotificationChannel,
 ) -> dict[uuid.UUID, bool]:
-    """Batch-select enabled prefs for users + event; missing = default enabled.
+    """Batch-select enabled prefs for users + event + channel; missing = default enabled.
 
     Returns {user_id: enabled} for every requested user_id.
     """
@@ -120,6 +132,7 @@ async def get_enabled_map(
             NotificationPreference.user_type == user_type,
             NotificationPreference.user_id.in_(user_ids),
             NotificationPreference.event_type == event_type,
+            NotificationPreference.channel == channel,
         )
     )
     prefs = {row.user_id: bool(row.enabled) for row in result.scalars().all()}

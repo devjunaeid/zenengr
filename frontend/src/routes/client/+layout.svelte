@@ -3,6 +3,7 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { portalAuth } from '$lib/stores/portalAuth.svelte.js';
+	import NotificationBell from '$lib/components/NotificationBell.svelte';
 
 	let { children } = $props();
 
@@ -46,6 +47,7 @@
 				</span>
 			</div>
 			<div class="flex items-center gap-3">
+				<NotificationBell realm="client" />
 				<span class="hidden text-sm text-slate-700 sm:inline">{portalAuth.user?.full_name}</span>
 				<button
 					type="button"

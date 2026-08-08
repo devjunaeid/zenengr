@@ -19,9 +19,9 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 
 | Area | Count | Key metric |
 | ---- | ----- | ---------- |
-| Features | 17 | approved: 16, proposed: 1 |
-| User stories | 58 | done: 18, in_progress: 4, proposed: 36 |
-| Todos | 167 | done: 167, in_progress: 0, proposed: 0 |
+| Features | 18 | approved: 16, proposed: 2 |
+| User stories | 60 | done: 18, in_progress: 4, proposed: 38 |
+| Todos | 177 | done: 167, in_progress: 0, proposed: 10 |
 | Decisions | 2 | accepted: 2 |
 
 ## Active sprint
@@ -58,6 +58,7 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | [FEAT-014](features/FEAT-014-tenant-formatting.md) | Tenant-Wide Formatting (Currency / Timezone / Date & Time) | approved | P0 |
 | [FEAT-015](features/FEAT-015-advances-ledger-general-invoices.md) | Advances, Ledger Transactions & General Invoices | approved | P0 |
 | [FEAT-016](features/FEAT-016-custom-roles-permissions.md) | Custom Roles & Permission Management | approved | P0 |
+| [FEAT-017](features/FEAT-017-notifications.md) | Realtime Notifications (Admin + Client) | proposed | P0 |
 
 ### Stories
 
@@ -121,6 +122,8 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | [US-056](stories/US-056.md) | General (internal) invoices without project or client | FEAT-015 | done |
 | [US-057](stories/US-057.md) | Advance payments + ledger transactions (debit/credit, refunds) | FEAT-015 | done |
 | [US-058](stories/US-058.md) | Tenant admin manages custom roles & permissions | FEAT-016 | done |
+| [US-059](stories/US-059.md) | Staff receive realtime permission-scoped notifications | FEAT-017 | proposed |
+| [US-060](stories/US-060.md) | Client portal notifications synced with admin | FEAT-017 | proposed |
 
 ### Todos
 
@@ -376,10 +379,26 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | [TODO-166](todos/TODO-166.md) | Team page role assignment | US-058 | done |
 | [TODO-167](todos/TODO-167.md) | Tests + verification + docs sync | US-058 | done |
 
+#### FEAT-017 — Realtime Notifications (Admin + Client)
+
+| ID | Title | Story | Status |
+| -- | ----- | ----- | ------ |
+| [TODO-168](todos/TODO-168.md) | Event enum expansion + preference channels (email/inapp) | US-059 | proposed |
+| [TODO-169](todos/TODO-169.md) | Notification model + migration | US-059 | proposed |
+| [TODO-170](todos/TODO-170.md) | Notification service: create + permission-scoped recipients | US-059 | proposed |
+| [TODO-171](todos/TODO-171.md) | WebSocket connection manager + endpoints | US-059 | proposed |
+| [TODO-172](todos/TODO-172.md) | Notifications REST API (staff + client) | US-059 | proposed |
+| [TODO-173](todos/TODO-173.md) | Hook event producers | US-059 | proposed |
+| [TODO-174](todos/TODO-174.md) | Frontend notifications store + WS client | US-059 | proposed |
+| [TODO-175](todos/TODO-175.md) | Frontend bell + dropdown panel (both portals) | US-059 | proposed |
+| [TODO-176](todos/TODO-176.md) | Frontend in-app preference toggles | US-059 | proposed |
+| [TODO-177](todos/TODO-177.md) | Tests + verification + docs sync | US-059 | proposed |
+
 ## Recently updated
 
 | Date | Item | Change |
 | ---- | ---- | ------ |
+| 2026-08-06 | FEAT-017 Realtime Notifications docs drafted | docs/features/FEAT-017-notifications.md, docs/stories/US-059.md, docs/stories/US-060.md, docs/todos/TODO-168.md, docs/todos/TODO-169.md, docs/todos/TODO-170.md, docs/todos/TODO-171.md, docs/todos/TODO-172.md, docs/todos/TODO-173.md, docs/todos/TODO-174.md, docs/todos/TODO-175.md, docs/todos/TODO-176.md, docs/todos/TODO-177.md, docs/index.md, docs/progress.md. |
 | 2026-07-31 | Project management BE slice complete (FEAT-007 US-025..US-027) | TODO-062/064/065/068 done. Project + ProjectService + ProjectMilestone models, migration `c1d2e3f4a5b6`, repos + service + API, 34 tests green, ruff + mypy clean. Soft-cancel + financial rollups (TODO-070/072) deferred to follow-up. |
 | 2026-07-27 | Client management APIs complete (FEAT-005 US-018..US-022) | TODO-043/046/047/049/051/052/053/054/055 done. Full CRUD, list+rollups, search/filter, archive/unarchive, notes, tags, activity timeline, client portal self-service profile edit. 35 tests green, ruff + mypy clean. |
 | 2026-07-26 | `docs/todos/TODO-004..TODO-120.md`, `docs/index.md`, `docs/progress.md` | Generated implementation backlog (117 todos) from US-004..US-045; refreshed dashboard and progress. |
@@ -405,5 +424,6 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 
 All 167 todos complete (FEAT-012..016 shipped; 602 backend tests green, frontend clean).
 
-1. Stakeholder walkthrough + demo.
-2. Phase 2 candidates: project-scoped roles/grants (team collaboration), client-side roles, role hierarchy, credit notes, automatic advance application, multi-currency invoices, online payment gateway, milestone comments, client uploads, public share links, i18n, Unicode PDF fonts.
+1. FEAT-017 Realtime Notifications - docs drafted 2026-08-06, awaiting go-ahead.
+2. Stakeholder walkthrough + demo.
+3. Phase 2 candidates: project-scoped roles/grants (team collaboration), client-side roles, role hierarchy, credit notes, automatic advance application, multi-currency invoices, online payment gateway, milestone comments, client uploads, public share links, i18n, Unicode PDF fonts.

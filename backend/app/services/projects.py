@@ -36,6 +36,11 @@ from app.repositories import projects as project_repo
 from app.repositories import services as service_repo
 from app.services import financials as financials_service
 from app.services.audit import log as audit_log
+from app.services.notifications import (
+    notify_milestone_completed,
+    notify_project_created,
+    safe_notify,
+)
 
 # ── Exceptions ──────────────────────────────────────────────────────────────
 
@@ -261,6 +266,7 @@ async def create_project(
     )
 
     await session.commit()
+    await safe_notify(notify_project_created(session, project_id=project.id))
     return project
 
 
@@ -627,5 +633,7 @@ async def update_milestone(
         )
 
         await session.commit()
+        if milestone.status == MilestoneStatus.COMPLETED:
+            await safe_notify(notify_milestone_completed(session, milestone_id=milestone.id))
 
     return milestone

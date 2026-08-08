@@ -7,7 +7,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, EmailStr, Field
 
-from app.models.enums import NotificationEventType
+from app.models.enums import NotificationChannel, NotificationEventType
 
 
 class ProfileUpdateRequest(BaseModel):
@@ -53,6 +53,7 @@ class NotificationPreferenceEntry(BaseModel):
 
 class NotificationPreferencesUpdateRequest(BaseModel):
     preferences: list[NotificationPreferenceEntry]
+    channel: NotificationChannel = NotificationChannel.EMAIL
 
     model_config = {"extra": "forbid"}
 

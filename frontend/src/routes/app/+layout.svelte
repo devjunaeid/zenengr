@@ -3,6 +3,7 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { assetUrl } from '$lib/api/client.js';
+	import NotificationBell from '$lib/components/NotificationBell.svelte';
 	import { auth } from '$lib/stores/auth.svelte.js';
 
 	let { data, children } = $props();
@@ -72,6 +73,7 @@
 			{data.profile.business_name}
 		</span>
 		<div class="flex items-center gap-4">
+			<NotificationBell realm="admin" />
 			<span class="text-sm text-slate-700">
 				{data.user.full_name}
 				<span class="text-slate-400">({data.user.role})</span>

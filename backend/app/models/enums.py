@@ -112,6 +112,14 @@ class NotificationEventType(enum.StrEnum):
     INVOICE_ISSUED = "invoice_issued"
     PAYMENT_RECEIVED = "payment_received"
     MILESTONE_COMPLETED = "milestone_completed"
+    REFUND_RECORDED = "refund_recorded"
+    ADVANCE_APPLIED = "advance_applied"
+    PROJECT_CREATED = "project_created"
+
+
+class NotificationChannel(enum.StrEnum):
+    EMAIL = "email"
+    INAPP = "inapp"
 
 
 class FileScope(enum.StrEnum):

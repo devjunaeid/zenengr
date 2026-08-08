@@ -29,6 +29,7 @@ from app.models.project import Project
 from app.models.project_service import ProjectService
 from app.models.tenant import Tenant
 from app.services.audit import log as audit_log
+from app.services.notifications import notify_invoice_issued, safe_notify
 from app.services.settings import DEFAULT_SETTINGS, get_tenant_setting_by_key
 
 # ── Exceptions ──────────────────────────────────────────────────────────────
@@ -587,6 +588,7 @@ async def issue_invoice(
         details=issue_details,
     )
     await session.commit()
+    await safe_notify(notify_invoice_issued(session, invoice_id=invoice.id))
     return await get_invoice(session, tenant_id=tenant_id, invoice_id=invoice_id)
 
 

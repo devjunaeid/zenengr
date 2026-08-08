@@ -714,6 +714,9 @@ class TestNotificationPreferences:
             "invoice_issued",
             "payment_received",
             "milestone_completed",
+            "refund_recorded",
+            "advance_applied",
+            "project_created",
         ]
         assert all(d["enabled"] is True for d in data)
 

@@ -7,7 +7,7 @@ import secrets
 import uuid
 from datetime import UTC, datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
@@ -16,7 +16,7 @@ from app.db.session import get_session
 from app.models.admin_user import AdminUser
 from app.models.client_invite import ClientInvite
 from app.models.client_user import ClientUser
-from app.models.enums import ActorType
+from app.models.enums import ActorType, NotificationChannel
 from app.repositories import client_invites as invite_repo
 from app.repositories import client_users as client_user_repo
 from app.repositories import clients as client_repo
@@ -386,10 +386,15 @@ async def update_client_user_profile_endpoint(
 async def client_notification_preferences(
     user: ClientUser = Depends(get_current_client_user),
     session: AsyncSession = Depends(get_session),
+    channel: NotificationChannel = Query(default=NotificationChannel.EMAIL),
 ) -> list[NotificationPreferenceResponse]:
-    """Return the caller's per-event notification preferences (TODO-116)."""
+    """Return the caller's per-event notification preferences for a channel (TODO-116)."""
     prefs = await list_preferences(
-        session, user_id=user.id, user_type="client_user", tenant_id=user.tenant_id
+        session,
+        user_id=user.id,
+        user_type="client_user",
+        tenant_id=user.tenant_id,
+        channel=channel,
     )
     return [NotificationPreferenceResponse(**p) for p in prefs]
 
@@ -400,13 +405,14 @@ async def client_update_notification_preferences(
     user: ClientUser = Depends(get_current_client_user),
     session: AsyncSession = Depends(get_session),
 ) -> list[NotificationPreferenceResponse]:
-    """Upsert the caller's per-event notification preferences (TODO-116)."""
+    """Upsert the caller's per-event notification preferences for a channel (TODO-116)."""
     entries = [(e.event_type, e.enabled) for e in body.preferences]
     prefs = await update_preferences(
         session,
         user_id=user.id,
         user_type="client_user",
         tenant_id=user.tenant_id,
+        channel=body.channel,
         entries=entries,
     )
     return [NotificationPreferenceResponse(**p) for p in prefs]
