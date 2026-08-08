@@ -4,6 +4,7 @@
 	import * as portalApi from '$lib/api/portal.js';
 	import Spinner from '$lib/components/Spinner.svelte';
 	import { portalAuth } from '$lib/stores/portalAuth.svelte.js';
+	import { formatAddress } from '$lib/utils/address.js';
 	import { formatDateTime, humanize } from '$lib/utils/format.js';
 
 	// Layout guard guarantees these exist
@@ -64,22 +65,6 @@
 		} finally {
 			saving = false;
 		}
-	}
-
-	/**
-	 * Render billing address as readable lines.
-	 * @param {Record<string,any>|null} addr
-	 */
-	function renderAddress(addr) {
-		if (!addr) return '—';
-		const parts = [];
-		if (addr.line1) parts.push(addr.line1);
-		if (addr.line2) parts.push(addr.line2);
-		if (addr.city || addr.state || addr.postal_code) {
-			parts.push([addr.city, addr.state, addr.postal_code].filter(Boolean).join(', '));
-		}
-		if (addr.country) parts.push(addr.country);
-		return parts.length ? parts.join('\n') : '—';
 	}
 
 	// ── Account (portal user) profile ──────────────────────────────────────
@@ -365,7 +350,7 @@
 			<div>
 				<dt class="text-sm font-medium text-slate-500">Billing address</dt>
 				<dd class="mt-0.5 text-sm whitespace-pre-line text-slate-900">
-					{renderAddress(client.billing_address)}
+					{formatAddress(client.billing_address) || '—'}
 				</dd>
 			</div>
 			<div>

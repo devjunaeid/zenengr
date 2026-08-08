@@ -3,8 +3,10 @@
 	import { resolve } from '$app/paths';
 	import { ApiError } from '$lib/api/client.js';
 	import * as clientApi from '$lib/api/clients.js';
+	import AddressFields from '$lib/components/AddressFields.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
 	import { auth } from '$lib/stores/auth.svelte.js';
+	import { fieldsToAddress } from '$lib/utils/address.js';
 
 	const token = /** @type {string} */ (auth.token);
 
@@ -13,7 +15,15 @@
 	let email = $state('');
 	let phone = $state('');
 	let taxId = $state('');
-	let billingAddress = $state('');
+	/** @type {import('$lib/utils/address.js').AddressFields} */
+	let addressFields = $state({
+		address_line1: '',
+		address_line2: '',
+		city: '',
+		state: '',
+		postal_code: '',
+		country: ''
+	});
 	/** @type {string[]} */
 	let tags = $state([]);
 	let tagInput = $state('');
@@ -56,15 +66,8 @@
 				...(taxId.trim() && { tax_id: taxId.trim() }),
 				...(tags.length && { tags })
 			};
-			if (billingAddress.trim()) {
-				try {
-					body.billing_address = JSON.parse(billingAddress.trim());
-				} catch {
-					err = 'Billing address must be valid JSON (e.g. {"line1":"123 Main","city":"..."}).';
-					busy = false;
-					return;
-				}
-			}
+			const billingAddress = fieldsToAddress(addressFields);
+			if (Object.keys(billingAddress).length) body.billing_address = billingAddress;
 			const created = await clientApi.createClient(fetch, token, /** @type {any} */ (body));
 			goto(resolve('/app/clients/[id]', { id: created.id }));
 		} catch (e) {
@@ -177,17 +180,11 @@
 	</div>
 
 	<div>
-		<label for="c-billing" class="block text-sm font-medium text-slate-700">Billing address</label>
-		<textarea
-			id="c-billing"
-			bind:value={billingAddress}
-			rows="3"
-			class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-		></textarea>
-		<p class="mt-1 text-xs text-slate-500">
-			JSON object, e.g. &#123;"line1":"123 Main
-			St","city":"...","state":"...","postal":"...","country":"..."&#125;
-		</p>
+		<span class="block text-sm font-medium text-slate-700">Billing address</span>
+		<div class="mt-1">
+			<AddressFields bind:fields={addressFields} idPrefix="c" />
+		</div>
+		<p class="mt-1 text-xs text-slate-500">All fields optional.</p>
 	</div>
 
 	<div>

@@ -97,7 +97,7 @@ export function listTags(fetchFn, token) {
  * @param {typeof fetch} fetchFn
  * @param {string} token
  * @param {string} id
- * @returns {Promise<ClientListItem & { tenant_id: string, billing_address: string|null, tax_id: string|null, client_users: ClientUserSummary[], recent_activity: ClientActivityEntry[] }>}
+ * @returns {Promise<ClientListItem & { tenant_id: string, billing_address: Record<string, any>|null, tax_id: string|null, client_users: ClientUserSummary[], recent_activity: ClientActivityEntry[] }>}
  */
 export function getClient(fetchFn, token, id) {
 	return apiFetch(fetchFn, `/tenant/clients/${encodeURIComponent(id)}`, { token });
@@ -106,7 +106,7 @@ export function getClient(fetchFn, token, id) {
 /**
  * @param {typeof fetch} fetchFn
  * @param {string} token
- * @param {{ name: string, client_type: 'company'|'individual', email?: string, phone?: string, billing_address?: string, tax_id?: string, tags?: string[] }} body
+ * @param {{ name: string, client_type: 'company'|'individual', email?: string, phone?: string, billing_address?: Record<string, any>, tax_id?: string, tags?: string[] }} body
  * @returns {Promise<ClientListItem>}
  */
 export function createClient(fetchFn, token, body) {

@@ -12,6 +12,7 @@
 	import StatusBadge from '$lib/components/StatusBadge.svelte';
 	import { Dialog } from 'bits-ui';
 	import { auth } from '$lib/stores/auth.svelte.js';
+	import { formatAddress } from '$lib/utils/address.js';
 	import { formatDateTime, fmtPrice, humanize } from '$lib/utils/format.js';
 
 	let { data } = $props();
@@ -158,19 +159,6 @@
 		goto(qs ? `?${qs}` : '?', { keepFocus: true, noScroll: true });
 	}
 
-	/**
-	 * Pretty-print a JSON value (billing_address) for display.
-	 * @param {string|null|undefined} raw
-	 */
-	function prettyAddress(raw) {
-		if (!raw) return '—';
-		try {
-			return JSON.stringify(JSON.parse(raw), null, 2);
-		} catch {
-			return raw;
-		}
-	}
-
 	/** @param {string|number|null|undefined} n */
 	function fmtNumber(n) {
 		if (n == null || n === '') return '—';
@@ -282,11 +270,10 @@
 						Billing address
 					</dt>
 					<dd class="mt-1">
-						{#if data.client.billing_address}
-							<pre
-								class="overflow-x-auto rounded-md bg-slate-50 p-3 font-mono text-xs text-slate-800 ring-1 ring-slate-200 ring-inset">{prettyAddress(
-									data.client.billing_address
-								)}</pre>
+						{#if formatAddress(data.client.billing_address)}
+							<address class="text-sm whitespace-pre-line text-slate-900 not-italic">
+								{formatAddress(data.client.billing_address)}
+							</address>
 						{:else}
 							<span class="text-sm text-slate-500">—</span>
 						{/if}
