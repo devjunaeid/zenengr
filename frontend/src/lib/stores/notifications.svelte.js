@@ -12,8 +12,10 @@ import {
  * Realtime notifications store (FEAT-017). One store instance per realm
  * (admin / client) so both sessions can coexist. Each instance keeps the
  * latest 50 items, an unread count, and a WebSocket connection to the
- * backend push endpoint with exponential reconnect backoff (2s doubling to
- * 30s max) plus a 30s keepalive ping while open.
+ * backend push endpoint with jittered exponential reconnect backoff (2s
+ * doubling to 30s max, capped at 10 consecutive attempts) plus a 30s
+ * keepalive ping while open. Graceful closes (1000/1001/1002/1003/1008)
+ * never reconnect.
  *
  * @typedef {import('$lib/api/notifications.js').NotificationRealm} NotificationRealm
  * @typedef {import('$lib/api/notifications.js').NotificationItem} NotificationItem
@@ -23,6 +25,15 @@ const MAX_ITEMS = 50;
 const PING_INTERVAL_MS = 30_000;
 const MIN_RECONNECT_MS = 2_000;
 const MAX_RECONNECT_MS = 30_000;
+const MAX_RECONNECT_ATTEMPTS = 10;
+const RECONNECT_JITTER_MS = 1_000;
+const RESET_BACKOFF_OPEN_MS = 10_000;
+/**
+ * Close codes that are graceful / intentional — never reconnect on these.
+ * 1000 normal, 1001 going away, 1002 protocol error, 1003 unsupported data,
+ * 1008 policy violation (e.g. auth expired).
+ */
+const GRACEFUL_CLOSE_CODES = new Set([1000, 1001, 1002, 1003, 1008]);
 
 class NotificationStore {
 	/** @type {NotificationRealm} */
@@ -42,6 +53,12 @@ class NotificationStore {
 	#token = null;
 	/** @type {number} */
 	#reconnectDelay = MIN_RECONNECT_MS;
+	/** @type {number} */
+	#reconnectAttempts = 0;
+	/** @type {number|null} */
+	#lastOpenAt = null;
+	/** @type {boolean} */
+	#initInFlight = false;
 	/** @type {ReturnType<typeof setTimeout>|null} */
 	#reconnectTimer = null;
 	/** @type {ReturnType<typeof setInterval>|null} */
@@ -58,15 +75,34 @@ class NotificationStore {
 
 	/**
 	 * Fetch the initial list + unread count, then open the WebSocket.
-	 * Idempotent for a given token; a changed token tears down and re-inits.
+	 * Idempotent per realm: exactly one socket, and the REST fetch runs only
+	 * on the first successful init for a token.
+	 *
+	 * - Already initialized for the same token with an open/connecting
+	 *   socket → no-op (no fetch, no reconnect).
+	 * - Already initialized for the same token but the socket is closed
+	 *   (stale, reconnect budget exhausted, or a graceful close) → this call
+	 *   acts as a manual re-init: reset the budget and reconnect, WITHOUT
+	 *   re-fetching.
+	 * - Token changed → tear down first, then fetch + connect.
 	 * @param {typeof fetch} fetchFn
 	 * @param {string} token
 	 * @param {NotificationRealm} realm
 	 */
 	async init(fetchFn, token, realm) {
-		if (this.initialized && this.#token === token) return;
+		if (this.#initInFlight) return;
+		if (this.initialized && this.#token === token) {
+			if (this.wsState === 'open' || this.wsState === 'connecting') return;
+			// Socket gone or reconnect budget exhausted — reconnect without
+			// re-fetching. This is the "manual re-init" path.
+			this.#reconnectAttempts = 0;
+			this.#reconnectDelay = MIN_RECONNECT_MS;
+			this.#connect(fetchFn, realm);
+			return;
+		}
 		if (this.initialized) this.reset();
 		this.#token = token;
+		this.#initInFlight = true;
 		try {
 			const [list, count] = await Promise.all([
 				listNotifications(fetchFn, token, { page: 1, page_size: 20 }, realm),
@@ -79,7 +115,10 @@ class NotificationStore {
 		} catch {
 			// Initial fetch failed (offline / 401) — still attempt the socket;
 			// items then arrive from pushes once it opens.
+		} finally {
+			this.#initInFlight = false;
 		}
+		if (this.#token !== token) return;
 		this.initialized = true;
 		this.#connect(fetchFn, realm);
 	}
@@ -99,6 +138,9 @@ class NotificationStore {
 		this.initialized = false;
 		this.#token = null;
 		this.#reconnectDelay = MIN_RECONNECT_MS;
+		this.#reconnectAttempts = 0;
+		this.#lastOpenAt = null;
+		this.#initInFlight = false;
 		this.#closing = false;
 	}
 
@@ -137,6 +179,8 @@ class NotificationStore {
 	 * @param {NotificationRealm} realm
 	 */
 	#connect(fetchFn, realm) {
+		if (this.wsState === 'open' || this.wsState === 'connecting') return;
+		if (this.#closing) return;
 		this.#closeSocket();
 		this.#stopReconnectTimer();
 		if (!browser) return;
@@ -154,7 +198,7 @@ class NotificationStore {
 		ws.onopen = () => {
 			if (this.#ws !== ws) return;
 			this.wsState = 'open';
-			this.#reconnectDelay = MIN_RECONNECT_MS;
+			this.#lastOpenAt = Date.now();
 			this.#startPing();
 		};
 
@@ -170,11 +214,26 @@ class NotificationStore {
 			}
 		};
 
-		ws.onclose = () => {
+		ws.onclose = (event) => {
 			if (this.#ws !== ws) return;
 			this.wsState = 'closed';
 			this.#stopPing();
 			if (this.#closing) return;
+			// A connection that stayed open > RESET_BACKOFF_OPEN_MS proves
+			// the link (and auth) are healthy — reset backoff + attempt budget.
+			const openMs =
+				this.#lastOpenAt === null ? 0 : Date.now() - /** @type {number} */ (this.#lastOpenAt);
+			if (openMs > RESET_BACKOFF_OPEN_MS) {
+				this.#reconnectDelay = MIN_RECONNECT_MS;
+				this.#reconnectAttempts = 0;
+			}
+			// Graceful / intentional closes never reconnect.
+			if (GRACEFUL_CLOSE_CODES.has(event.code)) return;
+			// Abnormal close (1006 / error): reconnect with backoff, but stop
+			// after MAX_RECONNECT_ATTEMPTS consecutive failures until the next
+			// manual init (nav remount, logout/login, full page load).
+			if (this.#reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) return;
+			this.#reconnectAttempts += 1;
 			this.#scheduleReconnect(fetchFn, realm);
 		};
 
@@ -189,9 +248,13 @@ class NotificationStore {
 	 */
 	#scheduleReconnect(fetchFn, realm) {
 		this.#stopReconnectTimer();
+		// Backoff 2s doubling to 30s max, with ±1s jitter to avoid thundering
+		// herd. Re-snapshot the delay each schedule; doubling happens after.
+		const jitter = (Math.random() * 2 - 1) * RECONNECT_JITTER_MS;
+		const delay = Math.max(MIN_RECONNECT_MS / 2, this.#reconnectDelay + jitter);
 		this.#reconnectTimer = setTimeout(() => {
 			this.#connect(fetchFn, realm);
-		}, this.#reconnectDelay);
+		}, delay);
 		this.#reconnectDelay = Math.min(this.#reconnectDelay * 2, MAX_RECONNECT_MS);
 	}
 

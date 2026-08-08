@@ -8,8 +8,9 @@
 
 	/**
 	 * Notification bell + dropdown panel (FEAT-017). Self-initializes on
-	 * mount using the auth store matching its realm; tears down on unmount
-	 * and on logout (token becomes null).
+	 * mount using the auth store matching its realm; tears down on logout
+	 * (token becomes null). The underlying store keeps exactly one socket
+	 * per realm across navigations.
 	 *
 	 * @type {{
 	 *   realm: import('$lib/api/notifications.js').NotificationRealm
@@ -22,6 +23,14 @@
 	let open = $state(false);
 	let rootEl = $state(/** @type {HTMLDivElement|null} */ (null));
 
+	/**
+	 * Keep the realm's store in sync with the auth token. Depends ONLY on
+	 * token presence — `store.init` is idempotent per realm, so effect
+	 * re-runs (navigation, remount) are no-ops while the socket is up. No
+	 * cleanup teardown: the store owns the socket lifecycle (exactly one
+	 * socket per realm, alive across navigations); `reset` runs only on
+	 * logout (token → null) to close the socket and clear state.
+	 */
 	$effect(() => {
 		const token = authStore.token;
 		if (token) {
@@ -29,10 +38,6 @@
 		} else {
 			store.reset();
 		}
-		return () => {
-			// Unmount or token change: drop the socket and cached items.
-			store.reset();
-		};
 	});
 
 	// Close the panel on outside click or Escape.
