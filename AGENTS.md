@@ -92,6 +92,7 @@ The project is developed against a **containerized stack** via Docker (OrbStack 
 - **Migrations**: `uv run alembic upgrade head` (host) applies to the containerized Postgres.
 - Check service state with `docker compose ps` / `docker ps` before blaming environment failures.
 - **After adding a backend dependency**, rebuild the backend image — a stale image crashes on import (seen with reportlab, boto3, aiosmtplib): `docker compose --profile dev up -d --build backend-dev` (or `docker exec zenengr-backend-dev-1 uv sync` + restart).
+- **After adding a FRONTEND dependency**, install it inside the container (node_modules is not volume-mounted): `docker exec zenengr-frontend-dev-1 npm install`, then RESTART the dev container — `docker restart zenengr-frontend-dev-1` — or reload the page. If the vite dev server was already running before the install, its dependency optimizer has stale state and page modules fail with `Failed to resolve import` (vite:import-analysis) until the server restarts. Rebuilding the image works too: `docker compose --profile dev up -d --build frontend-dev`.
 
 > Lint/type/test commands marked "pending" need the corresponding dev dependency (`ruff`, `mypy`, `pytest`, `alembic`) added via `uv add --dev` before they will work.
 
