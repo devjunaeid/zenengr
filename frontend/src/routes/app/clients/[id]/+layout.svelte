@@ -48,11 +48,14 @@
 		<a
 			href={resolve(/** @type {any} */ (tab.href))}
 			aria-current={active ? 'page' : undefined}
-			class="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-medium {active
-				? 'bg-indigo-600 text-white'
+			class="group inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-medium {active
+				? 'bg-indigo-600 text-white shadow-sm'
 				: 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}"
 		>
-			<Icon icon={tab.icon} class="h-4 w-4" />
+			<Icon
+				icon={tab.icon}
+				class="h-4 w-4 shrink-0 {active ? '' : 'text-slate-500 group-hover:text-slate-700'}"
+			/>
 			{tab.label}
 		</a>
 	{/each}

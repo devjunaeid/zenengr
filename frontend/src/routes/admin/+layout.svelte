@@ -1,4 +1,7 @@
 <script>
+	import Icon from '@iconify/svelte';
+	import officeBuilding from '@iconify-icons/mdi/office-building';
+	import chartBox from '@iconify-icons/mdi/chart-box';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
@@ -6,9 +9,10 @@
 
 	let { children } = $props();
 
+	/** @type {Array<{ href: string, label: string, icon: any }>} */
 	const nav = [
-		{ href: '/admin/tenants', label: 'Tenants' },
-		{ href: '/admin/plans', label: 'Plans' }
+		{ href: '/admin/tenants', label: 'Tenants', icon: officeBuilding },
+		{ href: '/admin/plans', label: 'Plans', icon: chartBox }
 	];
 
 	function logout() {
@@ -31,10 +35,14 @@
 				<a
 					href={resolve(/** @type {any} */ (item.href))}
 					aria-current={active ? 'page' : undefined}
-					class="block rounded-md px-3 py-2 text-sm font-medium {active
-						? 'bg-indigo-50 text-indigo-700'
-						: 'text-slate-700 hover:bg-slate-100'}"
+					class="group flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium {active
+						? 'bg-indigo-600 text-white shadow-sm'
+						: 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}"
 				>
+					<Icon
+						icon={item.icon}
+						class="h-4 w-4 shrink-0 {active ? '' : 'text-slate-500 group-hover:text-slate-700'}"
+					/>
 					{item.label}
 				</a>
 			{/each}

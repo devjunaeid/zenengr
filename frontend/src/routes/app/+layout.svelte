@@ -2,24 +2,59 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
+	import Icon from '@iconify/svelte';
+	import viewDashboard from '@iconify-icons/mdi/view-dashboard';
+	import accountGroup from '@iconify-icons/mdi/account-group';
+	import accountMultiple from '@iconify-icons/mdi/account-multiple';
+	import folderMultiple from '@iconify-icons/mdi/folder-multiple';
+	import receiptText from '@iconify-icons/mdi/receipt-text';
+	import fileMultiple from '@iconify-icons/mdi/file-multiple';
+	import cog from '@iconify-icons/mdi/cog';
+	import accountCircle from '@iconify-icons/mdi/account-circle';
+	import history from '@iconify-icons/mdi/history';
+	import shieldAccount from '@iconify-icons/mdi/shield-account';
 	import { assetUrl } from '$lib/api/client.js';
 	import NotificationBell from '$lib/components/NotificationBell.svelte';
 	import { auth } from '$lib/stores/auth.svelte.js';
 
 	let { data, children } = $props();
 
-	/** @type {Array<{ href: string, label: string, exact: boolean, adminOnly?: boolean, perm?: [string, string] }>} */
+	/** @type {Array<{ href: string, label: string, icon: any, exact: boolean, adminOnly?: boolean, perm?: [string, string] }>} */
 	const nav = [
-		{ href: '/app', label: 'Dashboard', exact: true, adminOnly: false },
-		{ href: '/app/team', label: 'Team', exact: false, adminOnly: false },
-		{ href: '/app/clients', label: 'Clients', exact: false, adminOnly: false },
-		{ href: '/app/projects', label: 'Projects', exact: false, adminOnly: false },
-		{ href: '/app/invoices', label: 'Invoices', exact: false, adminOnly: false },
-		{ href: '/app/files', label: 'Files', exact: false, adminOnly: false },
-		{ href: '/app/settings', label: 'Settings', exact: false, perm: ['manage', 'tenant_settings'] },
-		{ href: '/app/roles', label: 'Roles', exact: false, perm: ['manage', 'roles'] },
-		{ href: '/app/profile', label: 'Profile', exact: false, adminOnly: false },
-		{ href: '/app/audit', label: 'Audit log', exact: false, adminOnly: true }
+		{ href: '/app', label: 'Dashboard', icon: viewDashboard, exact: true, adminOnly: false },
+		{ href: '/app/team', label: 'Team', icon: accountGroup, exact: false, adminOnly: false },
+		{
+			href: '/app/clients',
+			label: 'Clients',
+			icon: accountMultiple,
+			exact: false,
+			adminOnly: false
+		},
+		{
+			href: '/app/projects',
+			label: 'Projects',
+			icon: folderMultiple,
+			exact: false,
+			adminOnly: false
+		},
+		{ href: '/app/invoices', label: 'Invoices', icon: receiptText, exact: false, adminOnly: false },
+		{ href: '/app/files', label: 'Files', icon: fileMultiple, exact: false, adminOnly: false },
+		{
+			href: '/app/settings',
+			label: 'Settings',
+			icon: cog,
+			exact: false,
+			perm: ['manage', 'tenant_settings']
+		},
+		{
+			href: '/app/roles',
+			label: 'Roles',
+			icon: shieldAccount,
+			exact: false,
+			perm: ['manage', 'roles']
+		},
+		{ href: '/app/profile', label: 'Profile', icon: accountCircle, exact: false, adminOnly: false },
+		{ href: '/app/audit', label: 'Audit log', icon: history, exact: false, adminOnly: true }
 	];
 
 	/**
@@ -95,10 +130,14 @@
 					<a
 						href={resolve(/** @type {any} */ (item.href))}
 						aria-current={active ? 'page' : undefined}
-						class="block rounded-md px-3 py-2 text-sm font-medium {active
-							? 'bg-indigo-50 text-indigo-700'
-							: 'text-slate-700 hover:bg-slate-100'}"
+						class="group flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium {active
+							? 'bg-indigo-600 text-white shadow-sm'
+							: 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}"
 					>
+						<Icon
+							icon={item.icon}
+							class="h-4 w-4 shrink-0 {active ? '' : 'text-slate-500 group-hover:text-slate-700'}"
+						/>
 						{item.label}
 					</a>
 				{/each}

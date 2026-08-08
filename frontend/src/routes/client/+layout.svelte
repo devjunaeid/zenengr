@@ -1,4 +1,9 @@
 <script>
+	import Icon from '@iconify/svelte';
+	import viewDashboard from '@iconify-icons/mdi/view-dashboard';
+	import folderMultiple from '@iconify-icons/mdi/folder-multiple';
+	import receiptText from '@iconify-icons/mdi/receipt-text';
+	import accountCircle from '@iconify-icons/mdi/account-circle';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
@@ -10,11 +15,12 @@
 	// On public routes (login/invite), guard skipped store restore; user may be null
 	const isAuthed = $derived(!!portalAuth.user && portalAuth.isClientUser);
 
+	/** @type {Array<{ href: string, label: string, icon: any, exact: boolean }>} */
 	const nav = [
-		{ href: '/client', label: 'Dashboard', exact: true },
-		{ href: '/client/projects', label: 'Projects', exact: false },
-		{ href: '/client/invoices', label: 'Invoices', exact: false },
-		{ href: '/client/profile', label: 'Profile', exact: false }
+		{ href: '/client', label: 'Dashboard', icon: viewDashboard, exact: true },
+		{ href: '/client/projects', label: 'Projects', icon: folderMultiple, exact: false },
+		{ href: '/client/invoices', label: 'Invoices', icon: receiptText, exact: false },
+		{ href: '/client/profile', label: 'Profile', icon: accountCircle, exact: false }
 	];
 
 	/** @param {{ href: string, exact: boolean }} item */
@@ -96,10 +102,14 @@
 						<a
 							href={resolve(/** @type {any} */ (item.href))}
 							aria-current={active ? 'page' : undefined}
-							class="block rounded-md px-3 py-2 text-sm font-medium {active
-								? 'bg-indigo-50 text-indigo-700'
-								: 'text-slate-700 hover:bg-slate-100'}"
+							class="group flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium {active
+								? 'bg-indigo-600 text-white shadow-sm'
+								: 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}"
 						>
+							<Icon
+								icon={item.icon}
+								class="h-4 w-4 shrink-0 {active ? '' : 'text-slate-500 group-hover:text-slate-700'}"
+							/>
 							{item.label}
 						</a>
 					{/each}
@@ -136,10 +146,16 @@
 								href={resolve(/** @type {any} */ (item.href))}
 								aria-current={active ? 'page' : undefined}
 								onclick={() => (menuOpen = false)}
-								class="block rounded-md px-3 py-2 text-sm font-medium {active
-									? 'bg-indigo-50 text-indigo-700'
-									: 'text-slate-700 hover:bg-slate-100'}"
+								class="group flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium {active
+									? 'bg-indigo-600 text-white shadow-sm'
+									: 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}"
 							>
+								<Icon
+									icon={item.icon}
+									class="h-4 w-4 shrink-0 {active
+										? ''
+										: 'text-slate-500 group-hover:text-slate-700'}"
+								/>
 								{item.label}
 							</a>
 						{/each}
