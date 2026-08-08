@@ -88,7 +88,8 @@ import { ApiError, apiFetch, BASE_URL } from './client.js';
 /**
  * @param {typeof fetch} fetchFn
  * @param {string} token
- * @param {{ page?: number, page_size?: number, status?: string, project_id?: string }} [params]
+ * @param {{ page?: number, page_size?: number, status?: string, project_id?: string, client_id?: string }} [params]
+ *   `client_id` filters to that client's project invoices (general/internal excluded server-side).
  * @returns {Promise<{ items: InvoiceListItem[], total: number, page: number, page_size: number }>}
  */
 export function listInvoices(fetchFn, token, params = {}) {

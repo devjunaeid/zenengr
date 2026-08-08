@@ -431,6 +431,59 @@ class TestInvoicesAPI:
         resp = await client.get("/api/v1/tenant/invoices/?status=issued", headers=headers)
         assert resp.json()["total"] == 1
 
+    @pytest.mark.asyncio
+    async def test_list_invoices_filter_by_client(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        ctx = await _bootstrap(db_session)
+        headers = await _admin_auth_header(ctx["admin"])
+        # second client + project + attachment
+        client_b = await _create_client(db_session, ctx["tenant"].id)
+        project_b = await _create_project(db_session, ctx["tenant"].id, client_b.id)
+        ps_b = await _attach_service(db_session, project_b.id, ctx["svc"])
+        inv_a = await _create_invoice(client, headers, ctx["project"].id, ctx["ps"].id)
+        inv_b = await _create_invoice(client, headers, project_b.id, ps_b.id)
+        # general (project-less) invoice
+        resp = await client.post(
+            "/api/v1/tenant/invoices/",
+            json={"line_items": [{"description": "Internal", "unit_price": "50.00"}]},
+            headers=headers,
+        )
+        assert resp.status_code == 201
+        gen_id = resp.json()["id"]
+
+        # client A filter -> only client A's project invoice, general excluded
+        resp = await client.get(
+            f"/api/v1/tenant/invoices/?client_id={ctx['client'].id}", headers=headers
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] == 1
+        assert [item["id"] for item in data["items"]] == [inv_a]
+
+        # client B filter -> only client B's project invoice
+        resp = await client.get(
+            f"/api/v1/tenant/invoices/?client_id={client_b.id}", headers=headers
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] == 1
+        assert [item["id"] for item in data["items"]] == [inv_b]
+
+        # invalid uuid -> 422
+        resp = await client.get(
+            "/api/v1/tenant/invoices/?client_id=not-a-uuid", headers=headers
+        )
+        assert resp.status_code == 422
+        assert resp.json()["error"]["message"] == "client_id must be a valid UUID"
+
+        # no client_id -> all three invoices
+        resp = await client.get("/api/v1/tenant/invoices/", headers=headers)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] == 3
+        assert {item["id"] for item in data["items"]} == {inv_a, inv_b, gen_id}
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Void invoice (TODO-081)

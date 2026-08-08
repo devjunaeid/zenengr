@@ -362,8 +362,9 @@ async def list_invoices(
     page_size: int = 20,
     status_filter: InvoiceStatus | None = None,
     project_id: uuid.UUID | None = None,
+    client_id: uuid.UUID | None = None,
 ) -> dict[str, Any]:
-    """List invoices for a tenant with optional status/project filters."""
+    """List invoices for a tenant with optional status/project/client filters."""
     query = (
         select(Invoice).options(selectinload(Invoice.project)).where(Invoice.tenant_id == tenant_id)
     )
@@ -371,12 +372,22 @@ async def list_invoices(
         query = query.where(Invoice.status == status_filter)
     if project_id is not None:
         query = query.where(Invoice.project_id == project_id)
+    if client_id is not None:
+        query = query.join(Project, Invoice.project_id == Project.id).where(
+            Project.client_id == client_id,
+            Invoice.project_id.is_not(None),
+        )
 
     count_stmt = select(Invoice).where(Invoice.tenant_id == tenant_id)
     if status_filter is not None:
         count_stmt = count_stmt.where(Invoice.status == status_filter)
     if project_id is not None:
         count_stmt = count_stmt.where(Invoice.project_id == project_id)
+    if client_id is not None:
+        count_stmt = count_stmt.join(Project, Invoice.project_id == Project.id).where(
+            Project.client_id == client_id,
+            Invoice.project_id.is_not(None),
+        )
     count_q = select(func.count()).select_from(count_stmt.subquery())
     total_result = await session.execute(count_q)
     total: int = total_result.scalar_one()

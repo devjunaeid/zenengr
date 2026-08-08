@@ -4,8 +4,8 @@ import * as serviceApi from '$lib/api/services.js';
 import * as tenantApi from '$lib/api/tenant.js';
 import { auth } from '$lib/stores/auth.svelte.js';
 
-/** @param {{ fetch: typeof fetch }} event */
-export async function load({ fetch }) {
+/** @param {{ fetch: typeof fetch, url: URL }} event */
+export async function load({ fetch, url }) {
 	await auth.init(fetch);
 	const token = /** @type {string} */ (auth.token);
 
@@ -23,6 +23,8 @@ export async function load({ fetch }) {
 	return {
 		clients: clients.items,
 		services: services.items,
-		users: users.items
+		users: users.items,
+		// Support ?client_id= deep link from a client's "New project" CTA.
+		initialClientId: url.searchParams.get('client_id') ?? ''
 	};
 }

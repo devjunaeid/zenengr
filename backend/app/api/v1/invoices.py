@@ -150,6 +150,7 @@ async def list_invoices_endpoint(
     page_size: int = Query(default=20, ge=1, le=100),
     status_val: str | None = Query(default=None, alias="status"),
     project_id: str | None = Query(default=None),
+    client_id: str | None = Query(default=None),
     session: AsyncSession = Depends(get_session),
     user: AdminUser = Depends(get_current_admin_user),
 ) -> InvoiceListResponse:
@@ -179,6 +180,16 @@ async def list_invoices_endpoint(
                 detail="project_id must be a valid UUID",
             ) from exc
 
+    parsed_client_id: uuid.UUID | None = None
+    if client_id:
+        try:
+            parsed_client_id = uuid.UUID(client_id)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="client_id must be a valid UUID",
+            ) from exc
+
     result = await invoice_service.list_invoices(
         session,
         tenant_id=tenant_id,
@@ -186,6 +197,7 @@ async def list_invoices_endpoint(
         page_size=page_size,
         status_filter=status_filter,
         project_id=parsed_project_id,
+        client_id=parsed_client_id,
     )
     items = [InvoiceListItem(**item) for item in result["items"]]
     return InvoiceListResponse(

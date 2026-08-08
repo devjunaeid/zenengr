@@ -1,4 +1,5 @@
 <script>
+	import { untrack } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { ApiError } from '$lib/api/client.js';
@@ -13,7 +14,7 @@
 	const token = /** @type {string} */ (auth.token);
 
 	let name = $state('');
-	let clientId = $state('');
+	let clientId = $state(untrack(() => data.initialClientId));
 	/** @type {string|null} */
 	let startDate = $state(null);
 	/** @type {string|null} */
