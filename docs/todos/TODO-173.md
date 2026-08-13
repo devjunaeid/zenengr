@@ -3,7 +3,7 @@ id: TODO-173
 title: Hook event producers
 feature: FEAT-017
 story: US-059
-status: proposed
+status: done
 priority: P0
 owner: ""
 estimate: ""
@@ -21,15 +21,16 @@ Emit notifications from existing business flows: comment created (shared only; s
 
 ## Acceptance criteria
 
-- [ ] Comment created (shared only; staff with view/comments permission + client mirror). (FR-17.3, AC-3/4)
-- [ ] Invoice issued (staff view/invoices + client). (FR-17.3)
-- [ ] Payment recorded (staff view/payments or invoices + client). (FR-17.3)
-- [ ] Refund recorded; advance applied (staff). (FR-17.3)
-- [ ] Milestone completed (staff view/milestones + client). (FR-17.3)
-- [ ] Project created (staff view/projects). (FR-17.3)
-- [ ] Tests per hook: staff permission scoping + client mirror + pref filtering.
+- [x] Comment created (shared only; staff with view/comments permission + client mirror). (FR-17.3, AC-3/4)
+- [x] Invoice issued (staff view/invoices + client). (FR-17.3)
+- [x] Payment recorded (staff view/payments or invoices + client). (FR-17.3)
+- [x] Refund recorded; advance applied (staff). (FR-17.3)
+- [x] Milestone completed (staff view/milestones + client). (FR-17.3)
+- [x] Project created (staff view/projects). (FR-17.3)
+- [x] Tests per hook: staff permission scoping + client mirror + pref filtering.
 
 ## Notes
 
 - Internal-only comments never notify (shared only).
 - Reuses recipient resolution helpers from TODO-170.
+- Shipped: event hooks wired (comment shared, invoice issued, payment, refund, advance applied, milestone, project created) - never break actions; per-hook tests.

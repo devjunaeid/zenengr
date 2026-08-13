@@ -3,7 +3,7 @@ id: TODO-175
 title: Frontend bell + dropdown panel (both portals)
 feature: FEAT-017
 story: US-059
-status: proposed
+status: done
 priority: P0
 owner: ""
 estimate: ""
@@ -21,11 +21,12 @@ Bell with unread badge in app + client shells. Dropdown: list (unread bold), mar
 
 ## Acceptance criteria
 
-- [ ] Bell with unread badge in app + client shells; badge updates in realtime. (FR-17.7, AC-7)
-- [ ] Dropdown list with unread bold. (FR-17.7, AC-7)
-- [ ] Mark read per item + mark all. (FR-17.7, AC-7)
-- [ ] Link to entity page; empty state. (FR-17.7, AC-7)
+- [x] Bell with unread badge in app + client shells; badge updates in realtime. (FR-17.7, AC-7)
+- [x] Dropdown list with unread bold. (FR-17.7, AC-7)
+- [x] Mark read per item + mark all. (FR-17.7, AC-7)
+- [x] Link to entity page; empty state. (FR-17.7, AC-7)
 
 ## Notes
 
 - Both portals (staff + client) share component pattern, separate shells.
+- Shipped: bell + unread badge + dropdown panel (unread bold, mark read per item + mark all, entity links, empty state) in both portals; realtime badge updates.

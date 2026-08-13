@@ -12,14 +12,17 @@ export async function load({ fetch, params }) {
 	const token = /** @type {string} */ (auth.token);
 
 	try {
-		const [project, users, overview] = await Promise.all([
+		const [project, users, overview, ledger] = await Promise.all([
 			projectApi.getProject(fetch, token, params.id),
 			tenantApi
 				.listUsers(fetch, token, { page_size: 100, is_active: true })
 				.catch(() => ({ items: [] })),
 			// Financial summary is a nice-to-have on this page; a failure here
 			// must not take down the whole project view.
-			invoiceApi.getProjectOverview(fetch, token, params.id).catch(() => null)
+			invoiceApi.getProjectOverview(fetch, token, params.id).catch(() => null),
+			// Same for the ledger: degrade to null and let the section render
+			// its "unavailable" state.
+			projectApi.getProjectLedger(fetch, token, params.id).catch(() => null)
 		]);
 
 		// Fetch active service details so we can show step previews when adding
@@ -47,7 +50,7 @@ export async function load({ fetch, params }) {
 			if (r) serviceDetails[r.id] = r;
 		}
 
-		return { project, users: users.items, serviceDetails, overview };
+		return { project, users: users.items, serviceDetails, overview, ledger };
 	} catch (e) {
 		if (e instanceof ApiError && e.status === 404) {
 			throw error(404, 'Project not found');

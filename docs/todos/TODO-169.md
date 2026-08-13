@@ -3,7 +3,7 @@ id: TODO-169
 title: Notification model + migration
 feature: FEAT-017
 story: US-059
-status: proposed
+status: done
 priority: P0
 owner: ""
 estimate: ""
@@ -21,10 +21,11 @@ Create Notification model as designed: id, user_id, user_type, tenant_id, event_
 
 ## Acceptance criteria
 
-- [ ] Notification model matches design: id, user_id, user_type, tenant_id, event_type, title, body, entity_type, entity_id, data JSONB, is_read, created_at. (FR-17.2)
-- [ ] Indexes: user_id, tenant, created_at. (FR-17.2)
-- [ ] Migration creates table; history retained; read state per user. (FR-17.2)
+- [x] Notification model matches design: id, user_id, user_type, tenant_id, event_type, title, body, entity_type, entity_id, data JSONB, is_read, created_at. (FR-17.2)
+- [x] Indexes: user_id, tenant, created_at. (FR-17.2)
+- [x] Migration creates table; history retained; read state per user. (FR-17.2)
 
 ## Notes
 
 - Rows are append-only (no delete of history); is_read is the only mutable state.
+- Shipped: Notification model (id, user_id, user_type, tenant_id, event_type, title, body, entity_type, entity_id, data JSONB, is_read, created_at) + migration; indexes (user_id, tenant, created_at); history append-only.

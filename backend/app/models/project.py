@@ -8,15 +8,16 @@ MilestoneStepTemplate as ProjectMilestone rows.
 from __future__ import annotations
 
 import uuid
-from datetime import date
+from datetime import date, datetime
+from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Date, ForeignKey, String, Uuid
+from sqlalchemy import Date, DateTime, ForeignKey, Numeric, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 from app.models.base import TimestampMixin
-from app.models.enums import ProjectStatus
+from app.models.enums import DiscountType, ProjectStatus
 
 if TYPE_CHECKING:
     from app.models.admin_user import AdminUser
@@ -37,17 +38,25 @@ class Project(TimestampMixin, Base):
     client_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("clients.id"), index=True, nullable=False
     )
-    status: Mapped[ProjectStatus] = mapped_column(
-        default=ProjectStatus.DRAFT, nullable=False
-    )
+    status: Mapped[ProjectStatus] = mapped_column(default=ProjectStatus.DRAFT, nullable=False)
     start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     owner_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid, ForeignKey("admin_users.id"), nullable=True
     )
+    # Single active discount per project (FEAT-018, FR-18.3): replace-on-change,
+    # audited via discount_updated_at/discount_updated_by, never on client timeline.
+    discount_type: Mapped[DiscountType | None] = mapped_column(nullable=True)
+    discount_value: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    discount_updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    discount_updated_by: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("admin_users.id", ondelete="SET NULL"), nullable=True
+    )
 
     tenant: Mapped[Tenant] = relationship("Tenant", back_populates="projects")
     client: Mapped[Client] = relationship("Client", back_populates="projects")
-    owner: Mapped[AdminUser | None] = relationship("AdminUser")
+    owner: Mapped[AdminUser | None] = relationship("AdminUser", foreign_keys=[owner_id])
     project_services: Mapped[list[ProjectService]] = relationship(
         "ProjectService",
         back_populates="project",

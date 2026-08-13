@@ -9,7 +9,12 @@ export async function load({ fetch, params }) {
 	const token = /** @type {string} */ (portalAuth.token);
 
 	try {
-		const project = await portalApi.getClientProject(fetch, token, params.id);
+		const [project, ledger] = await Promise.all([
+			portalApi.getClientProject(fetch, token, params.id),
+			// Read-only ledger degrades to null on failure; the page renders an
+			// "unavailable" state instead of failing the whole project view.
+			portalApi.getClientProjectLedger(fetch, token, params.id).catch(() => null)
+		]);
 		// Files degrade to an empty list on failure; the page shows a banner.
 		/** @type {string|null} */
 		let filesError = null;
@@ -21,7 +26,7 @@ export async function load({ fetch, params }) {
 			files = { items: [], total: 0, page: 1, page_size: 50 };
 			filesError = e instanceof ApiError ? e.message : 'Could not load project files.';
 		}
-		return { project, files, filesError };
+		return { project, files, filesError, ledger };
 	} catch (e) {
 		if (e instanceof ApiError && e.status === 404) {
 			throw error(404, 'Project not found');

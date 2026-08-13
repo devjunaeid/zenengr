@@ -6,6 +6,11 @@
 	import StatusBadge from '$lib/components/StatusBadge.svelte';
 	import { portalAuth } from '$lib/stores/portalAuth.svelte.js';
 	import { fmtBytes, formatDate, fmtPrice } from '$lib/utils/format.js';
+	import Icon from '@iconify/svelte';
+	import arrowDown from '@iconify-icons/mdi/arrow-down';
+	import arrowUp from '@iconify-icons/mdi/arrow-up';
+	import minusCircle from '@iconify-icons/mdi/minus-circle';
+	import plusCircle from '@iconify-icons/mdi/plus-circle';
 
 	let { data } = $props();
 
@@ -24,6 +29,68 @@
 		} catch (e) {
 			downloadErr = e instanceof ApiError ? e.message : 'Download failed.';
 		}
+	}
+
+	// ---- ledger (FEAT-018, read-only) ----
+	/** @type {import('$lib/api/portal.js').ClientProjectLedgerResponse|null} */
+	let ledgerData = $derived(data.ledger);
+	/** @type {import('$lib/api/portal.js').ClientProjectLedgerEntry[]} */
+	let ledgerEntries = $derived(
+		(ledgerData?.entries ?? []).slice().sort((a, b) => {
+			const da = a.entry_date ?? a.created_at;
+			const db = b.entry_date ?? b.created_at;
+			return da < db ? -1 : da > db ? 1 : 0;
+		})
+	);
+	/** @type {import('$lib/api/portal.js').ClientProjectLedgerSummary|null} */
+	let ledgerSummary = $derived(ledgerData?.summary ?? null);
+
+	/**
+	 * Icon + color per ledger entry: payment = money in, refund = money out,
+	 * negative charge = reversal.
+	 * @param {import('$lib/api/portal.js').ClientProjectLedgerEntry} e
+	 */
+	function entryMeta(e) {
+		const n = Number(e.amount) || 0;
+		if (e.type === 'payment') {
+			return { icon: arrowDown, text: 'text-green-700', bg: 'bg-green-100' };
+		}
+		if (e.type === 'refund' || n < 0) {
+			return {
+				icon: e.type === 'refund' ? arrowUp : minusCircle,
+				text: 'text-red-600',
+				bg: 'bg-red-100'
+			};
+		}
+		return { icon: plusCircle, text: 'text-slate-600', bg: 'bg-indigo-100' };
+	}
+
+	/**
+	 * Signed price: payments get "+", refunds/reversals get "−", plain
+	 * charges render as their positive amount.
+	 * @param {import('$lib/api/portal.js').ClientProjectLedgerEntry} e
+	 */
+	function entryPrice(e) {
+		const n = Number(e.amount) || 0;
+		const abs = fmtPrice(Math.abs(n));
+		if (abs === '—') return '—';
+		if (e.type === 'payment') return `+${abs}`;
+		if (e.type === 'refund' || n < 0) return `−${abs}`;
+		return fmtPrice(n);
+	}
+
+	/** @param {import('$lib/api/portal.js').ClientProjectLedgerEntry} e */
+	function entryLabel(e) {
+		if (e.description) return e.description;
+		if (e.source_type === 'manual_adjustment') return 'Manual adjustment';
+		return e.type;
+	}
+
+	/** @param {import('$lib/api/portal.js').ClientProjectLedgerEntry} e */
+	function entrySubtext(e) {
+		if (e.source_type === 'manual_adjustment') return 'Manual adjustment';
+		if (e.source_type === 'transaction') return 'Payment';
+		return 'Charge';
 	}
 
 	const project = $derived(data.project);
@@ -138,6 +205,86 @@
 			<dd class="mt-1 text-lg font-semibold text-slate-900">{fmtPrice(balanceDue)}</dd>
 		</div>
 	</div>
+</section>
+
+<!-- Ledger timeline card (FEAT-018, read-only) -->
+<section
+	class="mt-6 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"
+	aria-labelledby="ledger-h"
+>
+	<div class="border-b border-slate-200 px-6 py-4">
+		<h2 id="ledger-h" class="text-base font-semibold text-slate-900">Ledger</h2>
+		<p class="mt-0.5 text-sm text-slate-500">Charges, payments and refunds on this project.</p>
+	</div>
+
+	{#if !ledgerData}
+		<p class="px-6 py-8 text-sm text-slate-500">Ledger unavailable.</p>
+	{:else if ledgerEntries.length === 0}
+		<p class="px-6 py-8 text-sm text-slate-500">No ledger entries yet.</p>
+	{:else}
+		<ul class="divide-y divide-slate-100">
+			{#each ledgerEntries as e (e.id)}
+				{@const meta = entryMeta(e)}
+				{@const price = entryPrice(e)}
+				<li class="flex items-center gap-3 px-6 py-3">
+					<span
+						class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full {meta.bg}"
+						aria-hidden="true"
+					>
+						<Icon icon={meta.icon} class="h-4 w-4 {meta.text}" />
+					</span>
+					<div class="min-w-0 flex-1">
+						<p class="truncate text-sm font-medium text-slate-900" title={entryLabel(e)}>
+							{entryLabel(e)}
+						</p>
+						<p class="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-500">
+							<span>{entrySubtext(e)}</span>
+							<span aria-hidden="true">·</span>
+							<span>{e.entry_date ? formatDate(e.entry_date) : formatDate(e.created_at)}</span>
+							{#if e.type === 'charge' && e.invoice_ref && e.invoice_number}
+								<a
+									href={resolve('/client/invoices/[id]', { id: e.invoice_ref })}
+									class="inline-flex items-center rounded-full bg-indigo-50 px-2 py-0.5 font-medium text-indigo-700 ring-1 ring-indigo-600/20 hover:bg-indigo-100"
+								>
+									Included in {e.invoice_number}
+								</a>
+							{/if}
+						</p>
+					</div>
+					<p class="shrink-0 text-sm font-semibold whitespace-nowrap {meta.text}">{price}</p>
+				</li>
+			{/each}
+		</ul>
+	{/if}
+</section>
+
+<!-- Ledger balance summary card (FEAT-018, read-only) -->
+<section
+	class="mt-6 rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
+	aria-labelledby="ledger-balance-h"
+>
+	<h2 id="ledger-balance-h" class="text-base font-semibold text-slate-900">Balance</h2>
+	{#if !ledgerData}
+		<p class="mt-4 text-sm text-slate-500">Ledger unavailable.</p>
+	{:else}
+		{@const due = Number(ledgerSummary?.due) || 0}
+		<dl class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+			<div>
+				<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Charged</dt>
+				<dd class="mt-1 text-lg font-semibold text-slate-900">{fmtPrice(ledgerSummary?.total)}</dd>
+			</div>
+			<div>
+				<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Paid</dt>
+				<dd class="mt-1 text-lg font-semibold text-green-700">{fmtPrice(ledgerSummary?.paid)}</dd>
+			</div>
+			<div>
+				<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Balance due</dt>
+				<dd class="mt-1 text-lg font-bold {due > 0 ? 'text-red-600' : 'text-green-700'}">
+					{fmtPrice(ledgerSummary?.due)}
+				</dd>
+			</div>
+		</dl>
+	{/if}
 </section>
 
 <!-- Linked invoices card -->

@@ -32,10 +32,12 @@ from app.schemas.client_portal import (
 )
 from app.schemas.comments import CommentCreateRequest, CommentResponse
 from app.schemas.files import FileAssetItem, FileListResponse
+from app.schemas.ledger import LedgerEntryResponse, ProjectLedgerResponse, SummaryResponse
 from app.schemas.projects import LinkedInvoiceItem
 from app.services import comments as comment_service
 from app.services import files as files_service
 from app.services import financials as financials_service
+from app.services import ledger as ledger_service
 
 router = APIRouter(prefix="/client/projects", tags=["client-projects"])
 
@@ -308,3 +310,36 @@ async def post_client_comment_endpoint(
         actor=user,
     )
     return _to_comment_response(comment)
+
+
+@router.get("/{project_id}/ledger", response_model=ProjectLedgerResponse)
+async def get_client_project_ledger_endpoint(
+    project_id: str,
+    session: AsyncSession = Depends(get_session),
+    user: ClientUser = Depends(get_current_client_user),
+) -> ProjectLedgerResponse:
+    """Project ledger scoped to the caller's own client.
+
+    Read-only timeline (charges + derived payments/refunds) + summary.
+    404 for projects that do not belong to the caller's client (leak prevention).
+    """
+    pid = _parse_uuid(project_id, kind="Project")
+    stmt = select(Project).where(
+        Project.id == pid,
+        Project.client_id == user.client_id,
+        Project.tenant_id == user.tenant_id,
+    )
+    project = (await session.execute(stmt)).scalar_one_or_none()
+    if project is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Project not found",
+        )
+
+    data = await ledger_service.get_project_ledger(
+        session, tenant_id=user.tenant_id, project_id=pid
+    )
+    return ProjectLedgerResponse(
+        entries=[LedgerEntryResponse(**entry) for entry in data["entries"]],
+        summary=SummaryResponse(**data["summary"]),
+    )

@@ -291,6 +291,49 @@ export function getClientLedger(fetchFn, token) {
 }
 
 /**
+ * @typedef {object} ClientProjectLedgerEntry
+ * @property {string} id
+ * @property {'charge'|'payment'|'refund'} type
+ * @property {string} amount signed decimal-as-string (charges may be negative for reversals, payments positive, refunds negative)
+ * @property {string} description
+ * @property {'project_service'|'transaction'|'manual_adjustment'} source_type
+ * @property {string|null} source_id
+ * @property {string|null} invoice_ref set when a charge is covered by an issued invoice
+ * @property {string|null} invoice_number null while the covering invoice is a draft
+ * @property {string|null} entry_date ISO date
+ * @property {string} created_at ISO datetime
+ */
+
+/**
+ * @typedef {object} ClientProjectLedgerSummary
+ * @property {string} subtotal decimal-as-string
+ * @property {'percentage'|'fixed'|null} discount_type
+ * @property {string|null} discount_value null when no discount
+ * @property {string} discount_amount decimal-as-string
+ * @property {string} total decimal-as-string
+ * @property {string} paid decimal-as-string
+ * @property {string} due decimal-as-string
+ */
+
+/**
+ * @typedef {object} ClientProjectLedgerResponse
+ * @property {ClientProjectLedgerEntry[]} entries chronological, oldest first
+ * @property {ClientProjectLedgerSummary} summary
+ */
+
+/**
+ * The client's read-only project ledger: charges + derived payments/refunds
+ * and a live balance summary. Discount never appears on the client side.
+ * @param {typeof fetch} fetchFn
+ * @param {string} token
+ * @param {string} id
+ * @returns {Promise<ClientProjectLedgerResponse>}
+ */
+export function getClientProjectLedger(fetchFn, token, id) {
+	return apiFetch(fetchFn, `/client/projects/${encodeURIComponent(id)}/ledger`, { token });
+}
+
+/**
  * @typedef {object} ClientFileAssetItem
  * @property {string} id
  * @property {string} name

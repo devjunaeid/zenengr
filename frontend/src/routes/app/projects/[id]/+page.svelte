@@ -13,6 +13,11 @@
 	import StatusBadge from '$lib/components/StatusBadge.svelte';
 	import { auth } from '$lib/stores/auth.svelte.js';
 	import { formatDate, formatDateTime, fmtPrice, humanize } from '$lib/utils/format.js';
+	import Icon from '@iconify/svelte';
+	import arrowDown from '@iconify-icons/mdi/arrow-down';
+	import arrowUp from '@iconify-icons/mdi/arrow-up';
+	import minusCircle from '@iconify-icons/mdi/minus-circle';
+	import plusCircle from '@iconify-icons/mdi/plus-circle';
 
 	let { data } = $props();
 
@@ -209,6 +214,174 @@
 	}
 
 	const projectStatusOptions = ['draft', 'active', 'on_hold', 'completed', 'cancelled'];
+
+	// ---- ledger (FEAT-018) ----
+	/** @type {import('$lib/api/projects.js').LedgerResponse|null} */
+	let ledgerData = $derived(data.ledger);
+	/** @type {import('$lib/api/projects.js').LedgerEntry[]} */
+	let ledgerEntries = $derived(
+		(ledgerData?.entries ?? []).slice().sort((a, b) => {
+			const da = a.entry_date ?? a.created_at;
+			const db = b.entry_date ?? b.created_at;
+			return da < db ? -1 : da > db ? 1 : 0;
+		})
+	);
+	/** @type {import('$lib/api/projects.js').LedgerSummary|null} */
+	let ledgerSummary = $derived(ledgerData?.summary ?? null);
+
+	/**
+	 * Icon + color per ledger entry: payment = money in, refund = money out,
+	 * negative charge = reversal.
+	 * @param {import('$lib/api/projects.js').LedgerEntry} e
+	 */
+	function entryMeta(e) {
+		const n = Number(e.amount) || 0;
+		if (e.type === 'payment') {
+			return { icon: arrowDown, text: 'text-green-700', bg: 'bg-green-100' };
+		}
+		if (e.type === 'refund' || n < 0) {
+			return {
+				icon: e.type === 'refund' ? arrowUp : minusCircle,
+				text: 'text-red-600',
+				bg: 'bg-red-100'
+			};
+		}
+		return { icon: plusCircle, text: 'text-slate-600', bg: 'bg-indigo-100' };
+	}
+
+	/**
+	 * Signed price: payments get "+", refunds/reversals get "−", plain
+	 * charges render as their positive amount.
+	 * @param {import('$lib/api/projects.js').LedgerEntry} e
+	 */
+	function entryPrice(e) {
+		const n = Number(e.amount) || 0;
+		const abs = fmtPrice(Math.abs(n));
+		if (abs === '—') return '—';
+		if (e.type === 'payment') return `+${abs}`;
+		if (e.type === 'refund' || n < 0) return `−${abs}`;
+		return fmtPrice(n);
+	}
+
+	/** @param {import('$lib/api/projects.js').LedgerEntry} e */
+	function entryLabel(e) {
+		if (e.description) return e.description;
+		if (e.source_type === 'manual_adjustment') return 'Manual adjustment';
+		return humanize(e.type);
+	}
+
+	/** @param {import('$lib/api/projects.js').LedgerEntry} e */
+	function entrySubtext(e) {
+		if (e.source_type === 'manual_adjustment') return 'Manual adjustment';
+		if (e.source_type === 'transaction') return 'Payment';
+		return 'Charge';
+	}
+
+	// ---- add adjustment dialog ----
+	let adjustOpen = $state(false);
+	let adjustBusy = $state(false);
+	/** @type {string|null} */
+	let adjustErr = $state(null);
+	/** @type {number|string} */
+	let adjustAmount = $state('');
+	/** @type {string} */
+	let adjustDescription = $state('');
+
+	function openAdjustDialog() {
+		adjustErr = null;
+		adjustAmount = '';
+		adjustDescription = '';
+		adjustOpen = true;
+	}
+
+	async function saveAdjustment() {
+		adjustErr = null;
+		const n = Number(adjustAmount);
+		if (adjustAmount === '' || !Number.isFinite(n) || n === 0) {
+			adjustErr = 'Enter a non-zero signed amount (negative reduces the total).';
+			return;
+		}
+		if (!adjustDescription.trim()) {
+			adjustErr = 'Add a description.';
+			return;
+		}
+		adjustBusy = true;
+		try {
+			await projectApi.addLedgerAdjustment(fetch, token, data.project.id, {
+				amount: String(n),
+				description: adjustDescription.trim()
+			});
+			adjustOpen = false;
+			await invalidateAll();
+		} catch (e) {
+			adjustErr = e instanceof ApiError ? e.message : 'Could not add adjustment.';
+		} finally {
+			adjustBusy = false;
+		}
+	}
+
+	// ---- edit discount dialog ----
+	let discountOpen = $state(false);
+	let discountBusy = $state(false);
+	/** @type {string|null} */
+	let discountErr = $state(null);
+	/** @type {''|'percentage'|'fixed'} */
+	let discountType = $state('');
+	/** @type {number|string} */
+	let discountValue = $state('');
+
+	function openDiscountDialog() {
+		discountErr = null;
+		discountType = ledgerSummary?.discount_type ?? '';
+		discountValue = ledgerSummary?.discount_value != null ? ledgerSummary.discount_value : '';
+		discountOpen = true;
+	}
+
+	async function saveDiscount() {
+		discountErr = null;
+		/** @type {{ discount_type: 'percentage'|'fixed'|null, discount_value: number|null }} */
+		const body = { discount_type: null, discount_value: null };
+		if (discountType === 'percentage' || discountType === 'fixed') {
+			const v = Number(discountValue);
+			if (discountValue === '' || !Number.isFinite(v) || v < 0) {
+				discountErr = 'Enter a value of 0 or more.';
+				return;
+			}
+			if (discountType === 'percentage' && v > 100) {
+				discountErr = 'Percentage must be 100 or less.';
+				return;
+			}
+			body.discount_type = discountType;
+			body.discount_value = v;
+		}
+		discountBusy = true;
+		try {
+			await projectApi.setProjectDiscount(fetch, token, data.project.id, body);
+			discountOpen = false;
+			await invalidateAll();
+		} catch (e) {
+			discountErr = e instanceof ApiError ? e.message : 'Could not save discount.';
+		} finally {
+			discountBusy = false;
+		}
+	}
+
+	/**
+	 * Summary row for the discount: "-X" with a type hint, or "—" when none.
+	 * @returns {{ display: string, hint: string|null }}
+	 */
+	function discountDisplay() {
+		const s = ledgerSummary;
+		if (!s?.discount_type) return { display: '—', hint: null };
+		const amount = Number(s.discount_amount) || 0;
+		const abs = fmtPrice(Math.abs(amount));
+		const display = abs === '—' ? '—' : `−${abs}`;
+		const hint =
+			s.discount_type === 'percentage'
+				? `${Math.round((Number(s.discount_value) || 0) * 100) / 100}%`
+				: 'fixed';
+		return { display, hint };
+	}
 </script>
 
 <svelte:head><title>{data.project.name} — ZenEngr</title></svelte:head>
@@ -459,6 +632,128 @@
 	</div>
 </section>
 
+<!-- Ledger section (FEAT-018) -->
+<section
+	class="mt-6 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"
+	aria-labelledby="ledger-h"
+>
+	<div
+		class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-6 py-4"
+	>
+		<div>
+			<h2 id="ledger-h" class="text-base font-semibold text-slate-900">Ledger</h2>
+			<p class="mt-0.5 text-sm text-slate-500">
+				Balance-forward timeline of charges, payments and refunds.
+			</p>
+		</div>
+		{#if canManage}
+			<div class="flex flex-wrap items-center gap-2">
+				<button
+					type="button"
+					onclick={openAdjustDialog}
+					class="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+				>
+					Add adjustment
+				</button>
+				<button
+					type="button"
+					onclick={openDiscountDialog}
+					class="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+				>
+					Edit discount
+				</button>
+			</div>
+		{/if}
+	</div>
+
+	{#if !ledgerData}
+		<p class="px-6 py-8 text-sm text-slate-500">Ledger unavailable.</p>
+	{:else if ledgerEntries.length === 0}
+		<p class="px-6 py-8 text-sm text-slate-500">No ledger entries yet.</p>
+	{:else}
+		<ul class="divide-y divide-slate-100">
+			{#each ledgerEntries as e (e.id)}
+				{@const meta = entryMeta(e)}
+				{@const price = entryPrice(e)}
+				<li class="flex items-center gap-3 px-6 py-3">
+					<span
+						class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full {meta.bg}"
+						aria-hidden="true"
+					>
+						<Icon icon={meta.icon} class="h-4 w-4 {meta.text}" />
+					</span>
+					<div class="min-w-0 flex-1">
+						<p class="truncate text-sm font-medium text-slate-900" title={entryLabel(e)}>
+							{entryLabel(e)}
+						</p>
+						<p class="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-500">
+							<span>{entrySubtext(e)}</span>
+							<span aria-hidden="true">·</span>
+							<span>{e.entry_date ? formatDate(e.entry_date) : formatDateTime(e.created_at)}</span>
+							{#if e.type === 'charge' && e.invoice_ref && e.invoice_number}
+								<a
+									href={resolve('/app/invoices/[id]', { id: e.invoice_ref })}
+									class="inline-flex items-center rounded-full bg-indigo-50 px-2 py-0.5 font-medium text-indigo-700 ring-1 ring-indigo-600/20 hover:bg-indigo-100"
+								>
+									Included in {e.invoice_number}
+								</a>
+							{/if}
+						</p>
+					</div>
+					<p class="shrink-0 text-sm font-semibold whitespace-nowrap {meta.text}">{price}</p>
+				</li>
+			{/each}
+		</ul>
+	{/if}
+</section>
+
+<!-- Project ledger balance summary (FEAT-018) -->
+<section
+	class="mt-6 rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
+	aria-labelledby="ledger-balance-h"
+>
+	<h2 id="ledger-balance-h" class="text-base font-semibold text-slate-900">
+		Project ledger (balance)
+	</h2>
+	{#if !ledgerData}
+		<p class="mt-4 text-sm text-slate-500">Ledger unavailable.</p>
+	{:else}
+		{@const disc = discountDisplay()}
+		{@const due = Number(ledgerSummary?.due) || 0}
+		<dl class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+			<div>
+				<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Subtotal</dt>
+				<dd class="mt-1 text-lg font-semibold text-slate-900">
+					{fmtPrice(ledgerSummary?.subtotal)}
+				</dd>
+			</div>
+			<div>
+				<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Discount</dt>
+				<dd class="mt-1 text-lg font-semibold text-slate-900">
+					{disc.display}
+					{#if disc.hint}
+						<span class="ml-1 text-xs font-normal text-slate-500">({disc.hint})</span>
+					{/if}
+				</dd>
+			</div>
+			<div>
+				<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Total</dt>
+				<dd class="mt-1 text-lg font-semibold text-slate-900">{fmtPrice(ledgerSummary?.total)}</dd>
+			</div>
+			<div>
+				<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Paid</dt>
+				<dd class="mt-1 text-lg font-semibold text-green-700">{fmtPrice(ledgerSummary?.paid)}</dd>
+			</div>
+			<div>
+				<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Due</dt>
+				<dd class="mt-1 text-lg font-bold {due > 0 ? 'text-red-600' : 'text-green-700'}">
+					{fmtPrice(ledgerSummary?.due)}
+				</dd>
+			</div>
+		</dl>
+	{/if}
+</section>
+
 <!-- Services section (TODO-071) -->
 <section
 	class="mt-6 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"
@@ -640,6 +935,195 @@
 		<CommentThread projectId={data.project.id} {fetch} {token} realm="admin" staff={true} />
 	</div>
 </section>
+
+<!-- Add adjustment dialog (FEAT-018) -->
+<Dialog.Root bind:open={adjustOpen}>
+	<Dialog.Portal>
+		<Dialog.Overlay class="fixed inset-0 z-40 bg-black/50" />
+		<Dialog.Content
+			class="fixed top-1/2 left-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-6 shadow-xl focus:outline-none"
+		>
+			<div class="flex items-center justify-between">
+				<Dialog.Title class="text-lg font-semibold text-slate-900">Add adjustment</Dialog.Title>
+				<Dialog.Close
+					aria-label="Close"
+					class="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+				>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						viewBox="0 0 20 20"
+						fill="currentColor"
+						class="h-5 w-5"
+						aria-hidden="true"
+					>
+						<path
+							d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"
+						/>
+					</svg>
+				</Dialog.Close>
+			</div>
+			<Dialog.Description class="mt-2 text-sm text-slate-600">
+				Signed amount: positive adds to the project total, negative offsets it. The change is
+				appended to the ledger and cannot be edited or removed.
+			</Dialog.Description>
+
+			{#if adjustErr}
+				<p
+					role="alert"
+					class="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+				>
+					{adjustErr}
+				</p>
+			{/if}
+
+			<form
+				class="mt-4 space-y-4"
+				onsubmit={(e) => {
+					e.preventDefault();
+					saveAdjustment();
+				}}
+			>
+				<div>
+					<label for="adjust-amount" class="block text-sm font-medium text-slate-700">Amount</label>
+					<input
+						id="adjust-amount"
+						type="number"
+						step="0.01"
+						placeholder="0.00"
+						bind:value={adjustAmount}
+						class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+					/>
+				</div>
+				<div>
+					<label for="adjust-desc" class="block text-sm font-medium text-slate-700"
+						>Description</label
+					>
+					<input
+						id="adjust-desc"
+						type="text"
+						placeholder="e.g. Service cancellation credit"
+						bind:value={adjustDescription}
+						class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+					/>
+				</div>
+				<div class="flex justify-end gap-3 pt-2">
+					<Dialog.Close
+						class="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+					>
+						Cancel
+					</Dialog.Close>
+					<button
+						type="submit"
+						disabled={adjustBusy}
+						aria-busy={adjustBusy}
+						class="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+					>
+						{#if adjustBusy}<Spinner class="h-4 w-4 text-white" />{/if}
+						Add adjustment
+					</button>
+				</div>
+			</form>
+		</Dialog.Content>
+	</Dialog.Portal>
+</Dialog.Root>
+
+<!-- Edit discount dialog (FEAT-018) -->
+<Dialog.Root bind:open={discountOpen}>
+	<Dialog.Portal>
+		<Dialog.Overlay class="fixed inset-0 z-40 bg-black/50" />
+		<Dialog.Content
+			class="fixed top-1/2 left-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-6 shadow-xl focus:outline-none"
+		>
+			<div class="flex items-center justify-between">
+				<Dialog.Title class="text-lg font-semibold text-slate-900">Edit discount</Dialog.Title>
+				<Dialog.Close
+					aria-label="Close"
+					class="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+				>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						viewBox="0 0 20 20"
+						fill="currentColor"
+						class="h-5 w-5"
+						aria-hidden="true"
+					>
+						<path
+							d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"
+						/>
+					</svg>
+				</Dialog.Close>
+			</div>
+			<Dialog.Description class="mt-2 text-sm text-slate-600">
+				Single active discount — a new value replaces the current one. It feeds the ledger balance
+				and is auto-applied to new invoices.
+			</Dialog.Description>
+
+			{#if discountErr}
+				<p
+					role="alert"
+					class="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+				>
+					{discountErr}
+				</p>
+			{/if}
+
+			<form
+				class="mt-4 space-y-4"
+				onsubmit={(e) => {
+					e.preventDefault();
+					saveDiscount();
+				}}
+			>
+				<div>
+					<label for="discount-type" class="block text-sm font-medium text-slate-700">Type</label>
+					<select
+						id="discount-type"
+						bind:value={discountType}
+						class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+					>
+						<option value="">None</option>
+						<option value="percentage">Percentage</option>
+						<option value="fixed">Fixed amount</option>
+					</select>
+				</div>
+				<div>
+					<label for="discount-value" class="block text-sm font-medium text-slate-700">Value</label>
+					<input
+						id="discount-value"
+						type="number"
+						min="0"
+						step={discountType === 'percentage' ? '1' : '0.01'}
+						placeholder={discountType === 'percentage' ? '10' : '0.00'}
+						disabled={discountType === ''}
+						bind:value={discountValue}
+						class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
+					/>
+					{#if discountType === 'percentage'}
+						<p class="mt-1 text-xs text-slate-500">Percent of the ledger subtotal.</p>
+					{:else if discountType === 'fixed'}
+						<p class="mt-1 text-xs text-slate-500">Flat amount off the ledger subtotal.</p>
+					{/if}
+				</div>
+				<div class="flex justify-end gap-3 pt-2">
+					<Dialog.Close
+						class="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+					>
+						Cancel
+					</Dialog.Close>
+					<button
+						type="submit"
+						disabled={discountBusy}
+						aria-busy={discountBusy}
+						class="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+					>
+						{#if discountBusy}<Spinner class="h-4 w-4 text-white" />{/if}
+						Save discount
+					</button>
+				</div>
+			</form>
+		</Dialog.Content>
+	</Dialog.Portal>
+</Dialog.Root>
 
 <!-- Add service modal (bits-ui Dialog) -->
 <Dialog.Root bind:open={addOpen}>

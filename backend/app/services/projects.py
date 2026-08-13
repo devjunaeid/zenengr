@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import date, timedelta
+from decimal import Decimal
 from typing import Any
 
 from fastapi import HTTPException, status
@@ -35,6 +36,7 @@ from app.repositories import clients as client_repo
 from app.repositories import projects as project_repo
 from app.repositories import services as service_repo
 from app.services import financials as financials_service
+from app.services import ledger as ledger_service
 from app.services.audit import log as audit_log
 from app.services.notifications import (
     notify_milestone_completed,
@@ -150,11 +152,15 @@ async def _attach_service_internal(
     service: Service,
     *,
     start_date: date | None,
+    actor_id: uuid.UUID | None,
 ) -> ProjectService:
     """Create ProjectService + instantiate milestone rows from templates.
 
     Cumulative planned_date = start_date + sum(prior expected_duration_days)
     if both start_date and prior durations exist; else None for that step.
+
+    Also writes the FEAT-018 charge LedgerEntry (FR-18.5): amount = price at
+    attachment, entry_date = today, description = service name.
     """
     project_service = await project_repo.attach_service(
         session,
@@ -194,6 +200,21 @@ async def _attach_service_internal(
         session.add(milestone)
 
     await session.flush()
+
+    await ledger_service.add_service_charge(
+        session,
+        project_id=project.id,
+        project_service_id=project_service.id,
+        amount=(
+            project_service.price_at_attachment
+            if project_service.price_at_attachment is not None
+            else Decimal("0")
+        ),
+        description=service.name,
+        actor_id=actor_id,
+    )
+    await session.flush()
+
     return project_service
 
 
@@ -245,7 +266,9 @@ async def create_project(
     )
 
     for svc in services:
-        await _attach_service_internal(session, project, svc, start_date=start_date)
+        await _attach_service_internal(
+            session, project, svc, start_date=start_date, actor_id=actor_id
+        )
 
     await session.flush()
     await session.refresh(project, attribute_names=["project_services", "milestones"])
@@ -466,7 +489,7 @@ async def attach_service(
         raise ProjectServiceAlreadyAttachedError()
 
     project_service = await _attach_service_internal(
-        session, project, service, start_date=project.start_date
+        session, project, service, start_date=project.start_date, actor_id=actor_id
     )
 
     # Count the milestones we just added (in DB after flush)
@@ -524,6 +547,13 @@ async def remove_project_service(
     if ps.status == ProjectServiceStatus.CANCELLED:
         raise ProjectServiceAlreadyCancelledError()
 
+    # Snapshot identity + price + name BEFORE any delete: on the hard path the
+    # ProjectService row is gone before we write the ledger reversal.
+    ps_id = ps.id
+    reversal_amount = ps.price_at_attachment if ps.price_at_attachment is not None else Decimal("0")
+    svc = await session.get(Service, ps.service_id)
+    svc_name = svc.name if svc is not None else ""
+
     # Any invoice line item referencing this project service blocks hard delete
     # (the FK would be violated regardless of invoice status).
     li_q = (
@@ -546,6 +576,15 @@ async def remove_project_service(
             entity_id=str(project.id),
             details={"project_service_id": str(project_service_id)},
         )
+        # FEAT-018 offsetting reversal keeps the ledger honest (FR-18.5).
+        await ledger_service.add_service_reversal(
+            session,
+            project_id=project.id,
+            project_service_id=ps_id,
+            amount=reversal_amount,
+            description=f"Service removed: {svc_name}",
+            actor_id=actor_id,
+        )
         await session.commit()
         return ps
 
@@ -559,6 +598,15 @@ async def remove_project_service(
         entity_type="project",
         entity_id=str(project.id),
         details={"project_service_id": str(project_service_id)},
+    )
+    # FEAT-018 offsetting reversal keeps the ledger honest (FR-18.5).
+    await ledger_service.add_service_reversal(
+        session,
+        project_id=project.id,
+        project_service_id=ps_id,
+        amount=reversal_amount,
+        description=f"Service removed: {svc_name}",
+        actor_id=actor_id,
     )
     await session.commit()
     return None

@@ -132,3 +132,20 @@ class SmtpSecurityMode(enum.StrEnum):
     NONE = "none"
     STARTTLS = "starttls"
     SSL = "ssl"
+
+
+class LedgerEntryType(enum.StrEnum):
+    CHARGE = "charge"
+    PAYMENT = "payment"
+    REFUND = "refund"
+
+
+class LedgerSourceType(enum.StrEnum):
+    PROJECT_SERVICE = "project_service"
+    TRANSACTION = "transaction"
+    MANUAL_ADJUSTMENT = "manual_adjustment"
+
+
+class DiscountType(enum.StrEnum):
+    PERCENTAGE = "percentage"
+    FIXED = "fixed"

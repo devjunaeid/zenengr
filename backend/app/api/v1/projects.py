@@ -17,6 +17,14 @@ from app.db.session import get_session
 from app.models.admin_user import AdminUser
 from app.models.enums import ProjectStatus
 from app.schemas.comments import CommentCreateRequest, CommentEditRequest, CommentResponse
+from app.schemas.ledger import (
+    AdjustmentCreateRequest,
+    DiscountResponse,
+    DiscountUpdateRequest,
+    LedgerEntryResponse,
+    ProjectLedgerResponse,
+    SummaryResponse,
+)
 from app.schemas.projects import (
     AttachServiceRequest,
     AttachServiceResponse,
@@ -34,6 +42,7 @@ from app.schemas.projects import (
     ProjectUpdateRequest,
 )
 from app.services import comments as comment_service
+from app.services import ledger as ledger_service
 from app.services import projects as project_service
 
 router = APIRouter(prefix="/tenant/projects", tags=["projects"])
@@ -395,6 +404,92 @@ async def remove_project_service_endpoint(
         actor_id=user.id,
     )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Project ledger (FEAT-018, TODO-179/180/181/182)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+@router.get("/{project_id}/ledger", response_model=ProjectLedgerResponse)
+async def get_project_ledger_endpoint(
+    project_id: str,
+    session: AsyncSession = Depends(get_session),
+    user: AdminUser = Depends(get_current_admin_user),
+) -> ProjectLedgerResponse:
+    """Project ledger: merged charges + derived payments/refunds + live summary.
+
+    All staff can read.
+    """
+    tenant_id = _get_tenant_id(user)
+    pid = _parse_uuid(project_id, kind="Project")
+    data = await ledger_service.get_project_ledger(session, tenant_id=tenant_id, project_id=pid)
+    return ProjectLedgerResponse(
+        entries=[LedgerEntryResponse(**entry) for entry in data["entries"]],
+        summary=SummaryResponse(**data["summary"]),
+    )
+
+
+@router.patch("/{project_id}/discount", response_model=DiscountResponse)
+async def update_project_discount_endpoint(
+    project_id: str,
+    body: DiscountUpdateRequest,
+    session: AsyncSession = Depends(get_session),
+    user: AdminUser = Depends(require_permission("manage", "projects")),
+) -> DiscountResponse:
+    """Replace (or clear) the project's single active discount. Admin/Manager only."""
+    tenant_id = _get_tenant_id(user)
+    pid = _parse_uuid(project_id, kind="Project")
+    project = await ledger_service.set_project_discount(
+        session,
+        tenant_id=tenant_id,
+        project_id=pid,
+        discount_type=body.discount_type,
+        discount_value=body.discount_value,
+        actor_id=user.id,
+    )
+    return DiscountResponse(
+        discount_type=project.discount_type,
+        discount_value=(
+            f"{project.discount_value:.2f}" if project.discount_value is not None else None
+        ),
+    )
+
+
+@router.post(
+    "/{project_id}/ledger/adjustments",
+    response_model=LedgerEntryResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def add_manual_adjustment_endpoint(
+    project_id: str,
+    body: AdjustmentCreateRequest,
+    session: AsyncSession = Depends(get_session),
+    user: AdminUser = Depends(require_permission("manage", "projects")),
+) -> LedgerEntryResponse:
+    """Record a signed manual adjustment on the project ledger. Admin/Manager only."""
+    tenant_id = _get_tenant_id(user)
+    pid = _parse_uuid(project_id, kind="Project")
+    entry = await ledger_service.add_manual_adjustment(
+        session,
+        tenant_id=tenant_id,
+        project_id=pid,
+        amount=body.amount,
+        description=body.description,
+        actor_id=user.id,
+    )
+    return LedgerEntryResponse(
+        id=entry.id,
+        type=entry.type,
+        amount=f"{entry.amount:.2f}",
+        description=entry.description,
+        source_type=entry.source_type,
+        source_id=entry.source_id,
+        invoice_ref=entry.invoice_ref,
+        invoice_number=None,
+        entry_date=entry.entry_date,
+        created_at=entry.created_at,
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════

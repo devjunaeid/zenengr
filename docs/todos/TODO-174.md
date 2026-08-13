@@ -3,7 +3,7 @@ id: TODO-174
 title: Frontend notifications store + WS client
 feature: FEAT-017
 story: US-059
-status: proposed
+status: done
 priority: P0
 owner: ""
 estimate: ""
@@ -21,11 +21,12 @@ Runes store: unread count, list, last push. WS connect with token + reconnect/ba
 
 ## Acceptance criteria
 
-- [ ] Runes store: unread count, list, last push. (FR-17.7)
-- [ ] WS connect with token + reconnect/backoff. (FR-17.4, AC-5)
-- [ ] Merge WS pushes (new notification + unread-count bump) into store. (FR-17.7)
-- [ ] Store used by admin + client shells. (FR-17.7)
+- [x] Runes store: unread count, list, last push. (FR-17.7)
+- [x] WS connect with token + reconnect/backoff. (FR-17.4, AC-5)
+- [x] Merge WS pushes (new notification + unread-count bump) into store. (FR-17.7)
+- [x] Store used by admin + client shells. (FR-17.7)
 
 ## Notes
 
 - Client auto-reconnect with backoff (FR-17.4).
+- Shipped: frontend notifications store + WS client with reconnect/backoff; push storm fixed (a5500ff); used by admin + client shells.

@@ -17,14 +17,15 @@ from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
 from fastapi import HTTPException, status
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models.enums import ActorType, InvoiceStatus
+from app.models.enums import ActorType, InvoiceStatus, LedgerSourceType
 from app.models.invoice import Invoice, InvoiceLineItem
 from app.models.invoice_number_sequence import InvoiceNumberSequence
+from app.models.ledger_entry import LedgerEntry
 from app.models.project import Project
 from app.models.project_service import ProjectService
 from app.models.tenant import Tenant
@@ -598,6 +599,23 @@ async def issue_invoice(
         entity_id=str(invoice.id),
         details=issue_details,
     )
+
+    # FEAT-018 part 3 (TODO-185): tag the ledger charge entries covered by
+    # this invoice's project-service line items. Tag only (no new entries,
+    # no extra audit). Entries already tagged keep their first invoice.
+    service_ids = [
+        li.project_service_id for li in invoice.line_items if li.project_service_id is not None
+    ]
+    if service_ids:
+        await session.execute(
+            update(LedgerEntry)
+            .where(
+                LedgerEntry.source_type == LedgerSourceType.PROJECT_SERVICE,
+                LedgerEntry.source_id.in_(service_ids),
+                LedgerEntry.invoice_ref.is_(None),
+            )
+            .values(invoice_ref=invoice.id)
+        )
     await session.commit()
     await safe_notify(notify_invoice_issued(session, invoice_id=invoice.id))
     return await get_invoice(session, tenant_id=tenant_id, invoice_id=invoice_id)

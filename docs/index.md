@@ -19,9 +19,9 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 
 | Area | Count | Key metric |
 | ---- | ----- | ---------- |
-| Features | 18 | approved: 16, proposed: 2 |
-| User stories | 60 | done: 18, in_progress: 4, proposed: 38 |
-| Todos | 177 | done: 167, in_progress: 0, proposed: 10 |
+| Features | 19 | approved: 18, proposed: 1 |
+| User stories | 62 | done: 22, in_progress: 4, proposed: 36 |
+| Todos | 186 | done: 186, in_progress: 0, proposed: 0 |
 | Decisions | 2 | accepted: 2 |
 
 ## Active sprint
@@ -58,7 +58,8 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | [FEAT-014](features/FEAT-014-tenant-formatting.md) | Tenant-Wide Formatting (Currency / Timezone / Date & Time) | approved | P0 |
 | [FEAT-015](features/FEAT-015-advances-ledger-general-invoices.md) | Advances, Ledger Transactions & General Invoices | approved | P0 |
 | [FEAT-016](features/FEAT-016-custom-roles-permissions.md) | Custom Roles & Permission Management | approved | P0 |
-| [FEAT-017](features/FEAT-017-notifications.md) | Realtime Notifications (Admin + Client) | proposed | P0 |
+| [FEAT-017](features/FEAT-017-notifications.md) | Realtime Notifications (Admin + Client) | approved | P0 |
+| [FEAT-018](features/FEAT-018-project-ledger.md) | Project Ledger (Balance-Forward) & Formal Invoice Generator | approved | P0 |
 
 ### Stories
 
@@ -122,8 +123,10 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | [US-056](stories/US-056.md) | General (internal) invoices without project or client | FEAT-015 | done |
 | [US-057](stories/US-057.md) | Advance payments + ledger transactions (debit/credit, refunds) | FEAT-015 | done |
 | [US-058](stories/US-058.md) | Tenant admin manages custom roles & permissions | FEAT-016 | done |
-| [US-059](stories/US-059.md) | Staff receive realtime permission-scoped notifications | FEAT-017 | proposed |
-| [US-060](stories/US-060.md) | Client portal notifications synced with admin | FEAT-017 | proposed |
+| [US-059](stories/US-059.md) | Staff receive realtime permission-scoped notifications | FEAT-017 | done |
+| [US-060](stories/US-060.md) | Client portal notifications synced with admin | FEAT-017 | done |
+| [US-061](stories/US-061.md) | Project ledger: charges, payments, discount, summary | FEAT-018 | done |
+| [US-062](stories/US-062.md) | Formal invoice generator + tagging | FEAT-018 | done |
 
 ### Todos
 
@@ -383,21 +386,36 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 
 | ID | Title | Story | Status |
 | -- | ----- | ----- | ------ |
-| [TODO-168](todos/TODO-168.md) | Event enum expansion + preference channels (email/inapp) | US-059 | proposed |
-| [TODO-169](todos/TODO-169.md) | Notification model + migration | US-059 | proposed |
-| [TODO-170](todos/TODO-170.md) | Notification service: create + permission-scoped recipients | US-059 | proposed |
-| [TODO-171](todos/TODO-171.md) | WebSocket connection manager + endpoints | US-059 | proposed |
-| [TODO-172](todos/TODO-172.md) | Notifications REST API (staff + client) | US-059 | proposed |
-| [TODO-173](todos/TODO-173.md) | Hook event producers | US-059 | proposed |
-| [TODO-174](todos/TODO-174.md) | Frontend notifications store + WS client | US-059 | proposed |
-| [TODO-175](todos/TODO-175.md) | Frontend bell + dropdown panel (both portals) | US-059 | proposed |
-| [TODO-176](todos/TODO-176.md) | Frontend in-app preference toggles | US-059 | proposed |
-| [TODO-177](todos/TODO-177.md) | Tests + verification + docs sync | US-059 | proposed |
+| [TODO-168](todos/TODO-168.md) | Event enum expansion + preference channels (email/inapp) | US-059 | done |
+| [TODO-169](todos/TODO-169.md) | Notification model + migration | US-059 | done |
+| [TODO-170](todos/TODO-170.md) | Notification service: create + permission-scoped recipients | US-059 | done |
+| [TODO-171](todos/TODO-171.md) | WebSocket connection manager + endpoints | US-059 | done |
+| [TODO-172](todos/TODO-172.md) | Notifications REST API (staff + client) | US-059 | done |
+| [TODO-173](todos/TODO-173.md) | Hook event producers | US-059 | done |
+| [TODO-174](todos/TODO-174.md) | Frontend notifications store + WS client | US-059 | done |
+| [TODO-175](todos/TODO-175.md) | Frontend bell + dropdown panel (both portals) | US-059 | done |
+| [TODO-176](todos/TODO-176.md) | Frontend in-app preference toggles | US-059 | done |
+| [TODO-177](todos/TODO-177.md) | Tests + verification + docs sync | US-059 | done |
+
+#### FEAT-018 — Project Ledger (Balance-Forward) & Formal Invoice Generator
+
+| ID | Title | Story | Status |
+| -- | ----- | ----- | ------ |
+| [TODO-178](todos/TODO-178.md) | LedgerEntry model + Project discount fields + migration | US-061 | done |
+| [TODO-179](todos/TODO-179.md) | Charge hooks + reversal + manual adjustment | US-061 | done |
+| [TODO-180](todos/TODO-180.md) | Summary + ledger timeline service | US-061 | done |
+| [TODO-181](todos/TODO-181.md) | Discount editor API | US-061 | done |
+| [TODO-182](todos/TODO-182.md) | Project ledger API (staff + client) | US-061 | done |
+| [TODO-183](todos/TODO-183.md) | Timeline + Summary UI (staff + client) | US-061 | done |
+| [TODO-184](todos/TODO-184.md) | Discount editor UI | US-061 | done |
+| [TODO-185](todos/TODO-185.md) | Invoice generator + invoice_ref tagging | US-062 | done |
+| [TODO-186](todos/TODO-186.md) | Tests + verification + docs sync | US-061 | done |
 
 ## Recently updated
 
 | Date | Item | Change |
 | ---- | ---- | ------ |
+| 2026-08-07 | FEAT-018 Project Ledger & Invoice Generator docs drafted | docs/features/FEAT-018-project-ledger.md, docs/stories/US-061.md, docs/stories/US-062.md, docs/todos/TODO-178.md, docs/todos/TODO-179.md, docs/todos/TODO-180.md, docs/todos/TODO-181.md, docs/todos/TODO-182.md, docs/todos/TODO-183.md, docs/todos/TODO-184.md, docs/todos/TODO-185.md, docs/todos/TODO-186.md, docs/index.md, docs/progress.md. |
 | 2026-08-06 | FEAT-017 Realtime Notifications docs drafted | docs/features/FEAT-017-notifications.md, docs/stories/US-059.md, docs/stories/US-060.md, docs/todos/TODO-168.md, docs/todos/TODO-169.md, docs/todos/TODO-170.md, docs/todos/TODO-171.md, docs/todos/TODO-172.md, docs/todos/TODO-173.md, docs/todos/TODO-174.md, docs/todos/TODO-175.md, docs/todos/TODO-176.md, docs/todos/TODO-177.md, docs/index.md, docs/progress.md. |
 | 2026-07-31 | Project management BE slice complete (FEAT-007 US-025..US-027) | TODO-062/064/065/068 done. Project + ProjectService + ProjectMilestone models, migration `c1d2e3f4a5b6`, repos + service + API, 34 tests green, ruff + mypy clean. Soft-cancel + financial rollups (TODO-070/072) deferred to follow-up. |
 | 2026-07-27 | Client management APIs complete (FEAT-005 US-018..US-022) | TODO-043/046/047/049/051/052/053/054/055 done. Full CRUD, list+rollups, search/filter, archive/unarchive, notes, tags, activity timeline, client portal self-service profile edit. 35 tests green, ruff + mypy clean. |
@@ -422,8 +440,7 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 
 ## Next
 
-All 167 todos complete (FEAT-012..016 shipped; 602 backend tests green, frontend clean).
+All 186 todos complete (FEAT-012..018 shipped; 688 backend tests green, frontend clean).
 
-1. FEAT-017 Realtime Notifications - docs drafted 2026-08-06, awaiting go-ahead.
-2. Stakeholder walkthrough + demo.
-3. Phase 2 candidates: project-scoped roles/grants (team collaboration), client-side roles, role hierarchy, credit notes, automatic advance application, multi-currency invoices, online payment gateway, milestone comments, client uploads, public share links, i18n, Unicode PDF fonts.
+1. Stakeholder walkthrough + demo.
+2. Phase 2 candidates: per-client billing_mode (open_item), credit notes, automatic advance application, multi-currency invoices, online payment gateway, milestone comments, client uploads, public share links, i18n, Unicode PDF fonts.

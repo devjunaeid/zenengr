@@ -3,7 +3,7 @@ id: TODO-177
 title: Tests + verification + docs sync
 feature: FEAT-017
 story: US-059
-status: proposed
+status: done
 priority: P0
 owner: ""
 estimate: ""
@@ -21,14 +21,15 @@ End-to-end tests: event enum expansion + channel backfill, Notification model + 
 
 ## Acceptance criteria
 
-- [ ] Tests: enum + channel backfill + get-or-create defaults. (FR-17.1, FR-17.6)
-- [ ] Tests: recipient resolution (staff permission scoping, admin bypass, client mirror, cross-tenant). (FR-17.3)
-- [ ] Tests: WS auth + fan-out + realm separation. (FR-17.4)
-- [ ] Tests: REST API both realms. (FR-17.5)
-- [ ] Tests: per-hook event producers. (FR-17.3)
-- [ ] Full suite green; docs synced.
+- [x] Tests: enum + channel backfill + get-or-create defaults. (FR-17.1, FR-17.6)
+- [x] Tests: recipient resolution (staff permission scoping, admin bypass, client mirror, cross-tenant). (FR-17.3)
+- [x] Tests: WS auth + fan-out + realm separation. (FR-17.4)
+- [x] Tests: REST API both realms. (FR-17.5)
+- [x] Tests: per-hook event producers. (FR-17.3)
+- [x] Full suite green; docs synced.
 
 ## Notes
 
 - Backend checks (ruff, mypy, pytest) run from backend/ against containerized stack.
 - Frontend: npm run check / lint / build.
+- Shipped: full suite green - 688 backend tests; frontend check/lint/build clean; docs synced.

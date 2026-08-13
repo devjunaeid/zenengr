@@ -160,3 +160,80 @@ export function updateMilestone(fetchFn, token, projectId, milestoneId, body) {
 		{ method: 'PATCH', token, body }
 	);
 }
+
+/**
+ * @typedef {object} LedgerEntry
+ * @property {string} id
+ * @property {'charge'|'payment'|'refund'} type
+ * @property {string} amount signed decimal-as-string (charges may be negative for reversals, payments positive, refunds negative)
+ * @property {string} description
+ * @property {'project_service'|'transaction'|'manual_adjustment'} source_type
+ * @property {string|null} source_id
+ * @property {string|null} invoice_ref set when a charge is covered by an issued invoice
+ * @property {string|null} invoice_number null while the covering invoice is a draft
+ * @property {string|null} entry_date ISO date
+ * @property {string} created_at ISO datetime
+ */
+
+/**
+ * @typedef {object} LedgerSummary
+ * @property {string} subtotal decimal-as-string
+ * @property {'percentage'|'fixed'|null} discount_type
+ * @property {string|null} discount_value null when no discount
+ * @property {string} discount_amount decimal-as-string
+ * @property {string} total decimal-as-string
+ * @property {string} paid decimal-as-string
+ * @property {string} due decimal-as-string
+ */
+
+/**
+ * @typedef {object} LedgerResponse
+ * @property {LedgerEntry[]} entries chronological, oldest first
+ * @property {LedgerSummary} summary
+ */
+
+/**
+ * Project ledger: append-only charges + derived payment/refund stream with a
+ * live balance summary (FEAT-018).
+ * @param {typeof fetch} fetchFn
+ * @param {string} token
+ * @param {string} id
+ * @returns {Promise<LedgerResponse>}
+ */
+export function getProjectLedger(fetchFn, token, id) {
+	return apiFetch(fetchFn, `/tenant/projects/${encodeURIComponent(id)}/ledger`, { token });
+}
+
+/**
+ * Replace the project discount (single active; old value replaced, not stacked).
+ * `discount_type: null` clears the discount.
+ * @param {typeof fetch} fetchFn
+ * @param {string} token
+ * @param {string} id
+ * @param {{ discount_type: 'percentage'|'fixed'|null, discount_value: number|null }} body
+ * @returns {Promise<{ discount_type: 'percentage'|'fixed'|null, discount_value: string|null }>}
+ */
+export function setProjectDiscount(fetchFn, token, id, body) {
+	return apiFetch(fetchFn, `/tenant/projects/${encodeURIComponent(id)}/discount`, {
+		method: 'PATCH',
+		token,
+		body
+	});
+}
+
+/**
+ * Manual ledger adjustment (admin/manager only). Signed amount: positive adds
+ * to the total, negative offsets it.
+ * @param {typeof fetch} fetchFn
+ * @param {string} token
+ * @param {string} id
+ * @param {{ amount: string, description: string }} body
+ * @returns {Promise<LedgerEntry>} 201
+ */
+export function addLedgerAdjustment(fetchFn, token, id, body) {
+	return apiFetch(fetchFn, `/tenant/projects/${encodeURIComponent(id)}/ledger/adjustments`, {
+		method: 'POST',
+		token,
+		body
+	});
+}

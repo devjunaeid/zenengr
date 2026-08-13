@@ -39,6 +39,8 @@
 	let servicesLoading = $state(false);
 	/** @type {string|null} */
 	let servicesErr = $state(null);
+	/** @type {import('$lib/api/projects.js').LedgerResponse|null} */
+	let projectLedger = $state(null);
 
 	let rowKey = 1;
 	/** @type {LineItemRow[]} */
@@ -53,6 +55,7 @@
 		} else if (!projectId) {
 			projectServices = [];
 			rows = [];
+			projectLedger = null;
 		}
 	});
 
@@ -60,8 +63,14 @@
 		servicesLoading = true;
 		servicesErr = null;
 		try {
-			const project = await projectApi.getProject(fetch, token, projectId);
+			// Ledger is a nice-to-have here (already-invoiced flags + project
+			// discount); a failure must not block the generator.
+			const [project, ledger] = await Promise.all([
+				projectApi.getProject(fetch, token, projectId),
+				projectApi.getProjectLedger(fetch, token, projectId).catch(() => null)
+			]);
 			projectServices = project.services.filter((s) => s.status === 'active');
+			projectLedger = ledger;
 			loadedProjectId = projectId;
 			rows = [];
 		} catch (e) {
@@ -105,6 +114,65 @@
 		rows.reduce((sum, r) => sum + r.quantity * (Number(r.unit_price) || 0), 0)
 	);
 
+	// ---- FEAT-018 generator helpers ----
+
+	/**
+	 * project_service_id -> distinct invoice numbers for charges already
+	 * covered by an issued invoice (from the project ledger timeline).
+	 * @type {Record<string, string[]>}
+	 */
+	let invoicedByService = $derived.by(() => {
+		/** @type {Record<string, string[]>} */
+		const map = {};
+		for (const e of projectLedger?.entries ?? []) {
+			if (
+				e.type !== 'charge' ||
+				!e.invoice_number ||
+				e.source_type !== 'project_service' ||
+				!e.source_id
+			) {
+				continue;
+			}
+			(map[e.source_id] ??= []).push(e.invoice_number);
+		}
+		for (const k of Object.keys(map)) map[k] = [...new Set(map[k])];
+		return map;
+	});
+
+	/**
+	 * "Invoiced — INV-…" flag for a service option, or null when the service
+	 * is not yet covered by any issued invoice.
+	 * @param {string} psId
+	 * @returns {string|null}
+	 */
+	function invoicedFlag(psId) {
+		const nums = invoicedByService[psId];
+		if (!nums || nums.length === 0) return null;
+		const head = nums[0];
+		return nums.length > 1 ? `Invoiced — ${head} +${nums.length - 1} more` : `Invoiced — ${head}`;
+	}
+
+	/**
+	 * Auto-applied project discount as a negative line item. Recomputes
+	 * whenever the line items change; only applies when the subtotal is > 0.
+	 * @type {{ amount: number, label: string }|null}
+	 */
+	let discount = $derived.by(() => {
+		const s = projectLedger?.summary;
+		if (!s) return null;
+		const type = s.discount_type;
+		if (type !== 'percentage' && type !== 'fixed') return null;
+		if (!(subtotal > 0)) return null;
+		const v = Number(s.discount_value) || 0;
+		if (!(v > 0)) return null;
+		const amount =
+			type === 'percentage' ? Math.round(subtotal * (v / 100) * 100) / 100 : Math.min(v, subtotal);
+		if (!(amount > 0)) return null;
+		return { amount, label: `Discount (${type} ${s.discount_value})` };
+	});
+
+	let total = $derived(subtotal - (discount?.amount ?? 0));
+
 	async function submit() {
 		err = null;
 		if (rows.length === 0) {
@@ -145,6 +213,13 @@
 							}
 				)
 			};
+			if (discount) {
+				body.line_items.push({
+					description: discount.label,
+					unit_price: String(-discount.amount),
+					quantity: 1
+				});
+			}
 			if (projectId) body.project_id = projectId;
 			if (issueDate) body.issue_date = issueDate;
 			if (dueDate) body.due_date = dueDate;
@@ -318,7 +393,10 @@
 								>
 									<option value="" disabled>Select a service</option>
 									{#each projectServices as ps (ps.id)}
-										<option value={ps.id}>{ps.service_name}</option>
+										{@const flag = invoicedFlag(ps.id)}
+										<option value={ps.id}>
+											{ps.service_name}{flag ? ` — ${flag}` : ''}
+										</option>
 									{/each}
 								</select>
 							</div>
@@ -398,13 +476,26 @@
 				<dt class="text-slate-500">Subtotal</dt>
 				<dd class="font-medium text-slate-900">{fmtPrice(subtotal)}</dd>
 			</div>
+			{#if discount}
+				<div class="flex items-center justify-between gap-3">
+					<dt class="flex items-center gap-2 text-slate-500">
+						Discount
+						<span
+							class="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800"
+						>
+							Project discount applied
+						</span>
+					</dt>
+					<dd class="font-medium text-red-600">−{fmtPrice(discount.amount)}</dd>
+				</div>
+			{/if}
 			<div class="flex justify-between">
 				<dt class="text-slate-500">Tax</dt>
 				<dd class="font-medium text-slate-900">{fmtPrice(0)}</dd>
 			</div>
 			<div class="flex justify-between border-t border-slate-200 pt-2">
 				<dt class="font-medium text-slate-700">Total</dt>
-				<dd class="font-semibold text-slate-900">{fmtPrice(subtotal)}</dd>
+				<dd class="font-semibold text-slate-900">{fmtPrice(total)}</dd>
 			</div>
 		</dl>
 	</section>

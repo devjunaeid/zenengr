@@ -1,7 +1,7 @@
 ---
 id: FEAT-017
 title: Realtime Notifications (Admin + Client)
-status: proposed
+status: approved
 priority: P0
 source: Product decision 2026-08-06
 ---
