@@ -103,18 +103,6 @@
 			: Math.min(100, Math.round((milestoneCompleted / milestoneTotal) * 100))
 	);
 
-	// Financials are nested under `financials` in the current backend shape;
-	// also tolerate a flat response just in case the API shape changes.
-	const totalInvoiced = $derived(
-		project.financials?.total_invoiced ?? /** @type {any} */ (project).total_invoiced
-	);
-	const totalPaid = $derived(
-		project.financials?.total_paid ?? /** @type {any} */ (project).total_paid
-	);
-	const balanceDue = $derived(
-		project.financials?.balance_due ?? /** @type {any} */ (project).balance_due
-	);
-
 	// The client project API returns milestones without a project_service_id,
 	// so they render as one flat list ordered by sequence_order.
 	const milestones = $derived(
@@ -189,21 +177,6 @@
 		{:else}
 			<p class="mt-2 text-sm text-slate-500">No milestones yet.</p>
 		{/if}
-	</div>
-
-	<div class="mt-5 grid gap-4 sm:grid-cols-3">
-		<div>
-			<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Total invoiced</dt>
-			<dd class="mt-1 text-lg font-semibold text-slate-900">{fmtPrice(totalInvoiced)}</dd>
-		</div>
-		<div>
-			<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Total paid</dt>
-			<dd class="mt-1 text-lg font-semibold text-green-700">{fmtPrice(totalPaid)}</dd>
-		</div>
-		<div>
-			<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Balance due</dt>
-			<dd class="mt-1 text-lg font-semibold text-slate-900">{fmtPrice(balanceDue)}</dd>
-		</div>
 	</div>
 </section>
 
