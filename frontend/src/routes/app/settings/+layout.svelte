@@ -4,6 +4,7 @@
 	import cog from '@iconify-icons/mdi/cog';
 	import apps from '@iconify-icons/mdi/apps';
 	import emailEdit from '@iconify-icons/mdi/email-edit';
+	import bell from '@iconify-icons/mdi/bell';
 	import chartBox from '@iconify-icons/mdi/chart-box';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
@@ -19,6 +20,7 @@
 			exact: false
 		},
 		{ href: '/app/settings/email', label: 'Email (SMTP)', icon: emailEdit, exact: false },
+		{ href: '/app/settings/notifications', label: 'Notifications', icon: bell, exact: false },
 		{ href: '/app/settings/plan', label: 'Plan & usage', icon: chartBox, exact: false },
 		{
 			href: '/app/settings/services',
