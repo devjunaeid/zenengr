@@ -18,13 +18,12 @@ export async function load({ fetch, params, url }) {
 	const activityPage = Math.max(1, Number(url.searchParams.get('activity_page') ?? '1') || 1);
 
 	try {
-		const [notes, activity, ledger, invites] = await Promise.all([
+		const [notes, activity, ledger] = await Promise.all([
 			clientApi.listNotes(fetch, token, id, { page: notesPage, page_size: 20 }),
 			clientApi.listActivity(fetch, token, id, { page: activityPage, page_size: 20 }),
-			clientApi.getClientLedger(fetch, token, id).catch(() => null),
-			clientApi.listClientInvites(fetch, token, id).catch(() => [])
+			clientApi.getClientLedger(fetch, token, id).catch(() => null)
 		]);
-		return { notes, activity, ledger, invites, filters: { notesPage, activityPage } };
+		return { notes, activity, ledger, filters: { notesPage, activityPage } };
 	} catch (e) {
 		if (e instanceof ApiError && e.status === 404) {
 			throw error(404, 'Client not found');

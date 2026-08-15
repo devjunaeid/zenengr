@@ -6,10 +6,12 @@ import uuid
 
 import pytest
 from httpx import AsyncClient
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import create_access_token, hash_password
 from app.models.admin_user import AdminUser
+from app.models.audit_log import AuditLog
 from app.models.client import Client
 from app.models.client_user import ClientUser
 from app.models.enums import AdminUserRole, ClientStatus, ClientType, TenantStatus
@@ -297,6 +299,239 @@ class TestCreateClient:
             headers=headers,
         )
         assert resp.status_code == 403
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Create client with user (invite flow replaced)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestCreateClientWithUser:
+    @pytest.mark.asyncio
+    async def test_create_client_with_user(self, client: AsyncClient, db_session: AsyncSession):
+        plan = await _create_plan(db_session)
+        tenant = await _create_tenant(db_session, plan.id)
+        admin = await _create_admin(
+            db_session, f"admin-{uuid.uuid4().hex[:8]}@testco.com", AdminUserRole.ADMIN, tenant.id
+        )
+        headers = await _admin_auth_header(admin)
+
+        resp = await client.post(
+            "/api/v1/tenant/clients/",
+            json={
+                "name": "Acme Corp",
+                "client_type": "company",
+                "client_user_email": "billing@acme.com",
+                "client_user_password": "StrongPass123!",
+            },
+            headers=headers,
+        )
+        assert resp.status_code == 201
+
+        # Client user exists and login works
+        login = await client.post(
+            "/api/v1/client/auth/login",
+            json={"email": "billing@acme.com", "password": "StrongPass123!"},
+        )
+        assert login.status_code == 200
+
+        # First user is active primary billing contact; full_name = client name
+        cu = (
+            (
+                await db_session.execute(
+                    select(ClientUser).where(ClientUser.email == "billing@acme.com")
+                )
+            )
+            .scalars()
+            .one()
+        )
+        assert cu.is_primary_billing_contact is True
+        assert cu.is_active is True
+        assert cu.full_name == "Acme Corp"
+        assert cu.client_id is not None
+
+        # Audit client_user.created written
+        logs = (
+            (
+                await db_session.execute(
+                    select(AuditLog).where(
+                        AuditLog.tenant_id == tenant.id,
+                        AuditLog.action == "client_user.created",
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        assert len(logs) == 1
+        assert logs[0].entity_type == "client_user"
+        assert logs[0].details["client_id"] == str(cu.client_id)
+        assert logs[0].details["email"] == "billing@acme.com"
+
+    @pytest.mark.asyncio
+    async def test_create_client_weak_password_422(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        plan = await _create_plan(db_session)
+        tenant = await _create_tenant(db_session, plan.id)
+        admin = await _create_admin(
+            db_session, f"admin-{uuid.uuid4().hex[:8]}@testco.com", AdminUserRole.ADMIN, tenant.id
+        )
+        headers = await _admin_auth_header(admin)
+
+        # 8 chars passes schema min_length=8 but fails tenant policy (default 10)
+        resp = await client.post(
+            "/api/v1/tenant/clients/",
+            json={
+                "name": "Weak Co",
+                "client_user_email": "weak@acme.com",
+                "client_user_password": "12345678",
+            },
+            headers=headers,
+        )
+        assert resp.status_code == 422
+
+    @pytest.mark.asyncio
+    async def test_create_client_duplicate_email_409(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        plan = await _create_plan(db_session)
+        tenant = await _create_tenant(db_session, plan.id)
+        admin = await _create_admin(
+            db_session, f"admin-{uuid.uuid4().hex[:8]}@testco.com", AdminUserRole.ADMIN, tenant.id
+        )
+        headers = await _admin_auth_header(admin)
+
+        resp1 = await client.post(
+            "/api/v1/tenant/clients/",
+            json={
+                "name": "Alpha Co",
+                "client_user_email": "dup@acme.com",
+                "client_user_password": "StrongPass123!",
+            },
+            headers=headers,
+        )
+        assert resp1.status_code == 201
+
+        resp2 = await client.post(
+            "/api/v1/tenant/clients/",
+            json={
+                "name": "Beta Co",
+                "client_user_email": "dup@acme.com",
+                "client_user_password": "StrongPass123!",
+            },
+            headers=headers,
+        )
+        assert resp2.status_code == 409
+
+    @pytest.mark.asyncio
+    async def test_create_client_without_user_still_works(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        plan = await _create_plan(db_session)
+        tenant = await _create_tenant(db_session, plan.id)
+        admin = await _create_admin(
+            db_session, f"admin-{uuid.uuid4().hex[:8]}@testco.com", AdminUserRole.ADMIN, tenant.id
+        )
+        headers = await _admin_auth_header(admin)
+
+        resp = await client.post(
+            "/api/v1/tenant/clients/",
+            json={"name": "Plain Co", "client_type": "company"},
+            headers=headers,
+        )
+        assert resp.status_code == 201
+        cli_id = resp.json()["id"]
+
+        # No client user created when credentials omitted (back-compat)
+        users = (
+            (
+                await db_session.execute(
+                    select(ClientUser).where(ClientUser.client_id == uuid.UUID(cli_id))
+                )
+            )
+            .scalars()
+            .all()
+        )
+        assert users == []
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Admin password reset for client user
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestResetClientUserPassword:
+    @pytest.mark.asyncio
+    async def test_admin_reset_password(self, client: AsyncClient, db_session: AsyncSession):
+        plan = await _create_plan(db_session)
+        tenant = await _create_tenant(db_session, plan.id)
+        admin = await _create_admin(
+            db_session, f"admin-{uuid.uuid4().hex[:8]}@testco.com", AdminUserRole.ADMIN, tenant.id
+        )
+        cli = await _create_client(db_session, tenant.id)
+        cu = await _create_client_user(db_session, cli.id, tenant.id, "reset@test.com")
+        headers = await _admin_auth_header(admin)
+
+        resp = await client.post(
+            f"/api/v1/tenant/client-users/{cu.id}/reset-password",
+            json={"password": "NewStrongPass123!"},
+            headers=headers,
+        )
+        assert resp.status_code == 200
+        assert resp.json() == {"status": "ok"}
+
+        # Old password no longer works
+        old = await client.post(
+            "/api/v1/client/auth/login",
+            json={"email": "reset@test.com", "password": _TEST_PWD},
+        )
+        assert old.status_code == 401
+
+        # New password works
+        new = await client.post(
+            "/api/v1/client/auth/login",
+            json={"email": "reset@test.com", "password": "NewStrongPass123!"},
+        )
+        assert new.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_reset_weak_password_422(self, client: AsyncClient, db_session: AsyncSession):
+        plan = await _create_plan(db_session)
+        tenant = await _create_tenant(db_session, plan.id)
+        admin = await _create_admin(
+            db_session, f"admin-{uuid.uuid4().hex[:8]}@testco.com", AdminUserRole.ADMIN, tenant.id
+        )
+        cli = await _create_client(db_session, tenant.id)
+        cu = await _create_client_user(db_session, cli.id, tenant.id, "weakreset@test.com")
+        headers = await _admin_auth_header(admin)
+
+        # 8 chars passes schema min_length=8 but fails tenant policy (default 10)
+        resp = await client.post(
+            f"/api/v1/tenant/client-users/{cu.id}/reset-password",
+            json={"password": "12345678"},
+            headers=headers,
+        )
+        assert resp.status_code == 422
+
+    @pytest.mark.asyncio
+    async def test_reset_cross_tenant_404(self, client: AsyncClient, db_session: AsyncSession):
+        plan = await _create_plan(db_session)
+        tenant_a = await _create_tenant(db_session, plan.id, business_name="TenantA")
+        tenant_b = await _create_tenant(db_session, plan.id, business_name="TenantB")
+        admin_b = await _create_admin(
+            db_session, "admin_b@testco.com", AdminUserRole.ADMIN, tenant_b.id
+        )
+        cli_a = await _create_client(db_session, tenant_a.id)
+        cu_a = await _create_client_user(db_session, cli_a.id, tenant_a.id, "cross@test.com")
+        headers_b = await _admin_auth_header(admin_b)
+
+        resp = await client.post(
+            f"/api/v1/tenant/client-users/{cu_a.id}/reset-password",
+            json={"password": "NewStrongPass123!"},
+            headers=headers_b,
+        )
+        assert resp.status_code == 404
 
 
 # ═══════════════════════════════════════════════════════════════════════════

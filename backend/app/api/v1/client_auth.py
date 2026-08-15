@@ -40,6 +40,7 @@ from app.schemas.client_auth import (
     ClientProfileUpdateRequest,
     ClientRegisterRequest,
     ClientSummary,
+    ClientUserResetPasswordRequest,
     ClientUserResponse,
 )
 from app.services.account import (
@@ -792,4 +793,43 @@ async def reactivate_client_user(
     )
 
     await session.commit()
+    return {"status": "ok"}
+
+
+@tenant_router.post(
+    "/client-users/{user_id}/reset-password",
+    status_code=status.HTTP_200_OK,
+)
+async def reset_client_user_password_endpoint(
+    user_id: str,
+    body: ClientUserResetPasswordRequest,
+    session: AsyncSession = Depends(get_session),
+    current_user: AdminUser = Depends(require_permission("manage", "clients")),
+) -> dict[str, str]:
+    """Admin resets a client user's password (replaces lost credentials)."""
+    if current_user.tenant_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User must belong to a tenant",
+        )
+
+    import uuid
+
+    try:
+        target_uid = uuid.UUID(user_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Client user not found",
+        ) from None
+
+    from app.services.clients import reset_client_user_password
+
+    await reset_client_user_password(
+        session,
+        tenant_id=current_user.tenant_id,
+        user_id=target_uid,
+        new_password=body.password,
+        actor_id=current_user.id,
+    )
     return {"status": "ok"}

@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 
 
 class ClientLoginRequest(BaseModel):
@@ -82,6 +82,10 @@ class ClientInviteResponse(BaseModel):
 
 class ClientInviteCreateRequest(BaseModel):
     email: EmailStr
+
+
+class ClientUserResetPasswordRequest(BaseModel):
+    password: str = Field(min_length=8)
 
 
 class ClientProfileUpdateRequest(BaseModel):

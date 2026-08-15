@@ -15,6 +15,8 @@
 	let email = $state('');
 	let phone = $state('');
 	let taxId = $state('');
+	let clientUserEmail = $state('');
+	let clientUserPassword = $state('');
 	/** @type {import('$lib/utils/address.js').AddressFields} */
 	let addressFields = $state({
 		address_line1: '',
@@ -64,7 +66,9 @@
 				...(email.trim() && { email: email.trim() }),
 				...(phone.trim() && { phone: phone.trim() }),
 				...(taxId.trim() && { tax_id: taxId.trim() }),
-				...(tags.length && { tags })
+				...(tags.length && { tags }),
+				...(clientUserEmail.trim() && { client_user_email: clientUserEmail.trim() }),
+				...(clientUserPassword && { client_user_password: clientUserPassword })
 			};
 			const billingAddress = fieldsToAddress(addressFields);
 			if (Object.keys(billingAddress).length) body.billing_address = billingAddress;
@@ -218,6 +222,41 @@
 			</div>
 		{/if}
 		<p class="mt-1 text-xs text-slate-500">Press Enter or comma to add a tag.</p>
+	</div>
+
+	<div class="rounded-md border border-slate-200 bg-slate-50/50 p-4">
+		<span class="block text-sm font-medium text-slate-900">Client user</span>
+		<p class="mt-1 text-xs text-slate-500">
+			This user will be the primary billing contact and can sign in to the client portal.
+		</p>
+		<div class="mt-4 grid gap-4 sm:grid-cols-2">
+			<div>
+				<label for="c-user-email" class="block text-sm font-medium text-slate-700">Email *</label>
+				<input
+					id="c-user-email"
+					type="email"
+					bind:value={clientUserEmail}
+					required
+					autocomplete="email"
+					class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+				/>
+			</div>
+			<div>
+				<label for="c-user-password" class="block text-sm font-medium text-slate-700"
+					>Password *</label
+				>
+				<input
+					id="c-user-password"
+					type="password"
+					bind:value={clientUserPassword}
+					required
+					minlength="10"
+					autocomplete="new-password"
+					class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+				/>
+			</div>
+		</div>
+		<p class="mt-1 text-xs text-slate-500">Password must be at least 10 characters.</p>
 	</div>
 
 	<div class="flex items-center gap-3 pt-2">

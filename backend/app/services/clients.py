@@ -10,14 +10,18 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.core.security import hash_password
 from app.models.audit_log import AuditLog
 from app.models.client import Client
 from app.models.client_note import ClientNote
+from app.models.client_user import ClientUser
 from app.models.enums import ActorType, ClientStatus, ClientType
+from app.repositories import client_users as client_user_repo
 from app.repositories import clients as client_repo
 from app.services.audit import log as audit_log
 from app.services.financials import get_client_financials, get_client_financials_batch
 from app.services.limits import check_limit
+from app.services.password_policy import get_min_password_length, validate_password_policy
 
 # ── Exceptions ───────────────────────────────────────────────────────────────
 
@@ -46,6 +50,14 @@ class ClientNotArchivedError(HTTPException):
         )
 
 
+class ClientUserNotFoundError(HTTPException):
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Client user not found",
+        )
+
+
 # ── CRUD ─────────────────────────────────────────────────────────────────────
 
 
@@ -60,9 +72,15 @@ async def create_client(
     billing_address: dict[str, Any] | None = None,
     tax_id: str | None = None,
     tags: list[str] | None = None,
+    client_user_email: str | None = None,
+    client_user_password: str | None = None,
     actor_id: uuid.UUID,
 ) -> Client:
-    """Create client. Checks plan limit first."""
+    """Create client. Checks plan limit first.
+
+    When both client_user_email and client_user_password are provided, also
+    creates the primary billing contact client user (invite flow replaced).
+    """
     await check_limit(session, tenant_id, "clients")
 
     ct = ClientType(client_type)
@@ -89,9 +107,101 @@ async def create_client(
         details={"name": name, "client_type": client_type},
     )
 
+    if client_user_email is not None and client_user_password is not None:
+        await _create_client_user_with_client(
+            session,
+            tenant_id=tenant_id,
+            client_id=client.id,
+            client_name=name,
+            email=client_user_email,
+            password=client_user_password,
+            actor_id=actor_id,
+        )
+
     await session.commit()
     await session.refresh(client)
     return client
+
+
+async def _create_client_user_with_client(
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    client_id: uuid.UUID,
+    client_name: str,
+    email: str,
+    password: str,
+    actor_id: uuid.UUID,
+) -> None:
+    """Create the client's primary billing contact user.
+
+    Enforces tenant password policy (422) and global email uniqueness (409).
+    """
+    min_length = await get_min_password_length(session, tenant_id)
+    validate_password_policy(password, min_length)
+
+    normalized_email = email.lower().strip()
+    email_exists = await client_user_repo.check_email_exists(session, normalized_email)
+    if email_exists:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Email already in use",
+        )
+
+    new_user = ClientUser(
+        client_id=client_id,
+        tenant_id=tenant_id,
+        email=normalized_email,
+        full_name=client_name,
+        hashed_password=hash_password(password),
+        is_active=True,
+        is_primary_billing_contact=True,
+    )
+    session.add(new_user)
+    await session.flush()
+
+    await audit_log(
+        session,
+        tenant_id=tenant_id,
+        actor_id=actor_id,
+        actor_type=ActorType.ADMIN_USER,
+        action="client_user.created",
+        entity_type="client_user",
+        entity_id=str(new_user.id),
+        details={"client_id": str(client_id), "email": normalized_email},
+    )
+
+
+async def reset_client_user_password(
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    user_id: uuid.UUID,
+    new_password: str,
+    actor_id: uuid.UUID,
+) -> None:
+    """Admin-triggered password reset for a tenant-scoped client user."""
+    user = await client_user_repo.get_by_id(session, user_id)
+    if user is None or user.tenant_id != tenant_id:
+        raise ClientUserNotFoundError()
+
+    min_length = await get_min_password_length(session, tenant_id)
+    validate_password_policy(new_password, min_length)
+
+    user.hashed_password = hash_password(new_password)
+    await session.flush()
+
+    await audit_log(
+        session,
+        tenant_id=tenant_id,
+        actor_id=actor_id,
+        actor_type=ActorType.ADMIN_USER,
+        action="client_user.password_changed",
+        entity_type="client_user",
+        entity_id=str(user.id),
+    )
+
+    await session.commit()
 
 
 async def get_client(
@@ -364,8 +474,10 @@ async def list_notes(
     if client is None:
         raise ClientNotFoundError()
 
-    query = select(ClientNote).options(selectinload(ClientNote.author)).where(
-        ClientNote.client_id == client_id
+    query = (
+        select(ClientNote)
+        .options(selectinload(ClientNote.author))
+        .where(ClientNote.client_id == client_id)
     )
 
     # Count

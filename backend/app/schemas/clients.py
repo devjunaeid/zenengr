@@ -19,6 +19,8 @@ class ClientCreateRequest(BaseModel):
     billing_address: dict[str, Any] | None = None
     tax_id: str | None = Field(default=None, max_length=100)
     tags: list[str] | None = None
+    client_user_email: EmailStr | None = None
+    client_user_password: str | None = Field(default=None, min_length=8)
 
 
 class ClientUpdateRequest(BaseModel):

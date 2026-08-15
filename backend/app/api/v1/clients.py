@@ -75,6 +75,8 @@ async def create_client_endpoint(
         billing_address=body.billing_address,
         tax_id=body.tax_id,
         tags=body.tags,
+        client_user_email=body.client_user_email,
+        client_user_password=body.client_user_password,
         actor_id=user.id,
     )
     return ClientListItem(

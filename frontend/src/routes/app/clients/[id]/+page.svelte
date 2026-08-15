@@ -28,73 +28,69 @@
 	let canManage = $derived(auth.can('manage', 'clients'));
 	let isEmployee = $derived(auth.user?.role === 'employee');
 
-	// Client-user invite dialog
-	let inviteOpen = $state(false);
-	let inviteEmail = $state('');
-	let inviteBusy = $state(false);
+	// Client-user management (manage/clients only)
 	/** @type {string|null} */
-	let inviteErr = $state(null);
+	let userErr = $state(null);
 	/** @type {string|null} */
-	let inviteMsg = $state(null);
+	let userMsg = $state(null);
 
-	async function sendInvite() {
-		inviteBusy = true;
-		inviteErr = null;
-		inviteMsg = null;
+	// Change password dialog
+	/** @type {any|null} */
+	let passwordUser = $state(null);
+	let newPassword = $state('');
+	let confirmPassword = $state('');
+	let passwordBusy = $state(false);
+
+	async function changePassword() {
+		if (!passwordUser) return;
+		passwordBusy = true;
+		userErr = null;
 		try {
-			await clientApi.createClientInvite(fetch, token, data.client.id, {
-				email: inviteEmail.trim()
+			await clientApi.resetClientUserPassword(fetch, token, passwordUser.id, {
+				password: newPassword
 			});
-			inviteMsg = `Invite sent to ${inviteEmail.trim()}.`;
-			inviteEmail = '';
-			inviteOpen = false;
+			userMsg = `Password updated for ${passwordUser.email}.`;
+			passwordUser = null;
+			newPassword = '';
+			confirmPassword = '';
 			await invalidateAll();
 		} catch (e) {
-			inviteErr = e instanceof ApiError ? e.message : 'Invite failed.';
+			userErr = e instanceof ApiError ? e.message : 'Password change failed.';
 		} finally {
-			inviteBusy = false;
+			passwordBusy = false;
 		}
 	}
 
-	/** @type {string|null} */
-	let resendBusyId = $state(null);
-
-	/**
-	 * Re-POST the invite for a pending client user — the server regenerates
-	 * the token and resends the email.
-	 * @param {import('$lib/api/clients.js').ClientInvite} invite
-	 */
-	async function resendInvite(invite) {
-		inviteErr = null;
-		inviteMsg = null;
-		resendBusyId = invite.id;
-		try {
-			await clientApi.createClientInvite(fetch, token, data.client.id, { email: invite.email });
-			inviteMsg = `Invite resent to ${invite.email}.`;
-			await invalidateAll();
-		} catch (e) {
-			inviteErr = e instanceof ApiError ? e.message : 'Resend failed.';
-		} finally {
-			resendBusyId = null;
-		}
-	}
-
-	/** @type {{ id: string, email: string }|null} */
+	/** @type {any|null} */
 	let revokeTarget = $state(null);
 	let revokeBusy = $state(false);
 
-	async function revokeInvite() {
+	async function revokeAccess() {
 		if (!revokeTarget) return;
 		revokeBusy = true;
-		inviteErr = null;
+		userErr = null;
 		try {
-			await clientApi.revokeClientInvite(fetch, token, revokeTarget.id);
+			await clientApi.deactivateClientUser(fetch, token, revokeTarget.id);
+			userMsg = `Access revoked for ${revokeTarget.email}.`;
 			revokeTarget = null;
 			await invalidateAll();
 		} catch (e) {
-			inviteErr = e instanceof ApiError ? e.message : 'Revoke failed.';
+			userErr = e instanceof ApiError ? e.message : 'Revoke failed.';
 		} finally {
 			revokeBusy = false;
+		}
+	}
+
+	/** @param {any} u */
+	async function restoreAccess(u) {
+		userErr = null;
+		userMsg = null;
+		try {
+			await clientApi.reactivateClientUser(fetch, token, u.id);
+			userMsg = `Access restored for ${u.email}.`;
+			await invalidateAll();
+		} catch (e) {
+			userErr = e instanceof ApiError ? e.message : 'Restore failed.';
 		}
 	}
 
@@ -350,116 +346,99 @@
 		>
 			<div class="flex flex-wrap items-center justify-between gap-3">
 				<h2 id="contacts-h" class="text-base font-semibold text-slate-900">Contacts</h2>
-				{#if canManage}
-					<button
-						type="button"
-						onclick={() => {
-							inviteErr = null;
-							inviteMsg = null;
-							inviteEmail = '';
-							inviteOpen = true;
-						}}
-						class="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
-					>
-						Invite client user
-					</button>
-				{/if}
 			</div>
 
-			{#if inviteMsg}
+			{#if userMsg}
 				<p
 					role="status"
 					class="mt-3 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800"
 				>
-					{inviteMsg}
+					{userMsg}
 				</p>
 			{/if}
-			{#if inviteErr}
+			{#if userErr}
 				<p
 					role="alert"
 					class="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
 				>
-					{inviteErr}
+					{userErr}
 				</p>
 			{/if}
 
 			{#if data.client.client_users.length === 0}
-				<p class="mt-3 text-sm text-slate-500">No contacts yet.</p>
+				<p class="mt-3 text-sm text-slate-500">No client users yet.</p>
 			{:else}
 				<ul class="mt-3 divide-y divide-slate-200">
 					{#each data.client.client_users as u (u.id)}
 						<li class="flex flex-wrap items-center justify-between gap-2 py-3">
-							<div>
+							<div class="min-w-0">
 								<p class="text-sm font-medium text-slate-900">
 									{u.full_name ?? u.email}
 								</p>
 								<p class="text-xs text-slate-500">{u.email}</p>
 							</div>
-							<div class="flex flex-wrap items-center gap-2">
-								{#if u.is_primary_billing_contact}
+							<div class="flex flex-wrap items-center gap-x-3 gap-y-2">
+								<div class="flex flex-wrap items-center gap-2">
+									{#if u.is_primary_billing_contact}
+										<span
+											class="inline-flex items-center rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-800 ring-1 ring-indigo-600/20 ring-inset"
+										>
+											Primary billing contact
+										</span>
+									{/if}
 									<span
-										class="inline-flex items-center rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-800 ring-1 ring-indigo-600/20 ring-inset"
+										class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset {u.is_active
+											? 'bg-green-100 text-green-800 ring-green-600/20'
+											: 'bg-slate-200 text-slate-700 ring-slate-500/20'}"
 									>
-										Primary billing contact
+										{u.is_active ? 'Active' : 'Inactive'}
 									</span>
+								</div>
+								{#if canManage}
+									<div class="flex flex-wrap items-center gap-3">
+										<button
+											type="button"
+											onclick={() => {
+												userErr = null;
+												userMsg = null;
+												newPassword = '';
+												confirmPassword = '';
+												passwordUser = u;
+											}}
+											class="text-sm font-medium text-indigo-600 hover:text-indigo-500"
+											aria-label={`Change password for ${u.email}`}
+										>
+											Change password
+										</button>
+										{#if u.is_active}
+											<button
+												type="button"
+												onclick={() => {
+													userErr = null;
+													revokeTarget = u;
+												}}
+												class="text-sm font-medium text-red-600 hover:text-red-500"
+												aria-label={`Revoke access for ${u.email}`}
+											>
+												Revoke access
+											</button>
+										{:else}
+											<button
+												type="button"
+												onclick={() => restoreAccess(u)}
+												class="text-sm font-medium text-green-700 hover:text-green-600"
+												aria-label={`Restore access for ${u.email}`}
+											>
+												Restore access
+											</button>
+										{/if}
+									</div>
 								{/if}
-								<span
-									class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset {u.is_active
-										? 'bg-green-100 text-green-800 ring-green-600/20'
-										: 'bg-slate-200 text-slate-700 ring-slate-500/20'}"
-								>
-									{u.is_active ? 'Active' : 'Inactive'}
-								</span>
 							</div>
 						</li>
 					{/each}
 				</ul>
 			{/if}
-
-			<!-- Pending invites -->
-			<div class="mt-6 border-t border-slate-200 pt-5">
-				<h3 class="text-sm font-semibold text-slate-900">Pending invites</h3>
-				{#if data.invites.length === 0}
-					<p class="mt-2 text-sm text-slate-500">No pending invites.</p>
-				{:else}
-					<ul class="mt-2 divide-y divide-slate-200">
-						{#each data.invites as invite (invite.id)}
-							<li class="flex flex-wrap items-center justify-between gap-2 py-3">
-								<div>
-									<p class="text-sm font-medium text-slate-900">{invite.email}</p>
-									<p class="text-xs text-slate-500">
-										Expires {formatDateTime(invite.expires_at)}
-									</p>
-								</div>
-								<div class="flex flex-wrap items-center gap-3">
-									<StatusBadge status={invite.status} />
-									{#if canManage && invite.status === 'pending'}
-										<button
-											type="button"
-											disabled={resendBusyId === invite.id}
-											aria-busy={resendBusyId === invite.id}
-											onclick={() => resendInvite(invite)}
-											class="inline-flex items-center gap-2 text-sm font-medium text-indigo-600 hover:text-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
-										>
-											{#if resendBusyId === invite.id}
-												<Spinner class="h-3.5 w-3.5 text-indigo-600" />{/if}
-											Resend
-										</button>
-										<button
-											type="button"
-											onclick={() => (revokeTarget = { id: invite.id, email: invite.email })}
-											class="text-sm font-medium text-red-600 hover:text-red-500"
-											aria-label={`Revoke invite for ${invite.email}`}
-										>
-											Revoke
-										</button>
-									{/if}
-								</div>
-							</li>
-						{/each}
-					</ul>
-				{/if}
-			</div>
 		</section>
 	</div>
 
@@ -647,25 +626,37 @@
 	onconfirm={runArchiveAction}
 />
 
-<!-- Invite client user dialog -->
-<Dialog.Root bind:open={inviteOpen}>
+<!-- Change password dialog -->
+<Dialog.Root
+	bind:open={
+		() => passwordUser !== null,
+		(v) => {
+			if (!v) {
+				passwordUser = null;
+				userErr = null;
+			}
+		}
+	}
+>
 	<Dialog.Portal>
 		<Dialog.Overlay class="fixed inset-0 z-40 bg-black/50" />
 		<Dialog.Content
 			class="fixed top-1/2 left-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-6 shadow-xl focus:outline-none"
 		>
-			<Dialog.Title class="text-lg font-semibold text-slate-900">Invite client user</Dialog.Title>
-			<Dialog.Description class="mt-2 text-sm text-slate-600">
-				They will receive an email with a link to create their account and access {data.client
-					.name}.
-			</Dialog.Description>
+			<Dialog.Title class="text-lg font-semibold text-slate-900">Change password</Dialog.Title>
+			{#if passwordUser}
+				<Dialog.Description class="mt-2 text-sm text-slate-600">
+					Set a new password for {passwordUser.email}. They will use it to sign in to the client
+					portal.
+				</Dialog.Description>
+			{/if}
 
-			{#if inviteErr}
+			{#if userErr}
 				<p
 					role="alert"
 					class="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
 				>
-					{inviteErr}
+					{userErr}
 				</p>
 			{/if}
 
@@ -673,35 +664,58 @@
 				class="mt-4"
 				onsubmit={(e) => {
 					e.preventDefault();
-					sendInvite();
+					changePassword();
 				}}
 			>
 				<div>
-					<label for="invite-email" class="block text-sm font-medium text-slate-700">Email</label>
+					<label for="pw-new" class="block text-sm font-medium text-slate-700">New password</label>
 					<input
-						id="invite-email"
-						type="email"
-						bind:value={inviteEmail}
+						id="pw-new"
+						type="password"
+						bind:value={newPassword}
 						required
-						autocomplete="email"
+						minlength="10"
+						autocomplete="new-password"
 						class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
 					/>
 				</div>
+				<div class="mt-4">
+					<label for="pw-confirm" class="block text-sm font-medium text-slate-700"
+						>Confirm password</label
+					>
+					<input
+						id="pw-confirm"
+						type="password"
+						bind:value={confirmPassword}
+						required
+						minlength="10"
+						autocomplete="new-password"
+						class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+					/>
+				</div>
+				<p class="mt-1 text-xs text-slate-500">Password must be at least 10 characters.</p>
+				{#if newPassword && confirmPassword && newPassword !== confirmPassword}
+					<p role="alert" class="mt-2 text-xs text-red-600">Passwords do not match.</p>
+				{/if}
 				<div class="mt-6 flex justify-end gap-3">
 					<Dialog.Close
 						type="button"
+						onclick={() => {
+							userErr = null;
+							passwordUser = null;
+						}}
 						class="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
 					>
 						Cancel
 					</Dialog.Close>
 					<button
 						type="submit"
-						disabled={inviteBusy || !inviteEmail.trim()}
-						aria-busy={inviteBusy}
+						disabled={passwordBusy || !newPassword || newPassword !== confirmPassword}
+						aria-busy={passwordBusy}
 						class="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
 					>
-						{#if inviteBusy}<Spinner class="h-4 w-4 text-white" />{/if}
-						Send invite
+						{#if passwordBusy}<Spinner class="h-4 w-4 text-white" />{/if}
+						Update password
 					</button>
 				</div>
 			</form>
@@ -716,10 +730,12 @@
 			if (!v) revokeTarget = null;
 		}
 	}
-	title="Revoke invite"
-	description={revokeTarget ? `Revoke the pending invite for ${revokeTarget.email}?` : ''}
-	confirmLabel="Revoke"
+	title="Revoke access"
+	description={revokeTarget
+		? `Revoke portal access for ${revokeTarget.email}? They will no longer be able to sign in to the client portal.`
+		: ''}
+	confirmLabel="Revoke access"
 	destructive
 	busy={revokeBusy}
-	onconfirm={revokeInvite}
+	onconfirm={revokeAccess}
 />

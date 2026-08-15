@@ -108,7 +108,7 @@ export function getClient(fetchFn, token, id) {
 /**
  * @param {typeof fetch} fetchFn
  * @param {string} token
- * @param {{ name: string, client_type: 'company'|'individual', email?: string, phone?: string, billing_address?: Record<string, any>, tax_id?: string, tags?: string[] }} body
+ * @param {{ name: string, client_type: 'company'|'individual', email?: string, phone?: string, billing_address?: Record<string, any>, tax_id?: string, tags?: string[], client_user_email?: string, client_user_password?: string }} body
  * @returns {Promise<ClientListItem>}
  */
 export function createClient(fetchFn, token, body) {
@@ -245,6 +245,51 @@ export function createClientInvite(fetchFn, token, clientId, body) {
 export function revokeClientInvite(fetchFn, token, inviteId) {
 	return apiFetch(fetchFn, `/tenant/client-invites/${encodeURIComponent(inviteId)}`, {
 		method: 'DELETE',
+		token
+	});
+}
+
+/**
+ * Set a new password for a client user (primary billing contact and portal
+ * access). Requires manage/clients.
+ * @param {typeof fetch} fetchFn
+ * @param {string} token
+ * @param {string} userId
+ * @param {{ password: string }} body
+ * @returns {Promise<{ status: string }>}
+ */
+export function resetClientUserPassword(fetchFn, token, userId, body) {
+	return apiFetch(fetchFn, `/tenant/client-users/${encodeURIComponent(userId)}/reset-password`, {
+		method: 'POST',
+		token,
+		body
+	});
+}
+
+/**
+ * Revoke a client user's portal access. Requires manage/clients.
+ * @param {typeof fetch} fetchFn
+ * @param {string} token
+ * @param {string} userId
+ * @returns {Promise<{ status: string }>}
+ */
+export function deactivateClientUser(fetchFn, token, userId) {
+	return apiFetch(fetchFn, `/tenant/client-users/${encodeURIComponent(userId)}/deactivate`, {
+		method: 'POST',
+		token
+	});
+}
+
+/**
+ * Restore a client user's portal access. Requires manage/clients.
+ * @param {typeof fetch} fetchFn
+ * @param {string} token
+ * @param {string} userId
+ * @returns {Promise<{ status: string }>}
+ */
+export function reactivateClientUser(fetchFn, token, userId) {
+	return apiFetch(fetchFn, `/tenant/client-users/${encodeURIComponent(userId)}/reactivate`, {
+		method: 'POST',
 		token
 	});
 }
