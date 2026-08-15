@@ -14,8 +14,9 @@ from app.models.admin_user import AdminUser
 from app.models.audit_log import AuditLog
 from app.models.client import Client
 from app.models.client_user import ClientUser
-from app.models.enums import AdminUserRole, ClientStatus, ClientType, TenantStatus
+from app.models.enums import AdminUserRole, ClientStatus, ClientType, ProjectStatus, TenantStatus
 from app.models.plan import Plan
+from app.models.project import Project
 from app.models.tenant import Tenant
 
 _TEST_PWD = "testpass123!"
@@ -116,6 +117,25 @@ async def _create_client_user(
     await session.commit()
     await session.refresh(cu)
     return cu
+
+
+async def _create_project(
+    session: AsyncSession,
+    tenant_id: uuid.UUID,
+    client_id: uuid.UUID,
+    name: str = "TestProject",
+    status: ProjectStatus = ProjectStatus.ACTIVE,
+) -> Project:
+    project = Project(
+        tenant_id=tenant_id,
+        client_id=client_id,
+        name=name,
+        status=status,
+    )
+    session.add(project)
+    await session.commit()
+    await session.refresh(project)
+    return project
 
 
 async def _admin_auth_header(user: AdminUser) -> dict[str, str]:
@@ -653,6 +673,36 @@ class TestListClients:
         assert item["total_invoiced"] == "0.00"
 
     @pytest.mark.asyncio
+    async def test_list_clients_active_projects_count(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        plan = await _create_plan(db_session)
+        tenant = await _create_tenant(db_session, plan.id)
+        admin = await _create_admin(
+            db_session, f"admin-{uuid.uuid4().hex[:8]}@testco.com", AdminUserRole.ADMIN, tenant.id
+        )
+        cli_a = await _create_client(db_session, tenant.id, name="Many Projects")
+        await _create_client(db_session, tenant.id, name="No Projects")
+        await _create_project(
+            db_session, tenant.id, cli_a.id, name="A-1", status=ProjectStatus.ACTIVE
+        )
+        await _create_project(
+            db_session, tenant.id, cli_a.id, name="A-2", status=ProjectStatus.ACTIVE
+        )
+        await _create_project(
+            db_session, tenant.id, cli_a.id, name="A-3", status=ProjectStatus.COMPLETED
+        )
+        headers = await _admin_auth_header(admin)
+
+        resp = await client.get("/api/v1/tenant/clients/", headers=headers)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] == 2
+        by_name = {item["name"]: item["active_projects"] for item in data["items"]}
+        assert by_name["Many Projects"] == 2
+        assert by_name["No Projects"] == 0
+
+    @pytest.mark.asyncio
     async def test_list_clients_employee_can_view(
         self, client: AsyncClient, db_session: AsyncSession
     ):
@@ -711,6 +761,32 @@ class TestGetClientDetail:
         assert len(data["client_users"]) == 1
         assert data["client_users"][0]["email"] == "cu@test.com"
         assert "recent_activity" in data
+
+    @pytest.mark.asyncio
+    async def test_get_client_detail_active_projects_count(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        plan = await _create_plan(db_session)
+        tenant = await _create_tenant(db_session, plan.id)
+        admin = await _create_admin(
+            db_session, f"admin-{uuid.uuid4().hex[:8]}@testco.com", AdminUserRole.ADMIN, tenant.id
+        )
+        cli = await _create_client(db_session, tenant.id, name="Detail Projects Client")
+        await _create_project(
+            db_session, tenant.id, cli.id, name="P-active", status=ProjectStatus.ACTIVE
+        )
+        await _create_project(
+            db_session, tenant.id, cli.id, name="P-hold", status=ProjectStatus.ON_HOLD
+        )
+        await _create_project(
+            db_session, tenant.id, cli.id, name="P-done", status=ProjectStatus.COMPLETED
+        )
+        headers = await _admin_auth_header(admin)
+
+        resp = await client.get(f"/api/v1/tenant/clients/{cli.id}", headers=headers)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["active_projects"] == 1
 
     @pytest.mark.asyncio
     async def test_get_client_cross_tenant_404(self, client: AsyncClient, db_session: AsyncSession):

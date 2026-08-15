@@ -15,7 +15,8 @@ from app.models.audit_log import AuditLog
 from app.models.client import Client
 from app.models.client_note import ClientNote
 from app.models.client_user import ClientUser
-from app.models.enums import ActorType, ClientStatus, ClientType
+from app.models.enums import ActorType, ClientStatus, ClientType, ProjectStatus
+from app.models.project import Project
 from app.repositories import client_users as client_user_repo
 from app.repositories import clients as client_repo
 from app.services.audit import log as audit_log
@@ -230,6 +231,12 @@ async def get_client_detail(
     """
     client = await get_client(session, tenant_id=tenant_id, client_id=client_id)
     financials = await get_client_financials(session, client_id=client_id)
+    active_projects_stmt = (
+        select(func.count())
+        .select_from(Project)
+        .where(Project.client_id == client_id, Project.status == ProjectStatus.ACTIVE)
+    )
+    active_projects = (await session.execute(active_projects_stmt)).scalar_one()
     return {
         "id": client.id,
         "tenant_id": client.tenant_id,
@@ -247,6 +254,7 @@ async def get_client_detail(
         "total_invoiced": financials["total_invoiced"],
         "total_paid": financials["total_paid"],
         "total_outstanding": financials["total_outstanding"],
+        "active_projects": active_projects,
     }
 
 
@@ -280,6 +288,15 @@ async def list_clients(
     result_items = []
     client_ids = [c.id for c in items]
     financials = await get_client_financials_batch(session, client_ids=client_ids)
+    active_counts: dict[uuid.UUID, int] = {}
+    if client_ids:
+        count_stmt = (
+            select(Project.client_id, func.count())
+            .where(Project.client_id.in_(client_ids), Project.status == ProjectStatus.ACTIVE)
+            .group_by(Project.client_id)
+        )
+        for cid, cnt in (await session.execute(count_stmt)).all():
+            active_counts[cid] = cnt
     for c in items:
         fin = financials.get(c.id, {})
         result_items.append(
@@ -293,7 +310,7 @@ async def list_clients(
                 "tags": c.tags,
                 "created_at": c.created_at,
                 "updated_at": c.updated_at,
-                "active_projects": 0,  # TODO: wire to Project model
+                "active_projects": active_counts.get(c.id, 0),
                 "total_invoiced": fin.get("total_invoiced", "0.00"),
                 "total_outstanding": fin.get("total_outstanding", "0.00"),
             }

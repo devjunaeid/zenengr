@@ -218,6 +218,7 @@ async def get_client_endpoint(
         total_invoiced=client["total_invoiced"],
         total_paid=client["total_paid"],
         total_outstanding=client["total_outstanding"],
+        active_projects=client["active_projects"],
     )
 
 
