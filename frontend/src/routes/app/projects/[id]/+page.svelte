@@ -56,9 +56,11 @@
 	let addErr = $state(null);
 	/** @type {string[]} */
 	let addSelected = $state([]);
+	/** @type {Record<string, string>} */
+	let addPrices = $state({});
 	let addPreviewOpen = $state(false);
 
-	/** @type {Array<{ id: string, name: string, step_count: number, description: string|null, default_price: string|null }>} */
+	/** @type {import('$lib/api/services.js').ServiceListItem[]} */
 	let allServices = $state([]);
 	/** @type {Record<string, import('$lib/api/services.js').MilestoneStep[]|null>} */
 	let allServiceDetails = $state({});
@@ -74,6 +76,7 @@
 		addOpen = true;
 		addErr = null;
 		addSelected = [];
+		addPrices = {};
 		addPreviewOpen = false;
 		if (allServices.length === 0) {
 			servicesLoading = true;
@@ -115,14 +118,31 @@
 	}
 
 	/**
-	 * @param {string} id
+	 * @param {import('$lib/api/services.js').ServiceListItem} svc
 	 */
-	function toggleAddService(id) {
-		if (addSelected.includes(id)) {
-			addSelected = addSelected.filter((x) => x !== id);
+	function toggleAddService(svc) {
+		if (addSelected.includes(svc.id)) {
+			addSelected = addSelected.filter((x) => x !== svc.id);
+			const next = { ...addPrices };
+			delete next[svc.id];
+			addPrices = next;
 		} else {
-			addSelected = [...addSelected, id];
+			addSelected = [...addSelected, svc.id];
+			addPrices = { ...addPrices, [svc.id]: svc.default_price ?? '' };
 		}
+	}
+
+	/**
+	 * Inline price validation: empty means "use default", otherwise must be > 0.
+	 * @param {string} id
+	 * @returns {string|null}
+	 */
+	function addPriceError(id) {
+		const v = addPrices[id];
+		if (v == null || v.trim() === '') return null;
+		const n = Number(v);
+		if (!Number.isFinite(n) || n <= 0) return 'Price must be greater than 0.';
+		return null;
 	}
 
 	async function confirmAdd() {
@@ -130,11 +150,21 @@
 			addErr = 'Pick at least one service.';
 			return;
 		}
+		for (const sid of addSelected) {
+			if (addPriceError(sid)) {
+				addErr = 'Enter a valid price (greater than 0) or clear it to use the default.';
+				return;
+			}
+		}
 		addBusy = true;
 		addErr = null;
 		try {
 			for (const sid of addSelected) {
-				await projectApi.attachService(fetch, token, data.project.id, { service_id: sid });
+				/** @type {{ service_id: string, price?: string }} */
+				const body = { service_id: sid };
+				const price = addPrices[sid];
+				if (price != null && price.trim() !== '') body.price = price;
+				await projectApi.attachService(fetch, token, data.project.id, body);
 			}
 			addOpen = false;
 			await invalidateAll();
@@ -1178,28 +1208,52 @@
 				>
 					{#each availableToAttach as svc (svc.id)}
 						{@const checked = addSelected.includes(svc.id)}
+						{@const priceErr = checked ? addPriceError(svc.id) : null}
 						<li>
-							<label
+							<div
 								class="flex items-start gap-3 rounded-md border border-slate-200 bg-slate-50 p-3 hover:bg-slate-100"
 							>
 								<input
+									id={`add-svc-${svc.id}`}
 									type="checkbox"
 									{checked}
-									onchange={() => toggleAddService(svc.id)}
+									onchange={() => toggleAddService(svc)}
 									class="mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
 								/>
-								<span class="flex-1">
-									<span class="block text-sm font-medium text-slate-900">{svc.name}</span>
-									<span class="mt-0.5 block text-xs text-slate-500">
-										{svc.step_count}
-										{svc.step_count === 1 ? 'step' : 'steps'}
-										{#if svc.default_price}· default {fmtPrice(svc.default_price)}{/if}
-									</span>
-									{#if svc.description}
-										<span class="mt-1 block text-xs text-slate-600">{svc.description}</span>
+								<div class="min-w-0 flex-1">
+									<label for={`add-svc-${svc.id}`} class="cursor-pointer">
+										<span class="block text-sm font-medium text-slate-900">{svc.name}</span>
+										<span class="mt-0.5 block text-xs text-slate-500">
+											{svc.step_count}
+											{svc.step_count === 1 ? 'step' : 'steps'}
+											{#if svc.default_price}· default {fmtPrice(svc.default_price)}{/if}
+										</span>
+										{#if svc.description}
+											<span class="mt-1 block text-xs text-slate-600">{svc.description}</span>
+										{/if}
+									</label>
+									{#if checked}
+										<div class="mt-2 flex max-w-xs items-center gap-2">
+											<label
+												for={`add-price-${svc.id}`}
+												class="shrink-0 text-xs font-medium text-slate-600">Price</label
+											>
+											<input
+												id={`add-price-${svc.id}`}
+												type="number"
+												min="0.01"
+												step="0.01"
+												placeholder="Default price"
+												bind:value={addPrices[svc.id]}
+												class="w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+											/>
+										</div>
+										{#if priceErr}
+											<p role="alert" class="mt-1 text-xs text-red-600">{priceErr}</p>
+										{/if}
 									{/if}
-								</span>
-							</label>
+								</div>
+							</div>
 						</li>
 					{/each}
 				</ul>

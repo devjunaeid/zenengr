@@ -926,6 +926,181 @@ class TestAttachService:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# Price override on service attachment
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestPriceOverride:
+    @pytest.mark.asyncio
+    async def test_attach_with_price_override(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        ctx = await _bootstrap(db_session)
+        admin_headers = await _admin_auth_header(ctx["admin"])
+        pid = (
+            await client.post(
+                "/api/v1/tenant/projects/",
+                json={
+                    "name": "Override",
+                    "client_id": str(ctx["client"].id),
+                    "service_ids": [str(ctx["svc_a"].id)],
+                },
+                headers=admin_headers,
+            )
+        ).json()["id"]
+        await client.patch(
+            f"/api/v1/tenant/projects/{pid}",
+            json={"status": "active"},
+            headers=admin_headers,
+        )
+
+        resp = await client.post(
+            f"/api/v1/tenant/projects/{pid}/services",
+            json={"service_id": str(ctx["svc_b"].id), "price": "999.00"},
+            headers=admin_headers,
+        )
+        assert resp.status_code == 201
+
+        detail = (await client.get(f"/api/v1/tenant/projects/{pid}", headers=admin_headers)).json()
+        svc_b_item = next(
+            s for s in detail["services"] if s["service_id"] == str(ctx["svc_b"].id)
+        )
+        assert svc_b_item["price_at_attachment"] == "999.00"
+
+        ledger = (
+            await client.get(f"/api/v1/tenant/projects/{pid}/ledger", headers=admin_headers)
+        ).json()
+        charges = [e for e in ledger["entries"] if e["type"] == "charge"]
+        assert any(
+            e["amount"] == "999.00" and e["description"] == ctx["svc_b"].name for e in charges
+        )
+        # 500 default (svc_a at create) + 999 override (svc_b)
+        assert ledger["summary"]["subtotal"] == "1499.00"
+
+    @pytest.mark.asyncio
+    async def test_attach_without_price_uses_default(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        ctx = await _bootstrap(db_session)
+        admin_headers = await _admin_auth_header(ctx["admin"])
+        pid = (
+            await client.post(
+                "/api/v1/tenant/projects/",
+                json={"name": "Default", "client_id": str(ctx["client"].id)},
+                headers=admin_headers,
+            )
+        ).json()["id"]
+        await client.patch(
+            f"/api/v1/tenant/projects/{pid}",
+            json={"status": "active"},
+            headers=admin_headers,
+        )
+
+        resp = await client.post(
+            f"/api/v1/tenant/projects/{pid}/services",
+            json={"service_id": str(ctx["svc_b"].id)},
+            headers=admin_headers,
+        )
+        assert resp.status_code == 201
+
+        detail = (await client.get(f"/api/v1/tenant/projects/{pid}", headers=admin_headers)).json()
+        assert detail["services"][0]["price_at_attachment"] == "500.00"
+
+        ledger = (
+            await client.get(f"/api/v1/tenant/projects/{pid}/ledger", headers=admin_headers)
+        ).json()
+        assert ledger["summary"]["subtotal"] == "500.00"
+
+    @pytest.mark.asyncio
+    async def test_attach_non_positive_price_returns_422(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        ctx = await _bootstrap(db_session)
+        admin_headers = await _admin_auth_header(ctx["admin"])
+        pid = (
+            await client.post(
+                "/api/v1/tenant/projects/",
+                json={
+                    "name": "BadPrice",
+                    "client_id": str(ctx["client"].id),
+                    "service_ids": [str(ctx["svc_a"].id)],
+                },
+                headers=admin_headers,
+            )
+        ).json()["id"]
+        await client.patch(
+            f"/api/v1/tenant/projects/{pid}",
+            json={"status": "active"},
+            headers=admin_headers,
+        )
+
+        for bad in ("0.00", "-5.00"):
+            resp = await client.post(
+                f"/api/v1/tenant/projects/{pid}/services",
+                json={"service_id": str(ctx["svc_b"].id), "price": bad},
+                headers=admin_headers,
+            )
+            assert resp.status_code == 422
+
+    @pytest.mark.asyncio
+    async def test_create_with_service_prices_override(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        ctx = await _bootstrap(db_session)
+        admin_headers = await _admin_auth_header(ctx["admin"])
+        resp = await client.post(
+            "/api/v1/tenant/projects/",
+            json={
+                "name": "Prices",
+                "client_id": str(ctx["client"].id),
+                "service_ids": [str(ctx["svc_a"].id), str(ctx["svc_b"].id)],
+                "service_prices": {str(ctx["svc_b"].id): "750.00"},
+            },
+            headers=admin_headers,
+        )
+        assert resp.status_code == 201
+        pid = resp.json()["id"]
+
+        detail = (await client.get(f"/api/v1/tenant/projects/{pid}", headers=admin_headers)).json()
+        prices = {s["service_id"]: s["price_at_attachment"] for s in detail["services"]}
+        assert prices[str(ctx["svc_a"].id)] == "500.00"  # no override -> default
+        assert prices[str(ctx["svc_b"].id)] == "750.00"
+
+        ledger = (
+            await client.get(f"/api/v1/tenant/projects/{pid}/ledger", headers=admin_headers)
+        ).json()
+        charges = [e for e in ledger["entries"] if e["type"] == "charge"]
+        assert {e["amount"] for e in charges} == {"500.00", "750.00"}
+        assert ledger["summary"]["subtotal"] == "1250.00"
+
+    @pytest.mark.asyncio
+    async def test_create_without_service_prices_uses_defaults(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        ctx = await _bootstrap(db_session)
+        admin_headers = await _admin_auth_header(ctx["admin"])
+        resp = await client.post(
+            "/api/v1/tenant/projects/",
+            json={
+                "name": "NoPrices",
+                "client_id": str(ctx["client"].id),
+                "service_ids": [str(ctx["svc_a"].id), str(ctx["svc_b"].id)],
+            },
+            headers=admin_headers,
+        )
+        assert resp.status_code == 201
+        pid = resp.json()["id"]
+
+        detail = (await client.get(f"/api/v1/tenant/projects/{pid}", headers=admin_headers)).json()
+        assert all(s["price_at_attachment"] == "500.00" for s in detail["services"])
+
+        ledger = (
+            await client.get(f"/api/v1/tenant/projects/{pid}/ledger", headers=admin_headers)
+        ).json()
+        assert ledger["summary"]["subtotal"] == "1000.00"
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # Audit log
 # ═══════════════════════════════════════════════════════════════════════════
 

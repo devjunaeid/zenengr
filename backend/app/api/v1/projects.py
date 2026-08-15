@@ -174,6 +174,7 @@ async def create_project_endpoint(
         start_date=body.start_date,
         owner_id=body.owner_id,
         service_ids=body.service_ids,
+        service_prices=body.service_prices,
         actor_id=user.id,
     )
     return _to_create_response(project)
@@ -322,6 +323,7 @@ async def attach_service_endpoint(
         project_id=pid,
         service_id=body.service_id,
         actor_id=user.id,
+        price=body.price,
     )
     return AttachServiceResponse(
         project_service_id=project_service_row.id,

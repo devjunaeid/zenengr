@@ -21,6 +21,8 @@
 	let ownerId = $state(null);
 	/** @type {string[]} */
 	let selectedServiceIds = $state([]);
+	/** @type {Record<string, string>} */
+	let servicePrices = $state({});
 	let busy = $state(false);
 	/** @type {string|null} */
 	let err = $state(null);
@@ -83,14 +85,31 @@
 	});
 
 	/**
-	 * @param {string} id
+	 * @param {import('$lib/api/services.js').ServiceListItem} svc
 	 */
-	function toggleService(id) {
-		if (selectedServiceIds.includes(id)) {
-			selectedServiceIds = selectedServiceIds.filter((x) => x !== id);
+	function toggleService(svc) {
+		if (selectedServiceIds.includes(svc.id)) {
+			selectedServiceIds = selectedServiceIds.filter((x) => x !== svc.id);
+			const next = { ...servicePrices };
+			delete next[svc.id];
+			servicePrices = next;
 		} else {
-			selectedServiceIds = [...selectedServiceIds, id];
+			selectedServiceIds = [...selectedServiceIds, svc.id];
+			servicePrices = { ...servicePrices, [svc.id]: svc.default_price ?? '' };
 		}
+	}
+
+	/**
+	 * Inline price validation: empty means "use default", otherwise must be > 0.
+	 * @param {string} id
+	 * @returns {string|null}
+	 */
+	function priceError(id) {
+		const v = servicePrices[id];
+		if (v == null || v.trim() === '') return null;
+		const n = Number(v);
+		if (!Number.isFinite(n) || n <= 0) return 'Price must be greater than 0.';
+		return null;
 	}
 
 	/**
@@ -121,6 +140,12 @@
 			err = 'Pick at least one service.';
 			return;
 		}
+		for (const sid of selectedServiceIds) {
+			if (priceError(sid)) {
+				err = 'Enter a valid price (greater than 0) or clear it to use the default.';
+				return;
+			}
+		}
 		busy = true;
 		try {
 			/** @type {Record<string, any>} */
@@ -129,6 +154,17 @@
 				client_id: clientId,
 				service_ids: selectedServiceIds
 			};
+			/** @type {Record<string, string>} */
+			const servicePricesMap = {};
+			for (const sid of selectedServiceIds) {
+				const v = servicePrices[sid];
+				if (v == null || v.trim() === '') continue;
+				const svc = data.services.find((s) => s.id === sid);
+				// Only send overrides; equal-to-default or cleared entries fall back to the server default.
+				if (svc?.default_price != null && v === svc.default_price) continue;
+				servicePricesMap[sid] = v;
+			}
+			if (Object.keys(servicePricesMap).length > 0) body.service_prices = servicePricesMap;
 			if (startDate) body.start_date = startDate;
 			if (ownerId) body.owner_id = ownerId;
 			const created = await projectApi.createProject(fetch, token, /** @type {any} */ (body));
@@ -259,28 +295,52 @@
 			<ul class="mt-4 space-y-2" role="group" aria-labelledby="services-h">
 				{#each data.services as svc (svc.id)}
 					{@const checked = selectedServiceIds.includes(svc.id)}
+					{@const priceErr = checked ? priceError(svc.id) : null}
 					<li>
-						<label
+						<div
 							class="flex items-start gap-3 rounded-md border border-slate-200 bg-slate-50 p-3 hover:bg-slate-100"
 						>
 							<input
+								id={`new-svc-${svc.id}`}
 								type="checkbox"
 								{checked}
-								onchange={() => toggleService(svc.id)}
+								onchange={() => toggleService(svc)}
 								class="mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
 							/>
-							<span class="flex-1">
-								<span class="block text-sm font-medium text-slate-900">{svc.name}</span>
-								<span class="mt-0.5 block text-xs text-slate-500">
-									{svc.step_count}
-									{svc.step_count === 1 ? 'step' : 'steps'}
-									{#if svc.default_price}· default {fmtPrice(svc.default_price)}{/if}
-								</span>
-								{#if svc.description}
-									<span class="mt-1 block text-xs text-slate-600">{svc.description}</span>
+							<div class="min-w-0 flex-1">
+								<label for={`new-svc-${svc.id}`} class="cursor-pointer">
+									<span class="block text-sm font-medium text-slate-900">{svc.name}</span>
+									<span class="mt-0.5 block text-xs text-slate-500">
+										{svc.step_count}
+										{svc.step_count === 1 ? 'step' : 'steps'}
+										{#if svc.default_price}· default {fmtPrice(svc.default_price)}{/if}
+									</span>
+									{#if svc.description}
+										<span class="mt-1 block text-xs text-slate-600">{svc.description}</span>
+									{/if}
+								</label>
+								{#if checked}
+									<div class="mt-2 flex max-w-xs items-center gap-2">
+										<label
+											for={`new-svc-price-${svc.id}`}
+											class="shrink-0 text-xs font-medium text-slate-600">Price</label
+										>
+										<input
+											id={`new-svc-price-${svc.id}`}
+											type="number"
+											min="0.01"
+											step="0.01"
+											placeholder="Default price"
+											bind:value={servicePrices[svc.id]}
+											class="w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+										/>
+									</div>
+									{#if priceErr}
+										<p role="alert" class="mt-1 text-xs text-red-600">{priceErr}</p>
+									{/if}
 								{/if}
-							</span>
-						</label>
+							</div>
+						</div>
 					</li>
 				{/each}
 			</ul>

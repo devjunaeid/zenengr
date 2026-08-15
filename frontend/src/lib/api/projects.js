@@ -108,7 +108,7 @@ export function getProject(fetchFn, token, id) {
 /**
  * @param {typeof fetch} fetchFn
  * @param {string} token
- * @param {{ name: string, client_id: string, service_ids: string[], start_date?: string|null, owner_id?: string|null }} body
+ * @param {{ name: string, client_id: string, service_ids: string[], service_prices?: Record<string, string>, start_date?: string|null, owner_id?: string|null }} body
  * @returns {Promise<ProjectCreateResponse>}
  */
 export function createProject(fetchFn, token, body) {
@@ -134,7 +134,7 @@ export function updateProject(fetchFn, token, id, body) {
  * @param {typeof fetch} fetchFn
  * @param {string} token
  * @param {string} projectId
- * @param {{ service_id: string }} body
+ * @param {{ service_id: string, price?: string }} body price overrides the service default (price_at_attachment); omit to use the default
  * @returns {Promise<AttachServiceResponse>}
  */
 export function attachService(fetchFn, token, projectId, body) {

@@ -5,6 +5,7 @@ from __future__ import annotations
 import uuid
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -19,6 +20,7 @@ class ProjectCreateRequest(BaseModel):
     start_date: date | None = None
     owner_id: uuid.UUID | None = None
     service_ids: list[uuid.UUID] = Field(default_factory=list)
+    service_prices: dict[uuid.UUID, Annotated[Decimal, Field(gt=0)]] | None = None
 
 
 class ProjectUpdateRequest(BaseModel):
@@ -119,6 +121,7 @@ class ProjectCreateResponse(BaseModel):
 
 class AttachServiceRequest(BaseModel):
     service_id: uuid.UUID
+    price: Decimal | None = Field(default=None, gt=0)
 
 
 class AttachServiceResponse(BaseModel):

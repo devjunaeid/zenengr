@@ -153,6 +153,7 @@ async def _attach_service_internal(
     *,
     start_date: date | None,
     actor_id: uuid.UUID | None,
+    price: Decimal | None = None,
 ) -> ProjectService:
     """Create ProjectService + instantiate milestone rows from templates.
 
@@ -160,13 +161,15 @@ async def _attach_service_internal(
     if both start_date and prior durations exist; else None for that step.
 
     Also writes the FEAT-018 charge LedgerEntry (FR-18.5): amount = price at
-    attachment, entry_date = today, description = service name.
+    attachment (explicit override, else service.default_price), entry_date =
+    today, description = service name.
     """
+    price_at_attachment = price if price is not None else service.default_price
     project_service = await project_repo.attach_service(
         session,
         project,
         service,
-        price_at_attachment=service.default_price,
+        price_at_attachment=price_at_attachment,
     )
 
     # Instantiate milestones in sequence order
@@ -230,6 +233,7 @@ async def create_project(
     start_date: date | None = None,
     owner_id: uuid.UUID | None = None,
     service_ids: list[uuid.UUID] | None = None,
+    service_prices: dict[uuid.UUID, Decimal] | None = None,
     actor_id: uuid.UUID,
 ) -> Project:
     """Create a project in Draft + attach services + instantiate milestones."""
@@ -266,8 +270,14 @@ async def create_project(
     )
 
     for svc in services:
+        override = (service_prices or {}).get(svc.id)
         await _attach_service_internal(
-            session, project, svc, start_date=start_date, actor_id=actor_id
+            session,
+            project,
+            svc,
+            start_date=start_date,
+            actor_id=actor_id,
+            price=override,
         )
 
     await session.flush()
@@ -465,6 +475,7 @@ async def attach_service(
     project_id: uuid.UUID,
     service_id: uuid.UUID,
     actor_id: uuid.UUID,
+    price: Decimal | None = None,
 ) -> tuple[ProjectService, int]:
     """Attach a service to an Active project. 404 / 409 as appropriate.
 
@@ -489,7 +500,12 @@ async def attach_service(
         raise ProjectServiceAlreadyAttachedError()
 
     project_service = await _attach_service_internal(
-        session, project, service, start_date=project.start_date, actor_id=actor_id
+        session,
+        project,
+        service,
+        start_date=project.start_date,
+        actor_id=actor_id,
+        price=price,
     )
 
     # Count the milestones we just added (in DB after flush)
