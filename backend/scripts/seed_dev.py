@@ -33,9 +33,16 @@ from app.models.enums import (
     TenantStatus,
 )
 from app.models.plan import Plan
+from app.models.plan_feature_default import PlanFeatureDefault
 from app.models.project import Project
+from app.models.role import RolePermission
 from app.models.tenant import Tenant
-from app.services.roles import attach_default_role
+from app.services.feature_flags import FEATURE_KEYS
+from app.services.roles import (
+    SYSTEM_ROLE_PERMISSIONS,
+    attach_default_role,
+    get_system_role,
+)
 
 SEED_SUPERADMIN_EMAIL = os.getenv("SEED_SUPERADMIN_EMAIL", "admin@zenengr.dev")
 SEED_SUPERADMIN_PASSWORD = os.getenv("SEED_SUPERADMIN_PASSWORD", "changeme123!")
@@ -43,6 +50,63 @@ SEED_DEMO_EMAIL = os.getenv("SEED_DEMO_EMAIL", "demo@demo-agency.dev")
 SEED_DEMO_PASSWORD = os.getenv("SEED_DEMO_PASSWORD", "changeme123!")
 SEED_CLIENT_EMAIL = os.getenv("SEED_CLIENT_EMAIL", "client@demo-agency.dev")
 SEED_CLIENT_PASSWORD = os.getenv("SEED_CLIENT_PASSWORD", "changeme123!")
+
+
+async def seed_plan_flag_defaults(session: AsyncSession, plans: list[Plan]) -> int:
+    """Get-or-create PlanFeatureDefault rows for every FEATURE_KEYS entry.
+
+    Additive only: existing rows (possibly edited by a super admin) are
+    never overwritten. Returns the number of rows inserted.
+    """
+    inserted = 0
+    for plan in plans:
+        for entry in FEATURE_KEYS:
+            existing = await session.execute(
+                select(PlanFeatureDefault).where(
+                    PlanFeatureDefault.plan_id == plan.id,
+                    PlanFeatureDefault.key == entry["key"],
+                )
+            )
+            if existing.scalar_one_or_none() is not None:
+                continue
+            session.add(
+                PlanFeatureDefault(
+                    plan_id=plan.id,
+                    key=entry["key"],
+                    enabled=entry["default"],
+                )
+            )
+            inserted += 1
+    return inserted
+
+
+async def seed_system_role_permissions(session: AsyncSession) -> int:
+    """Insert SYSTEM_ROLE_PERMISSIONS rows for each seeded system role.
+
+    Additive only: existing rows (possibly edited by a tenant admin) are
+    never overwritten. super_admin carries no matrix tuples (bypass).
+    Returns the number of rows inserted.
+    """
+    inserted = 0
+    for name, perms in SYSTEM_ROLE_PERMISSIONS.items():
+        role = await get_system_role(session, name)
+        if role is None:
+            continue
+        for action, resource in perms:
+            existing = await session.execute(
+                select(RolePermission).where(
+                    RolePermission.role_id == role.id,
+                    RolePermission.action == action,
+                    RolePermission.resource == resource,
+                )
+            )
+            if existing.scalar_one_or_none() is not None:
+                continue
+            session.add(
+                RolePermission(role_id=role.id, action=action, resource=resource, granted=True)
+            )
+            inserted += 1
+    return inserted
 
 
 async def _seed() -> None:
@@ -190,6 +254,19 @@ async def _seed() -> None:
             print("Created project: Demo Project")
         else:
             print("Project 'Demo Project' already exists — skipping")
+
+        # ── Feature-flag plan defaults ───────────────────────────────────
+        plans_result = await session.execute(select(Plan))
+        seed_plans = list(plans_result.scalars().all())
+        flag_rows = await seed_plan_flag_defaults(session, seed_plans)
+        print(
+            f"Feature-flag plan defaults: {flag_rows} created "
+            f"({len(FEATURE_KEYS)} keys x {len(seed_plans)} plan(s))"
+        )
+
+        # ── System role permission defaults ──────────────────────────────
+        role_rows = await seed_system_role_permissions(session)
+        print(f"System role permissions: {role_rows} created")
 
         await session.commit()
 

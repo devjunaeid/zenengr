@@ -29,6 +29,7 @@ from app.models.tenant import Tenant
 from app.models.tenant_feature_flag import TenantFeatureFlag
 from app.models.tenant_setting import TenantSetting
 from app.models.tenant_subscription import TenantSubscription
+from app.services.feature_flags import FEATURE_KEYS
 
 _TEST_PWD = "testpass123!"
 
@@ -962,7 +963,10 @@ class TestTenantFeatureFlags:
         headers = await _auth_header(admin)
         resp = await client.get("/api/v1/tenant/flags", headers=headers)
         assert resp.status_code == 200
-        assert resp.json() == []  # no known flags
+        flags = resp.json()
+        # Full catalog surfaced with system defaults (all enabled)
+        assert {f["key"] for f in flags} == {entry["key"] for entry in FEATURE_KEYS}
+        assert all(f["enabled"] for f in flags)
 
     @pytest.mark.anyio
     async def test_sa_set_override_then_tenant_sees_it(
@@ -987,9 +991,9 @@ class TestTenantFeatureFlags:
         resp2 = await client.get("/api/v1/tenant/flags", headers=tenant_headers)
         assert resp2.status_code == 200
         flags = resp2.json()
-        assert len(flags) == 1
-        assert flags[0]["key"] == "comments_module"
-        assert flags[0]["enabled"] is True
+        assert len(flags) == len(FEATURE_KEYS)
+        cm = next(f for f in flags if f["key"] == "comments_module")
+        assert cm["enabled"] is True
 
     @pytest.mark.anyio
     async def test_sa_override_falls_back_on_delete(
@@ -1014,10 +1018,13 @@ class TestTenantFeatureFlags:
         )
         assert resp.status_code == 200
 
-        # Tenant no longer sees it (no plan default)
+        # Tenant falls back to system default (no plan default row)
         tenant_headers = await _auth_header(admin)
         resp2 = await client.get("/api/v1/tenant/flags", headers=tenant_headers)
-        assert resp2.json() == []
+        flags = resp2.json()
+        assert len(flags) == len(FEATURE_KEYS)
+        cm = next(f for f in flags if f["key"] == "comments_module")
+        assert cm["enabled"] is True
 
     @pytest.mark.anyio
     async def test_sa_view_resolution_sources(self, client: AsyncClient, db_session: AsyncSession):
@@ -1039,9 +1046,11 @@ class TestTenantFeatureFlags:
         resp = await client.get(f"/api/v1/admin/tenants/{tenant.id}/flags", headers=sa_headers)
         assert resp.status_code == 200
         data = resp.json()
-        assert len(data["resolved"]) == 1
-        assert data["resolved"][0]["enabled"] is False
-        assert data["resolved"][0]["source"] == "override"
+        # Catalog + the non-catalog 'client_portal' row (back-compat)
+        assert len(data["resolved"]) == len(FEATURE_KEYS) + 1
+        cp = next(r for r in data["resolved"] if r["key"] == "client_portal")
+        assert cp["enabled"] is False
+        assert cp["source"] == "override"
         assert len(data["overrides"]) == 1
 
     @pytest.mark.anyio
@@ -1071,7 +1080,9 @@ class TestTenantFeatureFlags:
         # Tenant still sees enabled (override wins)
         tenant_headers = await _auth_header(admin)
         resp2 = await client.get("/api/v1/tenant/flags", headers=tenant_headers)
-        assert resp2.json()[0]["enabled"] is True
+        flags = resp2.json()
+        cm = next(f for f in flags if f["key"] == "comments_module")
+        assert cm["enabled"] is True
 
     @pytest.mark.anyio
     async def test_sa_set_override_persists_across_sessions(self, app: Any):
@@ -1158,14 +1169,14 @@ class TestTenantFeatureFlags:
 # ── require_feature_flag dependency tests ────────────────────────────────
 
 
-def _register_flag_endpoint(app: Any) -> None:
+def _register_flag_endpoint(app: Any, *, flag: str = "test_feature") -> None:
     """Register throwaway endpoint for require_feature_flag testing."""
     from fastapi import Depends
 
     from app.core.dependencies import require_feature_flag
 
     @app.get("/_test/flag-check")
-    async def _flag_check(user=Depends(require_feature_flag("test_feature"))):
+    async def _flag_check(user=Depends(require_feature_flag(flag))):
         return {"ok": True, "role": user.role.value}  # type: ignore[union-attr]
 
 
@@ -1223,9 +1234,9 @@ async def test_require_feature_flag_flip_reflects(client: AsyncClient, db_sessio
     from app.models.plan_feature_default import PlanFeatureDefault
     from app.services.feature_flags import set_override
 
-    _register_flag_endpoint(client._transport.app)
+    _register_flag_endpoint(client._transport.app, flag="comments_module")
     plan = await _create_plan(db_session)
-    pfd = PlanFeatureDefault(plan_id=plan.id, key="test_feature", enabled=True)
+    pfd = PlanFeatureDefault(plan_id=plan.id, key="comments_module", enabled=True)
     db_session.add(pfd)
     await db_session.commit()
     tenant, admin = await _create_tenant_and_admin(db_session, plan)
@@ -1236,7 +1247,7 @@ async def test_require_feature_flag_flip_reflects(client: AsyncClient, db_sessio
     assert resp.status_code == 200
 
     # Disable via tenant override — should 403 next request
-    await set_override(db_session, tenant.id, "test_feature", enabled=False)
+    await set_override(db_session, tenant.id, "comments_module", enabled=False)
 
     resp = await client.get("/_test/flag-check", headers=headers)
     assert resp.status_code == 403
@@ -1244,7 +1255,7 @@ async def test_require_feature_flag_flip_reflects(client: AsyncClient, db_sessio
     assert data["error"]["message"]["code"] == "FEATURE_DISABLED"
 
     # Re-enable — should pass again
-    await set_override(db_session, tenant.id, "test_feature", enabled=True)
+    await set_override(db_session, tenant.id, "comments_module", enabled=True)
 
     resp = await client.get("/_test/flag-check", headers=headers)
     assert resp.status_code == 200

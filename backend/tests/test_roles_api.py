@@ -41,6 +41,7 @@ from app.models.role import Role, RolePermission
 from app.models.service import Service
 from app.models.tenant import Tenant
 from app.schemas.roles import RolePermissionInput
+from app.services.feature_flags import set_override
 from app.services.permissions import PERMISSION_CATALOG, role_has_permission
 from app.services.roles import (
     SYSTEM_ROLE_PERMISSIONS,
@@ -323,6 +324,84 @@ class TestPermissionCatalog:
         view = next(i for i in roles_entries if i["action"] == "view")
         assert view["label"] == "View Roles"
         assert view["group"] == "Roles"
+
+
+class TestFeatureScopedPermissionCatalog:
+    """GET /tenant/roles/permissions is scoped by the tenant's feature flags."""
+
+    @pytest.mark.anyio
+    async def test_disabled_module_omits_group(self, client: AsyncClient, db_session: AsyncSession):
+        """comments_module disabled -> comments group dropped; unmapped kept."""
+        ctx = await _bootstrap_admin(db_session)
+        headers = await _auth_header(ctx["user"])
+        await set_override(db_session, ctx["tenant"].id, "comments_module", enabled=False)
+
+        resp = await client.get("/api/v1/tenant/roles/permissions", headers=headers)
+        assert resp.status_code == 200
+        items = resp.json()
+        resources = {i["resource"] for i in items}
+
+        assert "comments" not in resources
+        assert "admin_users" in resources  # unmapped resource always present
+        assert "clients" in resources
+        assert "roles" in resources
+
+    @pytest.mark.anyio
+    async def test_enabled_module_includes_group(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        """comments_module enabled (catalog default) -> comments present."""
+        ctx = await _bootstrap_admin(db_session)
+        headers = await _auth_header(ctx["user"])
+
+        resp = await client.get("/api/v1/tenant/roles/permissions", headers=headers)
+        assert resp.status_code == 200
+        items = resp.json()
+        resources = {i["resource"] for i in items}
+
+        assert "comments" in resources
+        comments = [i for i in items if i["resource"] == "comments"]
+        assert {i["action"] for i in comments} == {"post", "edit"}
+
+    @pytest.mark.anyio
+    async def test_reenable_restores_group(self, client: AsyncClient, db_session: AsyncSession):
+        """Disable then re-enable comments_module flips the catalog live."""
+        ctx = await _bootstrap_admin(db_session)
+        headers = await _auth_header(ctx["user"])
+
+        await set_override(db_session, ctx["tenant"].id, "comments_module", enabled=False)
+        resp = await client.get("/api/v1/tenant/roles/permissions", headers=headers)
+        assert {"comments"} & {i["resource"] for i in resp.json()} == set()
+
+        await set_override(db_session, ctx["tenant"].id, "comments_module", enabled=True)
+        resp = await client.get("/api/v1/tenant/roles/permissions", headers=headers)
+        resources = {i["resource"] for i in resp.json()}
+        assert "comments" in resources
+
+    @pytest.mark.anyio
+    async def test_role_creation_accepts_hidden_module_permission(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        """Backend still accepts role rows for disabled-module permissions."""
+        ctx = await _bootstrap_admin(db_session)
+        headers = await _auth_header(ctx["user"])
+        await set_override(db_session, ctx["tenant"].id, "comments_module", enabled=False)
+
+        resp = await client.post(
+            "/api/v1/tenant/roles/",
+            json={
+                "name": "commenter",
+                "description": "Hidden-module role",
+                "permissions": [
+                    {"action": "post", "resource": "comments", "granted": True},
+                ],
+            },
+            headers=headers,
+        )
+        assert resp.status_code == 201, resp.text
+        assert resp.json()["permissions"] == [
+            {"action": "post", "resource": "comments", "granted": True}
+        ]
 
 
 class TestCreateRole:
@@ -620,9 +699,7 @@ class TestCommentPermissionRework:
         for name, action, resource, want in expected:
             role = await get_system_role(db_session, name)
             assert role is not None, name
-            got = await role_has_permission(
-                db_session, role=role, action=action, resource=resource
-            )
+            got = await role_has_permission(db_session, role=role, action=action, resource=resource)
             assert got is want, f"{name}: {action}/{resource} expected {want}, got {got}"
 
     @pytest.mark.anyio

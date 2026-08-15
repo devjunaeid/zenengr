@@ -28,6 +28,7 @@ from app.models.enums import ActorType, AdminUserRole
 from app.models.role import Role, RolePermission
 from app.schemas.roles import RolePermissionInput
 from app.services.audit import log as audit_log
+from app.services.feature_flags import FEATURE_KEY_BY_RESOURCE, is_feature_enabled
 from app.services.permissions import (
     _TENANT_MATRIX,
     PERMISSION_CATALOG,
@@ -518,3 +519,22 @@ async def effective_permissions(session: AsyncSession, *, user: AdminUser) -> li
 def get_permission_catalog() -> list[dict[str, str]]:
     """Return the permission catalog (action/resource/label/group) for the UI."""
     return PERMISSION_CATALOG
+
+
+async def get_permission_catalog_for_tenant(
+    session: AsyncSession, *, tenant_id: uuid.UUID
+) -> list[dict[str, str]]:
+    """Return the permission catalog scoped to the tenant's feature flags.
+
+    Items whose resource maps to a feature flag that is disabled for the
+    tenant are dropped (e.g. comments_module off -> no post/edit comments).
+    Resources with no flag mapping (admin_users, tenant_settings, profile,
+    ...) are always kept. Same item shape as PERMISSION_CATALOG.
+    """
+    scoped: list[dict[str, str]] = []
+    for item in PERMISSION_CATALOG:
+        flag = FEATURE_KEY_BY_RESOURCE.get(item["resource"])
+        if flag is not None and not await is_feature_enabled(session, tenant_id, flag):
+            continue
+        scoped.append(item)
+    return scoped

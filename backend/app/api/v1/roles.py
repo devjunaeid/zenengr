@@ -78,9 +78,14 @@ async def get_permission_catalog_endpoint(
     session: AsyncSession = Depends(get_session),
     user: AdminUser = Depends(get_current_admin_user),
 ) -> list[PermissionCatalogItem]:
-    """Return the full action/resource catalog (label + group). All staff can read."""
-    _ = user
-    return [PermissionCatalogItem(**item) for item in role_service.get_permission_catalog()]
+    """Return the tenant-scoped action/resource catalog (label + group).
+
+    Resources gated behind a feature flag that is disabled for the tenant
+    are omitted. All staff can read.
+    """
+    tenant_id = _get_tenant_id(user)
+    items = await role_service.get_permission_catalog_for_tenant(session, tenant_id=tenant_id)
+    return [PermissionCatalogItem(**item) for item in items]
 
 
 @router.post(

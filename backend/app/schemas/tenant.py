@@ -89,7 +89,7 @@ class FeatureFlagItem(BaseModel):
 class FeatureFlagDetail(BaseModel):
     key: str
     enabled: bool
-    source: str  # "override" | "plan_default" | "default_false"
+    source: str  # "override" | "plan_default" | "system_default"
 
 
 class FeatureFlagOverrideUpdate(BaseModel):

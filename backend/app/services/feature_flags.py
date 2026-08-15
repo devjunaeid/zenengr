@@ -3,7 +3,12 @@
 Resolution order:
   1. TenantFeatureFlag override (tenant-specific)
   2. PlanFeatureDefault (via tenant's plan)
-  3. False (system default)
+  3. Catalog default from FEATURE_KEYS (False for unknown keys)
+
+FEATURE_KEYS is the feature-flag catalog (key/label/default). set_override
+and set_plan_default only accept catalog keys (422 otherwise). Keys not in
+the catalog remain resolvable when rows exist (back-compat) and are still
+surfaced by get_resolved_flags.
 """
 
 from __future__ import annotations
@@ -19,11 +24,41 @@ from app.models.plan_feature_default import PlanFeatureDefault
 from app.models.tenant import Tenant
 from app.models.tenant_feature_flag import TenantFeatureFlag
 
+# ── Feature-flag catalog ────────────────────────────────────────────────────
+
+FEATURE_KEYS: list[dict[str, Any]] = [
+    {"key": "projects_module", "label": "Projects", "default": True},
+    {"key": "clients_module", "label": "Clients", "default": True},
+    {"key": "services_module", "label": "Services", "default": True},
+    {"key": "invoices_module", "label": "Invoices & Payments", "default": True},
+    {"key": "files_module", "label": "Files", "default": True},
+    {"key": "comments_module", "label": "Comments", "default": True},
+    {"key": "notifications_module", "label": "Notifications", "default": True},
+    {"key": "roles_module", "label": "Custom Roles & Permissions", "default": True},
+]
+
+FEATURE_KEY_BY_RESOURCE: dict[str, str] = {
+    "projects": "projects_module",
+    "milestones": "projects_module",
+    "clients": "clients_module",
+    "services": "services_module",
+    "invoices": "invoices_module",
+    "payments": "invoices_module",
+    "financial_reports": "invoices_module",
+    "comments": "comments_module",
+    "files": "files_module",
+    "roles": "roles_module",
+}
+
+_KNOWN_KEYS: frozenset[str] = frozenset(entry["key"] for entry in FEATURE_KEYS)
+_CATALOG_DEFAULTS: dict[str, bool] = {entry["key"]: entry["default"] for entry in FEATURE_KEYS}
+
 
 async def is_feature_enabled(session: AsyncSession, tenant_id: object, key: str) -> bool:
     """Resolve feature flag for tenant.
 
-    Returns True if enabled via tenant override or plan default.
+    Returns True if enabled via tenant override or plan default; otherwise
+    falls back to the catalog default (False for unknown keys).
     """
     # 1. Check tenant-level override
     _check = await session.execute(
@@ -49,8 +84,8 @@ async def is_feature_enabled(session: AsyncSession, tenant_id: object, key: str)
         if pd is not None:
             return pd.enabled
 
-    # 3. System default: disabled
-    return False
+    # 3. Catalog default (False for keys not in the catalog)
+    return _CATALOG_DEFAULTS.get(key, False)
 
 
 async def resolve_flag_detail(
@@ -81,14 +116,19 @@ async def resolve_flag_detail(
         if pd is not None:
             return {"key": key, "enabled": pd.enabled, "source": "plan_default"}
 
-    # 3. Default
-    return {"key": key, "enabled": False, "source": "default_false"}
+    # 3. Catalog default
+    return {
+        "key": key,
+        "enabled": _CATALOG_DEFAULTS.get(key, False),
+        "source": "system_default",
+    }
 
 
 async def get_resolved_flags(session: AsyncSession, tenant_id: uuid.UUID) -> list[dict[str, Any]]:
     """Get all resolved flags for a tenant with source info.
 
-    Known keys are the union of tenant overrides and plan defaults.
+    Returns the FULL catalog (FEATURE_KEYS), plus any non-catalog keys with
+    existing rows (overrides or plan defaults) for back-compat.
     """
     tenant = await session.get(Tenant, tenant_id)
     if tenant is None:
@@ -97,8 +137,8 @@ async def get_resolved_flags(session: AsyncSession, tenant_id: uuid.UUID) -> lis
             detail="Tenant not found",
         )
 
-    # Collect all known keys: overrides + plan defaults
-    known_keys: set[str] = set()
+    # Catalog keys always resolve; non-catalog keys with rows are kept too.
+    known_keys: set[str] = set(_KNOWN_KEYS)
 
     overrides = await session.execute(
         select(TenantFeatureFlag).where(TenantFeatureFlag.tenant_id == tenant_id)
@@ -129,10 +169,20 @@ async def get_overrides_list(session: AsyncSession, tenant_id: uuid.UUID) -> lis
     ]
 
 
+def _validate_key(key: str) -> None:
+    """Reject keys that are not in the feature-flag catalog (422)."""
+    if key not in _KNOWN_KEYS:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"Unknown feature key: {key}",
+        )
+
+
 async def set_override(
     session: AsyncSession, tenant_id: uuid.UUID, key: str, enabled: bool
 ) -> TenantFeatureFlag:
     """Upsert a tenant-level feature flag override."""
+    _validate_key(key)
     result = await session.execute(
         select(TenantFeatureFlag).where(
             TenantFeatureFlag.tenant_id == tenant_id,
@@ -180,6 +230,7 @@ async def set_plan_default(
     session: AsyncSession, plan_id: uuid.UUID, key: str, enabled: bool
 ) -> PlanFeatureDefault:
     """Upsert a plan-level feature flag default."""
+    _validate_key(key)
     result = await session.execute(
         select(PlanFeatureDefault).where(
             PlanFeatureDefault.plan_id == plan_id,
