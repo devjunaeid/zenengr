@@ -514,6 +514,11 @@ async def attach_service(
 
     await session.commit()
     await session.refresh(project_service)
+    # Wire the relationship in-memory: async SQLAlchemy cannot lazy-load
+    # relationships outside the greenlet, and attach_service_endpoint reads
+    # project_service.service.name right after this returns. The object is
+    # already in the identity map (expire_on_commit=False), so no IO occurs.
+    project_service.service = service
     return project_service, milestone_count
 
 
