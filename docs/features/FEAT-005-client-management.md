@@ -62,3 +62,7 @@ Let tenant staff manage their clients (companies/individuals) with contact detai
 ## Decisions
 
 - None beyond PRD.
+
+## Notes
+
+- Client User onboarding: client creation now includes `client_user_email` + password for the primary billing contact (active by default); admin password change + revoke/restore replace the invite flow; invite UI removed.

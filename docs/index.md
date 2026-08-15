@@ -20,7 +20,7 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | Area | Count | Key metric |
 | ---- | ----- | ---------- |
 | Features | 19 | approved: 18, proposed: 1 |
-| User stories | 62 | done: 22, in_progress: 4, proposed: 36 |
+| User stories | 62 | done: 23, in_progress: 4, proposed: 35 |
 | Todos | 186 | done: 186, in_progress: 0, proposed: 0 |
 | Decisions | 2 | accepted: 2 |
 
@@ -80,7 +80,7 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | [US-013](stories/US-013.md) | Tenant Admin edits/deactivates staff user | FEAT-004 | proposed |
 | [US-014](stories/US-014.md) | Tenant Admin triggers password reset | FEAT-004 | proposed |
 | [US-015](stories/US-015.md) | RBAC permission matrix enforced server-side | FEAT-004 | proposed |
-| [US-016](stories/US-016.md) | Tenant Admin invites/deactivates Client User | FEAT-004 | proposed |
+| [US-016](stories/US-016.md) | Tenant Admin invites/deactivates Client User | FEAT-004 | done |
 | [US-017](stories/US-017.md) | Audit trail records sensitive actions | FEAT-004 | proposed |
 | [US-018](stories/US-018.md) | Staff create/edit/view Clients | FEAT-005 | done |
 | [US-019](stories/US-019.md) | Client list with rollups, search, filter | FEAT-005 | done |

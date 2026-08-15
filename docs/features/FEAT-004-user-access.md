@@ -89,3 +89,7 @@ Provide tenant-level user administration with role-based access control for both
 - **Two separate auth realms:** Admin/Ops Portal (Super Admin, Admin, Manager, Employee) and Client Portal (Client Users).
 - **One Client User login = exactly one tenant relationship.**
 - **FR-4.2 role matrix must be implemented verbatim** as the authorization backbone.
+
+## Notes
+
+- Client User onboarding reworked: Tenant Admin/Manager creates a Client WITH `client_user_email` + password, making that user the primary billing contact (active by default). Admin can change the Client User's password and revoke/restore portal access. Invite-based Client User onboarding removed from UI; invite endpoints dormant.

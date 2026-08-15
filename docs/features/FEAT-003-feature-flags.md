@@ -53,3 +53,9 @@ Provide Super Admin with per-tenant feature flag control. Flags are data-driven,
 
 - **Flags are data-driven, effective without redeploy.**
 - **Online payment collection** is a Phase 2 flag (`client_portal_payments`), NOT built in MVP.
+
+## Notes
+
+- Flag keys defined in code via FEATURE_KEYS catalog (8 module flags): unknown keys rejected with 422, catalog-default resolution, full-catalog flags API.
+- Idempotent seeder: plan flag defaults + system-role permissions; safe to re-run.
+- Roles permission catalog is tenant-scoped: a disabled module's feature permissions are hidden; super_admin excluded from tenant roles list.
