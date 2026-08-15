@@ -430,11 +430,12 @@ class TestCreateRole:
         assert data["tenant_id"] == str(ctx["tenant"].id)
         assert data["permissions"] == [{"action": "view", "resource": "clients", "granted": True}]
 
-        # list = system roles + new custom role
+        # list = system roles + new custom role, never super_admin
         lst = await client.get("/api/v1/tenant/roles/", headers=headers)
         assert lst.status_code == 200
         names = {r["name"] for r in lst.json()}
-        assert {"super_admin", "admin", "manager", "employee", "ops"} <= names
+        assert {"admin", "manager", "employee", "ops"} <= names
+        assert "super_admin" not in names
 
     @pytest.mark.anyio
     async def test_duplicate_and_reserved_names_409(
@@ -455,6 +456,35 @@ class TestCreateRole:
             headers=headers,
         )
         assert reserved.status_code == 409
+
+
+class TestListRoles:
+    @pytest.mark.anyio
+    async def test_list_excludes_super_admin(self, client: AsyncClient, db_session: AsyncSession):
+        """GET /tenant/roles hides super_admin; keeps admin/manager/employee + customs."""
+        ctx = await _bootstrap_admin(db_session)
+        headers = await _auth_header(ctx["user"])
+        await create_role(
+            db_session,
+            tenant_id=ctx["tenant"].id,
+            name="ops",
+            description="",
+            permissions=[RolePermissionInput(action="view", resource="clients", granted=True)],
+            actor_id=ctx["user"].id,
+        )
+        await db_session.commit()
+
+        resp = await client.get("/api/v1/tenant/roles/", headers=headers)
+        assert resp.status_code == 200
+        roles = resp.json()
+        names = {r["name"] for r in roles}
+
+        assert "super_admin" not in names
+        assert {"admin", "manager", "employee", "ops"} <= names
+        # System roles returned carry is_system=True; the custom one is not.
+        by_name = {r["name"]: r for r in roles}
+        assert all(by_name[n]["is_system"] for n in ("admin", "manager", "employee"))
+        assert by_name["ops"]["is_system"] is False
 
 
 class TestRoleEnforcement:

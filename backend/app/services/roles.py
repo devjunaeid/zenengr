@@ -19,7 +19,7 @@ from __future__ import annotations
 import uuid
 
 from fastapi import HTTPException, status
-from sqlalchemy import func, or_, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -219,11 +219,17 @@ async def attach_default_role(session: AsyncSession, user: AdminUser) -> None:
 async def list_roles(session: AsyncSession, *, tenant_id: uuid.UUID) -> list[Role]:
     """List system built-in roles + this tenant's custom roles.
 
-    Permissions are eager-loaded for response serialization.
+    The platform-level super_admin system role is excluded: it is not
+    assignable to tenant users (assign_user_role rejects it), so tenant
+    admins should never see it. Permissions are eager-loaded for response
+    serialization.
     """
     stmt = (
         select(Role)
-        .where(or_(Role.tenant_id.is_(None), Role.tenant_id == tenant_id))
+        .where(
+            or_(Role.tenant_id.is_(None), Role.tenant_id == tenant_id),
+            ~and_(Role.tenant_id.is_(None), Role.name == AdminUserRole.SUPER_ADMIN.value),
+        )
         .options(selectinload(Role.permissions))
         .order_by(Role.tenant_id.is_not(None), Role.name)
     )
