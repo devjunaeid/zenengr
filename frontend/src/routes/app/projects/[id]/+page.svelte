@@ -56,7 +56,7 @@
 	let addErr = $state(null);
 	/** @type {string[]} */
 	let addSelected = $state([]);
-	/** @type {Record<string, string>} */
+	/** @type {Record<string, number|string>} */
 	let addPrices = $state({});
 	let addPreviewOpen = $state(false);
 
@@ -139,7 +139,7 @@
 	 */
 	function addPriceError(id) {
 		const v = addPrices[id];
-		if (v == null || v.trim() === '') return null;
+		if (v === undefined || v === null || v === '') return null;
 		const n = Number(v);
 		if (!Number.isFinite(n) || n <= 0) return 'Price must be greater than 0.';
 		return null;
@@ -160,10 +160,10 @@
 		addErr = null;
 		try {
 			for (const sid of addSelected) {
-				/** @type {{ service_id: string, price?: string }} */
+				/** @type {{ service_id: string, price?: number|string }} */
 				const body = { service_id: sid };
 				const price = addPrices[sid];
-				if (price != null && price.trim() !== '') body.price = price;
+				if (price !== undefined && price !== null && price !== '') body.price = price;
 				await projectApi.attachService(fetch, token, data.project.id, body);
 			}
 			addOpen = false;

@@ -21,7 +21,7 @@
 	let ownerId = $state(null);
 	/** @type {string[]} */
 	let selectedServiceIds = $state([]);
-	/** @type {Record<string, string>} */
+	/** @type {Record<string, number|string>} */
 	let servicePrices = $state({});
 	let busy = $state(false);
 	/** @type {string|null} */
@@ -106,7 +106,7 @@
 	 */
 	function priceError(id) {
 		const v = servicePrices[id];
-		if (v == null || v.trim() === '') return null;
+		if (v === undefined || v === null || v === '') return null;
 		const n = Number(v);
 		if (!Number.isFinite(n) || n <= 0) return 'Price must be greater than 0.';
 		return null;
@@ -154,11 +154,11 @@
 				client_id: clientId,
 				service_ids: selectedServiceIds
 			};
-			/** @type {Record<string, string>} */
+			/** @type {Record<string, number|string>} */
 			const servicePricesMap = {};
 			for (const sid of selectedServiceIds) {
 				const v = servicePrices[sid];
-				if (v == null || v.trim() === '') continue;
+				if (v === undefined || v === null || v === '') continue;
 				const svc = data.services.find((s) => s.id === sid);
 				// Only send overrides; equal-to-default or cleared entries fall back to the server default.
 				if (svc?.default_price != null && v === svc.default_price) continue;
