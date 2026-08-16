@@ -115,6 +115,7 @@ def _to_detail(project: Any) -> ProjectDetailResponse:
         status=project.status,
         start_date=project.start_date,
         owner_id=project.owner_id,
+        auto_invoice=project.auto_invoice,
         created_at=project.created_at,
         updated_at=project.updated_at,
         services=_build_service_items(project),
@@ -130,6 +131,7 @@ def _to_create_response(project: Any) -> ProjectCreateResponse:
         status=project.status,
         start_date=project.start_date,
         owner_id=project.owner_id,
+        auto_invoice=project.auto_invoice,
         service_count=len(project.project_services),
         milestone_count=len(project.milestones),
         created_at=project.created_at,
@@ -175,6 +177,7 @@ async def create_project_endpoint(
         owner_id=body.owner_id,
         service_ids=body.service_ids,
         service_prices=body.service_prices,
+        auto_invoice=body.auto_invoice,
         actor_id=user.id,
     )
     return _to_create_response(project)

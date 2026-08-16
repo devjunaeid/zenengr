@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import date, timedelta
+from decimal import Decimal
 
 import pytest
 from httpx import AsyncClient
@@ -23,8 +24,10 @@ from app.models.enums import (
     AdminUserRole,
     ClientStatus,
     ClientType,
+    InvoiceStatus,
     TenantStatus,
 )
+from app.models.invoice import Invoice, InvoiceLineItem
 from app.models.milestone_step_template import MilestoneStepTemplate
 from app.models.plan import Plan
 from app.models.service import Service
@@ -1654,3 +1657,284 @@ class TestRemoveProjectService:
             f"/api/v1/tenant/projects/{pid}/services/{ps_id}", headers=admin_headers
         )
         assert resp2.status_code == 409
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# AUTO-INVOICE (per-project opt-in)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+async def _invoices_for_project(
+    session: AsyncSession, project_id: str
+) -> list[Invoice]:
+    stmt = (
+        select(Invoice)
+        .where(Invoice.project_id == project_id)
+        .order_by(Invoice.created_at)
+    )
+    return list((await session.execute(stmt)).scalars().all())
+
+
+async def _line_items_for_invoice(
+    session: AsyncSession, invoice_id: str
+) -> list[InvoiceLineItem]:
+    stmt = (
+        select(InvoiceLineItem)
+        .where(InvoiceLineItem.invoice_id == invoice_id)
+        .order_by(InvoiceLineItem.created_at)
+    )
+    return list((await session.execute(stmt)).scalars().all())
+
+
+class TestAutoInvoice:
+    @pytest.mark.asyncio
+    async def test_create_with_auto_invoice_creates_draft(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        ctx = await _bootstrap(db_session)
+        resp = await client.post(
+            "/api/v1/tenant/projects/",
+            json={
+                "name": "AutoInv",
+                "client_id": str(ctx["client"].id),
+                "service_ids": [str(ctx["svc_a"].id)],
+                "auto_invoice": True,
+            },
+            headers=await _admin_auth_header(ctx["admin"]),
+        )
+        assert resp.status_code == 201
+        pid = resp.json()["id"]
+        assert resp.json()["auto_invoice"] is True
+
+        invoices = await _invoices_for_project(db_session, pid)
+        assert len(invoices) == 1
+        inv = invoices[0]
+        assert inv.status == InvoiceStatus.DRAFT
+        assert inv.subtotal == Decimal("500.00")
+
+        items = await _line_items_for_invoice(db_session, inv.id)
+        assert len(items) == 1
+        assert "added" in items[0].description
+        assert items[0].quantity == Decimal("1")
+        assert items[0].unit_price == Decimal("500.00")
+        assert items[0].amount == Decimal("500.00")
+        assert items[0].project_service_id is not None
+
+    @pytest.mark.asyncio
+    async def test_attach_appends_to_same_draft(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        ctx = await _bootstrap(db_session)
+        admin_headers = await _admin_auth_header(ctx["admin"])
+        pid = (
+            await client.post(
+                "/api/v1/tenant/projects/",
+                json={
+                    "name": "AutoAttach",
+                    "client_id": str(ctx["client"].id),
+                    "service_ids": [str(ctx["svc_a"].id)],
+                    "auto_invoice": True,
+                },
+                headers=admin_headers,
+            )
+        ).json()["id"]
+        await client.patch(
+            f"/api/v1/tenant/projects/{pid}",
+            json={"status": "active"},
+            headers=admin_headers,
+        )
+
+        resp = await client.post(
+            f"/api/v1/tenant/projects/{pid}/services",
+            json={"service_id": str(ctx["svc_b"].id)},
+            headers=admin_headers,
+        )
+        assert resp.status_code == 201
+
+        invoices = await _invoices_for_project(db_session, pid)
+        assert len(invoices) == 1
+        inv = invoices[0]
+        assert inv.status == InvoiceStatus.DRAFT
+        assert inv.subtotal == Decimal("1000.00")
+
+        items = await _line_items_for_invoice(db_session, inv.id)
+        assert len(items) == 2
+        assert all("added" in item.description for item in items)
+        assert items[1].unit_price == Decimal("500.00")
+        assert items[1].amount == Decimal("500.00")
+
+    @pytest.mark.asyncio
+    async def test_issue_then_attach_creates_new_draft(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        ctx = await _bootstrap(db_session)
+        admin_headers = await _admin_auth_header(ctx["admin"])
+        pid = (
+            await client.post(
+                "/api/v1/tenant/projects/",
+                json={
+                    "name": "AutoIssue",
+                    "client_id": str(ctx["client"].id),
+                    "service_ids": [str(ctx["svc_a"].id)],
+                    "auto_invoice": True,
+                },
+                headers=admin_headers,
+            )
+        ).json()["id"]
+        await client.patch(
+            f"/api/v1/tenant/projects/{pid}",
+            json={"status": "active"},
+            headers=admin_headers,
+        )
+
+        draft = (await _invoices_for_project(db_session, pid))[0]
+        issue_resp = await client.post(
+            f"/api/v1/tenant/invoices/{draft.id}/issue",
+            headers=admin_headers,
+        )
+        assert issue_resp.status_code == 200
+        assert issue_resp.json()["status"] == "issued"
+        assert issue_resp.json()["invoice_number"]
+
+        attach_resp = await client.post(
+            f"/api/v1/tenant/projects/{pid}/services",
+            json={"service_id": str(ctx["svc_b"].id)},
+            headers=admin_headers,
+        )
+        assert attach_resp.status_code == 201
+
+        invoices = await _invoices_for_project(db_session, pid)
+        assert len(invoices) == 2
+        old, new = invoices
+        assert old.status == InvoiceStatus.ISSUED
+        assert len(await _line_items_for_invoice(db_session, old.id)) == 1
+        assert new.status == InvoiceStatus.DRAFT
+        assert new.subtotal == Decimal("500.00")
+        new_items = await _line_items_for_invoice(db_session, new.id)
+        assert len(new_items) == 1
+        assert new_items[0].project_service_id is not None
+
+    @pytest.mark.asyncio
+    async def test_auto_invoice_false_creates_no_drafts(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        ctx = await _bootstrap(db_session)
+        admin_headers = await _admin_auth_header(ctx["admin"])
+        pid = (
+            await client.post(
+                "/api/v1/tenant/projects/",
+                json={
+                    "name": "NoAuto",
+                    "client_id": str(ctx["client"].id),
+                    "service_ids": [str(ctx["svc_a"].id)],
+                },
+                headers=admin_headers,
+            )
+        ).json()["id"]
+        assert len(await _invoices_for_project(db_session, pid)) == 0
+
+        await client.patch(
+            f"/api/v1/tenant/projects/{pid}",
+            json={"status": "active"},
+            headers=admin_headers,
+        )
+        resp = await client.post(
+            f"/api/v1/tenant/projects/{pid}/services",
+            json={"service_id": str(ctx["svc_b"].id)},
+            headers=admin_headers,
+        )
+        assert resp.status_code == 201
+        assert len(await _invoices_for_project(db_session, pid)) == 0
+
+    @pytest.mark.asyncio
+    async def test_patch_toggle_auto_invoice_persisted(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        ctx = await _bootstrap(db_session)
+        admin_headers = await _admin_auth_header(ctx["admin"])
+        pid = (
+            await client.post(
+                "/api/v1/tenant/projects/",
+                json={
+                    "name": "Toggle",
+                    "client_id": str(ctx["client"].id),
+                    "service_ids": [str(ctx["svc_a"].id)],
+                },
+                headers=admin_headers,
+            )
+        ).json()["id"]
+        assert len(await _invoices_for_project(db_session, pid)) == 0
+
+        # Toggle on -> persisted on detail
+        upd = await client.patch(
+            f"/api/v1/tenant/projects/{pid}",
+            json={"auto_invoice": True},
+            headers=admin_headers,
+        )
+        assert upd.status_code == 200
+        assert upd.json()["auto_invoice"] is True
+
+        # Attach while on -> draft created
+        await client.patch(
+            f"/api/v1/tenant/projects/{pid}",
+            json={"status": "active"},
+            headers=admin_headers,
+        )
+        resp = await client.post(
+            f"/api/v1/tenant/projects/{pid}/services",
+            json={"service_id": str(ctx["svc_b"].id)},
+            headers=admin_headers,
+        )
+        assert resp.status_code == 201
+        assert len(await _invoices_for_project(db_session, pid)) == 1
+
+        # Toggle off -> persisted
+        upd2 = await client.patch(
+            f"/api/v1/tenant/projects/{pid}",
+            json={"auto_invoice": False},
+            headers=admin_headers,
+        )
+        assert upd2.status_code == 200
+        assert upd2.json()["auto_invoice"] is False
+
+    @pytest.mark.asyncio
+    async def test_attach_auto_invoice_failure_swallowed(
+        self, client: AsyncClient, db_session: AsyncSession, monkeypatch: pytest.MonkeyPatch
+    ):
+        ctx = await _bootstrap(db_session)
+        admin_headers = await _admin_auth_header(ctx["admin"])
+
+        async def _boom(session, **kwargs):
+            raise RuntimeError("boom")
+
+        monkeypatch.setattr(
+            "app.services.invoices.append_service_to_draft_invoice", _boom
+        )
+
+        # Create with auto_invoice but no services (create path skips invoice)
+        pid = (
+            await client.post(
+                "/api/v1/tenant/projects/",
+                json={
+                    "name": "Swallow",
+                    "client_id": str(ctx["client"].id),
+                    "auto_invoice": True,
+                },
+                headers=admin_headers,
+            )
+        ).json()["id"]
+        await client.patch(
+            f"/api/v1/tenant/projects/{pid}",
+            json={"status": "active"},
+            headers=admin_headers,
+        )
+
+        # Attach must still succeed even though the auto-invoice helper raises
+        resp = await client.post(
+            f"/api/v1/tenant/projects/{pid}/services",
+            json={"service_id": str(ctx["svc_b"].id)},
+            headers=admin_headers,
+        )
+        assert resp.status_code == 201
+        assert resp.json()["service_id"] == str(ctx["svc_b"].id)
+        assert len(await _invoices_for_project(db_session, pid)) == 0

@@ -21,6 +21,7 @@ class ProjectCreateRequest(BaseModel):
     owner_id: uuid.UUID | None = None
     service_ids: list[uuid.UUID] = Field(default_factory=list)
     service_prices: dict[uuid.UUID, Annotated[Decimal, Field(gt=0)]] | None = None
+    auto_invoice: bool = False
 
 
 class ProjectUpdateRequest(BaseModel):
@@ -30,6 +31,7 @@ class ProjectUpdateRequest(BaseModel):
     status: ProjectStatus | None = None
     start_date: date | None = None
     owner_id: uuid.UUID | None = None
+    auto_invoice: bool | None = None
 
 
 # ── List + detail responses ─────────────────────────────────────────────────
@@ -44,6 +46,7 @@ class ProjectListItem(BaseModel):
     status: ProjectStatus
     start_date: date | None
     owner_id: uuid.UUID | None
+    auto_invoice: bool = False
     service_count: int = 0
     milestone_total: int = 0
     milestone_completed: int = 0
@@ -96,6 +99,7 @@ class ProjectDetailResponse(BaseModel):
     status: ProjectStatus
     start_date: date | None
     owner_id: uuid.UUID | None
+    auto_invoice: bool = False
     created_at: datetime
     updated_at: datetime
     services: list[ProjectServiceItem]
@@ -111,6 +115,7 @@ class ProjectCreateResponse(BaseModel):
     status: ProjectStatus
     start_date: date | None
     owner_id: uuid.UUID | None
+    auto_invoice: bool = False
     service_count: int
     milestone_count: int
     created_at: datetime

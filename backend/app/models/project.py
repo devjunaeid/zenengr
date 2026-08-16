@@ -12,7 +12,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Date, DateTime, ForeignKey, Numeric, String, Uuid
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Numeric, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -39,6 +39,9 @@ class Project(TimestampMixin, Base):
         Uuid, ForeignKey("clients.id"), index=True, nullable=False
     )
     status: Mapped[ProjectStatus] = mapped_column(default=ProjectStatus.DRAFT, nullable=False)
+    # Opt-in AUTO-INVOICE: when True, the project keeps an open draft invoice
+    # that is auto-created / auto-appended as services are attached.
+    auto_invoice: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     owner_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid, ForeignKey("admin_users.id"), nullable=True

@@ -23,6 +23,7 @@
 	let selectedServiceIds = $state([]);
 	/** @type {Record<string, number|string>} */
 	let servicePrices = $state({});
+	let autoInvoice = $state(false);
 	let busy = $state(false);
 	/** @type {string|null} */
 	let err = $state(null);
@@ -152,7 +153,8 @@
 			const body = {
 				name: name.trim(),
 				client_id: clientId,
-				service_ids: selectedServiceIds
+				service_ids: selectedServiceIds,
+				auto_invoice: autoInvoice
 			};
 			/** @type {Record<string, number|string>} */
 			const servicePricesMap = {};
@@ -408,6 +410,23 @@
 			{/if}
 		{/if}
 	</section>
+
+	<div class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+		<div class="flex items-start gap-3">
+			<input
+				id="auto-invoice"
+				type="checkbox"
+				bind:checked={autoInvoice}
+				class="mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+			/>
+			<label for="auto-invoice" class="cursor-pointer text-sm text-slate-700">
+				<span class="font-medium text-slate-900">Auto-invoice</span>
+				<span class="mt-0.5 block text-slate-500">
+					Keep an open draft invoice updated as services are added.
+				</span>
+			</label>
+		</div>
+	</div>
 
 	<div class="flex items-center gap-3 pt-2">
 		<button

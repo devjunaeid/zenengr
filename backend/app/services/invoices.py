@@ -276,6 +276,94 @@ def _format_invoice_number(template: str, next_number: int, *, tenant_prefix: st
     return out
 
 
+async def append_service_to_draft_invoice(
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    project_id: uuid.UUID,
+    project_service_id: uuid.UUID,
+    service_id: uuid.UUID,
+    price: Decimal,
+    description: str,
+    actor_id: uuid.UUID,
+) -> Invoice | None:
+    """Auto-invoice: append a service snapshot to the project's open draft.
+
+    Finds the project's newest DRAFT invoice (project_id + status DRAFT,
+    created_at desc). If one exists the line item is appended and
+    subtotal/total recomputed; if none (e.g. the previous draft was
+    issued) a fresh draft is created carrying just this service.
+
+    No audit log row is written (purely automatic), and the project's
+    discount is intentionally NOT applied - the admin edits the draft as
+    needed. Commits internally; returns the affected invoice, or None if
+    the auto-append failed after the caller's commit (caller wraps us in
+    try/except like safe_notify).
+    """
+    amount = _money(Decimal("1") * price)
+    open_q = (
+        select(Invoice)
+        .where(
+            Invoice.project_id == project_id,
+            Invoice.status == InvoiceStatus.DRAFT,
+        )
+        .order_by(Invoice.created_at.desc())
+        .limit(1)
+    )
+    invoice = (await session.execute(open_q)).scalar_one_or_none()
+
+    if invoice is None:
+        invoice = Invoice(
+            tenant_id=tenant_id,
+            project_id=project_id,
+            invoice_number=None,
+            status=InvoiceStatus.DRAFT,
+            issue_date=None,
+            due_date=None,
+            subtotal=amount,
+            tax_total=Decimal("0"),
+            total=amount,
+            notes="",
+        )
+        session.add(invoice)
+        await session.flush()
+        session.add(
+            InvoiceLineItem(
+                invoice_id=invoice.id,
+                description=description,
+                quantity=Decimal("1"),
+                unit_price=price,
+                amount=amount,
+                service_id=service_id,
+                project_service_id=project_service_id,
+            )
+        )
+        await session.commit()
+        return invoice
+
+    session.add(
+        InvoiceLineItem(
+            invoice_id=invoice.id,
+            description=description,
+            quantity=Decimal("1"),
+            unit_price=price,
+            amount=amount,
+            service_id=service_id,
+            project_service_id=project_service_id,
+        )
+    )
+    await session.flush()
+    sum_stmt = select(func.coalesce(func.sum(InvoiceLineItem.amount), 0)).where(
+        InvoiceLineItem.invoice_id == invoice.id
+    )
+    subtotal = _money(Decimal((await session.execute(sum_stmt)).scalar_one()))
+    invoice.subtotal = subtotal
+    invoice.tax_total = Decimal("0")
+    invoice.total = subtotal
+    await session.commit()
+    return invoice
+
+
 # ── CRUD ────────────────────────────────────────────────────────────────────
 
 

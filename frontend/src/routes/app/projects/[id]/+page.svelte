@@ -11,6 +11,7 @@
 	import MilestoneStatusSelector from '$lib/components/MilestoneStatusSelector.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
 	import StatusBadge from '$lib/components/StatusBadge.svelte';
+	import ToggleSwitch from '$lib/components/ToggleSwitch.svelte';
 	import { auth } from '$lib/stores/auth.svelte.js';
 	import { formatDate, formatDateTime, fmtPrice, humanize } from '$lib/utils/format.js';
 	import Icon from '@iconify/svelte';
@@ -46,6 +47,27 @@
 			actionErr = e instanceof ApiError ? e.message : 'Status change failed.';
 		} finally {
 			statusBusy = false;
+		}
+	}
+
+	// ---- auto-invoice toggle ----
+	let autoInvoiceBusy = $state(false);
+
+	/**
+	 * @param {boolean} next
+	 */
+	async function toggleAutoInvoice(next) {
+		autoInvoiceBusy = true;
+		actionErr = null;
+		actionMsg = null;
+		try {
+			await projectApi.updateProject(fetch, token, data.project.id, { auto_invoice: next });
+			actionMsg = `Auto-invoice ${next ? 'enabled' : 'disabled'}.`;
+			await invalidateAll();
+		} catch (e) {
+			actionErr = e instanceof ApiError ? e.message : 'Could not update auto-invoice.';
+		} finally {
+			autoInvoiceBusy = false;
 		}
 	}
 
@@ -433,6 +455,17 @@
 	</div>
 	{#if canManage}
 		<div class="flex flex-wrap items-center gap-2">
+			<span
+				class="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-1.5"
+			>
+				<ToggleSwitch
+					checked={data.project.auto_invoice}
+					disabled={autoInvoiceBusy}
+					onchange={toggleAutoInvoice}
+					label="Auto-invoice"
+				/>
+				<span class="text-sm font-medium text-slate-700">Auto-invoice</span>
+			</span>
 			<a
 				href={resolve('/app/projects/[id]/edit', { id: data.project.id })}
 				class="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
@@ -463,6 +496,10 @@
 		</div>
 	{/if}
 </div>
+
+{#if data.project.auto_invoice}
+	<p class="mt-2 text-sm text-slate-500">Open draft invoice is auto-updated with new services.</p>
+{/if}
 
 {#if isEmployee}
 	<p

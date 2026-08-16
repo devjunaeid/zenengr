@@ -10,6 +10,7 @@ Owns the orchestration of:
 
 from __future__ import annotations
 
+import logging
 import uuid
 from datetime import date, timedelta
 from decimal import Decimal
@@ -36,6 +37,7 @@ from app.repositories import clients as client_repo
 from app.repositories import projects as project_repo
 from app.repositories import services as service_repo
 from app.services import financials as financials_service
+from app.services import invoices
 from app.services import ledger as ledger_service
 from app.services.audit import log as audit_log
 from app.services.notifications import (
@@ -43,6 +45,8 @@ from app.services.notifications import (
     notify_project_created,
     safe_notify,
 )
+
+logger = logging.getLogger(__name__)
 
 # ── Exceptions ──────────────────────────────────────────────────────────────
 
@@ -234,9 +238,18 @@ async def create_project(
     owner_id: uuid.UUID | None = None,
     service_ids: list[uuid.UUID] | None = None,
     service_prices: dict[uuid.UUID, Decimal] | None = None,
+    auto_invoice: bool = False,
     actor_id: uuid.UUID,
 ) -> Project:
-    """Create a project in Draft + attach services + instantiate milestones."""
+    """Create a project in Draft + attach services + instantiate milestones.
+
+    With auto_invoice=True (and services selected), one DRAFT invoice is
+    created after the project commit carrying every attached service as a
+    snapshot line item (quantity 1, unit_price = price_at_attachment,
+    description "{service name} - added {YYYY-MM-DD}"). Discounts are
+    intentionally NOT applied to auto-drafts - the admin edits the draft
+    as needed.
+    """
     # Verify client in tenant (404 if not)
     await _get_client(session, tenant_id, client_id)
 
@@ -268,6 +281,7 @@ async def create_project(
         start_date=start_date,
         owner_id=owner_id,
     )
+    project.auto_invoice = auto_invoice
 
     for svc in services:
         override = (service_prices or {}).get(svc.id)
@@ -299,6 +313,35 @@ async def create_project(
     )
 
     await session.commit()
+
+    # AUTO-INVOICE (opt-in): one open draft carrying every attached service.
+    # Runs after the project commit; per-service append keeps all line items
+    # in the same draft (first call creates it, the rest append to it).
+    # A failure here must never break project creation (the project itself
+    # already committed), so swallow + log like safe_notify.
+    if auto_invoice and services:
+        try:
+            name_by_id = {svc.id: svc.name for svc in services}
+            for ps in project.project_services:
+                await invoices.append_service_to_draft_invoice(
+                    session,
+                    tenant_id=tenant_id,
+                    project_id=project.id,
+                    project_service_id=ps.id,
+                    service_id=ps.service_id,
+                    price=ps.price_at_attachment or Decimal("0"),
+                    description=(
+                        f"{name_by_id.get(ps.service_id, '')} — "
+                        f"added {date.today().isoformat()}"
+                    ),
+                    actor_id=actor_id,
+                )
+        except Exception:
+            logger.exception(
+                "auto-invoice creation failed for project %s",
+                project.id,
+            )
+
     await safe_notify(notify_project_created(session, project_id=project.id))
     return project
 
@@ -385,6 +428,7 @@ async def list_projects(
                 "status": p.status,
                 "start_date": p.start_date,
                 "owner_id": p.owner_id,
+                "auto_invoice": p.auto_invoice,
                 "service_count": len(active_services),
                 "milestone_total": len(milestones),
                 "milestone_completed": completed,
@@ -530,6 +574,30 @@ async def attach_service(
 
     await session.commit()
     await session.refresh(project_service)
+
+    # AUTO-INVOICE (opt-in): append this service to the project's open draft
+    # (creating a fresh draft if the previous one was issued). Runs after the
+    # attach commit, so a failure here never rolls the attach back; swallow +
+    # log like safe_notify (the auto-invoice surfaces later).
+    if project.auto_invoice:
+        try:
+            await invoices.append_service_to_draft_invoice(
+                session,
+                tenant_id=tenant_id,
+                project_id=project.id,
+                project_service_id=project_service.id,
+                service_id=project_service.service_id,
+                price=project_service.price_at_attachment or Decimal("0"),
+                description=f"{service.name} — added {date.today().isoformat()}",
+                actor_id=actor_id,
+            )
+        except Exception:
+            logger.exception(
+                "auto-invoice append failed for project %s, project_service %s",
+                project.id,
+                project_service.id,
+            )
+
     # Wire the relationship in-memory: async SQLAlchemy cannot lazy-load
     # relationships outside the greenlet, and attach_service_endpoint reads
     # project_service.service.name right after this returns. The object is

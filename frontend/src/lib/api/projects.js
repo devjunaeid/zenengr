@@ -46,6 +46,7 @@ import { apiFetch } from './client.js';
  * @property {number} service_count
  * @property {number} milestone_total
  * @property {number} milestone_completed
+ * @property {boolean} auto_invoice
  * @property {string} created_at
  * @property {string} updated_at
  */
@@ -58,6 +59,7 @@ import { apiFetch } from './client.js';
  * @property {'draft'|'active'|'on_hold'|'completed'|'cancelled'} status
  * @property {string|null} start_date
  * @property {string|null} owner_id
+ * @property {boolean} auto_invoice
  * @property {string} created_at
  * @property {string} updated_at
  * @property {ProjectServiceItem[]} services
@@ -72,6 +74,7 @@ import { apiFetch } from './client.js';
  * @property {'draft'|'active'|'on_hold'|'completed'|'cancelled'} status
  * @property {string|null} start_date
  * @property {string|null} owner_id
+ * @property {boolean} auto_invoice
  * @property {number} service_count
  * @property {number} milestone_count
  * @property {string} created_at
@@ -108,7 +111,7 @@ export function getProject(fetchFn, token, id) {
 /**
  * @param {typeof fetch} fetchFn
  * @param {string} token
- * @param {{ name: string, client_id: string, service_ids: string[], service_prices?: Record<string, number|string>, start_date?: string|null, owner_id?: string|null }} body
+ * @param {{ name: string, client_id: string, service_ids: string[], service_prices?: Record<string, number|string>, start_date?: string|null, owner_id?: string|null, auto_invoice?: boolean }} body
  * @returns {Promise<ProjectCreateResponse>}
  */
 export function createProject(fetchFn, token, body) {
@@ -119,7 +122,7 @@ export function createProject(fetchFn, token, body) {
  * @param {typeof fetch} fetchFn
  * @param {string} token
  * @param {string} id
- * @param {Record<string, any>} body partial fields (name, status, start_date, owner_id)
+ * @param {Record<string, any>} body partial fields (name, status, start_date, owner_id, auto_invoice)
  * @returns {Promise<ProjectDetailResponse>}
  */
 export function updateProject(fetchFn, token, id, body) {
