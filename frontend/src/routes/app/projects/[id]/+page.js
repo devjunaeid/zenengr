@@ -12,7 +12,7 @@ export async function load({ fetch, params }) {
 	const token = /** @type {string} */ (auth.token);
 
 	try {
-		const [project, users, overview, ledger] = await Promise.all([
+		const [project, users, overview, ledger, draftInvoices] = await Promise.all([
 			projectApi.getProject(fetch, token, params.id),
 			tenantApi
 				.listUsers(fetch, token, { page_size: 100, is_active: true })
@@ -22,7 +22,12 @@ export async function load({ fetch, params }) {
 			invoiceApi.getProjectOverview(fetch, token, params.id).catch(() => null),
 			// Same for the ledger: degrade to null and let the section render
 			// its "unavailable" state.
-			projectApi.getProjectLedger(fetch, token, params.id).catch(() => null)
+			projectApi.getProjectLedger(fetch, token, params.id).catch(() => null),
+			// Open drafts drive the highlighted banner; degrade silently so a
+			// fetch failure cannot take down the project view.
+			invoiceApi
+				.listInvoices(fetch, token, { project_id: params.id, status: 'draft', page_size: 5 })
+				.catch(() => ({ items: [] }))
 		]);
 
 		// Fetch active service details so we can show step previews when adding
@@ -50,7 +55,7 @@ export async function load({ fetch, params }) {
 			if (r) serviceDetails[r.id] = r;
 		}
 
-		return { project, users: users.items, serviceDetails, overview, ledger };
+		return { project, users: users.items, serviceDetails, overview, ledger, draftInvoices };
 	} catch (e) {
 		if (e instanceof ApiError && e.status === 404) {
 			throw error(404, 'Project not found');

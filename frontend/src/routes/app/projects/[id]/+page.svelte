@@ -501,6 +501,30 @@
 	<p class="mt-2 text-sm text-slate-500">Open draft invoice is auto-updated with new services.</p>
 {/if}
 
+{#if data.draftInvoices.items.length > 0}
+	<section
+		class="mt-3 rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3"
+		aria-labelledby="open-draft-h"
+	>
+		<h2 id="open-draft-h" class="text-sm font-semibold text-indigo-900">Open draft invoice</h2>
+		<ul class="mt-1.5 space-y-1">
+			{#each data.draftInvoices.items as inv (inv.id)}
+				<li>
+					<a
+						href={resolve('/app/invoices/[id]', { id: inv.id })}
+						class="text-sm font-medium text-indigo-600 underline-offset-2 hover:text-indigo-500 hover:underline"
+					>
+						{inv.invoice_number ? `Draft ${inv.invoice_number}` : 'Draft'} — {fmtPrice(inv.total)}
+					</a>
+				</li>
+			{/each}
+		</ul>
+		{#if data.project.auto_invoice}
+			<p class="mt-1.5 text-xs text-indigo-700/80">Auto-updated as services are added.</p>
+		{/if}
+	</section>
+{/if}
+
 {#if isEmployee}
 	<p
 		role="status"
