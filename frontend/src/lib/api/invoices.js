@@ -12,6 +12,7 @@ import { ApiError, apiFetch, BASE_URL } from './client.js';
  * @property {string} id
  * @property {string|null} invoice_number null while draft
  * @property {'draft'|'issued'|'partially_paid'|'paid'|'void'} status
+ * @property {boolean} is_auto true for auto-generated statement invoices
  * @property {string|null} project_id null for general (internal) invoices
  * @property {string|null} client_id null for general (internal) invoices
  * @property {string|null} issue_date ISO date
@@ -37,6 +38,7 @@ import { ApiError, apiFetch, BASE_URL } from './client.js';
  * @property {string} id
  * @property {string|null} invoice_number null while draft
  * @property {'draft'|'issued'|'partially_paid'|'paid'|'void'} status
+ * @property {boolean} is_auto true for auto-generated statement invoices
  * @property {string|null} project_id null for general (internal) invoices
  * @property {string|null} client_id null for general (internal) invoices
  * @property {boolean} is_general true when project_id/client_id are null

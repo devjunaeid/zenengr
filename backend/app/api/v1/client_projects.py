@@ -193,7 +193,9 @@ async def get_client_project_endpoint(
 
     total, completed = _milestone_counts(project)
     financials = await financials_service.get_project_financials(session, project_id=project.id)
-    invoices = await financials_service.list_linked_invoices(session, project_id=project.id)
+    invoices = await financials_service.list_linked_invoices(
+        session, project_id=project.id, exclude_auto=True
+    )
 
     services = [
         ClientProjectServiceItem(

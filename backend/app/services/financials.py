@@ -153,9 +153,16 @@ async def get_project_financials_by_service(
 
 
 async def list_linked_invoices(
-    session: AsyncSession, *, project_id: uuid.UUID
+    session: AsyncSession,
+    *,
+    project_id: uuid.UUID,
+    exclude_auto: bool = False,
 ) -> list[dict[str, Any]]:
-    """All non-draft invoices of a project, newest first."""
+    """All non-draft invoices of a project, newest first.
+
+    exclude_auto=True drops auto-generated (statement) invoices, e.g. for
+    client-facing views; staff views keep them by default.
+    """
     stmt = (
         select(Invoice)
         .where(
@@ -164,6 +171,8 @@ async def list_linked_invoices(
         )
         .order_by(Invoice.created_at.desc())
     )
+    if exclude_auto:
+        stmt = stmt.where(Invoice.is_auto == False)  # noqa: E712
     result = await session.execute(stmt)
     invoices = list(result.scalars().all())
     return [

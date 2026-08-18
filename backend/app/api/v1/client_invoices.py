@@ -127,6 +127,8 @@ async def list_client_invoices_endpoint(
         .where(*_client_invoice_scope(user))
         # Void invoices stay on the tenant ledger but are hidden from the portal.
         .where(Invoice.status != InvoiceStatus.VOID)
+        # Auto-generated (statement) invoices are staff-only.
+        .where(Invoice.is_auto == False)  # noqa: E712
     )
     if status_filter is not None:
         base = base.where(Invoice.status == status_filter)
@@ -178,6 +180,8 @@ async def get_client_invoice_endpoint(
         .options(selectinload(Invoice.line_items), selectinload(Invoice.project))
         .join(Project, Invoice.project_id == Project.id)
         .where(Invoice.id == iid, *_client_invoice_scope(user))
+        # Auto-generated (statement) invoices are staff-only.
+        .where(Invoice.is_auto == False)  # noqa: E712
     )
     result = await session.execute(stmt)
     invoice = result.unique().scalar_one_or_none()
@@ -239,6 +243,8 @@ async def get_client_invoice_transactions_endpoint(
         select(Invoice)
         .join(Project, Invoice.project_id == Project.id)
         .where(Invoice.id == iid, *_client_invoice_scope(user))
+        # Auto-generated (statement) invoices are staff-only.
+        .where(Invoice.is_auto == False)  # noqa: E712
     )
     invoice = (await session.execute(inv_stmt)).unique().scalar_one_or_none()
     if invoice is None:
@@ -274,6 +280,8 @@ async def get_client_invoice_pdf_endpoint(
         .options(selectinload(Invoice.line_items), selectinload(Invoice.project))
         .join(Project, Invoice.project_id == Project.id)
         .where(Invoice.id == iid, *_client_invoice_scope(user))
+        # Auto-generated (statement) invoices are staff-only.
+        .where(Invoice.is_auto == False)  # noqa: E712
     )
     result = await session.execute(stmt)
     invoice = result.unique().scalar_one_or_none()

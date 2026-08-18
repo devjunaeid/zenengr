@@ -333,6 +333,7 @@ async def append_service_to_draft_invoice(
             tax_total=Decimal("0"),
             total=amount,
             notes="",
+            is_auto=True,
         )
         session.add(invoice)
         await session.flush()
@@ -351,6 +352,7 @@ async def append_service_to_draft_invoice(
         await session.commit()
         return invoice
 
+    invoice.is_auto = True
     session.add(
         InvoiceLineItem(
             invoice_id=invoice.id,
@@ -388,6 +390,7 @@ async def create_draft_invoice(
     notes: str | None,
     line_items: list[Any],
     actor_id: uuid.UUID,
+    is_auto: bool = False,
 ) -> Invoice:
     """Create a draft invoice with resolved line item snapshots.
 
@@ -418,6 +421,7 @@ async def create_draft_invoice(
         tax_total=Decimal("0"),
         total=subtotal,
         notes=notes or "",
+        is_auto=is_auto,
     )
     session.add(invoice)
     await session.flush()
@@ -511,6 +515,7 @@ async def list_invoices(
                 "due_date": inv.due_date,
                 "total": f"{inv.total:.2f}",
                 "created_at": inv.created_at,
+                "is_auto": inv.is_auto,
             }
         )
 

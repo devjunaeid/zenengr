@@ -180,7 +180,19 @@
 									</span>
 								{/if}
 							</td>
-							<td class="px-4 py-3"><StatusBadge status={inv.status} /></td>
+							<td class="px-4 py-3">
+								<span class="flex flex-wrap items-center gap-2">
+									<StatusBadge status={inv.status} />
+									{#if inv.is_auto}
+										<span
+											title="Auto-generated statement invoice (admin only)"
+											class="inline-flex items-center rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-800 ring-1 ring-violet-600/20 ring-inset"
+										>
+											Auto
+										</span>
+									{/if}
+								</span>
+							</td>
 							<td class="px-4 py-3 text-right text-sm whitespace-nowrap text-slate-700"
 								>{fmtPrice(inv.total)}</td
 							>

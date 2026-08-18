@@ -11,6 +11,7 @@ import uuid
 
 import pytest
 from httpx import AsyncClient
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import create_access_token, hash_password
@@ -21,9 +22,11 @@ from app.models.enums import (
     AdminUserRole,
     ClientStatus,
     ClientType,
+    InvoiceStatus,
     MilestoneStatus,
     TenantStatus,
 )
+from app.models.invoice import Invoice
 from app.models.plan import Plan
 from app.models.project import Project
 from app.models.project_milestone import ProjectMilestone
@@ -937,3 +940,190 @@ class TestClientLedger:
             headers=admin_headers,
         )
         assert resp.status_code == 404
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Auto (statement) invoices excluded from client portal (is_auto)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestAutoInvoicePortalExclusion:
+    @pytest.mark.asyncio
+    async def test_auto_invoice_staff_only_manual_invoice_client_visible(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        ctx = await _bootstrap(db_session)
+        admin_headers = await _admin_auth_header(ctx["admin"])
+
+        # project with auto_invoice on: creating it with services makes an
+        # auto draft (statement)
+        proj = (
+            await client.post(
+                "/api/v1/tenant/projects/",
+                json={
+                    "name": "AutoStmt",
+                    "client_id": str(ctx["client_a"].id),
+                    "service_ids": [str(ctx["svc"].id)],
+                    "auto_invoice": True,
+                },
+                headers=admin_headers,
+            )
+        ).json()["id"]
+
+        auto_draft = (
+            await db_session.execute(
+                select(Invoice).where(
+                    Invoice.project_id == proj, Invoice.status == InvoiceStatus.DRAFT
+                )
+            )
+        ).scalar_one()
+        assert auto_draft.is_auto is True
+
+        # issue the auto draft: flag survives
+        resp = await client.post(
+            f"/api/v1/tenant/invoices/{auto_draft.id}/issue",
+            headers=admin_headers,
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "issued"
+        assert data["is_auto"] is True
+
+        # client portal list does not include the issued auto invoice
+        resp = await client.get(
+            "/api/v1/client/invoices/",
+            headers=await _client_auth_header(ctx["cu_a"]),
+        )
+        assert resp.status_code == 200
+        assert resp.json()["total"] == 0
+
+        # client portal detail 404s for the auto invoice
+        resp = await client.get(
+            f"/api/v1/client/invoices/{auto_draft.id}",
+            headers=await _client_auth_header(ctx["cu_a"]),
+        )
+        assert resp.status_code == 404
+
+        # manual invoice on the same project: is_auto False, client-visible
+        proj_detail = (
+            await client.get(f"/api/v1/tenant/projects/{proj}", headers=admin_headers)
+        ).json()
+        ps_id = proj_detail["services"][0]["id"]
+        manual_id = await _create_and_issue_invoice(client, admin_headers, proj, ps_id)
+
+        resp = await client.get(
+            f"/api/v1/tenant/invoices/{manual_id}", headers=admin_headers
+        )
+        assert resp.status_code == 200
+        assert resp.json()["is_auto"] is False
+
+        resp = await client.get(
+            "/api/v1/client/invoices/",
+            headers=await _client_auth_header(ctx["cu_a"]),
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] == 1
+        assert data["items"][0]["id"] == manual_id
+
+        # client project detail linked_invoices excludes the auto statement
+        resp = await client.get(
+            f"/api/v1/client/projects/{proj}",
+            headers=await _client_auth_header(ctx["cu_a"]),
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert [li["id"] for li in data["linked_invoices"]] == [manual_id]
+
+        # staff project overview includes both (exclude_auto defaults to False)
+        resp = await client.get(
+            f"/api/v1/tenant/projects/{proj}/overview",
+            headers=admin_headers,
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert {li["id"] for li in data["linked_invoices"]} == {
+            str(auto_draft.id),
+            manual_id,
+        }
+
+    @pytest.mark.asyncio
+    async def test_auto_invoice_pdf_and_transactions_hidden_from_client(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        ctx = await _bootstrap(db_session)
+        admin_headers = await _admin_auth_header(ctx["admin"])
+
+        # project with auto_invoice on: creating it with services makes an
+        # auto draft (statement)
+        proj = (
+            await client.post(
+                "/api/v1/tenant/projects/",
+                json={
+                    "name": "AutoStmtPdfTx",
+                    "client_id": str(ctx["client_a"].id),
+                    "service_ids": [str(ctx["svc"].id)],
+                    "auto_invoice": True,
+                },
+                headers=admin_headers,
+            )
+        ).json()["id"]
+
+        auto_draft = (
+            await db_session.execute(
+                select(Invoice).where(
+                    Invoice.project_id == proj, Invoice.status == InvoiceStatus.DRAFT
+                )
+            )
+        ).scalar_one()
+        assert auto_draft.is_auto is True
+
+        # issue the auto draft and record a payment against it
+        resp = await client.post(
+            f"/api/v1/tenant/invoices/{auto_draft.id}/issue",
+            headers=admin_headers,
+        )
+        assert resp.status_code == 200
+        await _record_transaction(client, admin_headers, str(auto_draft.id), "100.00")
+
+        # manual invoice on the same project: is_auto False, client-visible
+        proj_detail = (
+            await client.get(f"/api/v1/tenant/projects/{proj}", headers=admin_headers)
+        ).json()
+        ps_id = proj_detail["services"][0]["id"]
+        manual_id = await _create_and_issue_invoice(client, admin_headers, proj, ps_id)
+        await _record_transaction(client, admin_headers, manual_id, "100.00")
+
+        cu_headers = await _client_auth_header(ctx["cu_a"])
+
+        # client PDF: auto invoice 404s (even with payment history), manual 200
+        resp = await client.get(
+            f"/api/v1/client/invoices/{auto_draft.id}/pdf",
+            headers=cu_headers,
+        )
+        assert resp.status_code == 404
+
+        resp = await client.get(
+            f"/api/v1/client/invoices/{manual_id}/pdf",
+            headers=cu_headers,
+        )
+        assert resp.status_code == 200
+        assert resp.headers["content-type"].startswith("application/pdf")
+        assert resp.content[:4] == b"%PDF"
+
+        # client transactions: auto invoice 404s, manual still lists payments
+        resp = await client.get(
+            f"/api/v1/client/invoices/{auto_draft.id}/transactions",
+            headers=cu_headers,
+        )
+        assert resp.status_code == 404
+
+        resp = await client.get(
+            f"/api/v1/client/invoices/{manual_id}/transactions",
+            headers=cu_headers,
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data) == 1
+        assert data[0]["amount"] == "100.00"
+        assert data[0]["invoice_id"] == manual_id

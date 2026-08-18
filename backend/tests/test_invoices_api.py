@@ -222,6 +222,7 @@ class TestInvoicesAPI:
         data = resp.json()
         assert data["status"] == "draft"
         assert data["invoice_number"] is None
+        assert data["is_auto"] is False
         assert data["total"] == f"{ctx['svc'].default_price:.2f}"
         assert data["subtotal"] == data["total"]
         assert data["tax_total"] == "0.00"
@@ -724,6 +725,7 @@ class TestGeneralInvoice:
         assert data["project_id"] is None
         assert data["client_id"] is None
         assert data["is_general"] is True
+        assert data["is_auto"] is False
         assert data["total"] == "1500.00"
         assert len(data["line_items"]) == 1
         li = data["line_items"][0]
@@ -818,6 +820,7 @@ class TestGeneralInvoice:
         assert item["project_id"] is None
         assert item["client_id"] is None
         assert item["status"] == "issued"
+        assert item["is_auto"] is False
 
         # detail renders without crashing
         resp = await client.get(f"/api/v1/tenant/invoices/{gen_id}", headers=headers)

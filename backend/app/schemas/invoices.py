@@ -63,6 +63,7 @@ class InvoiceResponse(BaseModel):
     project_id: uuid.UUID | None
     client_id: uuid.UUID | None
     is_general: bool
+    is_auto: bool = False
     issue_date: date | None
     due_date: date | None
     subtotal: str
@@ -80,6 +81,7 @@ class InvoiceListItem(BaseModel):
     status: InvoiceStatus
     project_id: uuid.UUID | None
     client_id: uuid.UUID | None
+    is_auto: bool = False
     issue_date: date | None
     due_date: date | None
     total: str

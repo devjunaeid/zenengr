@@ -1711,6 +1711,7 @@ class TestAutoInvoice:
         inv = invoices[0]
         assert inv.status == InvoiceStatus.DRAFT
         assert inv.subtotal == Decimal("500.00")
+        assert inv.is_auto is True
 
         items = await _line_items_for_invoice(db_session, inv.id)
         assert len(items) == 1
@@ -1757,6 +1758,7 @@ class TestAutoInvoice:
         inv = invoices[0]
         assert inv.status == InvoiceStatus.DRAFT
         assert inv.subtotal == Decimal("1000.00")
+        assert inv.is_auto is True
 
         items = await _line_items_for_invoice(db_session, inv.id)
         assert len(items) == 2
@@ -1810,9 +1812,11 @@ class TestAutoInvoice:
         assert len(invoices) == 2
         old, new = invoices
         assert old.status == InvoiceStatus.ISSUED
+        assert old.is_auto is True
         assert len(await _line_items_for_invoice(db_session, old.id)) == 1
         assert new.status == InvoiceStatus.DRAFT
         assert new.subtotal == Decimal("500.00")
+        assert new.is_auto is True
         new_items = await _line_items_for_invoice(db_session, new.id)
         assert len(new_items) == 1
         assert new_items[0].project_service_id is not None
@@ -1890,6 +1894,7 @@ class TestAutoInvoice:
         )
         assert resp.status_code == 201
         assert len(await _invoices_for_project(db_session, pid)) == 1
+        assert (await _invoices_for_project(db_session, pid))[0].is_auto is True
 
         # Toggle off -> persisted
         upd2 = await client.patch(
@@ -1941,3 +1946,42 @@ class TestAutoInvoice:
         assert resp.status_code == 201
         assert resp.json()["service_id"] == str(ctx["svc_b"].id)
         assert len(await _invoices_for_project(db_session, pid)) == 0
+
+    @pytest.mark.asyncio
+    async def test_issued_auto_invoice_keeps_is_auto_flag(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        ctx = await _bootstrap(db_session)
+        admin_headers = await _admin_auth_header(ctx["admin"])
+        pid = (
+            await client.post(
+                "/api/v1/tenant/projects/",
+                json={
+                    "name": "AutoIssueFlag",
+                    "client_id": str(ctx["client"].id),
+                    "service_ids": [str(ctx["svc_a"].id)],
+                    "auto_invoice": True,
+                },
+                headers=admin_headers,
+            )
+        ).json()["id"]
+        draft = (await _invoices_for_project(db_session, pid))[0]
+        assert draft.is_auto is True
+
+        # issue the auto draft; the flag survives into issued state
+        resp = await client.post(
+            f"/api/v1/tenant/invoices/{draft.id}/issue",
+            headers=admin_headers,
+        )
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "issued"
+        assert resp.json()["is_auto"] is True
+
+        issued = (await _invoices_for_project(db_session, pid))[0]
+        assert issued.status == InvoiceStatus.ISSUED
+        assert issued.is_auto is True
+
+        # staff detail keeps the flag
+        detail = await client.get(f"/api/v1/tenant/invoices/{draft.id}", headers=admin_headers)
+        assert detail.status_code == 200
+        assert detail.json()["is_auto"] is True

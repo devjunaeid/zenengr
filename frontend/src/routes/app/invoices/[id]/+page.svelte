@@ -293,6 +293,14 @@
 	<div class="flex items-center gap-3">
 		<h1 class="text-2xl font-semibold text-slate-900">{number}</h1>
 		<StatusBadge status={data.invoice.status} />
+		{#if data.invoice.is_auto}
+			<span
+				title="Auto-generated statement invoice (admin only)"
+				class="inline-flex items-center rounded-full bg-violet-100 px-2.5 py-0.5 text-xs font-medium text-violet-800 ring-1 ring-violet-600/20 ring-inset"
+			>
+				Auto
+			</span>
+		{/if}
 		{#if data.invoice.project_id == null}
 			<span
 				class="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600 ring-1 ring-slate-500/20 ring-inset"
@@ -408,6 +416,12 @@
 		{/if}
 	</div>
 </div>
+
+{#if data.invoice.is_auto}
+	<p class="mt-3 text-sm text-slate-500">
+		Auto-generated statement invoice — not visible in the client portal.
+	</p>
+{/if}
 
 {#if actionErr}
 	<p

@@ -81,6 +81,7 @@ def _to_response(invoice: Any) -> InvoiceResponse:
         project_id=invoice.project_id,
         client_id=invoice.project.client_id if invoice.project else None,
         is_general=invoice.project_id is None,
+        is_auto=invoice.is_auto,
         issue_date=invoice.issue_date,
         due_date=invoice.due_date,
         subtotal=f"{invoice.subtotal:.2f}",

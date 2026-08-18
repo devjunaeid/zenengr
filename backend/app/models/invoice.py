@@ -15,7 +15,7 @@ from datetime import date
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Date, ForeignKey, Numeric, String, Text, UniqueConstraint, Uuid
+from sqlalchemy import Boolean, Date, ForeignKey, Numeric, String, Text, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -51,6 +51,7 @@ class Invoice(TimestampMixin, Base):
     tax_total: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=Decimal("0"), nullable=False)
     total: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=Decimal("0"), nullable=False)
     notes: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    is_auto: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     project: Mapped[Project | None] = relationship("Project")
     line_items: Mapped[list[InvoiceLineItem]] = relationship(
