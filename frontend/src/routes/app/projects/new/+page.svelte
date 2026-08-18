@@ -23,7 +23,7 @@
 	let selectedServiceIds = $state([]);
 	/** @type {Record<string, number|string>} */
 	let servicePrices = $state({});
-	let autoInvoice = $state(false);
+	let autoInvoice = $state(true);
 	let busy = $state(false);
 	/** @type {string|null} */
 	let err = $state(null);
@@ -420,9 +420,9 @@
 				class="mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
 			/>
 			<label for="auto-invoice" class="cursor-pointer text-sm text-slate-700">
-				<span class="font-medium text-slate-900">Auto-invoice</span>
+				<span class="font-medium text-slate-900">Auto-invoice (on by default)</span>
 				<span class="mt-0.5 block text-slate-500">
-					Keep an open draft invoice updated as services are added.
+					Keeps your project's statement invoice updated as services are added.
 				</span>
 			</label>
 		</div>
