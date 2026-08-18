@@ -27,6 +27,7 @@ import { ApiError, apiFetch, BASE_URL } from './client.js';
  * @property {number} quantity
  * @property {number|string} unit_price decimal-as-string or number
  * @property {number|string} amount decimal-as-string or number
+ * @property {string|null} entry_date ISO date the item was delivered/performed; null when unset
  * @property {string|null} service_id
  * @property {string|null} project_service_id null for custom lines
  */
@@ -114,7 +115,7 @@ export function getInvoice(fetchFn, token, id) {
  *   issue_date?: string,
  *   due_date?: string,
  *   notes?: string,
- *   line_items: Array<{ project_service_id?: string, description?: string, unit_price?: string|number, quantity?: number }>
+ *   line_items: Array<{ project_service_id?: string, description?: string, unit_price?: string|number, quantity?: number, entry_date?: string }>
  * }} body Create payload; omit project_id for general (internal) invoices
  * @returns {Promise<InvoiceDetailResponse>}
  */

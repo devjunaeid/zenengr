@@ -38,8 +38,8 @@ _STATUS_LABELS: dict[InvoiceStatus, str] = {
     InvoiceStatus.VOID: "Void",
 }
 
-_ITEM_COLUMNS = ["Description", "Qty", "Unit price", "Amount"]
-_ITEM_COL_WIDTHS = [85 * mm, 25 * mm, 30 * mm, 30 * mm]
+_ITEM_COLUMNS = ["Date", "Description", "Qty", "Unit price", "Amount"]
+_ITEM_COL_WIDTHS = [25 * mm, 60 * mm, 20 * mm, 32 * mm, 33 * mm]
 
 _LOGO_HEIGHT = 0.8 * inch
 _HEX_COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
@@ -190,6 +190,7 @@ async def render_invoice_pdf(
     for item in sorted(invoice.line_items, key=lambda li: li.created_at):
         table_data.append(
             [
+                item.entry_date.isoformat() if item.entry_date is not None else "—",
                 item.description,
                 _fmt(item.quantity),
                 _money(item.unit_price, currency_code),
@@ -203,7 +204,7 @@ async def render_invoice_pdf(
                 ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
                 ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
                 ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
-                ("ALIGN", (1, 0), (-1, -1), "RIGHT"),
+                ("ALIGN", (2, 0), (-1, -1), "RIGHT"),
             ]
         )
     )

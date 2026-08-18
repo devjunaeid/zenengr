@@ -20,6 +20,7 @@
 	 * @property {number|string} unit_price decimal snapshot for service rows, input for custom
 	 * @property {number} quantity
 	 * @property {string} description
+	 * @property {string} entry_date ISO date-only (YYYY-MM-DD)
 	 */
 
 	let { data } = $props();
@@ -43,6 +44,8 @@
 	let projectLedger = $state(null);
 
 	let rowKey = 1;
+	/** Line item date defaults to today (backend also defaults on create). */
+	const today = new Date().toISOString().slice(0, 10);
 	/** @type {LineItemRow[]} */
 	let rows = $state([]);
 	let busy = $state(false);
@@ -88,7 +91,8 @@
 			service_name: '',
 			unit_price: '',
 			quantity: 1,
-			description: ''
+			description: '',
+			entry_date: today
 		});
 	}
 
@@ -203,15 +207,19 @@
 		try {
 			/** @type {Record<string, any>} */
 			const body = {
-				line_items: rows.map((r) =>
-					r.kind === 'service'
-						? { project_service_id: r.project_service_id }
-						: {
-								description: r.description.trim(),
-								unit_price: String(r.unit_price),
-								quantity: r.quantity || 1
-							}
-				)
+				line_items: rows.map((r) => {
+					/** @type {Record<string, any>} */
+					const item = {};
+					if (r.entry_date) item.entry_date = r.entry_date;
+					if (r.kind === 'service') {
+						item.project_service_id = r.project_service_id;
+					} else {
+						item.description = r.description.trim();
+						item.unit_price = String(r.unit_price);
+						item.quantity = r.quantity || 1;
+					}
+					return item;
+				})
 			};
 			if (discount) {
 				body.line_items.push({
@@ -361,6 +369,17 @@
 				<div class="rounded-md border border-slate-200 bg-slate-50 p-3">
 					<div class="grid gap-3 sm:grid-cols-12 sm:items-end">
 						<div class="sm:col-span-2">
+							<label for={`li-date-${row.key}`} class="block text-xs font-medium text-slate-600"
+								>Date</label
+							>
+							<input
+								id={`li-date-${row.key}`}
+								type="date"
+								bind:value={row.entry_date}
+								class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+							/>
+						</div>
+						<div class="sm:col-span-2">
 							<label for={`li-kind-${row.key}`} class="block text-xs font-medium text-slate-600"
 								>Type</label
 							>
@@ -376,7 +395,7 @@
 							</select>
 						</div>
 						{#if row.kind === 'service'}
-							<div class="sm:col-span-4">
+							<div class="sm:col-span-3">
 								<label
 									for={`li-service-${row.key}`}
 									class="block text-xs font-medium text-slate-600">Service *</label
@@ -407,7 +426,7 @@
 								</p>
 							</div>
 						{:else}
-							<div class="sm:col-span-4">
+							<div class="sm:col-span-3">
 								<label for={`li-desc-${row.key}`} class="block text-xs font-medium text-slate-600"
 									>Description *</label
 								>
@@ -434,7 +453,7 @@
 								/>
 							</div>
 						{/if}
-						<div class="sm:col-span-2">
+						<div class="sm:col-span-1">
 							<label for={`li-qty-${row.key}`} class="block text-xs font-medium text-slate-600"
 								>Qty</label
 							>

@@ -533,6 +533,11 @@
 						<th
 							scope="col"
 							class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
+							>Date</th
+						>
+						<th
+							scope="col"
+							class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
 							>Description</th
 						>
 						<th
@@ -555,6 +560,9 @@
 				<tbody class="divide-y divide-slate-200">
 					{#each data.invoice.line_items as li (li.id)}
 						<tr class="hover:bg-slate-50">
+							<td class="px-4 py-3 text-sm whitespace-nowrap text-slate-700"
+								>{formatDate(li.entry_date)}</td
+							>
 							<td class="px-4 py-3 text-sm font-medium text-slate-900">
 								<div class="flex flex-wrap items-center gap-2">
 									{li.description}

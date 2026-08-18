@@ -254,6 +254,31 @@ class TestInvoicesAPI:
         assert li["amount"] == "500.00"
         assert li["quantity"] == "2.00"
         assert li["project_service_id"] is None
+        assert li["entry_date"] == date.today().isoformat()
+
+    @pytest.mark.asyncio
+    async def test_create_draft_custom_item_explicit_entry_date(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        ctx = await _bootstrap(db_session)
+        resp = await client.post(
+            "/api/v1/tenant/invoices/",
+            json={
+                "project_id": str(ctx["project"].id),
+                "line_items": [
+                    {
+                        "description": "Setup fee",
+                        "unit_price": "250.00",
+                        "entry_date": "2026-07-01",
+                    }
+                ],
+            },
+            headers=await _admin_auth_header(ctx["admin"]),
+        )
+        assert resp.status_code == 201
+        data = resp.json()
+        assert data["total"] == "250.00"
+        assert data["line_items"][0]["entry_date"] == "2026-07-01"
 
     @pytest.mark.asyncio
     async def test_create_draft_validation(self, client: AsyncClient, db_session: AsyncSession):
@@ -309,6 +334,62 @@ class TestInvoicesAPI:
         assert data["total"] == "300.00"
         assert len(data["line_items"]) == 1
         assert data["line_items"][0]["description"] == "Custom"
+        assert data["line_items"][0]["entry_date"] == date.today().isoformat()
+
+    @pytest.mark.asyncio
+    async def test_update_draft_replaced_by_id_keeps_entry_date(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        ctx = await _bootstrap(db_session)
+        headers = await _admin_auth_header(ctx["admin"])
+        inv_id = await _create_invoice(client, headers, ctx["project"].id, ctx["ps"].id)
+
+        detail = (await client.get(f"/api/v1/tenant/invoices/{inv_id}", headers=headers)).json()
+        li_id = detail["line_items"][0]["id"]
+        orig_date = detail["line_items"][0]["entry_date"]
+
+        # Replaced by id with entry_date omitted -> original date kept
+        resp = await client.patch(
+            f"/api/v1/tenant/invoices/{inv_id}",
+            json={
+                "line_items": [
+                    {"id": li_id, "description": "Renamed", "unit_price": "50.00"}
+                ]
+            },
+            headers=headers,
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        li = data["line_items"][0]
+        assert li["description"] == "Renamed"
+        assert li["entry_date"] == orig_date
+
+        # Replaced by id with explicit entry_date -> input wins
+        resp = await client.patch(
+            f"/api/v1/tenant/invoices/{inv_id}",
+            json={
+                "line_items": [
+                    {
+                        "id": li_id,
+                        "description": "Backdated",
+                        "unit_price": "50.00",
+                        "entry_date": "2026-06-15",
+                    }
+                ]
+            },
+            headers=headers,
+        )
+        assert resp.status_code == 200
+        assert resp.json()["line_items"][0]["entry_date"] == "2026-06-15"
+
+        # New item without id, entry_date omitted -> today
+        resp = await client.patch(
+            f"/api/v1/tenant/invoices/{inv_id}",
+            json={"line_items": [{"description": "New", "unit_price": "10.00"}]},
+            headers=headers,
+        )
+        assert resp.status_code == 200
+        assert resp.json()["line_items"][0]["entry_date"] == date.today().isoformat()
 
     @pytest.mark.asyncio
     async def test_issue_assigns_sequential_number(

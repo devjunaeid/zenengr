@@ -16,6 +16,7 @@ class InvoiceLineItemInput(BaseModel):
     description: str | None = None
     unit_price: Decimal | None = None
     quantity: Decimal | None = None
+    entry_date: date | None = None
 
 
 class InvoiceCreateRequest(BaseModel):
@@ -33,6 +34,7 @@ class InvoiceLineItemUpdateInput(BaseModel):
     description: str | None = None
     unit_price: Decimal | None = None
     quantity: Decimal | None = None
+    entry_date: date | None = None
 
 
 class InvoiceUpdateRequest(BaseModel):
@@ -46,6 +48,7 @@ class InvoiceUpdateRequest(BaseModel):
 class InvoiceLineItemResponse(BaseModel):
     id: uuid.UUID
     description: str
+    entry_date: date | None = None
     quantity: str
     unit_price: str
     amount: str

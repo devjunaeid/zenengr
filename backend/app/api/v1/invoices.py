@@ -63,6 +63,7 @@ def _to_line_item_response(item: Any) -> InvoiceLineItemResponse:
     return InvoiceLineItemResponse(
         id=item.id,
         description=item.description,
+        entry_date=item.entry_date,
         quantity=f"{item.quantity:.2f}",
         unit_price=f"{item.unit_price:.2f}",
         amount=f"{item.amount:.2f}",

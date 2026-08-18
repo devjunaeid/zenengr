@@ -88,6 +88,7 @@ import { ApiError, apiFetch, BASE_URL } from './client.js';
  * @property {number|string} quantity decimal-as-string or number
  * @property {number|string} unit_price decimal-as-string or number
  * @property {number|string} amount decimal-as-string or number
+ * @property {string|null} entry_date ISO date the item was delivered/performed; null when unset
  * @property {string|null} service_id
  * @property {string|null} project_service_id null for custom lines
  */

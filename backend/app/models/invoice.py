@@ -69,6 +69,7 @@ class InvoiceLineItem(TimestampMixin, Base):
         Uuid, ForeignKey("invoices.id", ondelete="CASCADE"), index=True, nullable=False
     )
     description: Mapped[str] = mapped_column(String(255), nullable=False)
+    entry_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     quantity: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=Decimal("1"), nullable=False)
     unit_price: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)

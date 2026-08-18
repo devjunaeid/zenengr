@@ -207,6 +207,8 @@ async def _resolve_line_items(
     existing_by_id = existing_by_id or {}
     resolved: list[dict[str, Any]] = []
     for item in inputs:
+        entry_date = getattr(item, "entry_date", None)
+        replaced_existing = False
         if item.project_service_id is not None:
             if project_id is None:
                 raise InvoiceLineItemError("Project service line items require a project")
@@ -234,6 +236,7 @@ async def _resolve_line_items(
             project_service_id = None
             existing_id = getattr(item, "id", None)
             if existing_id is not None and existing_id in existing_by_id:
+                replaced_existing = True
                 orig = existing_by_id[existing_id]
                 if description is None:
                     description = orig.description
@@ -241,14 +244,20 @@ async def _resolve_line_items(
                     unit_price = orig.unit_price
                 if quantity is None:
                     quantity = orig.quantity
+                if entry_date is None:
+                    entry_date = orig.entry_date
             if not description or unit_price is None:
                 raise InvoiceLineItemError()
 
         quantity = quantity if quantity is not None else Decimal("1")
         amount = _money(quantity * unit_price)
+        if entry_date is None and not replaced_existing:
+            # New line items always carry a date (service added / created).
+            entry_date = date.today()
         resolved.append(
             {
                 "description": description,
+                "entry_date": entry_date,
                 "quantity": quantity,
                 "unit_price": unit_price,
                 "amount": amount,
@@ -331,6 +340,7 @@ async def append_service_to_draft_invoice(
             InvoiceLineItem(
                 invoice_id=invoice.id,
                 description=description,
+                entry_date=date.today(),
                 quantity=Decimal("1"),
                 unit_price=price,
                 amount=amount,
@@ -345,6 +355,7 @@ async def append_service_to_draft_invoice(
         InvoiceLineItem(
             invoice_id=invoice.id,
             description=description,
+            entry_date=date.today(),
             quantity=Decimal("1"),
             unit_price=price,
             amount=amount,

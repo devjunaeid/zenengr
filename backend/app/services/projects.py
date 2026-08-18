@@ -246,7 +246,7 @@ async def create_project(
     With auto_invoice=True (and services selected), one DRAFT invoice is
     created after the project commit carrying every attached service as a
     snapshot line item (quantity 1, unit_price = price_at_attachment,
-    description "{service name} - added {YYYY-MM-DD}"). Discounts are
+    description = service name, entry_date = today). Discounts are
     intentionally NOT applied to auto-drafts - the admin edits the draft
     as needed.
     """
@@ -330,10 +330,7 @@ async def create_project(
                     project_service_id=ps.id,
                     service_id=ps.service_id,
                     price=ps.price_at_attachment or Decimal("0"),
-                    description=(
-                        f"{name_by_id.get(ps.service_id, '')} — "
-                        f"added {date.today().isoformat()}"
-                    ),
+                    description=name_by_id.get(ps.service_id, ""),
                     actor_id=actor_id,
                 )
         except Exception:
@@ -588,7 +585,7 @@ async def attach_service(
                 project_service_id=project_service.id,
                 service_id=project_service.service_id,
                 price=project_service.price_at_attachment or Decimal("0"),
-                description=f"{service.name} — added {date.today().isoformat()}",
+                description=service.name,
                 actor_id=actor_id,
             )
         except Exception:

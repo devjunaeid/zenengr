@@ -1714,7 +1714,8 @@ class TestAutoInvoice:
 
         items = await _line_items_for_invoice(db_session, inv.id)
         assert len(items) == 1
-        assert "added" in items[0].description
+        assert items[0].description == ctx["svc_a"].name
+        assert items[0].entry_date == date.today()
         assert items[0].quantity == Decimal("1")
         assert items[0].unit_price == Decimal("500.00")
         assert items[0].amount == Decimal("500.00")
@@ -1759,7 +1760,9 @@ class TestAutoInvoice:
 
         items = await _line_items_for_invoice(db_session, inv.id)
         assert len(items) == 2
-        assert all("added" in item.description for item in items)
+        assert items[0].description == ctx["svc_a"].name
+        assert items[1].description == ctx["svc_b"].name
+        assert all(item.entry_date == date.today() for item in items)
         assert items[1].unit_price == Decimal("500.00")
         assert items[1].amount == Decimal("500.00")
 
