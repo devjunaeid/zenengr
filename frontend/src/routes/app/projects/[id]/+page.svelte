@@ -497,8 +497,22 @@
 	{/if}
 </div>
 
-{#if data.project.auto_invoice}
-	<p class="mt-2 text-sm text-slate-500">Open draft invoice is auto-updated with new services.</p>
+{#if canManage}
+	<div class="mt-3 flex flex-wrap items-center gap-3">
+		<!-- eslint-disable svelte/no-navigation-without-resolve -- query string appended to a resolved route -->
+		<a
+			href={resolve('/app/invoices/new') + '?project_id=' + data.project.id}
+			class="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+		>
+			New invoice
+		</a>
+		<!-- eslint-enable svelte/no-navigation-without-resolve -->
+		{#if data.project.auto_invoice}
+			<p class="text-sm text-slate-500">
+				Auto-invoice: an open draft is updated as services are added.
+			</p>
+		{/if}
+	</div>
 {/if}
 
 {#if data.draftInvoices.items.length > 0}
