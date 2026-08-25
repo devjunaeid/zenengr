@@ -277,6 +277,7 @@ async def get_project_ledger(
             refunds += _money(tx.amount)
     paid = _money(payments - refunds)
     due = _money(max(total - paid, Decimal("0")))
+    advance_balance = _money(max(paid - total, Decimal("0")))
 
     summary: dict[str, Any] = {
         "subtotal": f"{subtotal:.2f}",
@@ -286,6 +287,7 @@ async def get_project_ledger(
         "total": f"{total:.2f}",
         "paid": f"{paid:.2f}",
         "due": f"{due:.2f}",
+        "advance_balance": f"{advance_balance:.2f}",
     }
 
     entries.sort(key=lambda e: (e["entry_date"], e["created_at"]))

@@ -979,14 +979,18 @@ class TestAutoInvoicePortalExclusion:
         ).scalar_one()
         assert auto_draft.is_auto is True
 
-        # issue the auto draft: flag survives
+        # statements cannot be issued: the auto draft stays DRAFT, flag kept
         resp = await client.post(
             f"/api/v1/tenant/invoices/{auto_draft.id}/issue",
             headers=admin_headers,
         )
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["status"] == "issued"
+        assert resp.status_code == 422
+        detail = await client.get(
+            f"/api/v1/tenant/invoices/{auto_draft.id}", headers=admin_headers
+        )
+        assert detail.status_code == 200
+        data = detail.json()
+        assert data["status"] == "draft"
         assert data["is_auto"] is True
 
         # client portal list does not include the issued auto invoice
@@ -1035,17 +1039,11 @@ class TestAutoInvoicePortalExclusion:
         data = resp.json()
         assert [li["id"] for li in data["linked_invoices"]] == [manual_id]
 
-        # staff project overview includes both (exclude_auto defaults to False)
-        resp = await client.get(
-            f"/api/v1/tenant/projects/{proj}/overview",
-            headers=admin_headers,
-        )
+        # staff invoice list shows the auto statement; client portal does not
+        resp = await client.get("/api/v1/tenant/invoices/", headers=admin_headers)
         assert resp.status_code == 200
         data = resp.json()
-        assert {li["id"] for li in data["linked_invoices"]} == {
-            str(auto_draft.id),
-            manual_id,
-        }
+        assert {item["id"] for item in data["items"]} == {str(auto_draft.id), manual_id}
 
     @pytest.mark.asyncio
     async def test_auto_invoice_pdf_and_transactions_hidden_from_client(
@@ -1078,12 +1076,7 @@ class TestAutoInvoicePortalExclusion:
         ).scalar_one()
         assert auto_draft.is_auto is True
 
-        # issue the auto draft and record a payment against it
-        resp = await client.post(
-            f"/api/v1/tenant/invoices/{auto_draft.id}/issue",
-            headers=admin_headers,
-        )
-        assert resp.status_code == 200
+        # statements stay DRAFT: record a payment directly against the draft
         await _record_transaction(client, admin_headers, str(auto_draft.id), "100.00")
 
         # manual invoice on the same project: is_auto False, client-visible

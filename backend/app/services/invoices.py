@@ -22,7 +22,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models.enums import ActorType, InvoiceStatus, LedgerSourceType
+from app.models.enums import ActorType, DiscountType, InvoiceStatus, LedgerSourceType
 from app.models.invoice import Invoice, InvoiceLineItem
 from app.models.invoice_number_sequence import InvoiceNumberSequence
 from app.models.ledger_entry import LedgerEntry
@@ -109,6 +109,21 @@ class InvoiceDeleteNotAllowedError(HTTPException):
             status_code=status.HTTP_405_METHOD_NOT_ALLOWED,
             detail="Issued invoices cannot be deleted",
         )
+
+
+class InvoiceStatementError(HTTPException):
+    """Raised for operations forbidden on auto (statement) invoices.
+
+    Auto statements are live internal DRAFT documents: they accept
+    transactions but can never be issued, deleted, or voided.
+    """
+
+    def __init__(
+        self,
+        status_code: int = status.HTTP_422_UNPROCESSABLE_CONTENT,
+        detail: str = "Statement invoices cannot be modified",
+    ) -> None:
+        super().__init__(status_code=status_code, detail=detail)
 
 
 class InvoiceVoidSourceError(HTTPException):
@@ -637,6 +652,12 @@ async def delete_draft_invoice(
     invoice = await _get_invoice_with_relations(session, tenant_id, invoice_id)
     if invoice is None:
         raise InvoiceNotFoundError()
+    if invoice.is_auto:
+        # Auto statements are permanent records; they cannot be deleted.
+        raise InvoiceStatementError(
+            status_code=status.HTTP_405_METHOD_NOT_ALLOWED,
+            detail="Statement invoices cannot be deleted",
+        )
     if invoice.status != InvoiceStatus.DRAFT:
         raise InvoiceDeleteNotAllowedError()
 
@@ -671,6 +692,12 @@ async def issue_invoice(
     invoice = await _get_invoice_with_relations(session, tenant_id, invoice_id)
     if invoice is None:
         raise InvoiceNotFoundError()
+    if invoice.is_auto:
+        # Auto statements are live internal DRAFT documents and can never be
+        # issued as formal invoices.
+        raise InvoiceStatementError(
+            detail="Statement invoices cannot be issued — create a formal invoice instead"
+        )
     if invoice.status == InvoiceStatus.VOID:
         raise InvoiceVoidError()
     if invoice.status != InvoiceStatus.DRAFT:
@@ -743,6 +770,10 @@ async def void_invoice(
     invoice = await _get_invoice_with_relations(session, tenant_id, invoice_id)
     if invoice is None:
         raise InvoiceNotFoundError()
+    if invoice.is_auto:
+        # Defensive: auto statements cannot be issued, so they can never reach
+        # a voidable state; keep the guard anyway.
+        raise InvoiceStatementError(detail="Statement invoices cannot be voided")
     if invoice.status == InvoiceStatus.VOID:
         raise InvoiceAlreadyVoidError()
     if invoice.status == InvoiceStatus.DRAFT:
@@ -809,3 +840,141 @@ async def generate_invoice_number(
     seq.format_template = format_template
     await session.flush()
     return _format_invoice_number(format_template, next_number, tenant_prefix=tenant_prefix)
+
+
+# ── Cumulative Statement Invoice Generation (FEAT-019, TODO-189) ────────────
+
+
+async def generate_statement_invoice(
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    project_id: uuid.UUID,
+    actor_id: uuid.UUID,
+) -> Invoice:
+    """Generate and immediately issue an official cumulative statement invoice for a project.
+
+    Gathers all project services (and project discounts if configured). Creates the
+    invoice, line items, issues the invoice with a sequential number, tags ledger entries,
+    and returns the issued Invoice.
+    """
+    project = await _get_project_for_tenant(session, tenant_id, project_id)
+    if project is None:
+        raise InvoiceProjectNotFoundError()
+
+    # Fetch project services with service relationship
+    ps_stmt = (
+        select(ProjectService)
+        .options(selectinload(ProjectService.service))
+        .where(ProjectService.project_id == project.id)
+        .order_by(ProjectService.created_at)
+    )
+    ps_rows = list((await session.execute(ps_stmt)).scalars().all())
+
+    # Fetch manual adjustments from LedgerEntry if any
+    adj_stmt = (
+        select(LedgerEntry)
+        .where(
+            LedgerEntry.project_id == project.id,
+            LedgerEntry.source_type == LedgerSourceType.MANUAL_ADJUSTMENT,
+        )
+        .order_by(LedgerEntry.entry_date, LedgerEntry.created_at)
+    )
+    adj_rows = list((await session.execute(adj_stmt)).scalars().all())
+
+    if not ps_rows and not adj_rows:
+        raise InvoiceEmptyError()
+
+    invoice = Invoice(
+        tenant_id=tenant_id,
+        project_id=project.id,
+        status=InvoiceStatus.DRAFT,
+        issue_date=date.today(),
+        due_date=None,
+        notes="",
+    )
+    session.add(invoice)
+    await session.flush()
+
+    line_items_data: list[dict[str, Any]] = []
+    subtotal = Decimal("0")
+
+    for ps in ps_rows:
+        price = ps.price_at_attachment
+        if price is None and ps.service is not None:
+            price = ps.service.default_price
+        price = _money(price or Decimal("0"))
+        qty = Decimal("1")
+        amount = _money(price * qty)
+        desc = ps.service.name if ps.service is not None else "Project Service"
+        entry_date = ps.created_at.date() if ps.created_at is not None else date.today()
+        subtotal += amount
+        line_items_data.append(
+            {
+                "invoice_id": invoice.id,
+                "description": desc,
+                "entry_date": entry_date,
+                "quantity": qty,
+                "unit_price": price,
+                "amount": amount,
+                "service_id": ps.service_id,
+                "project_service_id": ps.id,
+            }
+        )
+
+    for adj in adj_rows:
+        amount = _money(adj.amount)
+        subtotal += amount
+        line_items_data.append(
+            {
+                "invoice_id": invoice.id,
+                "description": f"Adjustment: {adj.description}",
+                "entry_date": adj.entry_date or date.today(),
+                "quantity": Decimal("1"),
+                "unit_price": amount,
+                "amount": amount,
+                "service_id": None,
+                "project_service_id": None,
+            }
+        )
+
+    # Handle project discount if active
+    discount_amount = Decimal("0")
+    if subtotal > 0 and project.discount_type is not None and project.discount_value is not None:
+        if project.discount_type == DiscountType.PERCENTAGE:
+            discount_amount = _money(subtotal * project.discount_value / Decimal("100"))
+            discount_desc = f"Project Discount ({project.discount_value:.0f}%)"
+        else:
+            discount_amount = min(_money(project.discount_value), subtotal)
+            discount_desc = "Project Discount (Fixed)"
+
+        if discount_amount > 0:
+            line_items_data.append(
+                {
+                    "invoice_id": invoice.id,
+                    "description": discount_desc,
+                    "entry_date": date.today(),
+                    "quantity": Decimal("1"),
+                    "unit_price": _money(-discount_amount),
+                    "amount": _money(-discount_amount),
+                    "service_id": None,
+                    "project_service_id": None,
+                }
+            )
+
+    total = _money(max(subtotal - discount_amount, Decimal("0")))
+    invoice.subtotal = _money(subtotal)
+    invoice.tax_total = Decimal("0")
+    invoice.total = total
+
+    for li in line_items_data:
+        session.add(InvoiceLineItem(**li))
+    await session.flush()
+
+    return await issue_invoice(
+        session,
+        tenant_id=tenant_id,
+        invoice_id=invoice.id,
+        actor_id=actor_id,
+    )
+

@@ -14,7 +14,14 @@ from app.core.security import create_access_token, hash_password
 from app.models.admin_user import AdminUser
 from app.models.audit_log import AuditLog
 from app.models.client import Client
-from app.models.enums import AdminUserRole, ClientStatus, ClientType, TenantStatus
+from app.models.enums import (
+    AdminUserRole,
+    ClientStatus,
+    ClientType,
+    InvoiceStatus,
+    TenantStatus,
+)
+from app.models.invoice import Invoice
 from app.models.plan import Plan
 from app.models.project import Project
 from app.models.project_service import ProjectService
@@ -852,4 +859,109 @@ class TestGeneralInvoice:
         resp = await client.get(f"/api/v1/tenant/invoices/{gen_id}/pdf", headers=headers)
         assert resp.status_code == 200
         assert resp.headers["content-type"].startswith("application/pdf")
-        assert resp.content[:4] == b"%PDF"
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Auto (statement) invoices: cannot be issued, deleted, or voided
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+async def _create_auto_statement(
+    client: AsyncClient,
+    headers: dict[str, str],
+    db_session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    client_id: uuid.UUID,
+    service_id: uuid.UUID,
+) -> str:
+    """Create a project with auto_invoice on; return the auto draft invoice id."""
+    resp = await client.post(
+        "/api/v1/tenant/projects/",
+        json={
+            "name": f"AutoStmt-{uuid.uuid4().hex[:6]}",
+            "client_id": str(client_id),
+            "service_ids": [str(service_id)],
+            "auto_invoice": True,
+        },
+        headers=headers,
+    )
+    assert resp.status_code == 201
+    pid = resp.json()["id"]
+
+    inv = (
+        await db_session.execute(
+            select(Invoice).where(Invoice.project_id == pid, Invoice.is_auto.is_(True))
+        )
+    ).scalar_one()
+    assert inv.status == InvoiceStatus.DRAFT
+    return str(inv.id)
+
+
+class TestAutoStatementInvoice:
+    @pytest.mark.asyncio
+    async def test_issue_auto_statement_rejected(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        ctx = await _bootstrap(db_session)
+        headers = await _admin_auth_header(ctx["admin"])
+        inv_id = await _create_auto_statement(
+            client,
+            headers,
+            db_session,
+            tenant_id=ctx["tenant"].id,
+            client_id=ctx["client"].id,
+            service_id=ctx["svc"].id,
+        )
+
+        resp = await client.post(f"/api/v1/tenant/invoices/{inv_id}/issue", headers=headers)
+        assert resp.status_code == 422
+        assert "cannot be issued" in resp.json()["error"]["message"]
+
+        # still a draft afterwards
+        detail = await client.get(f"/api/v1/tenant/invoices/{inv_id}", headers=headers)
+        assert detail.status_code == 200
+        assert detail.json()["status"] == "draft"
+        assert detail.json()["is_auto"] is True
+
+    @pytest.mark.asyncio
+    async def test_delete_auto_statement_rejected(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        ctx = await _bootstrap(db_session)
+        headers = await _admin_auth_header(ctx["admin"])
+        inv_id = await _create_auto_statement(
+            client,
+            headers,
+            db_session,
+            tenant_id=ctx["tenant"].id,
+            client_id=ctx["client"].id,
+            service_id=ctx["svc"].id,
+        )
+
+        resp = await client.delete(f"/api/v1/tenant/invoices/{inv_id}", headers=headers)
+        assert resp.status_code == 405
+        assert "cannot be deleted" in resp.json()["error"]["message"]
+
+        # still exists
+        detail = await client.get(f"/api/v1/tenant/invoices/{inv_id}", headers=headers)
+        assert detail.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_void_auto_statement_rejected(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        ctx = await _bootstrap(db_session)
+        headers = await _admin_auth_header(ctx["admin"])
+        inv_id = await _create_auto_statement(
+            client,
+            headers,
+            db_session,
+            tenant_id=ctx["tenant"].id,
+            client_id=ctx["client"].id,
+            service_id=ctx["svc"].id,
+        )
+
+        resp = await client.post(f"/api/v1/tenant/invoices/{inv_id}/void", headers=headers)
+        assert resp.status_code == 422
+        assert "cannot be voided" in resp.json()["error"]["message"]

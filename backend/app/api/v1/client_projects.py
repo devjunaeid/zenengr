@@ -10,7 +10,7 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -22,6 +22,7 @@ from app.models.enums import MilestoneStatus, ProjectStatus
 from app.models.file_asset import FileAsset
 from app.models.project import Project
 from app.models.project_service import ProjectService
+from app.models.tenant import Tenant
 from app.schemas.client_portal import (
     ClientProjectDetailResponse,
     ClientProjectFinancialSummary,
@@ -38,6 +39,7 @@ from app.services import comments as comment_service
 from app.services import files as files_service
 from app.services import financials as financials_service
 from app.services import ledger as ledger_service
+from app.services import pdf as pdf_service
 
 router = APIRouter(prefix="/client/projects", tags=["client-projects"])
 
@@ -344,4 +346,37 @@ async def get_client_project_ledger_endpoint(
     return ProjectLedgerResponse(
         entries=[LedgerEntryResponse(**entry) for entry in data["entries"]],
         summary=SummaryResponse(**data["summary"]),
+    )
+
+
+@router.get("/{project_id}/statement/pdf")
+async def get_client_project_statement_pdf_endpoint(
+    project_id: str,
+    session: AsyncSession = Depends(get_session),
+    user: ClientUser = Depends(get_current_client_user),
+) -> Response:
+    """Download/view live project statement PDF scoped to caller's client."""
+    pid = _parse_uuid(project_id, kind="Project")
+    stmt = select(Project).where(
+        Project.id == pid,
+        Project.client_id == user.client_id,
+        Project.tenant_id == user.tenant_id,
+    )
+    project = (await session.execute(stmt)).scalar_one_or_none()
+    if project is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Project not found",
+        )
+
+    tenant = await session.get(Tenant, user.tenant_id)
+    pdf_bytes = await pdf_service.render_project_statement_pdf(
+        session, project_id=pid, tenant=tenant
+    )
+    if not pdf_bytes:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="statement-{pid}.pdf"'},
     )

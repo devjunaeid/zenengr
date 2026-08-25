@@ -56,6 +56,14 @@ When the user shares a new requirement, feature request, or change:
 | Code review after implementation | Use `docs/code-review-checklist.md` |
 | Verify behavior end-to-end before marking complete | Use `docs/verification-checklist.md` |
 
+## Development environment — Dockerized mode
+
+The project runs in a **containerized stack** via Docker Compose (`docker compose --profile dev up`):
+- **Backend & Frontend dev servers** run inside containers (`zenengr-backend-dev`, `zenengr-frontend-dev`) with volume-mounted source code for live hot reload. **Do NOT run full production builds (`npm run build`)** — the live dev container handles hot-reloading.
+- **Postgres, Redis, MailHog, pgAdmin** run as containers.
+- **Targeted Test Execution:** Only run tests for the **modified module / feature** (e.g. `docker exec zenengr-backend-dev-1 uv run pytest tests/test_specific_module.py`). Do not execute the entire test suite.
+- **Targeted Lint & Syntax Checks:** Only check the **modified file(s)** (e.g. `docker exec zenengr-backend-dev-1 uv run ruff check path/to/file.py` or eslint on the specific file). Do not run full project-wide lint sweeps.
+
 ## MCP configuration
 
 - Read `opencode.json` and `docs/mcp-setup.md` to see which MCP servers are configured.

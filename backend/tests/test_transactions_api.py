@@ -15,8 +15,14 @@ from app.models.admin_user import AdminUser
 from app.models.advance import Advance
 from app.models.audit_log import AuditLog
 from app.models.client import Client
-from app.models.enums import AdminUserRole, ClientStatus, ClientType, TenantStatus
-from app.models.invoice import InvoiceLineItem
+from app.models.enums import (
+    AdminUserRole,
+    ClientStatus,
+    ClientType,
+    InvoiceStatus,
+    TenantStatus,
+)
+from app.models.invoice import Invoice, InvoiceLineItem
 from app.models.plan import Plan
 from app.models.project import Project
 from app.models.project_service import ProjectService
@@ -878,3 +884,205 @@ class TestRefundAndAdvance:
         by_source = {str(a.source_invoice_id): a for a in advances}
         assert by_source[inv1].remaining_amount == Decimal("0.00")
         assert by_source[inv2].remaining_amount == Decimal("50.00")
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Auto (statement) invoices: live internal DRAFT statements (TODO auto-stmt)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+async def _create_auto_statement(
+    client: AsyncClient,
+    headers: dict[str, str],
+    db_session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    client_id: uuid.UUID,
+    service_id: uuid.UUID,
+) -> tuple[str, str]:
+    """Create a project with auto_invoice on; return (project_id, invoice_id)."""
+    resp = await client.post(
+        "/api/v1/tenant/projects/",
+        json={
+            "name": f"AutoStmt-{uuid.uuid4().hex[:6]}",
+            "client_id": str(client_id),
+            "service_ids": [str(service_id)],
+            "auto_invoice": True,
+        },
+        headers=headers,
+    )
+    assert resp.status_code == 201
+    pid = resp.json()["id"]
+
+    inv = (
+        await db_session.execute(
+            select(Invoice).where(Invoice.project_id == pid, Invoice.is_auto.is_(True))
+        )
+    ).scalar_one()
+    assert inv.status == InvoiceStatus.DRAFT
+    return str(pid), str(inv.id)
+
+
+async def _activate_project(client: AsyncClient, headers: dict[str, str], project_id: str):
+    resp = await client.patch(
+        f"/api/v1/tenant/projects/{project_id}",
+        json={"status": "active"},
+        headers=headers,
+    )
+    assert resp.status_code == 200
+
+
+class TestAutoStatementTransactions:
+    @pytest.mark.asyncio
+    async def test_payment_on_auto_draft_keeps_draft_and_append_targets_same_draft(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        ctx = await _bootstrap(db_session)
+        headers = await _admin_auth_header(ctx["admin"])
+        pid, inv_id = await _create_auto_statement(
+            client,
+            headers,
+            db_session,
+            tenant_id=ctx["tenant"].id,
+            client_id=ctx["client"].id,
+            service_id=ctx["svc"].id,
+        )
+
+        # payment -> 201, invoice stays DRAFT, paid reflects in allocations
+        resp = await client.post(
+            f"/api/v1/tenant/invoices/{inv_id}/transactions",
+            json={"amount": "500.00", "method": "bank_transfer"},
+            headers=headers,
+        )
+        assert resp.status_code == 201
+        assert sum(Decimal(a["amount"]) for a in resp.json()["allocations"]) == Decimal("500.00")
+
+        detail = await client.get(f"/api/v1/tenant/invoices/{inv_id}", headers=headers)
+        assert detail.status_code == 200
+        assert detail.json()["status"] == "draft"
+        assert detail.json()["is_auto"] is True
+
+        # append a service after the payment: still the same open draft
+        svc_b = await _create_service(db_session, ctx["tenant"].id, name="SvcB")
+        await _activate_project(client, headers, pid)
+        attach = await client.post(
+            f"/api/v1/tenant/projects/{pid}/services",
+            json={"service_id": str(svc_b.id)},
+            headers=headers,
+        )
+        assert attach.status_code == 201
+
+        invs = (
+            (
+                await db_session.execute(
+                    select(Invoice).where(Invoice.project_id == pid).order_by(Invoice.created_at)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        assert len(invs) == 1
+        assert str(invs[0].id) == inv_id
+        assert invs[0].status == InvoiceStatus.DRAFT
+        assert invs[0].subtotal == Decimal("1000.00")
+        assert invs[0].total == Decimal("1000.00")
+
+    @pytest.mark.asyncio
+    async def test_refund_on_auto_draft_drops_net_paid_keeps_draft(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        ctx = await _bootstrap(db_session)
+        headers = await _admin_auth_header(ctx["admin"])
+        _, inv_id = await _create_auto_statement(
+            client,
+            headers,
+            db_session,
+            tenant_id=ctx["tenant"].id,
+            client_id=ctx["client"].id,
+            service_id=ctx["svc"].id,
+        )
+
+        await client.post(
+            f"/api/v1/tenant/invoices/{inv_id}/transactions",
+            json={"amount": "500.00", "method": "bank_transfer"},
+            headers=headers,
+        )
+
+        resp = await client.post(
+            f"/api/v1/tenant/invoices/{inv_id}/refund",
+            json={"amount": "200.00", "method": "cash"},
+            headers=headers,
+        )
+        assert resp.status_code == 201
+        assert resp.json()["amount"] == "200.00"
+        assert resp.json()["direction"] == "credit"
+
+        detail = await client.get(f"/api/v1/tenant/invoices/{inv_id}", headers=headers)
+        assert detail.status_code == 200
+        assert detail.json()["status"] == "draft"
+
+        txs = await client.get(f"/api/v1/tenant/invoices/{inv_id}/transactions", headers=headers)
+        assert txs.status_code == 200
+        data = txs.json()
+        assert len(data) == 2
+        paid = sum(Decimal(t["amount"]) for t in data if t["direction"] == "debit")
+        refunded = sum(Decimal(t["amount"]) for t in data if t["direction"] == "credit")
+        assert paid - refunded == Decimal("300.00")
+
+    @pytest.mark.asyncio
+    async def test_apply_advance_on_auto_draft(self, client: AsyncClient, db_session: AsyncSession):
+        ctx = await _bootstrap(db_session)
+        headers = await _admin_auth_header(ctx["admin"])
+
+        # overpay the first statement -> client-scoped advance
+        _, inv1 = await _create_auto_statement(
+            client,
+            headers,
+            db_session,
+            tenant_id=ctx["tenant"].id,
+            client_id=ctx["client"].id,
+            service_id=ctx["svc"].id,
+        )
+        resp = await client.post(
+            f"/api/v1/tenant/invoices/{inv1}/transactions",
+            json={"amount": "600.00", "method": "bank_transfer"},
+            headers=headers,
+        )
+        assert resp.status_code == 201
+
+        # second statement for the same client: advance applies while DRAFT
+        _, inv2 = await _create_auto_statement(
+            client,
+            headers,
+            db_session,
+            tenant_id=ctx["tenant"].id,
+            client_id=ctx["client"].id,
+            service_id=ctx["svc"].id,
+        )
+        resp = await client.post(
+            f"/api/v1/tenant/invoices/{inv2}/apply-advance",
+            json={"amount": "100.00"},
+            headers=headers,
+        )
+        assert resp.status_code == 200
+        assert resp.json() == {"applied": "100.00", "advance_balance": "0.00"}
+
+        detail = await client.get(f"/api/v1/tenant/invoices/{inv2}", headers=headers)
+        assert detail.status_code == 200
+        assert detail.json()["status"] == "draft"
+
+        allocs = (
+            (
+                await db_session.execute(
+                    select(PaymentAllocation)
+                    .join(InvoiceLineItem, PaymentAllocation.line_item_id == InvoiceLineItem.id)
+                    .where(InvoiceLineItem.invoice_id == uuid.UUID(inv2))
+                )
+            )
+            .scalars()
+            .all()
+        )
+        assert len(allocs) == 1
+        assert allocs[0].amount == Decimal("100.00")
+        assert allocs[0].transaction_id is None
+        assert allocs[0].advance_id is not None

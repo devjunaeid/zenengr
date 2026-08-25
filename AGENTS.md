@@ -86,9 +86,10 @@ The project is developed against a **containerized stack** via Docker (OrbStack 
 - **pgAdmin**: container, host port 5050 (`admin@zenengr.dev` / `admin`).
 - **Backend dev server**: container `zenengr-backend-dev`, port 8000, `./backend/app` volume-mounted for hot reload.
 - **Frontend dev server**: container `zenengr-frontend-dev`, port 5173, `./frontend/src` volume-mounted.
-- **Docker daemon must be running for everything, including tests.** Verify with `docker ps`. If the daemon is down, Postgres is unreachable and tests/backend fail — do not assume the code is broken.
-- **Tests run on the HOST** (`cd backend && uv run pytest`) but connect to the **containerized** Postgres at `localhost:5432`. `backend/tests/conftest.py` auto-creates and drops an `app_test` database per session.
-- **Backend checks** (`uv run ruff check .`, `uv run mypy app`, `uv run pytest`) run from `backend/` on the host against the container services.
+- **Tests run on the HOST** (`cd backend && uv run pytest tests/test_<module>.py`) or inside the container (`docker exec zenengr-backend-dev-1 uv run pytest tests/test_<module>.py`) connected to Postgres at `localhost:5432`.
+- **Targeted Test Execution Rule:** Only run tests for the **modified module / feature** (e.g. `docker exec zenengr-backend-dev-1 uv run pytest tests/test_statement_invoices_api.py`). Never run the full test suite when verifying a single module change.
+- **Targeted Lint / Syntax Rule:** Only check the **modified file(s)**. Do not run full project-wide lint sweeps.
+- **Live Dev Server Hot Reload:** The dev server runs in Docker with live volume mounts. Do **NOT** run production builds (`npm run build`) on code updates.
 - **Migrations**: `uv run alembic upgrade head` (host) applies to the containerized Postgres.
 - Check service state with `docker compose ps` / `docker ps` before blaming environment failures.
 - **After adding a backend dependency**, rebuild the backend image — a stale image crashes on import (seen with reportlab, boto3, aiosmtplib): `docker compose --profile dev up -d --build backend-dev` (or `docker exec zenengr-backend-dev-1 uv sync` + restart).

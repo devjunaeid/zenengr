@@ -50,7 +50,7 @@
 		}
 	}
 
-	// ---- auto-invoice toggle ----
+	// ---- statement toggle ----
 	let autoInvoiceBusy = $state(false);
 
 	/**
@@ -62,10 +62,10 @@
 		actionMsg = null;
 		try {
 			await projectApi.updateProject(fetch, token, data.project.id, { auto_invoice: next });
-			actionMsg = `Auto-invoice ${next ? 'enabled' : 'disabled'}.`;
+			actionMsg = `Statement ${next ? 'enabled' : 'disabled'}.`;
 			await invalidateAll();
 		} catch (e) {
-			actionErr = e instanceof ApiError ? e.message : 'Could not update auto-invoice.';
+			actionErr = e instanceof ApiError ? e.message : 'Could not update statement.';
 		} finally {
 			autoInvoiceBusy = false;
 		}
@@ -434,6 +434,81 @@
 				: 'fixed';
 		return { display, hint };
 	}
+
+	// ---- statement preview & generate (FEAT-019) ----
+	let statementOpen = $state(false);
+	let statementLoading = $state(false);
+	/** @type {import('$lib/api/projects.js').LedgerResponse|null} */
+	let statementData = $state(null);
+	/** @type {string|null} */
+	let statementErr = $state(null);
+	let statementPdfBusy = $state(false);
+
+	async function openStatementPreview() {
+		statementOpen = true;
+		statementLoading = true;
+		statementErr = null;
+		try {
+			statementData = await projectApi.getProjectStatement(fetch, token, data.project.id);
+		} catch (e) {
+			statementErr = e instanceof ApiError ? e.message : 'Could not load project statement.';
+		} finally {
+			statementLoading = false;
+		}
+	}
+
+	async function downloadStatementPdf() {
+		if (statementPdfBusy) return;
+		statementPdfBusy = true;
+		statementErr = null;
+		try {
+			const filename = `statement-${data.project.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.pdf`;
+			await projectApi.downloadProjectStatementPdf(fetch, token, data.project.id, filename);
+		} catch (e) {
+			statementErr = e instanceof ApiError ? e.message : 'Could not download statement PDF.';
+		} finally {
+			statementPdfBusy = false;
+		}
+	}
+
+	async function viewStatementPdf() {
+		if (statementPdfBusy) return;
+		statementPdfBusy = true;
+		statementErr = null;
+		try {
+			await projectApi.viewProjectStatementPdf(fetch, token, data.project.id);
+		} catch (e) {
+			statementErr = e instanceof ApiError ? e.message : 'Could not view statement PDF.';
+		} finally {
+			statementPdfBusy = false;
+		}
+	}
+
+	let generateOpen = $state(false);
+	let generateBusy = $state(false);
+	/** @type {string|null} */
+	let generateErr = $state(null);
+
+	function openGenerateDialog() {
+		generateOpen = true;
+		generateErr = null;
+	}
+
+	async function runGenerateInvoice() {
+		generateBusy = true;
+		generateErr = null;
+		try {
+			const inv = await projectApi.generateStatementInvoice(fetch, token, data.project.id);
+			generateOpen = false;
+			statementOpen = false;
+			actionMsg = `Statement invoice ${inv.invoice_number} generated and issued.`;
+			await invalidateAll();
+		} catch (e) {
+			generateErr = e instanceof ApiError ? e.message : 'Could not generate statement invoice.';
+		} finally {
+			generateBusy = false;
+		}
+	}
 </script>
 
 <svelte:head><title>{data.project.name} — ZenEngr</title></svelte:head>
@@ -462,9 +537,9 @@
 					checked={data.project.auto_invoice}
 					disabled={autoInvoiceBusy}
 					onchange={toggleAutoInvoice}
-					label="Auto-invoice"
+					label="Statement invoice"
 				/>
-				<span class="text-sm font-medium text-slate-700">Auto-invoice</span>
+				<span class="text-sm font-medium text-slate-700">Statement invoice</span>
 			</span>
 			<a
 				href={resolve('/app/projects/[id]/edit', { id: data.project.id })}
@@ -499,17 +574,31 @@
 
 {#if canManage}
 	<div class="mt-3 flex flex-wrap items-center gap-3">
+		<button
+			type="button"
+			onclick={openStatementPreview}
+			class="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+		>
+			Preview statement
+		</button>
+		<button
+			type="button"
+			onclick={openGenerateDialog}
+			class="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+		>
+			Generate invoice
+		</button>
 		<!-- eslint-disable svelte/no-navigation-without-resolve -- query string appended to a resolved route -->
 		<a
 			href={resolve('/app/invoices/new') + '?project_id=' + data.project.id}
-			class="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+			class="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
 		>
-			New invoice
+			Custom invoice
 		</a>
 		<!-- eslint-enable svelte/no-navigation-without-resolve -->
 		{#if data.project.auto_invoice}
 			<p class="text-sm text-slate-500">
-				Auto-invoice: an open draft is updated as services are added.
+				Statement: keeps this project's internal statement updated as services are added.
 			</p>
 		{/if}
 	</div>
@@ -520,7 +609,7 @@
 		class="mt-3 rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3"
 		aria-labelledby="open-draft-h"
 	>
-		<h2 id="open-draft-h" class="text-sm font-semibold text-indigo-900">Open draft invoice</h2>
+		<h2 id="open-draft-h" class="text-sm font-semibold text-indigo-900">Project statement</h2>
 		<ul class="mt-1.5 space-y-1">
 			{#each data.draftInvoices.items as inv (inv.id)}
 				<li>
@@ -534,7 +623,7 @@
 			{/each}
 		</ul>
 		{#if data.project.auto_invoice}
-			<p class="mt-1.5 text-xs text-indigo-700/80">Auto-updated as services are added.</p>
+			<p class="mt-1.5 text-xs text-indigo-700/80">Updates as services are added.</p>
 		{/if}
 	</section>
 {/if}
@@ -825,6 +914,7 @@
 	{:else}
 		{@const disc = discountDisplay()}
 		{@const due = Number(ledgerSummary?.due) || 0}
+		{@const advanceBal = Number(ledgerSummary?.advance_balance) || 0}
 		<dl class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
 			<div>
 				<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Subtotal</dt>
@@ -856,6 +946,16 @@
 				</dd>
 			</div>
 		</dl>
+		{#if advanceBal > 0}
+			<div class="mt-4 rounded-md border border-indigo-200 bg-indigo-50 p-3">
+				<p class="text-sm font-medium text-indigo-900">
+					Client Advance Credit: <span class="font-bold text-indigo-700">{fmtPrice(ledgerSummary?.advance_balance)}</span>
+				</p>
+				<p class="mt-0.5 text-xs text-indigo-700">
+					Payments received exceed current charges. Credit will automatically apply toward future charges.
+				</p>
+			</div>
+		{/if}
 	{/if}
 </section>
 
@@ -1406,6 +1506,197 @@
 				>
 					{#if addBusy}<Spinner class="h-4 w-4 text-white" />{/if}
 					Add
+				</button>
+			</div>
+		</Dialog.Content>
+	</Dialog.Portal>
+</Dialog.Root>
+
+<!-- Statement Preview Modal (FEAT-019) -->
+<Dialog.Root bind:open={statementOpen}>
+	<Dialog.Portal>
+		<Dialog.Overlay class="fixed inset-0 z-40 bg-black/50" />
+		<Dialog.Content
+			class="fixed top-1/2 left-1/2 z-50 w-full max-w-3xl -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-6 shadow-xl focus:outline-none max-h-[90vh] overflow-y-auto"
+		>
+			<div class="flex items-center justify-between border-b border-slate-200 pb-3">
+				<div>
+					<Dialog.Title class="text-lg font-semibold text-slate-900">Project Financial Statement</Dialog.Title>
+					<Dialog.Description class="text-xs text-slate-500">Live chronological statement of account for {data.project.name}</Dialog.Description>
+				</div>
+				<Dialog.Close
+					aria-label="Close"
+					class="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+				>
+					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-5 w-5" aria-hidden="true">
+						<path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"/>
+					</svg>
+				</Dialog.Close>
+			</div>
+
+			{#if statementErr}
+				<p role="alert" class="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+					{statementErr}
+				</p>
+			{/if}
+
+			{#if statementLoading}
+				<div class="flex items-center justify-center py-12">
+					<Spinner class="h-8 w-8 text-indigo-600" />
+				</div>
+			{:else if statementData}
+				{@const summary = statementData.summary}
+				<div class="mt-4 space-y-4">
+					<!-- Summary grid -->
+					<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-50 p-3 rounded-md border border-slate-200">
+						<div>
+							<span class="text-xs text-slate-500">Total Charges</span>
+							<p class="font-semibold text-slate-900">{fmtPrice(summary.total)}</p>
+						</div>
+						<div>
+							<span class="text-xs text-slate-500">Total Paid</span>
+							<p class="font-semibold text-green-700">{fmtPrice(summary.paid)}</p>
+						</div>
+						<div>
+							<span class="text-xs text-slate-500">Balance Due</span>
+							<p class="font-bold {Number(summary.due) > 0 ? 'text-red-600' : 'text-green-700'}">{fmtPrice(summary.due)}</p>
+						</div>
+						{#if Number(summary.advance_balance) > 0}
+							<div>
+								<span class="text-xs text-indigo-600 font-medium">Advance Credit</span>
+								<p class="font-bold text-indigo-700">{fmtPrice(summary.advance_balance)}</p>
+							</div>
+						{/if}
+					</div>
+
+					<!-- Entries table -->
+					<div class="border border-slate-200 rounded-md overflow-hidden">
+						<table class="min-w-full divide-y divide-slate-200 text-sm">
+							<thead class="bg-slate-50 text-slate-700 font-medium">
+								<tr>
+									<th scope="col" class="px-3 py-2 text-left">Date</th>
+									<th scope="col" class="px-3 py-2 text-left">Type</th>
+									<th scope="col" class="px-3 py-2 text-left">Description / Ref</th>
+									<th scope="col" class="px-3 py-2 text-right">Amount</th>
+								</tr>
+							</thead>
+							<tbody class="divide-y divide-slate-100 bg-white">
+								{#if statementData.entries.length === 0}
+									<tr>
+										<td colspan="4" class="px-3 py-4 text-center text-slate-500">No transactions or services recorded yet.</td>
+									</tr>
+								{:else}
+									{#each statementData.entries as entry (entry.id)}
+										{@const meta = entryMeta(entry)}
+										<tr>
+											<td class="px-3 py-2 text-slate-600 whitespace-nowrap">{entry.entry_date ? formatDate(entry.entry_date) : formatDateTime(entry.created_at)}</td>
+											<td class="px-3 py-2 capitalize font-medium {meta.text}">{entry.type}</td>
+											<td class="px-3 py-2 text-slate-900">{entryLabel(entry)}</td>
+											<td class="px-3 py-2 text-right font-semibold {meta.text}">{entryPrice(entry)}</td>
+										</tr>
+									{/each}
+								{/if}
+							</tbody>
+						</table>
+					</div>
+
+					<!-- Actions -->
+					<div class="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-200">
+						<div class="flex gap-2">
+							<button
+								type="button"
+								disabled={statementPdfBusy}
+								onclick={viewStatementPdf}
+								class="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+							>
+								{#if statementPdfBusy}<Spinner class="h-3.5 w-3.5 text-slate-600" />{/if}
+								View PDF
+							</button>
+							<button
+								type="button"
+								disabled={statementPdfBusy}
+								onclick={downloadStatementPdf}
+								class="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+							>
+								Download PDF
+							</button>
+						</div>
+						<div class="flex gap-2">
+							<Dialog.Close class="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">
+								Close
+							</Dialog.Close>
+							{#if canManage}
+								<button
+									type="button"
+									onclick={openGenerateDialog}
+									class="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700"
+								>
+									Generate Official Invoice
+								</button>
+							{/if}
+						</div>
+					</div>
+				</div>
+			{/if}
+		</Dialog.Content>
+	</Dialog.Portal>
+</Dialog.Root>
+
+<!-- Generate Statement Invoice Confirmation Dialog (FEAT-019) -->
+<Dialog.Root bind:open={generateOpen}>
+	<Dialog.Portal>
+		<Dialog.Overlay class="fixed inset-0 z-40 bg-black/50" />
+		<Dialog.Content
+			class="fixed top-1/2 left-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-6 shadow-xl focus:outline-none"
+		>
+			<div class="flex items-center justify-between">
+				<Dialog.Title class="text-lg font-semibold text-slate-900">Generate Statement Invoice</Dialog.Title>
+				<Dialog.Close
+					aria-label="Close"
+					class="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+				>
+					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-5 w-5" aria-hidden="true">
+						<path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"/>
+					</svg>
+				</Dialog.Close>
+			</div>
+
+			<Dialog.Description class="mt-2 text-sm text-slate-600">
+				This will freeze the current project financial state into an official issued invoice with the next sequential invoice number (<code class="text-indigo-600 font-semibold">INV-XXXX</code>).
+			</Dialog.Description>
+
+			{#if generateErr}
+				<p role="alert" class="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+					{generateErr}
+				</p>
+			{/if}
+
+			{#if ledgerSummary}
+				<div class="mt-4 p-3 bg-slate-50 border border-slate-200 rounded-md text-sm space-y-1">
+					<div class="flex justify-between"><span class="text-slate-500">Project Charges:</span> <span class="font-semibold text-slate-900">{fmtPrice(ledgerSummary.total)}</span></div>
+					<div class="flex justify-between"><span class="text-slate-500">Total Payments:</span> <span class="font-semibold text-green-700">{fmtPrice(ledgerSummary.paid)}</span></div>
+					<div class="flex justify-between border-t border-slate-200 pt-1"><span class="text-slate-700 font-medium">Net Due:</span> <span class="font-bold text-slate-900">{fmtPrice(ledgerSummary.due)}</span></div>
+					{#if Number(ledgerSummary.advance_balance) > 0}
+						<div class="flex justify-between text-indigo-700"><span class="font-medium">Advance Credit:</span> <span class="font-bold">{fmtPrice(ledgerSummary.advance_balance)}</span></div>
+					{/if}
+				</div>
+			{/if}
+
+			<div class="mt-6 flex justify-end gap-3">
+				<Dialog.Close
+					class="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+				>
+					Cancel
+				</Dialog.Close>
+				<button
+					type="button"
+					disabled={generateBusy}
+					aria-busy={generateBusy}
+					onclick={runGenerateInvoice}
+					class="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+				>
+					{#if generateBusy}<Spinner class="h-4 w-4 text-white" />{/if}
+					Confirm & Issue Invoice
 				</button>
 			</div>
 		</Dialog.Content>

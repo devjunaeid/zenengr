@@ -1769,7 +1769,7 @@ class TestAutoInvoice:
         assert items[1].amount == Decimal("500.00")
 
     @pytest.mark.asyncio
-    async def test_issue_then_attach_creates_new_draft(
+    async def test_issue_blocked_attach_stays_on_same_draft(
         self, client: AsyncClient, db_session: AsyncSession
     ):
         ctx = await _bootstrap(db_session)
@@ -1797,9 +1797,9 @@ class TestAutoInvoice:
             f"/api/v1/tenant/invoices/{draft.id}/issue",
             headers=admin_headers,
         )
-        assert issue_resp.status_code == 200
-        assert issue_resp.json()["status"] == "issued"
-        assert issue_resp.json()["invoice_number"]
+        # statements cannot be issued -> attach still appends to the same draft
+        assert issue_resp.status_code == 422
+        assert "cannot be issued" in issue_resp.json()["error"]["message"]
 
         attach_resp = await client.post(
             f"/api/v1/tenant/projects/{pid}/services",
@@ -1809,17 +1809,16 @@ class TestAutoInvoice:
         assert attach_resp.status_code == 201
 
         invoices = await _invoices_for_project(db_session, pid)
-        assert len(invoices) == 2
-        old, new = invoices
-        assert old.status == InvoiceStatus.ISSUED
-        assert old.is_auto is True
-        assert len(await _line_items_for_invoice(db_session, old.id)) == 1
-        assert new.status == InvoiceStatus.DRAFT
-        assert new.subtotal == Decimal("500.00")
-        assert new.is_auto is True
-        new_items = await _line_items_for_invoice(db_session, new.id)
-        assert len(new_items) == 1
-        assert new_items[0].project_service_id is not None
+        assert len(invoices) == 1
+        inv = invoices[0]
+        assert inv.status == InvoiceStatus.DRAFT
+        assert inv.is_auto is True
+        assert inv.subtotal == Decimal("1000.00")
+        assert inv.total == Decimal("1000.00")
+        items = await _line_items_for_invoice(db_session, inv.id)
+        assert len(items) == 2
+        assert items[0].description == ctx["svc_a"].name
+        assert items[1].description == ctx["svc_b"].name
 
     @pytest.mark.asyncio
     async def test_auto_invoice_false_creates_no_drafts(
@@ -1948,7 +1947,7 @@ class TestAutoInvoice:
         assert len(await _invoices_for_project(db_session, pid)) == 0
 
     @pytest.mark.asyncio
-    async def test_issued_auto_invoice_keeps_is_auto_flag(
+    async def test_auto_invoice_issue_blocked_flag_kept(
         self, client: AsyncClient, db_session: AsyncSession
     ):
         ctx = await _bootstrap(db_session)
@@ -1968,20 +1967,21 @@ class TestAutoInvoice:
         draft = (await _invoices_for_project(db_session, pid))[0]
         assert draft.is_auto is True
 
-        # issue the auto draft; the flag survives into issued state
+        # auto statements can never be issued
         resp = await client.post(
             f"/api/v1/tenant/invoices/{draft.id}/issue",
             headers=admin_headers,
         )
-        assert resp.status_code == 200
-        assert resp.json()["status"] == "issued"
-        assert resp.json()["is_auto"] is True
+        assert resp.status_code == 422
+        assert "cannot be issued" in resp.json()["error"]["message"]
 
-        issued = (await _invoices_for_project(db_session, pid))[0]
-        assert issued.status == InvoiceStatus.ISSUED
-        assert issued.is_auto is True
+        # the flag survives and the statement stays DRAFT
+        inv = (await _invoices_for_project(db_session, pid))[0]
+        assert inv.status == InvoiceStatus.DRAFT
+        assert inv.is_auto is True
 
         # staff detail keeps the flag
         detail = await client.get(f"/api/v1/tenant/invoices/{draft.id}", headers=admin_headers)
         assert detail.status_code == 200
         assert detail.json()["is_auto"] is True
+        assert detail.json()["status"] == "draft"

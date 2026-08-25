@@ -31,6 +31,32 @@
 		}
 	}
 
+	let statementPdfBusy = $state(false);
+
+	async function downloadStatementPdf() {
+		if (statementPdfBusy) return;
+		statementPdfBusy = true;
+		try {
+			const res = await fetch(`/api/v1/client/projects/${encodeURIComponent(data.project.id)}/statement/pdf`, {
+				headers: { Authorization: `Bearer ${token}` }
+			});
+			if (!res.ok) throw new Error('Could not download statement PDF');
+			const blob = await res.blob();
+			const url = URL.createObjectURL(blob);
+			const a = document.createElement('a');
+			a.href = url;
+			a.download = `statement-${data.project.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.pdf`;
+			document.body.appendChild(a);
+			a.click();
+			document.body.removeChild(a);
+			URL.revokeObjectURL(url);
+		} catch (e) {
+			downloadErr = e instanceof Error ? e.message : 'Could not download statement PDF.';
+		} finally {
+			statementPdfBusy = false;
+		}
+	}
+
 	// ---- ledger (FEAT-018, read-only) ----
 	/** @type {import('$lib/api/portal.js').ClientProjectLedgerResponse|null} */
 	let ledgerData = $derived(data.ledger);
@@ -257,6 +283,23 @@
 				</dd>
 			</div>
 		</dl>
+		{#if Number(ledgerSummary?.advance_balance) > 0}
+			<div class="mt-4 rounded-md border border-indigo-200 bg-indigo-50 p-3">
+				<p class="text-sm font-medium text-indigo-900">
+					Advance Credit: <span class="font-bold text-indigo-700">{fmtPrice(ledgerSummary?.advance_balance)}</span>
+				</p>
+			</div>
+		{/if}
+		<div class="mt-4 flex justify-end">
+			<button
+				type="button"
+				disabled={statementPdfBusy}
+				onclick={downloadStatementPdf}
+				class="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+			>
+				Download statement PDF
+			</button>
+		</div>
 	{/if}
 </section>
 

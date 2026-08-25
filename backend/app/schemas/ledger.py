@@ -37,6 +37,7 @@ class SummaryResponse(BaseModel):
     total: str
     paid: str
     due: str
+    advance_balance: str = "0.00"
 
 
 class ProjectLedgerResponse(BaseModel):

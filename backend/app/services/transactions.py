@@ -223,6 +223,11 @@ async def _validate_allocations(
 
 async def _recompute_invoice_status(session: AsyncSession, invoice: Invoice) -> None:
     """Recompute invoice status from its net paid amount."""
+    if invoice.is_auto and invoice.status == InvoiceStatus.DRAFT:
+        # Auto (statement) invoices stay DRAFT while open: DRAFT means "live
+        # internal statement". Paid/balance is derived from allocations minus
+        # credits, never from the status, so skip the mutation entirely.
+        return
     net_paid = await _invoice_net_paid(session, invoice_id=invoice.id)
 
     if net_paid >= Decimal(invoice.total):
@@ -250,17 +255,23 @@ async def record_transaction(
     actor_id: uuid.UUID,
     direction: TransactionDirection = TransactionDirection.DEBIT,
 ) -> Transaction:
-    """Record a payment (DEBIT) against an issued or partially paid invoice.
+    """Record a payment (DEBIT) against an issued, partially paid, or
+    auto (statement) DRAFT invoice.
 
-    The portion of the payment that exceeds the invoice's remaining balance
-    is turned into an Advance (client-scoped, or unassigned for general
-    invoices). Returns the created Transaction with allocations eager-loaded.
+    Auto statement invoices in DRAFT accept payments as live internal
+    statements (the status never leaves DRAFT). The portion of the payment
+    that exceeds the invoice's remaining balance is turned into an Advance
+    (client-scoped, or unassigned for general invoices). Returns the created
+    Transaction with allocations eager-loaded.
     """
     invoice = await _get_invoice_with_items(session, tenant_id, invoice_id)
     if invoice is None:
         raise TransactionInvoiceNotFoundError()
 
-    if invoice.status not in (InvoiceStatus.ISSUED, InvoiceStatus.PARTIALLY_PAID):
+    payable = invoice.status in (InvoiceStatus.ISSUED, InvoiceStatus.PARTIALLY_PAID) or (
+        invoice.is_auto and invoice.status == InvoiceStatus.DRAFT
+    )
+    if not payable:
         if invoice.status == InvoiceStatus.PAID:
             raise TransactionAlreadyPaidError()
         raise TransactionNotPayableError()
@@ -375,12 +386,22 @@ async def refund_invoice(
 ) -> Transaction:
     """Record a refund (CREDIT transaction, no allocations) against an invoice.
 
-    The refund cannot exceed the invoice's net paid amount. Returns the
-    created Transaction with allocations eager-loaded.
+    Allowed on issued/partially paid/paid invoices and on auto (statement)
+    invoices in DRAFT; other states are not payable. The refund cannot exceed
+    the invoice's net paid amount. Returns the created Transaction with
+    allocations eager-loaded.
     """
     invoice = await _get_invoice_with_items(session, tenant_id, invoice_id)
     if invoice is None:
         raise TransactionInvoiceNotFoundError()
+
+    payable = invoice.status in (
+        InvoiceStatus.ISSUED,
+        InvoiceStatus.PARTIALLY_PAID,
+        InvoiceStatus.PAID,
+    ) or (invoice.is_auto and invoice.status == InvoiceStatus.DRAFT)
+    if not payable:
+        raise TransactionNotPayableError()
 
     if amount <= 0:
         raise TransactionInvalidAmountError()
@@ -437,7 +458,8 @@ async def apply_advance(
     amount: Decimal | None,
     actor_id: uuid.UUID,
 ) -> dict[str, str]:
-    """Apply client advance balance to an issued/partially paid invoice.
+    """Apply client advance balance to an issued/partially paid invoice, or
+    to an auto (statement) invoice in DRAFT.
 
     Advance scope matches the invoice: client-scoped when the invoice has a
     project, unassigned (client_id NULL) for general invoices. Advances are
@@ -447,7 +469,10 @@ async def apply_advance(
     if invoice is None:
         raise TransactionInvoiceNotFoundError()
 
-    if invoice.status not in (InvoiceStatus.ISSUED, InvoiceStatus.PARTIALLY_PAID):
+    payable = invoice.status in (InvoiceStatus.ISSUED, InvoiceStatus.PARTIALLY_PAID) or (
+        invoice.is_auto and invoice.status == InvoiceStatus.DRAFT
+    )
+    if not payable:
         raise ApplyAdvanceError()
 
     client_id = invoice.project.client_id if invoice.project else None

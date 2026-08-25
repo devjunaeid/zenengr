@@ -295,10 +295,10 @@
 		<StatusBadge status={data.invoice.status} />
 		{#if data.invoice.is_auto}
 			<span
-				title="Auto-generated statement invoice (admin only)"
+				title="Statement invoice — internal, project-scoped"
 				class="inline-flex items-center rounded-full bg-violet-100 px-2.5 py-0.5 text-xs font-medium text-violet-800 ring-1 ring-violet-600/20 ring-inset"
 			>
-				Auto
+				Statement
 			</span>
 		{/if}
 		{#if data.invoice.project_id == null}
@@ -371,20 +371,22 @@
 			>
 				Edit
 			</a>
-			<button
-				type="button"
-				onclick={() => (issueOpen = true)}
-				class="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
-			>
-				Issue
-			</button>
-			<button
-				type="button"
-				onclick={() => (deleteOpen = true)}
-				class="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none"
-			>
-				Delete
-			</button>
+			{#if !data.invoice.is_auto}
+				<button
+					type="button"
+					onclick={() => (issueOpen = true)}
+					class="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+				>
+					Issue
+				</button>
+				<button
+					type="button"
+					onclick={() => (deleteOpen = true)}
+					class="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none"
+				>
+					Delete
+				</button>
+			{/if}
 		{:else if data.invoice.status === 'issued' || data.invoice.status === 'partially_paid' || data.invoice.status === 'paid'}
 			{#if data.invoice.status === 'issued' || data.invoice.status === 'partially_paid'}
 				<button
@@ -419,7 +421,7 @@
 
 {#if data.invoice.is_auto}
 	<p class="mt-3 text-sm text-slate-500">
-		Auto-generated statement invoice — not visible in the client portal.
+		Statement invoice — internal to this project; not visible in the client portal.
 	</p>
 {/if}
 
@@ -615,14 +617,21 @@
 				{data.transactions.length === 1 ? 'payment' : 'payments'} recorded
 			</p>
 		</div>
-		{#if data.invoice.status === 'issued' || data.invoice.status === 'partially_paid'}
-			<button
-				type="button"
-				onclick={openPay}
-				class="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
-			>
-				Record payment
-			</button>
+		{#if data.invoice.status === 'issued' || data.invoice.status === 'partially_paid' || (data.invoice.is_auto && data.invoice.status === 'draft')}
+			<div class="flex flex-wrap items-center gap-2">
+				{#if data.invoice.is_auto && data.invoice.status === 'draft'}
+					<p class="text-xs text-slate-500">
+						Statement invoice — payments can be recorded without issuing.
+					</p>
+				{/if}
+				<button
+					type="button"
+					onclick={openPay}
+					class="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+				>
+					Record payment
+				</button>
+			</div>
 		{/if}
 	</div>
 	<dl class="grid gap-4 border-b border-slate-200 bg-slate-50 px-6 py-4 sm:grid-cols-2">

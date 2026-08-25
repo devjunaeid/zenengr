@@ -240,3 +240,73 @@ export function addLedgerAdjustment(fetchFn, token, id, body) {
 		body
 	});
 }
+
+/**
+ * Live project statement (FEAT-019).
+ * @param {typeof fetch} fetchFn
+ * @param {string} token
+ * @param {string} id
+ * @returns {Promise<LedgerResponse>}
+ */
+export function getProjectStatement(fetchFn, token, id) {
+	return apiFetch(fetchFn, `/tenant/projects/${encodeURIComponent(id)}/statement`, { token });
+}
+
+/**
+ * Generate and issue an official cumulative statement invoice (FEAT-019).
+ * @param {typeof fetch} fetchFn
+ * @param {string} token
+ * @param {string} id
+ * @returns {Promise<any>}
+ */
+export function generateStatementInvoice(fetchFn, token, id) {
+	return apiFetch(fetchFn, `/tenant/projects/${encodeURIComponent(id)}/generate-statement-invoice`, {
+		method: 'POST',
+		token
+	});
+}
+
+/**
+ * Download project statement PDF.
+ * @param {typeof fetch} fetchFn
+ * @param {string} token
+ * @param {string} projectId
+ * @param {string} filename
+ * @returns {Promise<void>}
+ */
+export async function downloadProjectStatementPdf(fetchFn, token, projectId, filename) {
+	const res = await fetchFn(`/api/v1/tenant/projects/${encodeURIComponent(projectId)}/statement/pdf`, {
+		headers: { Authorization: `Bearer ${token}` }
+	});
+	if (!res.ok) {
+		throw new ApiError(res.status, 'UNKNOWN', 'Could not download statement PDF', {});
+	}
+	const blob = await res.blob();
+	const url = URL.createObjectURL(blob);
+	const a = document.createElement('a');
+	a.href = url;
+	a.download = filename;
+	document.body.appendChild(a);
+	a.click();
+	document.body.removeChild(a);
+	URL.revokeObjectURL(url);
+}
+
+/**
+ * Open project statement PDF in a new tab.
+ * @param {typeof fetch} fetchFn
+ * @param {string} token
+ * @param {string} projectId
+ * @returns {Promise<void>}
+ */
+export async function viewProjectStatementPdf(fetchFn, token, projectId) {
+	const res = await fetchFn(`/api/v1/tenant/projects/${encodeURIComponent(projectId)}/statement/pdf`, {
+		headers: { Authorization: `Bearer ${token}` }
+	});
+	if (!res.ok) {
+		throw new ApiError(res.status, 'UNKNOWN', 'Could not open statement PDF', {});
+	}
+	const blob = await res.blob();
+	const url = URL.createObjectURL(blob);
+	window.open(url, '_blank', 'noopener,noreferrer');
+}

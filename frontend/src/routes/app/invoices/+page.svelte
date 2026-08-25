@@ -185,10 +185,10 @@
 									<StatusBadge status={inv.status} />
 									{#if inv.is_auto}
 										<span
-											title="Auto-generated statement invoice (admin only)"
+											title="Statement invoice — internal, project-scoped"
 											class="inline-flex items-center rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-800 ring-1 ring-violet-600/20 ring-inset"
 										>
-											Auto
+											Statement
 										</span>
 									{/if}
 								</span>

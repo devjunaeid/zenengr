@@ -420,9 +420,10 @@
 				class="mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
 			/>
 			<label for="auto-invoice" class="cursor-pointer text-sm text-slate-700">
-				<span class="font-medium text-slate-900">Auto-invoice (on by default)</span>
+				<span class="font-medium text-slate-900">Statement invoice</span>
 				<span class="mt-0.5 block text-slate-500">
-					Keeps your project's statement invoice updated as services are added.
+					Keeps an internal, project-scoped statement updated as services are added (not shown to
+					clients).
 				</span>
 			</label>
 		</div>

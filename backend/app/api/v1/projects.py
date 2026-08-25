@@ -41,8 +41,13 @@ from app.schemas.projects import (
     ProjectServiceItem,
     ProjectUpdateRequest,
 )
+from app.models.tenant import Tenant
+from app.schemas.invoices import InvoiceResponse
+from app.api.v1.invoices import _to_response as _to_invoice_response
 from app.services import comments as comment_service
+from app.services import invoices as invoice_service
 from app.services import ledger as ledger_service
+from app.services import pdf as pdf_service
 from app.services import projects as project_service
 
 router = APIRouter(prefix="/tenant/projects", tags=["projects"])
@@ -495,6 +500,69 @@ async def add_manual_adjustment_endpoint(
         entry_date=entry.entry_date,
         created_at=entry.created_at,
     )
+
+
+# ── Statement & Cumulative Invoicing (FEAT-019, TODO-188/189) ──────────────
+
+
+@router.get("/{project_id}/statement", response_model=ProjectLedgerResponse)
+async def get_project_statement_endpoint(
+    project_id: str,
+    session: AsyncSession = Depends(get_session),
+    user: AdminUser = Depends(get_current_admin_user),
+) -> ProjectLedgerResponse:
+    """Live project financial statement data (charges, payments, advances, due)."""
+    tenant_id = _get_tenant_id(user)
+    pid = _parse_uuid(project_id, kind="Project")
+    data = await ledger_service.get_project_ledger(session, tenant_id=tenant_id, project_id=pid)
+    return ProjectLedgerResponse(
+        entries=[LedgerEntryResponse(**entry) for entry in data["entries"]],
+        summary=SummaryResponse(**data["summary"]),
+    )
+
+
+@router.get("/{project_id}/statement/pdf")
+async def get_project_statement_pdf_endpoint(
+    project_id: str,
+    session: AsyncSession = Depends(get_session),
+    user: AdminUser = Depends(get_current_admin_user),
+) -> Response:
+    """Render and download/view live project statement PDF."""
+    tenant_id = _get_tenant_id(user)
+    pid = _parse_uuid(project_id, kind="Project")
+    tenant = await session.get(Tenant, tenant_id)
+    pdf_bytes = await pdf_service.render_project_statement_pdf(
+        session, project_id=pid, tenant=tenant
+    )
+    if not pdf_bytes:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="statement-{pid}.pdf"'},
+    )
+
+
+@router.post(
+    "/{project_id}/generate-statement-invoice",
+    response_model=InvoiceResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def generate_statement_invoice_endpoint(
+    project_id: str,
+    session: AsyncSession = Depends(get_session),
+    user: AdminUser = Depends(require_permission("manage", "invoices")),
+) -> InvoiceResponse:
+    """Generate and issue a cumulative statement invoice snapshotting current project financials."""
+    tenant_id = _get_tenant_id(user)
+    pid = _parse_uuid(project_id, kind="Project")
+    invoice = await invoice_service.generate_statement_invoice(
+        session,
+        tenant_id=tenant_id,
+        project_id=pid,
+        actor_id=user.id,
+    )
+    return _to_invoice_response(invoice)
 
 
 # ═══════════════════════════════════════════════════════════════════════════

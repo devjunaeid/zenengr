@@ -19,9 +19,9 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 
 | Area | Count | Key metric |
 | ---- | ----- | ---------- |
-| Features | 19 | approved: 18, proposed: 1 |
-| User stories | 62 | done: 23, in_progress: 4, proposed: 35 |
-| Todos | 186 | done: 186, in_progress: 0, proposed: 0 |
+| Features | 20 | approved: 19, proposed: 1 |
+| User stories | 64 | done: 23, in_progress: 4, proposed: 37 |
+| Todos | 193 | done: 186, in_progress: 0, proposed: 7 |
 | Decisions | 2 | accepted: 2 |
 
 ## Active sprint
@@ -60,6 +60,7 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | [FEAT-016](features/FEAT-016-custom-roles-permissions.md) | Custom Roles & Permission Management | approved | P0 |
 | [FEAT-017](features/FEAT-017-notifications.md) | Realtime Notifications (Admin + Client) | approved | P0 |
 | [FEAT-018](features/FEAT-018-project-ledger.md) | Project Ledger (Balance-Forward) & Formal Invoice Generator | approved | P0 |
+| [FEAT-019](features/FEAT-019-statement-invoicing.md) | Cumulative Statement Invoicing & Realtime Financial Sync | approved | P0 |
 
 ### Stories
 
@@ -127,6 +128,8 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | [US-060](stories/US-060.md) | Client portal notifications synced with admin | FEAT-017 | done |
 | [US-061](stories/US-061.md) | Project ledger: charges, payments, discount, summary | FEAT-018 | done |
 | [US-062](stories/US-062.md) | Formal invoice generator + tagging | FEAT-018 | done |
+| [US-063](stories/US-063.md) | Project statement live preview, running balance & advance calculation | FEAT-019 | proposed |
+| [US-064](stories/US-064.md) | Cumulative statement invoice issuance & dual-portal PDF view | FEAT-019 | proposed |
 
 ### Todos
 
@@ -411,10 +414,23 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | [TODO-185](todos/TODO-185.md) | Invoice generator + invoice_ref tagging | US-062 | done |
 | [TODO-186](todos/TODO-186.md) | Tests + verification + docs sync | US-061 | done |
 
+#### FEAT-019 — Cumulative Statement Invoicing & Realtime Financial Sync
+
+| ID | Title | Story | Status |
+| -- | ----- | ----- | ------ |
+| [TODO-187](todos/TODO-187.md) | Statement aggregation & live financial service with Advance support | US-063 | proposed |
+| [TODO-188](todos/TODO-188.md) | Live statement preview & PDF export API | US-063 | proposed |
+| [TODO-189](todos/TODO-189.md) | Cumulative statement invoice generation & issue endpoint | US-064 | proposed |
+| [TODO-190](todos/TODO-190.md) | Statement invoice PDF layout in reportlab service | US-064 | proposed |
+| [TODO-191](todos/TODO-191.md) | Frontend live statement preview & print UI on project detail page | US-063 | proposed |
+| [TODO-192](todos/TODO-192.md) | Frontend 'Generate Statement Invoice' action & Client portal statement view | US-064 | proposed |
+| [TODO-193](todos/TODO-193.md) | Automated tests & end-to-end verification for statement invoices | US-064 | proposed |
+
 ## Recently updated
 
 | Date | Item | Change |
 | ---- | ---- | ------ |
+| 2026-08-26 | FEAT-019 Cumulative Statement Invoicing & Realtime Financial Sync docs drafted | docs/features/FEAT-019-statement-invoicing.md, docs/stories/US-063.md, docs/stories/US-064.md, docs/todos/TODO-187.md..TODO-193.md, docs/index.md, docs/progress.md. |
 | 2026-08-07 | FEAT-018 Project Ledger & Invoice Generator docs drafted | docs/features/FEAT-018-project-ledger.md, docs/stories/US-061.md, docs/stories/US-062.md, docs/todos/TODO-178.md, docs/todos/TODO-179.md, docs/todos/TODO-180.md, docs/todos/TODO-181.md, docs/todos/TODO-182.md, docs/todos/TODO-183.md, docs/todos/TODO-184.md, docs/todos/TODO-185.md, docs/todos/TODO-186.md, docs/index.md, docs/progress.md. |
 | 2026-08-06 | FEAT-017 Realtime Notifications docs drafted | docs/features/FEAT-017-notifications.md, docs/stories/US-059.md, docs/stories/US-060.md, docs/todos/TODO-168.md, docs/todos/TODO-169.md, docs/todos/TODO-170.md, docs/todos/TODO-171.md, docs/todos/TODO-172.md, docs/todos/TODO-173.md, docs/todos/TODO-174.md, docs/todos/TODO-175.md, docs/todos/TODO-176.md, docs/todos/TODO-177.md, docs/index.md, docs/progress.md. |
 | 2026-07-31 | Project management BE slice complete (FEAT-007 US-025..US-027) | TODO-062/064/065/068 done. Project + ProjectService + ProjectMilestone models, migration `c1d2e3f4a5b6`, repos + service + API, 34 tests green, ruff + mypy clean. Soft-cancel + financial rollups (TODO-070/072) deferred to follow-up. |
