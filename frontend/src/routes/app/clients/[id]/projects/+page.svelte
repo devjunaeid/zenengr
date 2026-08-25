@@ -15,15 +15,11 @@
 
 	let canManage = $derived(auth.can('manage', 'projects'));
 
-	/**
-	 * @param {import('$lib/api/projects.js').ProjectListItem} p
-	 */
 	function progressPct(p) {
 		if (!p.milestone_total) return 0;
 		return Math.min(100, Math.round((p.milestone_completed / p.milestone_total) * 100));
 	}
 
-	/** @param {number} p */
 	function gotoPage(p) {
 		const params = new SvelteURLSearchParams();
 		if (p > 1) params.set('page', String(p));

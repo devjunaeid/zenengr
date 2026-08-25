@@ -12,7 +12,7 @@
 
 	let { data } = $props();
 
-	const token = /** @type {string} */ (auth.token);
+	const token = auth.token;
 	const client = untrack(() => data.client);
 
 	let name = $state(client.name);
@@ -20,13 +20,10 @@
 	let email = $state(client.email ?? '');
 	let phone = $state(client.phone ?? '');
 	let taxId = $state(client.tax_id ?? '');
-	/** @type {import('$lib/utils/address.js').AddressFields} */
 	let addressFields = $state(addressToFields(client.billing_address));
-	/** @type {string[]} */
 	let tags = $state([...client.tags]);
 	let tagInput = $state('');
 	let busy = $state(false);
-	/** @type {string|null} */
 	let err = $state(null);
 
 	function addTag() {
@@ -36,12 +33,10 @@
 		tagInput = '';
 	}
 
-	/** @param {string} t */
 	function removeTag(t) {
 		tags = tags.filter((x) => x !== t);
 	}
 
-	/** @param {KeyboardEvent} e */
 	function onTagKeydown(e) {
 		if (e.key === 'Enter' || e.key === ',') {
 			e.preventDefault();
@@ -55,10 +50,9 @@
 		busy = true;
 		err = null;
 		try {
-			/** @type {Record<string, any>} */
 			const body = {
 				name,
-				client_type: /** @type {'company'|'individual'} */ (clientType),
+				client_type: clientType,
 				email: email.trim() || null,
 				phone: phone.trim() || null,
 				tax_id: taxId.trim() || null,

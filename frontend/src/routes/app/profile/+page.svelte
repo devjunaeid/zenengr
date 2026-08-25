@@ -7,13 +7,10 @@
 	import { auth } from '$lib/stores/auth.svelte.js';
 	import { formatDateTime, humanize } from '$lib/utils/format.js';
 
-	// Layout guard guarantees these exist
 	let { data } = $props();
-	const token = /** @type {string} */ (auth.token);
+	const token = auth.token;
 	const initial = untrack(() => data.profile);
 	const activity = untrack(() => data.activity);
-
-	// ── Account profile form ────────────────────────────────────────────────
 
 	let fullName = $state(initial.full_name ?? '');
 	let email = $state(initial.email ?? '');
@@ -22,9 +19,7 @@
 	let language = $state(initial.language ?? '');
 	let avatarUrl = $state(initial.avatar_url ?? '');
 	let saving = $state(false);
-	/** @type {string|null} */
 	let saveError = $state(null);
-	/** @type {string|null} */
 	let saveSuccess = $state(null);
 
 	async function saveProfile() {
@@ -33,7 +28,6 @@
 		saveError = null;
 		saveSuccess = null;
 		try {
-			/** @type {Record<string, any>} */
 			const body = {
 				full_name: fullName.trim(),
 				email: email.trim(),
@@ -49,7 +43,6 @@
 			timezone = updated.timezone ?? '';
 			language = updated.language ?? '';
 			avatarUrl = updated.avatar_url ?? '';
-			// Keep the header name in sync
 			if (auth.user) auth.user.full_name = updated.full_name;
 			await invalidateAll();
 			saveSuccess = updated.pending_email
@@ -62,15 +55,11 @@
 		}
 	}
 
-	// ── Change password ─────────────────────────────────────────────────────
-
 	let currentPassword = $state('');
 	let newPassword = $state('');
 	let confirmPassword = $state('');
 	let changing = $state(false);
-	/** @type {string|null} */
 	let changeError = $state(null);
-	/** @type {string|null} */
 	let changeSuccess = $state(null);
 
 	async function submitPassword() {

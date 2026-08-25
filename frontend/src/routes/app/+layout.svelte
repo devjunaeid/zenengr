@@ -19,7 +19,6 @@
 
 	let { data, children } = $props();
 
-	/** @type {Array<{ href: string, label: string, icon: any, exact: boolean, adminOnly?: boolean, perm?: [string, string] }>} */
 	const nav = [
 		{ href: '/app', label: 'Dashboard', icon: viewDashboard, exact: true, adminOnly: false },
 		{ href: '/app/team', label: 'Team', icon: accountGroup, exact: false, adminOnly: false },
@@ -57,10 +56,6 @@
 		{ href: '/app/audit', label: 'Audit log', icon: history, exact: false, adminOnly: true }
 	];
 
-	/**
-	 * Permission-gated nav items are filtered by auth.can; adminOnly items
-	 * stay tenant-admin-only (audit log has no permission mapping yet).
-	 */
 	let visibleNav = $derived(
 		nav.filter((i) => {
 			if (i.adminOnly) return auth.isTenantAdmin;
@@ -69,13 +64,9 @@
 		})
 	);
 
-	// Tenant branding accent (FEAT-011). Defensive: render nothing when unset.
 	const brandColor = $derived(data.profile.branding?.color);
 	const logoUrl = $derived(data.profile.branding?.logo_url);
 
-	/**
-	 * @param {{ href: string, exact: boolean }} item
-	 */
 	function isActive(item) {
 		return item.exact ? page.url.pathname === item.href : page.url.pathname.startsWith(item.href);
 	}
@@ -128,7 +119,7 @@
 				{#each visibleNav as item (item.href)}
 					{@const active = isActive(item)}
 					<a
-						href={resolve(/** @type {any} */ (item.href))}
+						href={resolve(item.href)}
 						aria-current={active ? 'page' : undefined}
 						class="group flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium {active
 							? 'bg-indigo-600 text-white shadow-sm'

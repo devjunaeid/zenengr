@@ -9,7 +9,7 @@
 	import { humanize } from '$lib/utils/format.js';
 
 	let { data } = $props();
-	const token = /** @type {string} */ (auth.token);
+	const token = auth.token;
 
 	const EVENT_TYPES = [
 		'new_comment',
@@ -21,7 +21,6 @@
 		'project_created'
 	];
 
-	/** @type {Record<string, string>} */
 	const EVENT_LABELS = {
 		new_comment: 'New comment',
 		invoice_issued: 'Invoice issued',
@@ -32,11 +31,6 @@
 		project_created: 'Project created'
 	};
 
-	/**
-	 * Normalize the backend list into the canonical 7-entry order so every
-	 * toggle row renders even when an event has no stored preference yet.
-	 * @param {Array<{ event_type: string, enabled: boolean }>} loaded
-	 */
 	function buildPrefs(loaded) {
 		return EVENT_TYPES.map((eventType) => {
 			const found = loaded.find((p) => p.event_type === eventType);
@@ -46,22 +40,13 @@
 
 	let emailPrefs = $state(buildPrefs(untrack(() => data.prefs)));
 	let inappPrefs = $state(buildPrefs(untrack(() => data.inappPrefs)));
-	/** @type {string|null} */
 	let savingPref = $state(null);
-	/** @type {string|null} */
 	let prefsError = $state(null);
 	let prefsSaved = $state(false);
 
 	const emailOnCount = $derived(emailPrefs.filter((p) => p.enabled).length);
 	const inappOnCount = $derived(inappPrefs.filter((p) => p.enabled).length);
 
-	/**
-	 * Flip a single preference and PATCH it immediately. Optimistic: the row
-	 * updates right away and reverts if the backend rejects the change.
-	 * @param {'email'|'inapp'} channel
-	 * @param {string} eventType
-	 * @param {boolean} enabled
-	 */
 	async function togglePref(channel, eventType, enabled) {
 		if (savingPref) return;
 		savingPref = `${channel}:${eventType}`;
@@ -93,10 +78,6 @@
 		}
 	}
 
-	/**
-	 * @param {string} channel
-	 * @param {{ event_type: string, enabled: boolean }} pref
-	 */
 	function toggleKey(channel, pref) {
 		return `${channel}:${pref.event_type}`;
 	}

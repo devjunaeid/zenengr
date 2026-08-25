@@ -3,15 +3,9 @@ import { ApiError } from '$lib/api/client.js';
 import * as clientApi from '$lib/api/clients.js';
 import { auth } from '$lib/stores/auth.svelte.js';
 
-/**
- * Overview tab data. The client itself is loaded by the parent layout
- * ([id]/+layout.js) and shared across the tabs via the merged `data` prop.
- *
- * @param {{ fetch: typeof fetch, params: { id: string }, url: URL }} event
- */
 export async function load({ fetch, params, url }) {
 	await auth.init(fetch);
-	const token = /** @type {string} */ (auth.token);
+	const token = auth.token;
 	const id = params.id;
 
 	const notesPage = Math.max(1, Number(url.searchParams.get('notes_page') ?? '1') || 1);

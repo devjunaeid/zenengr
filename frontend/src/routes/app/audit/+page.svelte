@@ -12,7 +12,6 @@
 	let from = $state(untrack(() => data.filters.from));
 	let to = $state(untrack(() => data.filters.to));
 
-	/** @param {number} page */
 	function gotoPage(page) {
 		goto(
 			// eslint-disable-next-line svelte/no-navigation-without-resolve -- query string appended to a resolved route

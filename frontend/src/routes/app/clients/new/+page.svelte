@@ -8,7 +8,7 @@
 	import { auth } from '$lib/stores/auth.svelte.js';
 	import { fieldsToAddress } from '$lib/utils/address.js';
 
-	const token = /** @type {string} */ (auth.token);
+	const token = auth.token;
 
 	let name = $state('');
 	let clientType = $state('company');
@@ -17,7 +17,6 @@
 	let taxId = $state('');
 	let clientUserEmail = $state('');
 	let clientUserPassword = $state('');
-	/** @type {import('$lib/utils/address.js').AddressFields} */
 	let addressFields = $state({
 		address_line1: '',
 		address_line2: '',
@@ -26,11 +25,9 @@
 		postal_code: '',
 		country: ''
 	});
-	/** @type {string[]} */
 	let tags = $state([]);
 	let tagInput = $state('');
 	let busy = $state(false);
-	/** @type {string|null} */
 	let err = $state(null);
 
 	function addTag() {
@@ -40,12 +37,10 @@
 		tagInput = '';
 	}
 
-	/** @param {string} t */
 	function removeTag(t) {
 		tags = tags.filter((x) => x !== t);
 	}
 
-	/** @param {KeyboardEvent} e */
 	function onTagKeydown(e) {
 		if (e.key === 'Enter' || e.key === ',') {
 			e.preventDefault();
@@ -59,10 +54,9 @@
 		busy = true;
 		err = null;
 		try {
-			/** @type {Record<string, any>} */
 			const body = {
 				name,
-				client_type: /** @type {'company'|'individual'} */ (clientType),
+				client_type: clientType,
 				...(email.trim() && { email: email.trim() }),
 				...(phone.trim() && { phone: phone.trim() }),
 				...(taxId.trim() && { tax_id: taxId.trim() }),
@@ -72,7 +66,7 @@
 			};
 			const billingAddress = fieldsToAddress(addressFields);
 			if (Object.keys(billingAddress).length) body.billing_address = billingAddress;
-			const created = await clientApi.createClient(fetch, token, /** @type {any} */ (body));
+			const created = await clientApi.createClient(fetch, token, body);
 			goto(resolve('/app/clients/[id]', { id: created.id }));
 		} catch (e) {
 			err = e instanceof ApiError ? e.message : 'Create failed.';

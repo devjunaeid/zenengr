@@ -9,47 +9,24 @@
 	import { auth } from '$lib/stores/auth.svelte.js';
 	import { fmtPrice } from '$lib/utils/format.js';
 
-	/**
-	 * One editable line item row. `kind` switches between a billed project
-	 * service and a custom description/price line.
-	 * @typedef {object} LineItemRow
-	 * @property {number} key
-	 * @property {'service'|'custom'} kind
-	 * @property {string} project_service_id '' for custom rows
-	 * @property {string} service_name display name for service rows
-	 * @property {number|string} unit_price decimal snapshot for service rows, input for custom
-	 * @property {number} quantity
-	 * @property {string} description
-	 * @property {string} entry_date ISO date-only (YYYY-MM-DD)
-	 */
-
 	let { data } = $props();
 
-	const token = /** @type {string} */ (auth.token);
+	const token = auth.token;
 
 	let projectId = $state(untrack(() => data.initialProjectId));
-	/** @type {string|null} */
 	let issueDate = $state(null);
-	/** @type {string|null} */
 	let dueDate = $state(null);
 	let notes = $state('');
-	/** @type {import('$lib/api/projects.js').ProjectServiceItem[]} */
 	let projectServices = $state([]);
-	/** @type {string|null} */
 	let loadedProjectId = $state(null);
 	let servicesLoading = $state(false);
-	/** @type {string|null} */
 	let servicesErr = $state(null);
-	/** @type {import('$lib/api/projects.js').LedgerResponse|null} */
 	let projectLedger = $state(null);
 
 	let rowKey = 1;
-	/** Line item date defaults to today (backend also defaults on create). */
 	const today = new Date().toISOString().slice(0, 10);
-	/** @type {LineItemRow[]} */
 	let rows = $state([]);
 	let busy = $state(false);
-	/** @type {string|null} */
 	let err = $state(null);
 
 	$effect(() => {
@@ -66,8 +43,6 @@
 		servicesLoading = true;
 		servicesErr = null;
 		try {
-			// Ledger is a nice-to-have here (already-invoiced flags + project
-			// discount); a failure must not block the generator.
 			const [project, ledger] = await Promise.all([
 				projectApi.getProject(fetch, token, projectId),
 				projectApi.getProjectLedger(fetch, token, projectId).catch(() => null)
@@ -96,17 +71,10 @@
 		});
 	}
 
-	/**
-	 * @param {number} key
-	 */
 	function removeRow(key) {
 		rows = rows.filter((r) => r.key !== key);
 	}
 
-	/**
-	 * @param {LineItemRow} row
-	 * @param {string} psId
-	 */
 	function onRowServiceChange(row, psId) {
 		row.project_service_id = psId;
 		const ps = projectServices.find((s) => s.id === psId);
@@ -118,15 +86,7 @@
 		rows.reduce((sum, r) => sum + r.quantity * (Number(r.unit_price) || 0), 0)
 	);
 
-	// ---- FEAT-018 generator helpers ----
-
-	/**
-	 * project_service_id -> distinct invoice numbers for charges already
-	 * covered by an issued invoice (from the project ledger timeline).
-	 * @type {Record<string, string[]>}
-	 */
 	let invoicedByService = $derived.by(() => {
-		/** @type {Record<string, string[]>} */
 		const map = {};
 		for (const e of projectLedger?.entries ?? []) {
 			if (
@@ -143,12 +103,6 @@
 		return map;
 	});
 
-	/**
-	 * "Invoiced — INV-…" flag for a service option, or null when the service
-	 * is not yet covered by any issued invoice.
-	 * @param {string} psId
-	 * @returns {string|null}
-	 */
 	function invoicedFlag(psId) {
 		const nums = invoicedByService[psId];
 		if (!nums || nums.length === 0) return null;
@@ -156,11 +110,6 @@
 		return nums.length > 1 ? `Invoiced — ${head} +${nums.length - 1} more` : `Invoiced — ${head}`;
 	}
 
-	/**
-	 * Auto-applied project discount as a negative line item. Recomputes
-	 * whenever the line items change; only applies when the subtotal is > 0.
-	 * @type {{ amount: number, label: string }|null}
-	 */
 	let discount = $derived.by(() => {
 		const s = projectLedger?.summary;
 		if (!s) return null;
@@ -205,10 +154,8 @@
 		}
 		busy = true;
 		try {
-			/** @type {Record<string, any>} */
 			const body = {
 				line_items: rows.map((r) => {
-					/** @type {Record<string, any>} */
 					const item = {};
 					if (r.entry_date) item.entry_date = r.entry_date;
 					if (r.kind === 'service') {
@@ -232,7 +179,7 @@
 			if (issueDate) body.issue_date = issueDate;
 			if (dueDate) body.due_date = dueDate;
 			if (notes.trim()) body.notes = notes.trim();
-			const created = await invoiceApi.createInvoice(fetch, token, /** @type {any} */ (body));
+			const created = await invoiceApi.createInvoice(fetch, token, body);
 			goto(resolve('/app/invoices/[id]', { id: created.id }));
 		} catch (e) {
 			err = e instanceof ApiError ? e.message : 'Create failed.';
@@ -404,10 +351,7 @@
 									id={`li-service-${row.key}`}
 									value={row.project_service_id}
 									onchange={(e) =>
-										onRowServiceChange(
-											row,
-											/** @type {HTMLSelectElement} */ (e.currentTarget).value
-										)}
+										onRowServiceChange(row, e.currentTarget.value)}
 									class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
 								>
 									<option value="" disabled>Select a service</option>

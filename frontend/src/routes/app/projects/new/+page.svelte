@@ -11,49 +11,35 @@
 
 	let { data } = $props();
 
-	const token = /** @type {string} */ (auth.token);
+	const token = auth.token;
 
 	let name = $state('');
 	let clientId = $state(untrack(() => data.initialClientId));
-	/** @type {string|null} */
 	let startDate = $state(null);
-	/** @type {string|null} */
 	let ownerId = $state(null);
-	/** @type {string[]} */
 	let selectedServiceIds = $state([]);
-	/** @type {Record<string, number|string>} */
 	let servicePrices = $state({});
 	let autoInvoice = $state(true);
 	let busy = $state(false);
-	/** @type {string|null} */
 	let err = $state(null);
 
 	let previewOpen = $state(false);
-	/** @type {Record<string, import('$lib/api/services.js').MilestoneStep[]|null>} */
 	let previewCache = $state({});
-	/** @type {Record<string, boolean>} */
 	let previewLoading = $state({});
-	/** @type {string|null} */
 	let previewErr = $state(null);
 
 	let selectedServiceCount = $derived(selectedServiceIds.length);
 
 	$effect(() => {
-		// Auto-open preview the first time the user selects any service.
 		if (selectedServiceCount > 0) previewOpen = true;
 	});
 
-	/**
-	 * Fetch service details on demand for each selected service and merge.
-	 * Caches in `previewCache` keyed by service id.
-	 */
 	async function loadPreview() {
 		previewErr = null;
 		const missing = selectedServiceIds.filter(
 			(id) => previewCache[id] === undefined && !previewLoading[id]
 		);
 		if (missing.length === 0) return;
-		// mark loading
 		const nextLoading = { ...previewLoading };
 		for (const id of missing) nextLoading[id] = true;
 		previewLoading = nextLoading;
@@ -79,15 +65,11 @@
 	}
 
 	$effect(() => {
-		// Reload preview when selection changes and the panel is open.
 		if (previewOpen && selectedServiceIds.length > 0) {
 			loadPreview();
 		}
 	});
 
-	/**
-	 * @param {import('$lib/api/services.js').ServiceListItem} svc
-	 */
 	function toggleService(svc) {
 		if (selectedServiceIds.includes(svc.id)) {
 			selectedServiceIds = selectedServiceIds.filter((x) => x !== svc.id);
@@ -100,11 +82,6 @@
 		}
 	}
 
-	/**
-	 * Inline price validation: empty means "use default", otherwise must be > 0.
-	 * @param {string} id
-	 * @returns {string|null}
-	 */
 	function priceError(id) {
 		const v = servicePrices[id];
 		if (v === undefined || v === null || v === '') return null;
@@ -113,11 +90,6 @@
 		return null;
 	}
 
-	/**
-	 * Aggregated step list across selected services. Used to show the
-	 * "what will be created" preview on the new-project form.
-	 * @type {Array<{ serviceName: string, step: import('$lib/api/services.js').MilestoneStep }>}
-	 */
 	let aggregatedSteps = $derived.by(() => {
 		const out = [];
 		for (const sid of selectedServiceIds) {
@@ -149,27 +121,24 @@
 		}
 		busy = true;
 		try {
-			/** @type {Record<string, any>} */
 			const body = {
 				name: name.trim(),
 				client_id: clientId,
 				service_ids: selectedServiceIds,
 				auto_invoice: autoInvoice
 			};
-			/** @type {Record<string, number|string>} */
 			const servicePricesMap = {};
 			for (const sid of selectedServiceIds) {
 				const v = servicePrices[sid];
 				if (v === undefined || v === null || v === '') continue;
 				const svc = data.services.find((s) => s.id === sid);
-				// Only send overrides; equal-to-default or cleared entries fall back to the server default.
 				if (svc?.default_price != null && v === svc.default_price) continue;
 				servicePricesMap[sid] = v;
 			}
 			if (Object.keys(servicePricesMap).length > 0) body.service_prices = servicePricesMap;
 			if (startDate) body.start_date = startDate;
 			if (ownerId) body.owner_id = ownerId;
-			const created = await projectApi.createProject(fetch, token, /** @type {any} */ (body));
+			const created = await projectApi.createProject(fetch, token, body);
 			goto(resolve('/app/projects/[id]', { id: created.id }));
 		} catch (e) {
 			err = e instanceof ApiError ? e.message : 'Create failed.';

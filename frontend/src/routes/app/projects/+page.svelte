@@ -21,9 +21,6 @@
 
 	const statusOptions = ['', 'draft', 'active', 'on_hold', 'completed', 'cancelled'];
 
-	/**
-	 * @param {number} p
-	 */
 	function buildUrl(p) {
 		const params = new SvelteURLSearchParams();
 		if (q) params.set('q', q);
@@ -38,15 +35,11 @@
 		goto(buildUrl(1));
 	}
 
-	/** @param {number} p */
 	function gotoPage(p) {
 		// eslint-disable-next-line svelte/no-navigation-without-resolve -- query string appended to a resolved route
 		goto(buildUrl(p));
 	}
 
-	/**
-	 * @param {{ milestone_total: number, milestone_completed: number }} p
-	 */
 	function progressPct(p) {
 		if (!p.milestone_total) return 0;
 		return Math.min(100, Math.round((p.milestone_completed / p.milestone_total) * 100));

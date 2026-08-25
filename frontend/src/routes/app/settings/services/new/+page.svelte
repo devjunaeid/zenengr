@@ -7,23 +7,16 @@
 	import Spinner from '$lib/components/Spinner.svelte';
 	import { auth } from '$lib/stores/auth.svelte.js';
 
-	const token = /** @type {string} */ (auth.token);
+	const token = auth.token;
 
 	let name = $state('');
 	let description = $state('');
 	let defaultPrice = $state('');
 	let isActive = $state(true);
-	/**
-	 * @type {Array<{ name: string, expected_duration_days: number|null, description: string|null, _key: string }>}
-	 */
 	let steps = $state([]);
 	let busy = $state(false);
-	/** @type {string|null} */
 	let err = $state(null);
 
-	/**
-	 * Strip the client-side `_key` field and renumber to 1..N.
-	 */
 	function serializeSteps() {
 		return steps.map((s, i) => ({
 			name: s.name,
@@ -37,9 +30,6 @@
 		}));
 	}
 
-	/**
-	 * @param {string|number} v
-	 */
 	function parsePrice(v) {
 		if (v === '' || v === null || v === undefined) return null;
 		const n = typeof v === 'string' ? Number(v) : v;
@@ -54,7 +44,6 @@
 		}
 		busy = true;
 		try {
-			/** @type {Record<string, any>} */
 			const body = {
 				name: name.trim(),
 				is_active: isActive
@@ -64,7 +53,7 @@
 			if (price !== null) body.default_price = price;
 			if (steps.length) body.steps = serializeSteps();
 
-			const created = await serviceApi.createService(fetch, token, /** @type {any} */ (body));
+			const created = await serviceApi.createService(fetch, token, body);
 			goto(resolve('/app/settings/services/[id]', { id: created.id }));
 		} catch (e) {
 			err = e instanceof ApiError ? e.message : 'Create failed.';

@@ -10,7 +10,7 @@
 
 	let { data } = $props();
 
-	const token = /** @type {string} */ (auth.token);
+	const token = auth.token;
 	const initial = untrack(() => data.service);
 
 	let name = $state(initial.name);
@@ -21,9 +21,6 @@
 			: ''
 	);
 	let isActive = $state(initial.is_active);
-	/**
-	 * @type {Array<{ name: string, expected_duration_days: number|null, description: string|null, _key: string }>}
-	 */
 	let steps = $state(
 		initial.steps.map((s) => ({
 			name: s.name,
@@ -33,12 +30,8 @@
 		}))
 	);
 	let busy = $state(false);
-	/** @type {string|null} */
 	let err = $state(null);
 
-	/**
-	 * Strip the client-side `_key` field and renumber to 1..N.
-	 */
 	function serializeSteps() {
 		return steps.map((s, i) => ({
 			name: s.name,
@@ -52,9 +45,6 @@
 		}));
 	}
 
-	/**
-	 * @param {string|number} v
-	 */
 	function parsePrice(v) {
 		if (v === '' || v === null || v === undefined) return null;
 		const n = typeof v === 'string' ? Number(v) : v;
@@ -69,7 +59,6 @@
 		}
 		busy = true;
 		try {
-			/** @type {Record<string, any>} */
 			const body = {
 				name: name.trim(),
 				description: description.trim() ? description.trim() : null,

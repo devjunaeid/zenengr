@@ -6,10 +6,9 @@ import * as serviceApi from '$lib/api/services.js';
 import * as tenantApi from '$lib/api/tenant.js';
 import { auth } from '$lib/stores/auth.svelte.js';
 
-/** @param {{ fetch: typeof fetch, params: { id: string } }} event */
 export async function load({ fetch, params }) {
 	await auth.init(fetch);
-	const token = /** @type {string} */ (auth.token);
+	const token = auth.token;
 
 	try {
 		const [project, users, overview, ledger, draftInvoices] = await Promise.all([
@@ -17,21 +16,13 @@ export async function load({ fetch, params }) {
 			tenantApi
 				.listUsers(fetch, token, { page_size: 100, is_active: true })
 				.catch(() => ({ items: [] })),
-			// Financial summary is a nice-to-have on this page; a failure here
-			// must not take down the whole project view.
 			invoiceApi.getProjectOverview(fetch, token, params.id).catch(() => null),
-			// Same for the ledger: degrade to null and let the section render
-			// its "unavailable" state.
 			projectApi.getProjectLedger(fetch, token, params.id).catch(() => null),
-			// Open drafts drive the highlighted banner; degrade silently so a
-			// fetch failure cannot take down the project view.
 			invoiceApi
 				.listInvoices(fetch, token, { project_id: params.id, status: 'draft', page_size: 5 })
 				.catch(() => ({ items: [] }))
 		]);
 
-		// Fetch active service details so we can show step previews when adding
-		// a service. Cancel failures silently — preview is a nice-to-have.
 		const activeSvcIds = project.services
 			.filter((s) => s.status === 'active')
 			.map((s) => s.service_id);
@@ -49,7 +40,6 @@ export async function load({ fetch, params }) {
 					.catch(() => null)
 			)
 		);
-		/** @type {Record<string, { id: string, name: string, steps: import('$lib/api/services.js').MilestoneStep[] }>} */
 		const serviceDetails = {};
 		for (const r of detailResults) {
 			if (r) serviceDetails[r.id] = r;

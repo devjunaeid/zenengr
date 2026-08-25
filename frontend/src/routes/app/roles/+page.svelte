@@ -10,34 +10,24 @@
 
 	let { data } = $props();
 
-	const token = /** @type {string} */ (auth.token);
+	const token = auth.token;
 
-	/**
-	 * Local copy of the roles list so mutations (create/update/delete/reset)
-	 * can rewrite the UI immediately without a full reload.
-	 * @type {import('$lib/api/roles.js').TenantRole[]}
-	 */
 	let roles = $state(untrack(() => data.roles));
 
 	let selectedId = $state(
 		untrack(() => data.roles.find((r) => r.name !== 'super_admin')?.id ?? '')
 	);
-	/** @type {import('$lib/api/roles.js').TenantRole|null} */
 	let role = $derived(roles.find((r) => r.id === selectedId) ?? null);
 
 	let isAdminRole = $derived(role?.name === 'admin');
 	let isSuperAdminRole = $derived(role?.name === 'super_admin');
-	// Admin (full access) and super_admin (global realm) are not editable.
 	let canEdit = $derived(
 		auth.can('manage', 'roles') && role != null && !isAdminRole && !isSuperAdminRole
 	);
-	// Never wipe permissions if the catalog failed to load.
 	let catalogOk = $derived(data.catalog.length > 0);
 
-	// ---- editor draft (reset whenever the selected role changes) ----
 	let draftName = $state('');
 	let draftDesc = $state('');
-	/** @type {SvelteSet<string>} */
 	let draftGranted = new SvelteSet();
 
 	$effect(() => {
@@ -51,12 +41,7 @@
 		}
 	});
 
-	/**
-	 * Permission catalog grouped by `group`, groups and labels sorted.
-	 * @type {Array<{ group: string, items: Array<import('$lib/api/roles.js').PermissionCatalogEntry> }>}
-	 */
 	let groups = $derived.by(() => {
-		/** @type {SvelteMap<string, Array<import('$lib/api/roles.js').PermissionCatalogEntry>>} */
 		const byGroup = new SvelteMap();
 		for (const c of data.catalog) {
 			const g = c.group || 'Other';
@@ -73,21 +58,14 @@
 		return out;
 	});
 
-	/**
-	 * @param {string} action
-	 * @param {string} resource
-	 */
 	function togglePerm(action, resource) {
 		const key = `${action}.${resource}`;
 		if (draftGranted.has(key)) draftGranted.delete(key);
 		else draftGranted.add(key);
 	}
 
-	// ---- save (PATCH) ----
 	let saveBusy = $state(false);
-	/** @type {string|null} */
 	let saveErr = $state(null);
-	/** @type {string|null} */
 	let saveMsg = $state(null);
 
 	async function saveRole() {
@@ -102,9 +80,7 @@
 				resource: c.resource,
 				granted: draftGranted.has(`${c.action}.${c.resource}`)
 			}));
-			/** @type {any} */
 			const body = { permissions };
-			// System roles keep the backend-managed name/description.
 			if (!r.is_system) {
 				body.name = draftName.trim();
 				body.description = draftDesc.trim() || null;
@@ -113,16 +89,13 @@
 			roles = roles.map((x) => (x.id === updated.id ? updated : x));
 			saveMsg = 'Saved.';
 		} catch (e) {
-			// 422 surfaces here, e.g. "Full tenant access role cannot be edited".
 			saveErr = e instanceof ApiError ? e.message : 'Save failed.';
 		} finally {
 			saveBusy = false;
 		}
 	}
 
-	// ---- reset to defaults (system manager/employee only) ----
 	let resetBusy = $state(false);
-	/** @type {string|null} */
 	let resetErr = $state(null);
 
 	async function resetRoleDefaults() {
@@ -142,10 +115,8 @@
 		}
 	}
 
-	// ---- delete (custom roles only) ----
 	let deleteOpen = $state(false);
 	let deleteBusy = $state(false);
-	/** @type {string|null} */
 	let deleteErr = $state(null);
 
 	async function runDelete() {
@@ -160,7 +131,6 @@
 			selectedId = roles.find((x) => x.name !== 'super_admin')?.id ?? '';
 			saveMsg = null;
 		} catch (e) {
-			// 409 (role assigned to users) surfaces the server message.
 			deleteErr = e instanceof ApiError ? e.message : 'Delete failed.';
 			deleteOpen = false;
 		} finally {
@@ -168,14 +138,11 @@
 		}
 	}
 
-	// ---- new role dialog ----
 	let newOpen = $state(false);
 	let newBusy = $state(false);
-	/** @type {string|null} */
 	let newErr = $state(null);
 	let newName = $state('');
 	let newDesc = $state('');
-	/** @type {SvelteSet<string>} */
 	let newGranted = new SvelteSet();
 
 	function openNewRole() {
@@ -186,10 +153,6 @@
 		newOpen = true;
 	}
 
-	/**
-	 * @param {string} action
-	 * @param {string} resource
-	 */
 	function toggleNewPerm(action, resource) {
 		const key = `${action}.${resource}`;
 		if (newGranted.has(key)) newGranted.delete(key);

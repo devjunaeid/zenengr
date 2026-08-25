@@ -1,10 +1,9 @@
 import * as projectApi from '$lib/api/projects.js';
 import { auth } from '$lib/stores/auth.svelte.js';
 
-/** @param {{ fetch: typeof fetch, url: URL }} event */
 export async function load({ fetch, url }) {
 	await auth.init(fetch);
-	const token = /** @type {string} */ (auth.token);
+	const token = auth.token;
 
 	const q = url.searchParams.get('q') ?? '';
 	const status = url.searchParams.get('status') ?? '';

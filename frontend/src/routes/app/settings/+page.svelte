@@ -8,27 +8,20 @@
 
 	let { data } = $props();
 
-	const token = /** @type {string} */ (auth.token);
+	const token = auth.token;
 	let isAdmin = $derived(auth.can('manage', 'tenant_settings'));
 
-	// ---- Profile form ----
 	let businessName = $state(untrack(() => data.profile.business_name));
 	let contactPhone = $state(untrack(() => data.profile.contact_info?.phone ?? ''));
 	let brandingColor = $state(untrack(() => data.profile.branding?.color ?? ''));
 	let profileBusy = $state(false);
-	/** @type {string|null} */
 	let profileMsg = $state(null);
-	/** @type {string|null} */
 	let profileErr = $state(null);
 
-	// ---- Logo upload (TODO-011) ----
-	let logoFile = $state(/** @type {File|null} */ (null));
+	let logoFile = $state(null);
 	let logoBusy = $state(false);
-	/** @type {string|null} */
 	let logoMsg = $state(null);
-	/** @type {string|null} */
 	let logoErr = $state(null);
-	/** @type {string|null} */
 	let logoUrl = $state(untrack(() => data.profile.branding?.logo_url ?? null));
 
 	async function uploadLogo() {
@@ -187,7 +180,7 @@
 			accept="image/png,image/jpeg,image/webp,image/gif"
 			disabled={!isAdmin || logoBusy}
 			onchange={(e) =>
-				(logoFile = /** @type {HTMLInputElement} */ (e.currentTarget).files?.[0] ?? null)}
+				(logoFile = e.currentTarget.files?.[0] ?? null)}
 			class="block w-full max-w-xs text-sm text-slate-700 file:mr-3 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-slate-700 hover:file:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-60"
 		/>
 		<button

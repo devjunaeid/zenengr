@@ -8,38 +8,18 @@
 	import { auth } from '$lib/stores/auth.svelte.js';
 	import { fmtPrice } from '$lib/utils/format.js';
 
-	/**
-	 * One editable line item row. `kind` switches between a billed project
-	 * service and a custom description/price line. `id` is set for rows that
-	 * already exist on the invoice so PATCH can target them.
-	 * @typedef {object} LineItemRow
-	 * @property {number} key
-	 * @property {'service'|'custom'} kind
-	 * @property {string|null} id
-	 * @property {string} project_service_id '' for custom rows
-	 * @property {string} service_name display name for service rows
-	 * @property {number|string} unit_price decimal snapshot for service rows, input for custom
-	 * @property {number} quantity
-	 * @property {string} description
-	 * @property {string} entry_date ISO date-only (YYYY-MM-DD)
-	 */
-
 	let { data } = $props();
 
-	const token = /** @type {string} */ (auth.token);
+	const token = auth.token;
 	const initial = untrack(() => data.invoice);
 
 	let issueDate = $state(initial.issue_date);
-	/** @type {string|null} */
 	let dueDate = $state(initial.due_date);
 	let notes = $state(initial.notes ?? '');
-	/** @type {import('$lib/api/projects.js').ProjectServiceItem[]} */
 	let projectServices = $state(untrack(() => data.project?.services ?? []));
 
 	let rowKey = 1;
-	/** Line item date defaults to today when the item has none. */
 	const today = new Date().toISOString().slice(0, 10);
-	/** @type {LineItemRow[]} */
 	let rows = $state(
 		initial.line_items.map((li) => ({
 			key: rowKey++,
@@ -54,7 +34,6 @@
 		}))
 	);
 	let busy = $state(false);
-	/** @type {string|null} */
 	let err = $state(null);
 
 	function addRow() {
@@ -71,17 +50,10 @@
 		});
 	}
 
-	/**
-	 * @param {number} key
-	 */
 	function removeRow(key) {
 		rows = rows.filter((r) => r.key !== key);
 	}
 
-	/**
-	 * @param {LineItemRow} row
-	 * @param {string} psId
-	 */
 	function onRowServiceChange(row, psId) {
 		row.project_service_id = psId;
 		const ps = projectServices.find((s) => s.id === psId);
@@ -121,10 +93,8 @@
 		}
 		busy = true;
 		try {
-			/** @type {Record<string, any>} */
 			const body = {
 				line_items: rows.map((r) => {
-					/** @type {Record<string, any>} */
 					const item = {};
 					if (r.id) item.id = r.id;
 					if (r.entry_date) item.entry_date = r.entry_date;
@@ -142,7 +112,7 @@
 			if (issueDate) body.issue_date = issueDate;
 			if (dueDate) body.due_date = dueDate;
 			if (notes.trim()) body.notes = notes.trim();
-			await invoiceApi.updateInvoice(fetch, token, initial.id, /** @type {any} */ (body));
+			await invoiceApi.updateInvoice(fetch, token, initial.id, body);
 			goto(resolve('/app/invoices/[id]', { id: initial.id }));
 		} catch (e) {
 			err = e instanceof ApiError ? e.message : 'Save failed.';
@@ -292,10 +262,7 @@
 									id={`li-service-${row.key}`}
 									value={row.project_service_id}
 									onchange={(e) =>
-										onRowServiceChange(
-											row,
-											/** @type {HTMLSelectElement} */ (e.currentTarget).value
-										)}
+										onRowServiceChange(row, e.currentTarget.value)}
 									class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
 								>
 									<option value="" disabled>Select a service</option>

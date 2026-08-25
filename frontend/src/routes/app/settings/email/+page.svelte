@@ -8,45 +8,37 @@
 
 	let { data } = $props();
 
-	const token = /** @type {string} */ (auth.token);
+	const token = auth.token;
 	const initial = untrack(() => data.config);
 
 	let enabled = $state(initial.enabled);
 	let host = $state(initial.host);
-	/** @type {number} */
 	let port = $state(initial.port);
 	let username = $state(initial.username);
 	let password = $state('');
 	let fromEmail = $state(initial.from_email);
 	let fromName = $state(initial.from_name);
-	/** @type {'none'|'starttls'|'ssl'} */
 	let mode = $state(initial.mode);
 	let hasPassword = $state(initial.has_password);
 	let clearPassword = $state(false);
 
 	let saving = $state(false);
-	/** @type {string|null} */
 	let saveMsg = $state(null);
-	/** @type {string|null} */
 	let saveErr = $state(null);
 
 	let testing = $state(false);
-	/** @type {string|null} */
 	let testMsg = $state(null);
-	/** @type {string|null} */
 	let testErr = $state(null);
 
 	async function saveSmtp() {
 		saveMsg = null;
 		saveErr = null;
-		// Mirror server validation; the backend remains the enforcement point.
 		if (enabled && (!host.trim() || !fromEmail.trim())) {
 			saveErr = 'Host and From email are required when SMTP is enabled.';
 			return;
 		}
 		saving = true;
 		try {
-			/** @type {Partial<Omit<import('$lib/api/smtp.js').SmtpConfig, 'has_password'>> & { password?: string; clear_password?: boolean }} */
 			const payload = {
 				enabled,
 				host: host.trim(),

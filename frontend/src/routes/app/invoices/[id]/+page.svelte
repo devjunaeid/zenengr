@@ -12,11 +12,9 @@
 
 	let { data } = $props();
 
-	const token = /** @type {string} */ (auth.token);
+	const token = auth.token;
 
-	/** @type {string|null} */
 	let actionErr = $state(null);
-	/** @type {string|null} */
 	let actionMsg = $state(null);
 
 	let issueOpen = $state(false);
@@ -26,28 +24,20 @@
 	let voidOpen = $state(false);
 	let voidBusy = $state(false);
 
-	// ---- FEAT-015: apply advance + refund ----
 	let applyOpen = $state(false);
 	let applyBusy = $state(false);
-	/** @type {string|null} */
 	let applyErr = $state(null);
-	/** @type {string} */
 	let applyAmount = $state('');
 
 	let refundOpen = $state(false);
 	let refundBusy = $state(false);
-	/** @type {string|null} */
 	let refundErr = $state(null);
-	/** @type {string} */
 	let refundAmount = $state('');
-	/** @type {'bank_transfer'|'card'|'cash'|'other'} */
 	let refundMethod = $state('other');
-	/** @type {string} */
 	let refundRef = $state('');
 
 	const number = $derived(data.invoice.invoice_number ?? 'Draft');
 
-	/** @type {string|null} */
 	let pdfErr = $state(null);
 	let downloading = $state(false);
 	let viewing = $state(false);
@@ -164,13 +154,12 @@
 		}
 		refundBusy = true;
 		try {
-			/** @type {Record<string, any>} */
 			const body = {
 				amount: Number(refundAmount).toFixed(2),
 				method: refundMethod
 			};
 			if (refundRef.trim()) body.reference_note = refundRef.trim();
-			await invoiceApi.refundInvoice(fetch, token, data.invoice.id, /** @type {any} */ (body));
+			await invoiceApi.refundInvoice(fetch, token, data.invoice.id, body);
 			refundOpen = false;
 			actionMsg = 'Refund recorded.';
 			await invalidateAll();
@@ -181,22 +170,14 @@
 		}
 	}
 
-	// ---- transactions (TODO-091 record payment, TODO-094 allocation override) ----
 	let payOpen = $state(false);
 	let payBusy = $state(false);
-	/** @type {string|null} */
 	let payErr = $state(null);
-	/** @type {string} */
 	let payAmount = $state('');
-	/** @type {'bank_transfer'|'card'|'cash'|'other'} */
 	let payMethod = $state('bank_transfer');
-	/** @type {string} */
 	let payRef = $state('');
-	/** @type {string} */
 	let payRecordedAt = $state('');
-	/** @type {'auto'|'manual'} */
 	let allocMode = $state('auto');
-	/** @type {Record<string, string>} */
 	let allocValues = $state({});
 
 	const methodOptions = ['bank_transfer', 'card', 'cash', 'other'];
@@ -220,23 +201,18 @@
 		payOpen = true;
 	}
 
-	/**
-	 * @param {string} lineItemId
-	 */
 	function descriptionOf(lineItemId) {
 		return data.invoice.line_items.find((li) => li.id === lineItemId)?.description ?? 'Line item';
 	}
 
 	async function submitPay() {
 		payErr = null;
-		/** @param {string} v */
 		const toCents = (v) => Math.round((Number(v) || 0) * 100);
 		const amountCents = toCents(payAmount);
 		if (!payAmount || amountCents <= 0) {
 			payErr = 'Enter an amount greater than zero.';
 			return;
 		}
-		/** @type {Array<{ line_item_id: string, amount: string }>|null} */
 		let allocations = null;
 		if (lineItems.length > 1 && allocMode === 'manual') {
 			allocations = lineItems
@@ -253,7 +229,6 @@
 		}
 		payBusy = true;
 		try {
-			/** @type {Record<string, any>} */
 			const body = {
 				amount: Number(payAmount).toFixed(2),
 				method: payMethod
@@ -266,7 +241,7 @@
 					amount: Number(a.amount).toFixed(2)
 				}));
 			}
-			await invoiceApi.recordTransaction(fetch, token, data.invoice.id, /** @type {any} */ (body));
+			await invoiceApi.recordTransaction(fetch, token, data.invoice.id, body);
 			payOpen = false;
 			await invalidateAll();
 		} catch (e) {
@@ -938,9 +913,7 @@
 														placeholder="0.00"
 														value={allocValues[li.id] ?? ''}
 														oninput={(e) =>
-															(allocValues[li.id] = /** @type {HTMLInputElement} */ (
-																e.currentTarget
-															).value)}
+															(allocValues[li.id] = e.currentTarget.value)}
 														class="w-32 rounded-md border-slate-300 text-right text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
 													/>
 												</td>

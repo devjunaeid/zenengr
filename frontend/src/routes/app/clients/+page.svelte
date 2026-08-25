@@ -22,10 +22,6 @@
 	let status = $state(untrack(() => data.filters.status));
 	let tag = $state(untrack(() => data.filters.tag));
 
-	/**
-	 * Build a URL with the current filters and the given page number.
-	 * @param {number} p
-	 */
 	function buildUrl(p) {
 		const params = new SvelteURLSearchParams();
 		if (q) params.set('q', q);
@@ -41,13 +37,11 @@
 		goto(buildUrl(1));
 	}
 
-	/** @param {number} p */
 	function gotoPage(p) {
 		// eslint-disable-next-line svelte/no-navigation-without-resolve -- query string appended to a resolved route
 		goto(buildUrl(p));
 	}
 
-	/** @param {string|number|null|undefined} n */
 	function fmtNumber(n) {
 		if (n == null || n === '') return '—';
 		const num = typeof n === 'string' ? Number(n) : n;

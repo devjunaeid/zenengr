@@ -10,16 +10,14 @@
 
 	let { data } = $props();
 
-	const token = /** @type {string} */ (auth.token);
+	const token = auth.token;
 	let canManage = $derived(auth.can('manage', 'services'));
 	let isEmployee = $derived(auth.user?.role === 'employee');
 
-	/** @type {null | 'activate' | 'deactivate'} */
 	let toggleAction = $state(null);
 	let toggleBusy = $state(false);
 	let deleteOpen = $state(false);
 	let deleteBusy = $state(false);
-	/** @type {string|null} */
 	let actionErr = $state(null);
 
 	async function runToggle() {

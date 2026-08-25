@@ -1,16 +1,14 @@
 import * as serviceApi from '$lib/api/services.js';
 import { auth } from '$lib/stores/auth.svelte.js';
 
-/** @param {{ fetch: typeof fetch, url: URL }} event */
 export async function load({ fetch, url }) {
 	await auth.init(fetch);
-	const token = /** @type {string} */ (auth.token);
+	const token = auth.token;
 
 	const q = url.searchParams.get('q') ?? '';
 	const isActiveRaw = url.searchParams.get('is_active') ?? '';
 	const page = Math.max(1, Number(url.searchParams.get('page') ?? '1') || 1);
 
-	/** @type {boolean|undefined} */
 	let isActiveParam;
 	if (isActiveRaw === 'active') isActiveParam = true;
 	else if (isActiveRaw === 'inactive') isActiveParam = false;

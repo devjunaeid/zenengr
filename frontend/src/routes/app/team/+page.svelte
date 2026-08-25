@@ -10,8 +10,7 @@
 
 	let { data } = $props();
 
-	const token = /** @type {string} */ (auth.token);
-	/** Enum roles still used for invites (backend invites take enum values). */
+	const token = auth.token;
 	const enumRoles = ['admin', 'manager', 'employee'];
 
 	let canManageTeam = $derived(auth.can('manage', 'admin_users'));
@@ -19,42 +18,22 @@
 		data.users.items.filter((u) => u.role === 'admin' && u.is_active).length
 	);
 
-	/**
-	 * Assignable roles for the role select: tenant roles (system + custom),
-	 * excluding super_admin. Super admin only exists in the global realm.
-	 * @type {Array<{ id: string, name: string }>}
-	 */
 	let roleOptions = $derived(data.roles.filter((r) => r.name !== 'super_admin'));
 
-	/**
-	 * Current role id for a user: prefer the server role_id, fall back to
-	 * mapping the legacy enum role to the matching system role (defensive
-	 * while the backend permissions-in-me change lands).
-	 * @param {any} u
-	 * @returns {string}
-	 */
 	function currentRoleId(u) {
 		if (u.role_id) return u.role_id;
 		const sys = data.roles.find((r) => r.is_system && r.name === u.role);
 		return sys?.id ?? '';
 	}
 
-	/**
-	 * True when this user is the last active admin — controls get disabled as a
-	 * client-side hint (the server remains the enforcement point).
-	 * @param {any} u
-	 */
 	function isLastAdmin(u) {
 		return u.role === 'admin' && u.is_active && activeAdminCount <= 1;
 	}
 
-	// ---- Invite form ----
 	let inviteEmail = $state('');
 	let inviteRole = $state('employee');
 	let inviteBusy = $state(false);
-	/** @type {string|null} */
 	let inviteErr = $state(null);
-	/** @type {string|null} */
 	let inviteMsg = $state(null);
 
 	async function sendInvite() {
@@ -64,7 +43,7 @@
 		try {
 			await tenantApi.createInvite(fetch, token, {
 				email: inviteEmail,
-				role: /** @type {'admin'|'manager'|'employee'} */ (inviteRole)
+				role: inviteRole
 			});
 			inviteMsg = `Invite sent to ${inviteEmail}.`;
 			inviteEmail = '';
@@ -76,7 +55,6 @@
 		}
 	}
 
-	/** @type {{ id: string, email: string }|null} */
 	let revokeTarget = $state(null);
 	let revokeBusy = $state(false);
 
@@ -94,14 +72,8 @@
 		}
 	}
 
-	// ---- User actions ----
-	/** @type {string|null} */
 	let userErr = $state(null);
 
-	/**
-	 * @param {any} u
-	 * @param {string} roleId
-	 */
 	async function changeRole(u, roleId) {
 		if (roleId === currentRoleId(u)) return;
 		userErr = null;
@@ -110,11 +82,10 @@
 			await invalidateAll();
 		} catch (e) {
 			userErr = e instanceof ApiError ? e.message : 'Role change failed.';
-			await invalidateAll(); // reset the select to the server value
+			await invalidateAll();
 		}
 	}
 
-	/** @type {any|null} */
 	let deactivateTarget = $state(null);
 	let deactivateBusy = $state(false);
 
@@ -132,7 +103,6 @@
 		}
 	}
 
-	/** @param {any} u */
 	async function reactivateUser(u) {
 		userErr = null;
 		try {

@@ -19,9 +19,6 @@
 	let q = $state(untrack(() => data.filters.q));
 	let isActive = $state(untrack(() => data.filters.is_active));
 
-	/**
-	 * @param {number} p
-	 */
 	function buildUrl(p) {
 		const params = new SvelteURLSearchParams();
 		if (q) params.set('q', q);
@@ -36,7 +33,6 @@
 		goto(buildUrl(1));
 	}
 
-	/** @param {number} p */
 	function gotoPage(p) {
 		// eslint-disable-next-line svelte/no-navigation-without-resolve -- query string appended to a resolved route
 		goto(buildUrl(p));

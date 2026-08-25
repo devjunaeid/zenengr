@@ -19,9 +19,6 @@
 
 	const statusOptions = ['', 'draft', 'issued', 'partially_paid', 'paid', 'void'];
 
-	/**
-	 * @param {number} p
-	 */
 	function buildUrl(p) {
 		const params = new SvelteURLSearchParams();
 		if (status) params.set('status', status);
@@ -36,7 +33,6 @@
 		goto(buildUrl(1));
 	}
 
-	/** @param {number} p */
 	function gotoPage(p) {
 		// eslint-disable-next-line svelte/no-navigation-without-resolve -- query string appended to a resolved route
 		goto(buildUrl(p));

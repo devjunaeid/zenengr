@@ -22,20 +22,17 @@
 
 	let { data } = $props();
 
-	const token = /** @type {string} */ (auth.token);
+	const token = auth.token;
 
 	let canManage = $derived(auth.can('manage', 'projects'));
 	let canManageMilestones = $derived(auth.can('manage', 'milestones'));
 	let isEmployee = $derived(auth.user?.role === 'employee');
 
-	// ---- status + errors ----
-	/** @type {string|null} */
 	let actionErr = $state(null);
-	/** @type {string|null} */
 	let actionMsg = $state(null);
 	let statusBusy = $state(false);
 
-	async function changeStatus(/** @type {string} */ next) {
+	async function changeStatus(next) {
 		statusBusy = true;
 		actionErr = null;
 		actionMsg = null;
@@ -50,12 +47,8 @@
 		}
 	}
 
-	// ---- statement toggle ----
 	let autoInvoiceBusy = $state(false);
 
-	/**
-	 * @param {boolean} next
-	 */
 	async function toggleAutoInvoice(next) {
 		autoInvoiceBusy = true;
 		actionErr = null;
@@ -71,20 +64,14 @@
 		}
 	}
 
-	// ---- add service modal (TODO-069) ----
 	let addOpen = $state(false);
 	let addBusy = $state(false);
-	/** @type {string|null} */
 	let addErr = $state(null);
-	/** @type {string[]} */
 	let addSelected = $state([]);
-	/** @type {Record<string, number|string>} */
 	let addPrices = $state({});
 	let addPreviewOpen = $state(false);
 
-	/** @type {import('$lib/api/services.js').ServiceListItem[]} */
 	let allServices = $state([]);
-	/** @type {Record<string, import('$lib/api/services.js').MilestoneStep[]|null>} */
 	let allServiceDetails = $state({});
 	let servicesLoading = $state(false);
 
@@ -139,9 +126,6 @@
 		}
 	}
 
-	/**
-	 * @param {import('$lib/api/services.js').ServiceListItem} svc
-	 */
 	function toggleAddService(svc) {
 		if (addSelected.includes(svc.id)) {
 			addSelected = addSelected.filter((x) => x !== svc.id);
@@ -154,11 +138,6 @@
 		}
 	}
 
-	/**
-	 * Inline price validation: empty means "use default", otherwise must be > 0.
-	 * @param {string} id
-	 * @returns {string|null}
-	 */
 	function addPriceError(id) {
 		const v = addPrices[id];
 		if (v === undefined || v === null || v === '') return null;
@@ -182,7 +161,6 @@
 		addErr = null;
 		try {
 			for (const sid of addSelected) {
-				/** @type {{ service_id: string, price?: number|string }} */
 				const body = { service_id: sid };
 				const price = addPrices[sid];
 				if (price !== undefined && price !== null && price !== '') body.price = price;
@@ -197,14 +175,8 @@
 		}
 	}
 
-	// ---- milestone update handlers ----
-	/** @type {Record<string, boolean>} */
 	let milestoneBusy = $state({});
 
-	/**
-	 * @param {import('$lib/api/projects.js').ProjectMilestoneItem} m
-	 * @param {Record<string, any>} patch
-	 */
 	async function patchMilestone(m, patch) {
 		milestoneBusy = { ...milestoneBusy, [m.id]: true };
 		actionErr = null;
@@ -221,7 +193,6 @@
 		}
 	}
 
-	// ---- derived ----
 	let milestoneTotal = $derived(data.project.milestones.length);
 	let milestoneCompleted = $derived(
 		data.project.milestones.filter((m) => m.status === 'completed').length
@@ -232,10 +203,6 @@
 			: Math.min(100, Math.round((milestoneCompleted / milestoneTotal) * 100))
 	);
 
-	/**
-	 * Milestones grouped by project_service_id.
-	 * @type {Array<{ key: string, projectService: import('$lib/api/projects.js').ProjectServiceItem, items: import('$lib/api/projects.js').ProjectMilestoneItem[] }>}
-	 */
 	let milestonesByService = $derived.by(() => {
 		const map = new SvelteMap();
 		for (const m of data.project.milestones) {
@@ -247,30 +214,19 @@
 		for (const ps of data.project.services) {
 			const items = (map.get(ps.id) ?? [])
 				.slice()
-				.sort(
-					(
-						/** @type {import('$lib/api/projects.js').ProjectMilestoneItem} */ a,
-						/** @type {import('$lib/api/projects.js').ProjectMilestoneItem} */ b
-					) => a.sequence_order - b.sequence_order
-				);
+				.sort((a, b) => a.sequence_order - b.sequence_order);
 			out.push({ key: ps.id, projectService: ps, items });
 		}
 		return out;
 	});
 
-	/**
-	 * @param {string|null|undefined} d
-	 */
 	function fmtDate(d) {
 		return d ? formatDate(d) : '—';
 	}
 
 	const projectStatusOptions = ['draft', 'active', 'on_hold', 'completed', 'cancelled'];
 
-	// ---- ledger (FEAT-018) ----
-	/** @type {import('$lib/api/projects.js').LedgerResponse|null} */
 	let ledgerData = $derived(data.ledger);
-	/** @type {import('$lib/api/projects.js').LedgerEntry[]} */
 	let ledgerEntries = $derived(
 		(ledgerData?.entries ?? []).slice().sort((a, b) => {
 			const da = a.entry_date ?? a.created_at;
@@ -278,14 +234,8 @@
 			return da < db ? -1 : da > db ? 1 : 0;
 		})
 	);
-	/** @type {import('$lib/api/projects.js').LedgerSummary|null} */
 	let ledgerSummary = $derived(ledgerData?.summary ?? null);
 
-	/**
-	 * Icon + color per ledger entry: payment = money in, refund = money out,
-	 * negative charge = reversal.
-	 * @param {import('$lib/api/projects.js').LedgerEntry} e
-	 */
 	function entryMeta(e) {
 		const n = Number(e.amount) || 0;
 		if (e.type === 'payment') {
@@ -301,11 +251,6 @@
 		return { icon: plusCircle, text: 'text-slate-600', bg: 'bg-indigo-100' };
 	}
 
-	/**
-	 * Signed price: payments get "+", refunds/reversals get "−", plain
-	 * charges render as their positive amount.
-	 * @param {import('$lib/api/projects.js').LedgerEntry} e
-	 */
 	function entryPrice(e) {
 		const n = Number(e.amount) || 0;
 		const abs = fmtPrice(Math.abs(n));
@@ -315,28 +260,22 @@
 		return fmtPrice(n);
 	}
 
-	/** @param {import('$lib/api/projects.js').LedgerEntry} e */
 	function entryLabel(e) {
 		if (e.description) return e.description;
 		if (e.source_type === 'manual_adjustment') return 'Manual adjustment';
 		return humanize(e.type);
 	}
 
-	/** @param {import('$lib/api/projects.js').LedgerEntry} e */
 	function entrySubtext(e) {
 		if (e.source_type === 'manual_adjustment') return 'Manual adjustment';
 		if (e.source_type === 'transaction') return 'Payment';
 		return 'Charge';
 	}
 
-	// ---- add adjustment dialog ----
 	let adjustOpen = $state(false);
 	let adjustBusy = $state(false);
-	/** @type {string|null} */
 	let adjustErr = $state(null);
-	/** @type {number|string} */
 	let adjustAmount = $state('');
-	/** @type {string} */
 	let adjustDescription = $state('');
 
 	function openAdjustDialog() {
@@ -372,14 +311,10 @@
 		}
 	}
 
-	// ---- edit discount dialog ----
 	let discountOpen = $state(false);
 	let discountBusy = $state(false);
-	/** @type {string|null} */
 	let discountErr = $state(null);
-	/** @type {''|'percentage'|'fixed'} */
 	let discountType = $state('');
-	/** @type {number|string} */
 	let discountValue = $state('');
 
 	function openDiscountDialog() {
@@ -391,7 +326,6 @@
 
 	async function saveDiscount() {
 		discountErr = null;
-		/** @type {{ discount_type: 'percentage'|'fixed'|null, discount_value: number|null }} */
 		const body = { discount_type: null, discount_value: null };
 		if (discountType === 'percentage' || discountType === 'fixed') {
 			const v = Number(discountValue);
@@ -418,10 +352,6 @@
 		}
 	}
 
-	/**
-	 * Summary row for the discount: "-X" with a type hint, or "—" when none.
-	 * @returns {{ display: string, hint: string|null }}
-	 */
 	function discountDisplay() {
 		const s = ledgerSummary;
 		if (!s?.discount_type) return { display: '—', hint: null };
@@ -435,12 +365,9 @@
 		return { display, hint };
 	}
 
-	// ---- statement preview & generate (FEAT-019) ----
 	let statementOpen = $state(false);
 	let statementLoading = $state(false);
-	/** @type {import('$lib/api/projects.js').LedgerResponse|null} */
 	let statementData = $state(null);
-	/** @type {string|null} */
 	let statementErr = $state(null);
 	let statementPdfBusy = $state(false);
 
@@ -486,7 +413,6 @@
 
 	let generateOpen = $state(false);
 	let generateBusy = $state(false);
-	/** @type {string|null} */
 	let generateErr = $state(null);
 
 	function openGenerateDialog() {
@@ -553,7 +479,7 @@
 				value={data.project.status}
 				disabled={statusBusy}
 				aria-busy={statusBusy}
-				onchange={(e) => changeStatus(/** @type {HTMLSelectElement} */ (e.currentTarget).value)}
+				onchange={(e) => changeStatus(e.currentTarget.value)}
 				class="rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
 			>
 				{#each projectStatusOptions as opt (opt)}
@@ -654,7 +580,7 @@
 	</p>
 {/if}
 
-<!-- Overview card (TODO-073) -->
+<!-- Overview -->
 <section
 	class="mt-6 rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
 	aria-labelledby="overview-h"
@@ -826,7 +752,7 @@
 	</div>
 </section>
 
-<!-- Ledger section (FEAT-018) -->
+<!-- Ledger -->
 <section
 	class="mt-6 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"
 	aria-labelledby="ledger-h"
@@ -901,7 +827,7 @@
 	{/if}
 </section>
 
-<!-- Project ledger balance summary (FEAT-018) -->
+<!-- Ledger balance summary -->
 <section
 	class="mt-6 rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
 	aria-labelledby="ledger-balance-h"
@@ -959,7 +885,7 @@
 	{/if}
 </section>
 
-<!-- Services section (TODO-071) -->
+<!-- Services -->
 <section
 	class="mt-6 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"
 	aria-labelledby="services-h"
@@ -1130,7 +1056,7 @@
 	{/if}
 </section>
 
-<!-- Comments section (TODO-101/102) -->
+<!-- Comments -->
 <section
 	class="mt-6 rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
 	aria-labelledby="comments-h"
@@ -1141,7 +1067,7 @@
 	</div>
 </section>
 
-<!-- Add adjustment dialog (FEAT-018) -->
+<!-- Add adjustment dialog -->
 <Dialog.Root bind:open={adjustOpen}>
 	<Dialog.Portal>
 		<Dialog.Overlay class="fixed inset-0 z-40 bg-black/50" />
@@ -1232,7 +1158,7 @@
 	</Dialog.Portal>
 </Dialog.Root>
 
-<!-- Edit discount dialog (FEAT-018) -->
+<!-- Edit discount dialog -->
 <Dialog.Root bind:open={discountOpen}>
 	<Dialog.Portal>
 		<Dialog.Overlay class="fixed inset-0 z-40 bg-black/50" />
@@ -1330,7 +1256,7 @@
 	</Dialog.Portal>
 </Dialog.Root>
 
-<!-- Add service modal (bits-ui Dialog) -->
+<!-- Add service modal -->
 <Dialog.Root bind:open={addOpen}>
 	<Dialog.Portal>
 		<Dialog.Overlay class="fixed inset-0 z-40 bg-black/50" />
@@ -1512,7 +1438,7 @@
 	</Dialog.Portal>
 </Dialog.Root>
 
-<!-- Statement Preview Modal (FEAT-019) -->
+<!-- Statement preview modal -->
 <Dialog.Root bind:open={statementOpen}>
 	<Dialog.Portal>
 		<Dialog.Overlay class="fixed inset-0 z-40 bg-black/50" />
@@ -1642,7 +1568,7 @@
 	</Dialog.Portal>
 </Dialog.Root>
 
-<!-- Generate Statement Invoice Confirmation Dialog (FEAT-019) -->
+<!-- Generate invoice confirmation dialog -->
 <Dialog.Root bind:open={generateOpen}>
 	<Dialog.Portal>
 		<Dialog.Overlay class="fixed inset-0 z-40 bg-black/50" />

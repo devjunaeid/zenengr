@@ -10,17 +10,14 @@
 
 	let { data } = $props();
 
-	const token = /** @type {string} */ (auth.token);
+	const token = auth.token;
 	const initial = untrack(() => data.project);
 
 	let name = $state(initial.name);
-	/** @type {string|null} */
 	let startDate = $state(initial.start_date);
-	/** @type {string|null} */
 	let ownerId = $state(initial.owner_id);
 	let status = $state(initial.status);
 	let busy = $state(false);
-	/** @type {string|null} */
 	let err = $state(null);
 
 	const statusOptions = ['draft', 'active', 'on_hold', 'completed', 'cancelled'];
@@ -29,7 +26,6 @@
 		err = null;
 		busy = true;
 		try {
-			/** @type {Record<string, any>} */
 			const body = {
 				name: name.trim(),
 				status,

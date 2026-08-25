@@ -15,29 +15,21 @@
 
 	let { data } = $props();
 
-	const token = /** @type {string} */ (auth.token);
+	const token = auth.token;
 
 	const statusOptions = ['', 'draft', 'issued', 'partially_paid', 'paid', 'void'];
 
-	// Deep link to the new-invoice page, preselecting the client's first active
-	// project when there is one (the page already supports ?project_id=).
 	let newInvoiceHref = $derived(
 		data.newInvoiceProjectId
 			? `${resolve('/app/invoices/new')}?project_id=${data.newInvoiceProjectId}`
 			: resolve('/app/invoices/new')
 	);
 
-	/** @type {string|null} */
 	let actionErr = $state(null);
-	/** @type {string|null} */
 	let issueBusyId = $state(null);
-	/** @type {import('$lib/api/invoices.js').InvoiceListItem|null} */
 	let voidTarget = $state(null);
 	let voidBusy = $state(false);
 
-	/**
-	 * @param {import('$lib/api/invoices.js').InvoiceListItem} invoice
-	 */
 	async function issueInvoice(invoice) {
 		issueBusyId = invoice.id;
 		actionErr = null;
@@ -66,9 +58,6 @@
 		}
 	}
 
-	/**
-	 * @param {string} s
-	 */
 	function setStatus(s) {
 		const params = new SvelteURLSearchParams();
 		if (s) params.set('status', s);
@@ -77,7 +66,6 @@
 		goto(qs ? `?${qs}` : '?', { keepFocus: true, noScroll: true });
 	}
 
-	/** @param {number} p */
 	function gotoPage(p) {
 		const params = new SvelteURLSearchParams();
 		if (data.filters.status) params.set('status', data.filters.status);
@@ -139,7 +127,7 @@
 		<select
 			id="f-status"
 			value={data.filters.status}
-			onchange={(e) => setStatus(/** @type {HTMLSelectElement} */ (e.currentTarget).value)}
+			onchange={(e) => setStatus(e.currentTarget.value)}
 			class="mt-1 block rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
 		>
 			{#each statusOptions as opt (opt)}

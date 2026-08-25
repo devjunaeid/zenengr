@@ -17,38 +17,24 @@
 
 	let { data } = $props();
 
-	const token = /** @type {string} */ (auth.token);
+	const token = auth.token;
 
 	let canManage = $derived(auth.can('manage', 'files'));
 
-	// ---- current location (folder/scope/project), mirrors URL params ----
 	let folderId = $state(untrack(() => data.filters.folder_id));
 	let scope = $state(untrack(() => data.filters.scope));
 	let projectId = $state(untrack(() => data.filters.project_id));
 	let q = $state(untrack(() => data.filters.q));
 
-	// ---- search input focus/caret preservation across debounced reload ----
-	let searchInput = $state(/** @type {HTMLInputElement|null} */ (null));
+	let searchInput = $state(null);
 	let searchCaret = $state(0);
 	let searchFocusPending = $state(false);
 
 	let uploadAllowed = $derived(scope === 'user' || canManage);
-
-	/** @type {string|null} */
 	let actionErr = $state(null);
 
-	// ---- tree helpers ----
-	/**
-	 * @typedef {import('$lib/api/files.js').FolderTreeNode} FolderTreeNode
-	 */
-
-	/**
-	 * Normalize the server tree: guarantee the three scope roots exist.
-	 * @type {FolderTreeNode[]}
-	 */
 	let treeRoots = $derived.by(() => {
 		const roots = Array.isArray(data.folders) ? data.folders : [];
-		/** @type {FolderTreeNode} */
 		const my = roots.find((r) => r.scope === 'user') ?? {
 			id: null,
 			name: 'My files',
@@ -56,7 +42,6 @@
 			project_id: null,
 			children: []
 		};
-		/** @type {FolderTreeNode} */
 		const team = roots.find((r) => r.scope === 'tenant') ?? {
 			id: null,
 			name: 'Team files',
@@ -64,7 +49,6 @@
 			project_id: null,
 			children: []
 		};
-		/** @type {FolderTreeNode} */
 		const proj = roots.find((r) => r.scope === 'project') ?? {
 			id: null,
 			name: 'Project files',
@@ -75,18 +59,7 @@
 		return [my, team, proj];
 	});
 
-	// ---- folder dropdown (replaces the sidebar tree) ----
-	/**
-	 * Drop duplicate options from a list, keyed by option value.
-	 * First occurrence wins. Guards against duplicate values regardless of
-	 * tree payload quirks or option builders re-emitting the same root.
-	 * @template T
-	 * @param {T[]} opts
-	 * @param {(opt: T) => string} keyOf
-	 * @returns {T[]}
-	 */
 	function dedupeByValue(opts, keyOf) {
-		/** @type {SvelteSet<string>} */
 		const seen = new SvelteSet();
 		const out = [];
 		for (const opt of opts) {
@@ -98,19 +71,8 @@
 		return out;
 	}
 
-	/**
-	 * Flat list of tenant folders: scope root (`tenant:`) followed by children
-	 * with breadcrumb-style path labels. Final value-keyed dedupe guarantees
-	 * the root appears exactly once and no value is repeated.
-	 * @type {Array<{ label: string, value: string }>}
-	 */
 	let teamOptions = $derived.by(() => {
-		/** @type {Array<{ label: string, value: string }>} */
 		const raw = [{ label: 'Team files', value: 'tenant:' }];
-		/**
-		 * @param {FolderTreeNode} node
-		 * @param {string[]} path
-		 */
 		const walk = (node, path) => {
 			for (const child of node.children) {
 				const p = [...path, child.name];
@@ -122,18 +84,8 @@
 		return dedupeByValue(raw, (o) => o.value);
 	});
 
-	/**
-	 * Flat list of project folders: scope root (`project:`) followed by
-	 * per-project root folders + nested children. Final value-keyed dedupe
-	 * guarantees the root appears exactly once and no value is repeated.
-	 * @type {Array<{ label: string, value: string, projectId: string|null }>}
-	 */
 	let projectOptions = $derived.by(() => {
-		/** @type {Array<{ label: string, value: string, projectId: string|null }>} */
 		const raw = [{ label: 'Project files', value: 'project:', projectId: null }];
-		/**
-		 * @param {FolderTreeNode} node
-		 */
 		const walk = (node) => {
 			for (const child of node.children) {
 				const value = `project:${child.project_id ?? ''}:${child.id}`;
@@ -155,9 +107,6 @@
 					: 'project:'
 	);
 
-	/**
-	 * @param {string} v
-	 */
 	function selectFolderValue(v) {
 		if (v === 'user:' || v === 'tenant:') {
 			scope = v === 'user:' ? 'user' : 'tenant';
@@ -186,11 +135,6 @@
 		applyUrl(1);
 	}
 
-	/**
-	 * All folders under a scope root, depth-first.
-	 * @param {FolderTreeNode} root
-	 * @param {FolderTreeNode[]} [out]
-	 */
 	function flattenByScope(root, out = []) {
 		for (const child of root.children) {
 			out.push(child);
@@ -201,12 +145,6 @@
 
 	let tenantFolders = $derived(flattenByScope(treeRoots[1]));
 
-	/**
-	 * Find a tree node by id under a scope root.
-	 * @param {FolderTreeNode} root
-	 * @param {string} id
-	 * @returns {FolderTreeNode|null}
-	 */
 	function findNode(root, id) {
 		if (root.id === id) return root;
 		for (const child of root.children) {
@@ -216,13 +154,6 @@
 		return null;
 	}
 
-	/**
-	 * Node chain from the scope root (inclusive) down to the folder with the
-	 * given id, depth-first. Empty (or unmatched) id yields just the root.
-	 * @param {FolderTreeNode} root
-	 * @param {string} id
-	 * @returns {FolderTreeNode[]}
-	 */
 	function chainToNode(root, id) {
 		if (!id) return [root];
 		if (root.id === id) return [root];
@@ -233,11 +164,6 @@
 		return [];
 	}
 
-	/**
-	 * Child folders of the current location, sorted by name. Root views
-	 * (My files, Team files, Project files) show their direct children.
-	 * @type {FolderTreeNode[]}
-	 */
 	let childFolders = $derived.by(() => {
 		const root = scope === 'user' ? treeRoots[0] : scope === 'tenant' ? treeRoots[1] : treeRoots[2];
 		const node = folderId ? findNode(root, folderId) : root;
@@ -245,18 +171,10 @@
 		return [...node.children].sort((a, b) => a.name.localeCompare(b.name));
 	});
 
-	/**
-	 * Breadcrumb for the current location: scope root label + the folder
-	 * chain down to the current folder, each carrying the ancestor's
-	 * selectFolderValue-format value. The last segment is the current
-	 * location (plain text); earlier segments navigate when clicked.
-	 * @type {Array<{ label: string, value: string }>}
-	 */
 	let breadcrumb = $derived.by(() => {
 		const rootValue = scope === 'user' ? 'user:' : scope === 'tenant' ? 'tenant:' : 'project:';
 		const rootLabel =
 			scope === 'user' ? 'My files' : scope === 'tenant' ? 'Team files' : 'Project files';
-		/** @type {FolderTreeNode[]} */
 		let chain;
 		if (scope === 'user') {
 			chain = chainToNode(treeRoots[0], folderId);
@@ -266,7 +184,6 @@
 			const projFolder = treeRoots[2].children.find((c) => c.project_id === projectId);
 			chain = projFolder ? [treeRoots[2], ...chainToNode(projFolder, folderId)] : [treeRoots[2]];
 		}
-		/** @type {Array<{ label: string, value: string }>} */
 		const segs = [{ label: rootLabel, value: rootValue }];
 		for (const node of chain.slice(1)) {
 			segs.push({
@@ -280,28 +197,16 @@
 		return segs;
 	});
 
-	/**
-	 * @param {FolderTreeNode} folder
-	 */
 	function canActOnFolder(folder) {
-		// USER-scope folders in the tree always belong to the current actor.
 		return folder.scope === 'user' ? true : canManage;
 	}
 
-	/**
-	 * Navigate into a folder card (same mechanism as the dropdown).
-	 * @param {FolderTreeNode} folder
-	 */
 	function openFolder(folder) {
 		if (folder.scope === 'user') selectFolderValue(`user:${folder.id}`);
 		else if (folder.scope === 'tenant') selectFolderValue(`tenant:${folder.id}`);
 		else selectFolderValue(`project:${folder.project_id ?? ''}:${folder.id}`);
 	}
 
-	/**
-	 * Project-scope folders for one project (the per-project folder + nested).
-	 * @param {string} pid
-	 */
 	function projectFoldersFor(pid) {
 		const projRoot = treeRoots[2];
 		const out = [];
@@ -314,14 +219,10 @@
 		return out;
 	}
 
-	/**
-	 * @param {string|null|undefined} pid
-	 */
 	function projectName(pid) {
 		return data.projects.find((p) => p.id === pid)?.name;
 	}
 
-	// ---- current location label (used by the new-folder dialog) ----
 	let locationLabel = $derived(
 		scope === 'user'
 			? 'My files'
@@ -330,10 +231,6 @@
 				)?.label ?? (scope === 'tenant' ? 'Team files' : 'Project files'))
 	);
 
-	// ---- navigation ----
-	/**
-	 * @param {number} p
-	 */
 	function buildUrl(p) {
 		const params = new SvelteURLSearchParams();
 		if (folderId) params.set('folder_id', folderId);
@@ -345,22 +242,15 @@
 		return qs ? `${resolve('/app/files')}?${qs}` : resolve('/app/files');
 	}
 
-	/**
-	 * @param {number} p
-	 */
 	function applyUrl(p) {
 		// eslint-disable-next-line svelte/no-navigation-without-resolve -- query string appended to a resolved route
 		goto(buildUrl(p));
 	}
 
-	/** @type {ReturnType<typeof setTimeout>|undefined} */
 	let qTimer;
-	/**
-	 * @param {Event} e
-	 */
 	function onQInput(e) {
 		clearTimeout(qTimer);
-		searchCaret = /** @type {HTMLInputElement} */ (e.currentTarget).selectionStart ?? 0;
+		searchCaret = e.currentTarget.selectionStart ?? 0;
 		qTimer = setTimeout(() => {
 			searchFocusPending = true;
 			applyUrl(1);
@@ -382,15 +272,11 @@
 		}
 	});
 
-	// ---- upload dialog ----
 	let uploadOpen = $state(false);
 	let uploadBusy = $state(false);
-	/** @type {string|null} */
 	let uploadErr = $state(null);
-	/** @type {File|null} */
 	let uploadFileSel = $state(null);
-	/** @type {'user'|'tenant'|'project'} */
-	let uploadScope = $state(/** @type {'user'|'tenant'|'project'} */ ('user'));
+	let uploadScope = $state('user');
 	let uploadFolderId = $state('');
 	let uploadProjectId = $state('');
 
@@ -405,7 +291,7 @@
 	function openUpload() {
 		uploadErr = null;
 		uploadFileSel = null;
-		uploadScope = /** @type {'user'|'tenant'|'project'} */ (scope);
+		uploadScope = scope;
 		uploadFolderId = folderId;
 		uploadProjectId = projectId;
 		uploadOpen = true;
@@ -424,8 +310,6 @@
 		const fd = new FormData();
 		fd.append('file', uploadFileSel);
 		fd.append('scope', uploadScope);
-		// The scope radios clear uploadFolderId on change, so a non-empty value
-		// here always belongs to the selected scope (user subfolders included).
 		if (uploadFolderId) fd.append('folder_id', uploadFolderId);
 		if (uploadScope === 'project') fd.append('project_id', uploadProjectId);
 		uploadBusy = true;
@@ -440,10 +324,8 @@
 		}
 	}
 
-	// ---- new folder dialog ----
 	let folderOpen = $state(false);
 	let folderBusy = $state(false);
-	/** @type {string|null} */
 	let folderErr = $state(null);
 	let folderName = $state('');
 	let folderProjectId = $state('');
@@ -467,11 +349,10 @@
 		}
 		folderBusy = true;
 		try {
-			/** @type {Record<string, any>} */
 			const body = { name: folderName.trim(), scope };
 			if (folderId) body.parent_id = folderId;
 			if (scope === 'project') body.project_id = folderProjectId;
-			await filesApi.createFolder(fetch, token, /** @type {any} */ (body));
+			await filesApi.createFolder(fetch, token, body);
 			folderOpen = false;
 			await invalidateAll();
 		} catch (e) {
@@ -481,18 +362,11 @@
 		}
 	}
 
-	// ---- file actions ----
-	/**
-	 * @param {import('$lib/api/files.js').FileAssetItem} file
-	 */
 	function canActOnFile(file) {
 		if (file.scope === 'user') return file.created_by_id === auth.user?.id;
 		return canManage;
 	}
 
-	/**
-	 * @param {import('$lib/api/files.js').FileAssetItem} file
-	 */
 	async function runDownload(file) {
 		actionErr = null;
 		try {
@@ -502,18 +376,12 @@
 		}
 	}
 
-	// rename
 	let renameOpen = $state(false);
 	let renameBusy = $state(false);
-	/** @type {string|null} */
 	let renameErr = $state(null);
 	let renameName = $state('');
-	/** @type {import('$lib/api/files.js').FileAssetItem|null} */
-	let renameTarget = $state(/** @type {import('$lib/api/files.js').FileAssetItem|null} */ (null));
+	let renameTarget = $state(null);
 
-	/**
-	 * @param {import('$lib/api/files.js').FileAssetItem} file
-	 */
 	function openRename(file) {
 		renameTarget = file;
 		renameName = file.name;
@@ -540,14 +408,11 @@
 		}
 	}
 
-	// move
 	let moveOpen = $state(false);
 	let moveBusy = $state(false);
-	/** @type {string|null} */
 	let moveErr = $state(null);
 	let moveFolderId = $state('');
-	/** @type {import('$lib/api/files.js').FileAssetItem|null} */
-	let moveTarget = $state(/** @type {import('$lib/api/files.js').FileAssetItem|null} */ (null));
+	let moveTarget = $state(null);
 
 	let moveFolderOptions = $derived(
 		moveTarget
@@ -569,9 +434,6 @@
 			: ''
 	);
 
-	/**
-	 * @param {import('$lib/api/files.js').FileAssetItem} file
-	 */
 	function openMove(file) {
 		moveTarget = file;
 		moveFolderId = file.folder_id ?? '';
@@ -594,15 +456,10 @@
 		}
 	}
 
-	// delete
 	let deleteOpen = $state(false);
 	let deleteBusy = $state(false);
-	/** @type {import('$lib/api/files.js').FileAssetItem|null} */
-	let deleteTarget = $state(/** @type {import('$lib/api/files.js').FileAssetItem|null} */ (null));
+	let deleteTarget = $state(null);
 
-	/**
-	 * @param {import('$lib/api/files.js').FileAssetItem} file
-	 */
 	function openDelete(file) {
 		deleteTarget = file;
 		deleteOpen = true;
@@ -623,18 +480,12 @@
 		}
 	}
 
-	// folder rename
 	let folderRenameOpen = $state(false);
 	let folderRenameBusy = $state(false);
-	/** @type {string|null} */
 	let folderRenameErr = $state(null);
 	let folderRenameName = $state('');
-	/** @type {FolderTreeNode|null} */
-	let folderRenameTarget = $state(/** @type {FolderTreeNode|null} */ (null));
+	let folderRenameTarget = $state(null);
 
-	/**
-	 * @param {FolderTreeNode} folder
-	 */
 	function openFolderRename(folder) {
 		folderRenameTarget = folder;
 		folderRenameName = folder.name;
@@ -663,15 +514,10 @@
 		}
 	}
 
-	// folder delete
 	let folderDeleteOpen = $state(false);
 	let folderDeleteBusy = $state(false);
-	/** @type {FolderTreeNode|null} */
-	let folderDeleteTarget = $state(/** @type {FolderTreeNode|null} */ (null));
+	let folderDeleteTarget = $state(null);
 
-	/**
-	 * @param {FolderTreeNode} folder
-	 */
 	function openFolderDelete(folder) {
 		folderDeleteTarget = folder;
 		folderDeleteOpen = true;
@@ -687,30 +533,22 @@
 			folderDeleteOpen = false;
 			await invalidateAll();
 		} catch (e) {
-			// 409 (folder not empty) lands here with the server message.
 			actionErr = e instanceof ApiError ? e.message : 'Could not delete folder.';
 		} finally {
 			folderDeleteBusy = false;
 		}
 	}
 
-	// ---- preview dialog ----
 	let previewOpen = $state(false);
 	let previewBusy = $state(false);
-	/** @type {string|null} */
 	let previewErr = $state(null);
-	/** @type {import('$lib/api/files.js').FileAssetItem|null} */
-	let previewTarget = $state(/** @type {import('$lib/api/files.js').FileAssetItem|null} */ (null));
-	/** @type {string|null} */
+	let previewTarget = $state(null);
 	let previewUrl = $state(null);
 
 	let previewIsImage = $derived(
 		previewTarget ? (previewTarget.content_type ?? '').toLowerCase().startsWith('image/') : false
 	);
 
-	/**
-	 * @param {import('$lib/api/files.js').FileAssetItem} file
-	 */
 	async function openPreview(file) {
 		if (previewUrl) {
 			URL.revokeObjectURL(previewUrl);
@@ -724,9 +562,6 @@
 		try {
 			const blob = await filesApi.getFileBlob(fetch, token, file.id);
 			const url = URL.createObjectURL(blob);
-			// Dialog may have been closed (or a different file opened) while the
-			// fetch was in flight. Compare ids: previewTarget is a $state proxy,
-			// never identity-equal to the raw `file` passed in.
 			if (previewTarget?.id !== file.id || !previewOpen) {
 				URL.revokeObjectURL(url);
 				return;
@@ -747,17 +582,10 @@
 		previewTarget = null;
 	}
 
-	// ---- display helpers ----
-	/**
-	 * @param {string|null|undefined} scopeValue
-	 */
 	function scopeLabel(scopeValue) {
 		return scopeValue === 'user' ? 'My' : scopeValue === 'tenant' ? 'Team' : 'Project';
 	}
 
-	/**
-	 * @param {string|null|undefined} scopeValue
-	 */
 	function scopePillClass(scopeValue) {
 		return scopeValue === 'user'
 			? 'bg-slate-100 text-slate-600 ring-slate-500/20'
@@ -777,8 +605,7 @@
 				<select
 					id="f-folder"
 					value={activeFolderValue}
-					onchange={(e) =>
-						selectFolderValue(/** @type {HTMLSelectElement} */ (e.currentTarget).value)}
+					onchange={(e) => selectFolderValue(e.currentTarget.value)}
 					class="mt-1 block w-64 rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
 				>
 					<optgroup label="My files">
@@ -1005,8 +832,7 @@
 						id="up-file"
 						type="file"
 						onchange={(e) =>
-							(uploadFileSel =
-								/** @type {HTMLInputElement} */ (e.currentTarget).files?.[0] ?? null)}
+							(uploadFileSel = e.currentTarget.files?.[0] ?? null)}
 						class="mt-1 block w-full text-sm text-slate-700 file:mr-3 file:rounded-md file:border-0 file:bg-indigo-50 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-indigo-700 hover:file:bg-indigo-100"
 					/>
 				</div>

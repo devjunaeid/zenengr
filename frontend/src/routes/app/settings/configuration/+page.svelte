@@ -9,27 +9,18 @@
 
 	let { data } = $props();
 
-	// Fixed sample instant used for the live date-format demos (deterministic,
-	// avoids server/client hydration mismatch from `new Date()`).
 	const DEMO_ISO = '2026-03-05T14:30:00.000Z';
 
-	const token = /** @type {string} */ (auth.token);
+	const token = auth.token;
 	let isAdmin = $derived(auth.can('manage', 'tenant_settings'));
 
-	// ---- Settings table ----
-	// Draft values keyed by setting key; masked (null) values start empty.
-	/** @type {Record<string, string>} */
 	let drafts = $state(
 		untrack(() => Object.fromEntries(data.settings.map((s) => [s.key, s.value ?? ''])))
 	);
-	/** @type {string|null} */
 	let savingKey = $state(null);
-	/** @type {Record<string, string>} */
 	let savedKeys = $state({});
-	/** @type {string|null} */
 	let settingsErr = $state(null);
 
-	/** @param {string} key */
 	async function saveSetting(key) {
 		settingsErr = null;
 		savingKey = key;

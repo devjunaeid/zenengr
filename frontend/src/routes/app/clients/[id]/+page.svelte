@@ -24,18 +24,13 @@
 
 	let { data } = $props();
 
-	const token = /** @type {string} */ (auth.token);
+	const token = auth.token;
 	let canManage = $derived(auth.can('manage', 'clients'));
 	let isEmployee = $derived(auth.user?.role === 'employee');
 
-	// Client-user management (manage/clients only)
-	/** @type {string|null} */
 	let userErr = $state(null);
-	/** @type {string|null} */
 	let userMsg = $state(null);
 
-	// Change password dialog
-	/** @type {any|null} */
 	let passwordUser = $state(null);
 	let newPassword = $state('');
 	let confirmPassword = $state('');
@@ -61,7 +56,6 @@
 		}
 	}
 
-	/** @type {any|null} */
 	let revokeTarget = $state(null);
 	let revokeBusy = $state(false);
 
@@ -81,7 +75,6 @@
 		}
 	}
 
-	/** @param {any} u */
 	async function restoreAccess(u) {
 		userErr = null;
 		userMsg = null;
@@ -94,11 +87,8 @@
 		}
 	}
 
-	// Archive / unarchive confirmation
-	/** @type {null | 'archive' | 'unarchive'} */
 	let archiveAction = $state(null);
 	let archiveBusy = $state(false);
-	/** @type {string|null} */
 	let actionErr = $state(null);
 
 	async function runArchiveAction() {
@@ -120,10 +110,8 @@
 		}
 	}
 
-	// Add note form
 	let noteBody = $state('');
 	let noteBusy = $state(false);
-	/** @type {string|null} */
 	let noteErr = $state(null);
 
 	async function addNote() {
@@ -141,8 +129,6 @@
 		}
 	}
 
-	// Pagination helpers — preserve other params when changing page.
-	/** @param {number} p */
 	function gotoNotesPage(p) {
 		const params = new SvelteURLSearchParams(page.url.searchParams);
 		if (p > 1) params.set('notes_page', String(p));
@@ -152,7 +138,6 @@
 		goto(qs ? `?${qs}` : '?', { keepFocus: true, noScroll: true });
 	}
 
-	/** @param {number} p */
 	function gotoActivityPage(p) {
 		const params = new SvelteURLSearchParams(page.url.searchParams);
 		if (p > 1) params.set('activity_page', String(p));
@@ -162,7 +147,6 @@
 		goto(qs ? `?${qs}` : '?', { keepFocus: true, noScroll: true });
 	}
 
-	/** @param {string|number|null|undefined} n */
 	function fmtNumber(n) {
 		if (n == null || n === '') return '—';
 		const num = typeof n === 'string' ? Number(n) : n;
