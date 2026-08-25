@@ -228,3 +228,55 @@ async def test_generate_statement_invoice_and_subsequent_flow(
     assert client_pdf_res.status_code == 200
     assert client_pdf_res.headers["content-type"] == "application/pdf"
     assert client_pdf_res.content.startswith(b"%PDF")
+
+
+@pytest.mark.asyncio
+async def test_generate_statement_invoice_includes_prior_direct_payments(
+    db_session: AsyncSession,
+    client: AsyncClient,
+) -> None:
+    tenant, client_obj, project, admin, _ = await _make_setup(db_session)
+    admin_headers = _admin_auth(admin)
+
+    # 1. Attach service ($300)
+    svc = Service(tenant_id=tenant.id, name="Design System", default_price=Decimal("300.00"))
+    db_session.add(svc)
+    await db_session.commit()
+
+    ps = ProjectService(project_id=project.id, service_id=svc.id, price_at_attachment=Decimal("300.00"))
+    db_session.add(ps)
+    await db_session.commit()
+    await ledger_service.add_service_charge(db_session, project_id=project.id, project_service_id=ps.id, amount=Decimal("300.00"), description="Design System")
+    await db_session.commit()
+
+    # 2. Record a direct payment on the project ($100) before any invoice is generated
+    pay_res = await client.post(
+        f"/api/v1/tenant/projects/{project.id}/payments",
+        json={"amount": "100.00", "method": "bank_transfer", "reference_note": "Advance wire"},
+        headers=admin_headers,
+    )
+    assert pay_res.status_code == 201
+
+    # 3. Generate statement invoice for the project
+    gen_res = await client.post(f"/api/v1/tenant/projects/{project.id}/generate-statement-invoice", headers=admin_headers)
+    assert gen_res.status_code == 201
+    inv = gen_res.json()
+    assert inv["total"] == "300.00"
+    # Status should be partially_paid because $100 was applied out of $300 total
+    assert inv["status"] == "partially_paid"
+
+    # Fetch invoice transactions to confirm payment transaction is attached
+    tx_res = await client.get(f"/api/v1/tenant/invoices/{inv['id']}/transactions", headers=admin_headers)
+    assert tx_res.status_code == 200
+    tx_list = tx_res.json()
+    assert len(tx_list) == 1
+    assert tx_list[0]["amount"] == "100.00"
+
+    # Ledger summary check: Total = 300, Paid = 100, Due = 200
+    stmt_res = await client.get(f"/api/v1/tenant/projects/{project.id}/statement", headers=admin_headers)
+    assert stmt_res.status_code == 200
+    stmt_data = stmt_res.json()
+    assert stmt_data["summary"]["total"] == "300.00"
+    assert stmt_data["summary"]["paid"] == "100.00"
+    assert stmt_data["summary"]["due"] == "200.00"
+

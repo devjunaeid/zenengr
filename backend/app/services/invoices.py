@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import re
 import uuid
-from datetime import date
+from datetime import UTC, date, datetime
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
@@ -22,16 +22,26 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models.enums import ActorType, DiscountType, InvoiceStatus, LedgerSourceType
+from app.models.enums import (
+    ActorType,
+    DiscountType,
+    InvoiceStatus,
+    LedgerEntryType,
+    LedgerSourceType,
+    PaymentMethod,
+    TransactionDirection,
+)
 from app.models.invoice import Invoice, InvoiceLineItem
 from app.models.invoice_number_sequence import InvoiceNumberSequence
 from app.models.ledger_entry import LedgerEntry
 from app.models.project import Project
 from app.models.project_service import ProjectService
 from app.models.tenant import Tenant
+from app.models.transaction import PaymentAllocation, Transaction
 from app.services.audit import log as audit_log
 from app.services.notifications import notify_invoice_issued, safe_notify
 from app.services.settings import DEFAULT_SETTINGS, get_tenant_setting_by_key
+from app.services.transactions import _auto_allocate, _recompute_invoice_status
 
 # ── Exceptions ──────────────────────────────────────────────────────────────
 
@@ -971,10 +981,54 @@ async def generate_statement_invoice(
         session.add(InvoiceLineItem(**li))
     await session.flush()
 
-    return await issue_invoice(
+    issued = await issue_invoice(
         session,
         tenant_id=tenant_id,
         invoice_id=invoice.id,
         actor_id=actor_id,
     )
+
+    # Attach all direct project payments made to the project till this invoice generation
+    pay_stmt = (
+        select(LedgerEntry)
+        .where(
+            LedgerEntry.project_id == project.id,
+            LedgerEntry.type == LedgerEntryType.PAYMENT,
+            LedgerEntry.invoice_ref.is_(None),
+        )
+        .order_by(LedgerEntry.entry_date, LedgerEntry.created_at)
+    )
+    direct_payments = list((await session.execute(pay_stmt)).scalars().all())
+
+    # Tag manual adjustments
+    for adj in adj_rows:
+        adj.invoice_ref = issued.id
+
+    remaining_bal = Decimal(issued.total)
+    for p in direct_payments:
+        tx_amount = _money(p.amount)
+        applied = min(tx_amount, remaining_bal)
+
+        tx = Transaction(
+            invoice_id=issued.id,
+            amount=tx_amount,
+            direction=TransactionDirection.DEBIT,
+            method=PaymentMethod.BANK_TRANSFER,
+            reference_note=p.description or "Project payment",
+            recorded_by_id=actor_id,
+        )
+        if p.entry_date is not None:
+            tx.recorded_at = datetime.combine(p.entry_date, datetime.min.time(), tzinfo=UTC)
+        session.add(tx)
+        await session.flush()
+
+        p.invoice_ref = issued.id
+        p.source_id = tx.id
+        remaining_bal = max(remaining_bal - applied, Decimal("0"))
+
+    if direct_payments:
+        await _recompute_invoice_status(session, issued)
+
+    await session.commit()
+    return await get_invoice(session, tenant_id=tenant_id, invoice_id=issued.id)
 

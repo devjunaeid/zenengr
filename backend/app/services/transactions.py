@@ -139,16 +139,25 @@ async def _get_invoice_with_items(
 async def _invoice_net_paid(session: AsyncSession, *, invoice_id: uuid.UUID) -> Decimal:
     """Net amount paid against an invoice.
 
-    paid = sum of allocations on the invoice's line items (payment + advance
-    applications) minus refunds (credit transactions, which carry no
-    allocations).
+    paid = sum of DEBIT transactions (and advance applications) minus CREDIT
+    transactions (refunds).
     """
-    paid_q = (
+    debit_tx_q = select(func.coalesce(func.sum(Transaction.amount), 0)).where(
+        Transaction.invoice_id == invoice_id,
+        Transaction.direction == TransactionDirection.DEBIT,
+    )
+    debit_tx = Decimal((await session.execute(debit_tx_q)).scalar_one())
+
+    adv_q = (
         select(func.coalesce(func.sum(PaymentAllocation.amount), 0))
         .join(InvoiceLineItem, PaymentAllocation.line_item_id == InvoiceLineItem.id)
-        .where(InvoiceLineItem.invoice_id == invoice_id)
+        .where(
+            InvoiceLineItem.invoice_id == invoice_id,
+            PaymentAllocation.transaction_id.is_(None),
+            PaymentAllocation.advance_id.is_not(None),
+        )
     )
-    paid = Decimal((await session.execute(paid_q)).scalar_one())
+    adv_applied = Decimal((await session.execute(adv_q)).scalar_one())
 
     credit_q = select(func.coalesce(func.sum(Transaction.amount), 0)).where(
         Transaction.invoice_id == invoice_id,
@@ -156,7 +165,7 @@ async def _invoice_net_paid(session: AsyncSession, *, invoice_id: uuid.UUID) -> 
     )
     credits = Decimal((await session.execute(credit_q)).scalar_one())
 
-    return _money(paid - credits)
+    return _money(debit_tx + adv_applied - credits)
 
 
 async def _auto_allocate(invoice: Invoice, amount: Decimal) -> list[dict[str, Any]]:

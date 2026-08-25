@@ -23,6 +23,7 @@ from app.models.enums import (
     InvoiceStatus,
     LedgerEntryType,
     LedgerSourceType,
+    PaymentMethod,
     TransactionDirection,
 )
 from app.models.invoice import Invoice
@@ -163,6 +164,61 @@ async def add_manual_adjustment(
     return entry
 
 
+async def add_project_payment(
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    project_id: uuid.UUID,
+    amount: Decimal,
+    method: PaymentMethod = PaymentMethod.BANK_TRANSFER,
+    entry_date: date | None = None,
+    reference_note: str = "",
+    actor_id: uuid.UUID,
+) -> LedgerEntry:
+    """Record a direct payment/transaction on the project without requiring an invoice.
+
+    Audited (project.payment_recorded) and committed.
+    """
+    if _money(amount) <= Decimal("0"):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Payment amount must be greater than 0",
+        )
+    project = await _get_project(session, tenant_id, project_id)
+
+    formatted_method = method.value.replace("_", " ").title()
+    desc = f"{formatted_method} - {reference_note}".strip(" -") if reference_note else formatted_method
+
+    entry = LedgerEntry(
+        project_id=project.id,
+        type=LedgerEntryType.PAYMENT,
+        amount=_money(amount),
+        description=desc,
+        source_type=LedgerSourceType.TRANSACTION,
+        entry_date=entry_date or date.today(),
+        created_by_id=actor_id,
+    )
+    session.add(entry)
+
+    await audit_log(
+        session,
+        tenant_id=tenant_id,
+        actor_id=actor_id,
+        actor_type=ActorType.ADMIN_USER,
+        action="project.payment_recorded",
+        entity_type="project",
+        entity_id=str(project.id),
+        details={
+            "amount": f"{_money(amount):.2f}",
+            "method": method.value,
+            "reference_note": reference_note,
+        },
+    )
+    await session.commit()
+    await session.refresh(entry)
+    return entry
+
+
 # ── Ledger read (TODO-180) ─────────────────────────────────────────────────
 
 
@@ -200,6 +256,8 @@ async def get_project_ledger(
     )
     tx_rows = (await session.execute(tx_q)).all()
 
+    known_tx_ids = {ch.source_id for ch in charges if ch.source_id is not None}
+
     entries: list[dict[str, Any]] = []
     for ch in charges:
         entries.append(
@@ -218,6 +276,8 @@ async def get_project_ledger(
         )
 
     for tx, invoice in tx_rows:
+        if tx.id in known_tx_ids:
+            continue
         if tx.direction == TransactionDirection.DEBIT:
             entry_type = LedgerEntryType.PAYMENT
             amount_str = f"{_money(tx.amount):.2f}"
@@ -270,7 +330,15 @@ async def get_project_ledger(
 
     payments = Decimal("0")
     refunds = Decimal("0")
+    for ch in charges:
+        if ch.type == LedgerEntryType.PAYMENT:
+            payments += _money(ch.amount)
+        elif ch.type == LedgerEntryType.REFUND:
+            refunds += _money(ch.amount)
+
     for tx, _invoice in tx_rows:
+        if tx.id in known_tx_ids:
+            continue
         if tx.direction == TransactionDirection.DEBIT:
             payments += _money(tx.amount)
         else:

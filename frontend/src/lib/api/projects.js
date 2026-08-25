@@ -1,4 +1,4 @@
-import { apiFetch } from './client.js';
+import { apiFetch, ApiError, BASE_URL } from './client.js';
 
 /**
  * Tenant project-management API endpoints (FEAT-007).
@@ -241,6 +241,14 @@ export function addLedgerAdjustment(fetchFn, token, id, body) {
 	});
 }
 
+export function recordProjectPayment(fetchFn, token, projectId, body) {
+	return apiFetch(fetchFn, `/tenant/projects/${encodeURIComponent(projectId)}/payments`, {
+		method: 'POST',
+		token,
+		body
+	});
+}
+
 /**
  * Live project statement (FEAT-019).
  * @param {typeof fetch} fetchFn
@@ -266,47 +274,51 @@ export function generateStatementInvoice(fetchFn, token, id) {
 	});
 }
 
-/**
- * Download project statement PDF.
- * @param {typeof fetch} fetchFn
- * @param {string} token
- * @param {string} projectId
- * @param {string} filename
- * @returns {Promise<void>}
- */
-export async function downloadProjectStatementPdf(fetchFn, token, projectId, filename) {
-	const res = await fetchFn(`/api/v1/tenant/projects/${encodeURIComponent(projectId)}/statement/pdf`, {
+async function fetchBlob(fetchFn, path, token) {
+	const res = await fetchFn(`${BASE_URL}${path}`, {
 		headers: { Authorization: `Bearer ${token}` }
 	});
 	if (!res.ok) {
-		throw new ApiError(res.status, 'UNKNOWN', 'Could not download statement PDF', {});
+		let data = null;
+		try {
+			data = await res.json();
+		} catch {
+			// non-JSON error body
+		}
+		const envelope = data && data.error ? data.error : {};
+		throw new ApiError(
+			res.status,
+			envelope.code ?? 'UNKNOWN',
+			envelope.message ?? res.statusText,
+			envelope.details ?? {}
+		);
 	}
-	const blob = await res.blob();
+	return res.blob();
+}
+
+export async function downloadProjectStatementPdf(fetchFn, token, projectId, filename) {
+	const blob = await fetchBlob(
+		fetchFn,
+		`/tenant/projects/${encodeURIComponent(projectId)}/statement/pdf`,
+		token
+	);
 	const url = URL.createObjectURL(blob);
 	const a = document.createElement('a');
 	a.href = url;
 	a.download = filename;
 	document.body.appendChild(a);
 	a.click();
-	document.body.removeChild(a);
+	a.remove();
 	URL.revokeObjectURL(url);
 }
 
-/**
- * Open project statement PDF in a new tab.
- * @param {typeof fetch} fetchFn
- * @param {string} token
- * @param {string} projectId
- * @returns {Promise<void>}
- */
 export async function viewProjectStatementPdf(fetchFn, token, projectId) {
-	const res = await fetchFn(`/api/v1/tenant/projects/${encodeURIComponent(projectId)}/statement/pdf`, {
-		headers: { Authorization: `Bearer ${token}` }
-	});
-	if (!res.ok) {
-		throw new ApiError(res.status, 'UNKNOWN', 'Could not open statement PDF', {});
-	}
-	const blob = await res.blob();
+	const blob = await fetchBlob(
+		fetchFn,
+		`/tenant/projects/${encodeURIComponent(projectId)}/statement/pdf`,
+		token
+	);
 	const url = URL.createObjectURL(blob);
-	window.open(url, '_blank', 'noopener,noreferrer');
+	window.open(url, '_blank');
+	setTimeout(() => URL.revokeObjectURL(url), 60000);
 }

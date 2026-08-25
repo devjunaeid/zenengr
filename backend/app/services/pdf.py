@@ -26,9 +26,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.client import Client
-from app.models.enums import InvoiceStatus
+from app.models.enums import InvoiceStatus, TransactionDirection
 from app.models.invoice import Invoice
 from app.models.tenant import Tenant
+from app.models.transaction import Transaction
 from app.services.settings import get_tenant_setting_by_key
 from app.storage import get_storage
 
@@ -104,12 +105,7 @@ async def render_invoice_pdf(
     invoice: Invoice,
     tenant: Tenant | None,
 ) -> bytes:
-    """Render an invoice to a PDF byte string.
-
-    `invoice` must have `line_items` and `project` eager-loaded. The
-    project's client is fetched via the session because the invoice detail
-    query does not eager-load it. Returns the PDF bytes; never writes.
-    """
+    """Render an invoice to a PDF byte string with line items, transactions, and balance due."""
     buf = BytesIO()
     doc = SimpleDocTemplate(
         buf,
@@ -126,9 +122,6 @@ async def render_invoice_pdf(
         "InvoiceFooter", parent=styles["Normal"], fontSize=8, textColor=colors.grey
     )
 
-    # Branding (TODO-011/133): color for the title + rule, logo top-right.
-    # The logo is read via the storage backend (branding.logo_key); absent
-    # key/bytes silently skip the logo (legacy /uploads logos included).
     branding: dict[str, Any] = tenant.branding if tenant is not None else {}
     brand_color = _parse_hex_color(branding.get("color"))
     logo_key = branding.get("logo_key")
@@ -142,14 +135,33 @@ async def render_invoice_pdf(
             textColor=brand_color,
         )
 
-    # Currency code (FEAT-014): stored tenant setting or USD default.
-    # Codes render in Helvetica; symbols would need WinAnsi-safe fonts.
     currency_code = "USD"
     if tenant is not None:
         currency_setting = await get_tenant_setting_by_key(session, tenant.id, "currency")
         if currency_setting is not None and currency_setting.value:
             currency_code = currency_setting.value
     currency_code = currency_code.upper()
+
+    # Query all payments / transactions recorded against this invoice
+    tx_stmt = (
+        select(Transaction)
+        .where(Transaction.invoice_id == invoice.id)
+        .order_by(Transaction.recorded_at, Transaction.created_at)
+    )
+    transactions = list((await session.execute(tx_stmt)).scalars().all())
+
+    payments = sum(
+        (tx.amount for tx in transactions if tx.direction == TransactionDirection.DEBIT),
+        Decimal("0"),
+    )
+    refunds = sum(
+        (tx.amount for tx in transactions if tx.direction == TransactionDirection.CREDIT),
+        Decimal("0"),
+    )
+    total_paid = Decimal(f"{payments - refunds:.2f}")
+    inv_total = Decimal(f"{invoice.total:.2f}")
+    balance_due = Decimal(f"{max(inv_total - total_paid, Decimal('0')):.2f}")
+    advance_credit = Decimal(f"{max(total_paid - inv_total, Decimal('0')):.2f}")
 
     elements: list[Any] = []
     elements.append(Paragraph("INVOICE", title_style))
@@ -185,7 +197,7 @@ async def render_invoice_pdf(
         )
     if invoice.due_date is not None:
         elements.append(Paragraph(f"Due date: {invoice.due_date.isoformat()}", styles["Normal"]))
-    elements.append(Spacer(1, 8 * mm))
+    elements.append(Spacer(1, 6 * mm))
 
     # ── Line items table ──────────────────────────────────────────────────
     table_data: list[list[str]] = [_ITEM_COLUMNS]
@@ -213,21 +225,39 @@ async def render_invoice_pdf(
     elements.append(items_table)
     elements.append(Spacer(1, 6 * mm))
 
-    # ── Totals ────────────────────────────────────────────────────────────
-    totals = Table(
-        [
-            ["Subtotal", _money(invoice.subtotal, currency_code)],
-            ["Tax", _money(invoice.tax_total, currency_code)],
-            ["Total", _money(invoice.total, currency_code)],
-        ],
-        colWidths=[85 * mm, 85 * mm],
-    )
+    # ── Totals summary with inline payment entries ────────────────────────
+    totals_data: list[list[str]] = [
+        ["Subtotal", _money(invoice.subtotal, currency_code)],
+    ]
+    if Decimal(str(invoice.tax_total)) > 0:
+        totals_data.append(["Tax", _money(invoice.tax_total, currency_code)])
+
+    total_row_idx = len(totals_data)
+    totals_data.append(["Total", _money(invoice.total, currency_code)])
+
+    for tx in transactions:
+        t_type = "Refund" if tx.direction == TransactionDirection.CREDIT else "Payment"
+        t_date = tx.recorded_at.date().isoformat() if tx.recorded_at else "—"
+        t_method = tx.method.value.replace("_", " ").title()
+        ref_text = f" ({tx.reference_note})" if tx.reference_note else ""
+        label = f"{t_date} - {t_type} - {t_method}{ref_text}"
+        amt_str = f"-{_money(tx.amount, currency_code)}" if tx.direction == TransactionDirection.DEBIT else f"+{_money(tx.amount, currency_code)}"
+        totals_data.append([label, amt_str])
+
+    due_row_idx = len(totals_data)
+    totals_data.append(["Due", _money(balance_due, currency_code)])
+    if advance_credit > 0:
+        totals_data.append(["Advance Credit", _money(advance_credit, currency_code)])
+
+    totals = Table(totals_data, colWidths=[105 * mm, 65 * mm])
     totals.setStyle(
         TableStyle(
             [
                 ("ALIGN", (1, 0), (1, -1), "RIGHT"),
-                ("FONTNAME", (0, 2), (-1, 2), "Helvetica-Bold"),
-                ("LINEABOVE", (0, 2), (-1, 2), 0.5, colors.black),
+                ("FONTNAME", (0, total_row_idx), (-1, total_row_idx), "Helvetica-Bold"),
+                ("LINEABOVE", (0, total_row_idx), (-1, total_row_idx), 0.5, colors.black),
+                ("FONTNAME", (0, due_row_idx), (-1, due_row_idx), "Helvetica-Bold"),
+                ("LINEABOVE", (0, due_row_idx), (-1, due_row_idx), 0.5, colors.black),
             ]
         )
     )

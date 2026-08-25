@@ -9,9 +9,14 @@ from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.models.enums import MilestoneStatus, ProjectServiceStatus, ProjectStatus
+from app.models.enums import MilestoneStatus, PaymentMethod, ProjectServiceStatus, ProjectStatus
 
-# ── Project create / update ─────────────────────────────────────────────────
+
+class ProjectPaymentCreateRequest(BaseModel):
+    amount: Decimal = Field(..., gt=0)
+    method: PaymentMethod = PaymentMethod.BANK_TRANSFER
+    entry_date: date | None = None
+    reference_note: str = ""
 
 
 class ProjectCreateRequest(BaseModel):

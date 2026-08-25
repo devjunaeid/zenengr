@@ -682,41 +682,43 @@
 								>{formatDateTime(t.recorded_at)}</td
 							>
 						</tr>
-						<tr class="bg-slate-50/50">
-							<td colspan="5" class="px-4 py-2">
-								<details class="group">
-									<summary
-										class="flex cursor-pointer list-none items-center gap-1 text-xs text-slate-500 hover:text-indigo-600 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
-									>
-										<svg
-											xmlns="http://www.w3.org/2000/svg"
-											viewBox="0 0 20 20"
-											fill="currentColor"
-											class="h-3.5 w-3.5 transition-transform group-open:rotate-90"
-											aria-hidden="true"
+						{#if data.invoice.project_id == null && t.allocations.length > 0}
+							<tr class="bg-slate-50/50">
+								<td colspan="5" class="px-4 py-2">
+									<details class="group">
+										<summary
+											class="flex cursor-pointer list-none items-center gap-1 text-xs text-slate-500 hover:text-indigo-600 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
 										>
-											<path
-												fill-rule="evenodd"
-												d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z"
-												clip-rule="evenodd"
-											/>
-										</svg>
-										Allocated to {t.allocations.length}
-										{t.allocations.length === 1 ? 'item' : 'items'}
-									</summary>
-									<ul
-										class="mt-2 space-y-1 rounded-md border border-slate-200 bg-white p-3 text-sm"
-									>
-										{#each t.allocations as a (a.id)}
-											<li class="flex items-center justify-between gap-3">
-												<span class="text-slate-700">{descriptionOf(a.line_item_id)}</span>
-												<span class="whitespace-nowrap text-slate-900">{fmtPrice(a.amount)}</span>
-											</li>
-										{/each}
-									</ul>
-								</details>
-							</td>
-						</tr>
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												viewBox="0 0 20 20"
+												fill="currentColor"
+												class="h-3.5 w-3.5 transition-transform group-open:rotate-90"
+												aria-hidden="true"
+											>
+												<path
+													fill-rule="evenodd"
+													d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z"
+													clip-rule="evenodd"
+												/>
+											</svg>
+											Allocated to {t.allocations.length}
+											{t.allocations.length === 1 ? 'item' : 'items'}
+										</summary>
+										<ul
+											class="mt-2 space-y-1 rounded-md border border-slate-200 bg-white p-3 text-sm"
+										>
+											{#each t.allocations as a (a.id)}
+												<li class="flex items-center justify-between gap-3">
+													<span class="text-slate-700">{descriptionOf(a.line_item_id)}</span>
+													<span class="whitespace-nowrap text-slate-900">{fmtPrice(a.amount)}</span>
+												</li>
+											{/each}
+										</ul>
+									</details>
+								</td>
+							</tr>
+						{/if}
 					{/each}
 				</tbody>
 			</table>
@@ -851,7 +853,7 @@
 					<p class="mt-1 text-xs text-slate-500">Leave empty to use the current time.</p>
 				</div>
 
-				{#if lineItems.length > 1}
+				{#if lineItems.length > 1 && data.invoice.project_id == null}
 					<fieldset>
 						<legend class="text-sm font-medium text-slate-700">Allocation</legend>
 						<div class="mt-2 flex gap-4">

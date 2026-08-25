@@ -4,6 +4,7 @@
 	import { resolve } from '$app/paths';
 	import { SvelteMap } from 'svelte/reactivity';
 	import { ApiError } from '$lib/api/client.js';
+	import * as invoiceApi from '$lib/api/invoices.js';
 	import * as projectApi from '$lib/api/projects.js';
 	import * as serviceApi from '$lib/api/services.js';
 	import AssigneePicker from '$lib/components/AssigneePicker.svelte';
@@ -15,12 +16,48 @@
 	import { auth } from '$lib/stores/auth.svelte.js';
 	import { formatDate, formatDateTime, fmtPrice, humanize } from '$lib/utils/format.js';
 	import Icon from '@iconify/svelte';
+	import apps from '@iconify-icons/mdi/apps';
 	import arrowDown from '@iconify-icons/mdi/arrow-down';
 	import arrowUp from '@iconify-icons/mdi/arrow-up';
+	import comment from '@iconify-icons/mdi/comment';
+	import fileMultiple from '@iconify-icons/mdi/file-multiple';
 	import minusCircle from '@iconify-icons/mdi/minus-circle';
 	import plusCircle from '@iconify-icons/mdi/plus-circle';
+	import receiptText from '@iconify-icons/mdi/receipt-text';
+	import viewDashboard from '@iconify-icons/mdi/view-dashboard';
 
 	let { data } = $props();
+
+	let activeTab = $state('overview');
+	let invoiceList = $derived(data.invoices?.items ?? []);
+	let issueBusyId = $state(null);
+	let pdfBusyId = $state(null);
+
+	async function issueProjectInvoice(inv) {
+		issueBusyId = inv.id;
+		actionErr = null;
+		try {
+			await invoiceApi.issueInvoice(fetch, token, inv.id);
+			actionMsg = `Invoice ${inv.invoice_number || ''} issued successfully.`;
+			await invalidateAll();
+		} catch (e) {
+			actionErr = e instanceof ApiError ? e.message : 'Could not issue invoice.';
+		} finally {
+			issueBusyId = null;
+		}
+	}
+
+	async function downloadSingleInvoicePdf(inv) {
+		pdfBusyId = inv.id;
+		actionErr = null;
+		try {
+			await invoiceApi.downloadInvoicePdf(fetch, token, inv.id, `${inv.invoice_number || 'invoice'}.pdf`);
+		} catch (e) {
+			actionErr = e instanceof ApiError ? e.message : 'Could not download invoice PDF.';
+		} finally {
+			pdfBusyId = null;
+		}
+	}
 
 	const token = auth.token;
 
@@ -193,6 +230,7 @@
 		}
 	}
 
+	let serviceCount = $derived(data.project.services.length);
 	let milestoneTotal = $derived(data.project.milestones.length);
 	let milestoneCompleted = $derived(
 		data.project.milestones.filter((m) => m.status === 'completed').length
@@ -435,6 +473,48 @@
 			generateBusy = false;
 		}
 	}
+
+	let paymentOpen = $state(false);
+	let paymentBusy = $state(false);
+	let paymentErr = $state(null);
+	let paymentAmount = $state('');
+	let paymentMethod = $state('bank_transfer');
+	let paymentDate = $state(new Date().toISOString().slice(0, 10));
+	let paymentNote = $state('');
+
+	function openPaymentDialog() {
+		paymentErr = null;
+		paymentAmount = '';
+		paymentMethod = 'bank_transfer';
+		paymentDate = new Date().toISOString().slice(0, 10);
+		paymentNote = '';
+		paymentOpen = true;
+	}
+
+	async function savePayment() {
+		paymentErr = null;
+		const n = Number(paymentAmount);
+		if (paymentAmount === '' || !Number.isFinite(n) || n <= 0) {
+			paymentErr = 'Enter a valid payment amount greater than 0.';
+			return;
+		}
+		paymentBusy = true;
+		try {
+			await projectApi.recordProjectPayment(fetch, token, data.project.id, {
+				amount: String(n),
+				method: paymentMethod,
+				entry_date: paymentDate || null,
+				reference_note: paymentNote.trim()
+			});
+			paymentOpen = false;
+			actionMsg = 'Payment recorded successfully.';
+			await invalidateAll();
+		} catch (e) {
+			paymentErr = e instanceof ApiError ? e.message : 'Could not record payment.';
+		} finally {
+			paymentBusy = false;
+		}
+	}
 </script>
 
 <svelte:head><title>{data.project.name} — ZenEngr</title></svelte:head>
@@ -498,62 +578,6 @@
 	{/if}
 </div>
 
-{#if canManage}
-	<div class="mt-3 flex flex-wrap items-center gap-3">
-		<button
-			type="button"
-			onclick={openStatementPreview}
-			class="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
-		>
-			Preview statement
-		</button>
-		<button
-			type="button"
-			onclick={openGenerateDialog}
-			class="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
-		>
-			Generate invoice
-		</button>
-		<!-- eslint-disable svelte/no-navigation-without-resolve -- query string appended to a resolved route -->
-		<a
-			href={resolve('/app/invoices/new') + '?project_id=' + data.project.id}
-			class="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
-		>
-			Custom invoice
-		</a>
-		<!-- eslint-enable svelte/no-navigation-without-resolve -->
-		{#if data.project.auto_invoice}
-			<p class="text-sm text-slate-500">
-				Statement: keeps this project's internal statement updated as services are added.
-			</p>
-		{/if}
-	</div>
-{/if}
-
-{#if data.draftInvoices.items.length > 0}
-	<section
-		class="mt-3 rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3"
-		aria-labelledby="open-draft-h"
-	>
-		<h2 id="open-draft-h" class="text-sm font-semibold text-indigo-900">Project statement</h2>
-		<ul class="mt-1.5 space-y-1">
-			{#each data.draftInvoices.items as inv (inv.id)}
-				<li>
-					<a
-						href={resolve('/app/invoices/[id]', { id: inv.id })}
-						class="text-sm font-medium text-indigo-600 underline-offset-2 hover:text-indigo-500 hover:underline"
-					>
-						{inv.invoice_number ? `Draft ${inv.invoice_number}` : 'Draft'} — {fmtPrice(inv.total)}
-					</a>
-				</li>
-			{/each}
-		</ul>
-		{#if data.project.auto_invoice}
-			<p class="mt-1.5 text-xs text-indigo-700/80">Updates as services are added.</p>
-		{/if}
-	</section>
-{/if}
-
 {#if isEmployee}
 	<p
 		role="status"
@@ -579,6 +603,102 @@
 		{actionMsg}
 	</p>
 {/if}
+
+<div class="mt-6 border-b border-slate-200">
+	<nav class="-mb-px flex flex-wrap space-x-2 sm:space-x-8" aria-label="Project tabs">
+		<button
+			type="button"
+			onclick={() => (activeTab = 'overview')}
+			class="flex items-center gap-2 border-b-2 py-3 px-2 text-sm font-medium {activeTab === 'overview'
+				? 'border-indigo-600 text-indigo-600'
+				: 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700'}"
+		>
+			<Icon icon={viewDashboard} class="h-4 w-4" />
+			Overview
+		</button>
+		<button
+			type="button"
+			onclick={() => (activeTab = 'services')}
+			class="flex items-center gap-2 border-b-2 py-3 px-2 text-sm font-medium {activeTab === 'services'
+				? 'border-indigo-600 text-indigo-600'
+				: 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700'}"
+		>
+			<Icon icon={apps} class="h-4 w-4" />
+			Services & Milestones
+			<span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
+				{serviceCount}
+			</span>
+		</button>
+		<button
+			type="button"
+			onclick={() => (activeTab = 'ledger')}
+			class="flex items-center gap-2 border-b-2 py-3 px-2 text-sm font-medium {activeTab === 'ledger'
+				? 'border-indigo-600 text-indigo-600'
+				: 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700'}"
+		>
+			<Icon icon={receiptText} class="h-4 w-4" />
+			Ledger & Financials
+			{#if ledgerSummary}
+				{@const adv = Number(ledgerSummary.advance_balance) || 0}
+				{@const due = Number(ledgerSummary.due) || 0}
+				<span
+					class="rounded-full px-2 py-0.5 text-xs font-semibold {adv > 0
+						? 'bg-emerald-100 text-emerald-800'
+						: due > 0
+							? 'bg-amber-100 text-amber-800'
+							: 'bg-slate-100 text-slate-600'}"
+				>
+					{adv > 0 ? `+${fmtPrice(ledgerSummary.advance_balance)}` : fmtPrice(ledgerSummary.due)}
+				</span>
+			{/if}
+		</button>
+		<button
+			type="button"
+			onclick={() => (activeTab = 'invoices')}
+			class="flex items-center gap-2 border-b-2 py-3 px-2 text-sm font-medium {activeTab === 'invoices'
+				? 'border-indigo-600 text-indigo-600'
+				: 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700'}"
+		>
+			<Icon icon={fileMultiple} class="h-4 w-4" />
+			Invoices
+			<span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
+				{invoiceList.length}
+			</span>
+		</button>
+		<button
+			type="button"
+			onclick={() => (activeTab = 'comments')}
+			class="flex items-center gap-2 border-b-2 py-3 px-2 text-sm font-medium {activeTab === 'comments'
+				? 'border-indigo-600 text-indigo-600'
+				: 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700'}"
+		>
+			<Icon icon={comment} class="h-4 w-4" />
+			Comments
+		</button>
+	</nav>
+</div>
+
+{#if activeTab === 'overview'}
+	{#if data.draftInvoices.items.length > 0}
+		<section
+			class="mt-6 rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3"
+			aria-labelledby="open-draft-h"
+		>
+			<h2 id="open-draft-h" class="text-sm font-semibold text-indigo-900">Project statement</h2>
+			<ul class="mt-1.5 space-y-1">
+				{#each data.draftInvoices.items as inv (inv.id)}
+					<li>
+						<a
+							href={resolve('/app/invoices/[id]', { id: inv.id })}
+							class="text-sm font-medium text-indigo-600 underline-offset-2 hover:text-indigo-500 hover:underline"
+						>
+							{inv.invoice_number ? `Draft ${inv.invoice_number}` : 'Draft'} — {fmtPrice(inv.total)}
+						</a>
+					</li>
+				{/each}
+			</ul>
+		</section>
+	{/if}
 
 <!-- Overview -->
 <section
@@ -644,24 +764,29 @@
 
 	<div class="mt-5 grid gap-4 sm:grid-cols-3">
 		<div>
-			<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Total invoiced</dt>
+			<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Total</dt>
 			<dd class="mt-1 text-lg font-semibold text-slate-900">
-				{data.overview ? fmtPrice(data.overview.total_invoiced) : '—'}
+				{ledgerSummary ? fmtPrice(ledgerSummary.total) : (data.overview?.financials ? fmtPrice(data.overview.financials.total) : '—')}
 			</dd>
 		</div>
 		<div>
-			<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Total paid</dt>
-			<dd class="mt-1 text-lg font-semibold text-slate-900">
-				{data.overview ? fmtPrice(data.overview.total_paid) : '—'}
+			<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Paid</dt>
+			<dd class="mt-1 text-lg font-semibold text-green-700">
+				{ledgerSummary ? fmtPrice(ledgerSummary.paid) : (data.overview?.financials ? fmtPrice(data.overview.financials.paid) : '—')}
 			</dd>
 		</div>
 		<div>
-			<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Balance due</dt>
-			<dd class="mt-1 text-lg font-semibold text-slate-900">
-				{data.overview ? fmtPrice(data.overview.balance_due) : '—'}
+			<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Due</dt>
+			<dd class="mt-1 text-lg font-bold {Number(ledgerSummary?.due ?? data.overview?.financials?.due) > 0 ? 'text-red-600' : 'text-green-700'}">
+				{ledgerSummary ? fmtPrice(ledgerSummary.due) : (data.overview?.financials ? fmtPrice(data.overview.financials.due) : '—')}
 			</dd>
 		</div>
 	</div>
+	{#if Number(ledgerSummary?.advance_balance ?? data.overview?.financials?.advance_balance) > 0}
+		<div class="mt-3 rounded-md bg-indigo-50 px-4 py-2 text-sm text-indigo-900">
+			Advance Credit: <span class="font-bold text-indigo-700">{fmtPrice(ledgerSummary?.advance_balance ?? data.overview?.financials?.advance_balance)}</span>
+		</div>
+	{/if}
 
 	{#if data.overview?.service_breakdown?.length}
 		<div class="mt-5 overflow-hidden rounded-md border border-slate-200">
@@ -751,140 +876,9 @@
 		<p>Updated {formatDateTime(data.project.updated_at)}</p>
 	</div>
 </section>
+{/if}
 
-<!-- Ledger -->
-<section
-	class="mt-6 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"
-	aria-labelledby="ledger-h"
->
-	<div
-		class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-6 py-4"
-	>
-		<div>
-			<h2 id="ledger-h" class="text-base font-semibold text-slate-900">Ledger</h2>
-			<p class="mt-0.5 text-sm text-slate-500">
-				Balance-forward timeline of charges, payments and refunds.
-			</p>
-		</div>
-		{#if canManage}
-			<div class="flex flex-wrap items-center gap-2">
-				<button
-					type="button"
-					onclick={openAdjustDialog}
-					class="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
-				>
-					Add adjustment
-				</button>
-				<button
-					type="button"
-					onclick={openDiscountDialog}
-					class="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
-				>
-					Edit discount
-				</button>
-			</div>
-		{/if}
-	</div>
-
-	{#if !ledgerData}
-		<p class="px-6 py-8 text-sm text-slate-500">Ledger unavailable.</p>
-	{:else if ledgerEntries.length === 0}
-		<p class="px-6 py-8 text-sm text-slate-500">No ledger entries yet.</p>
-	{:else}
-		<ul class="divide-y divide-slate-100">
-			{#each ledgerEntries as e (e.id)}
-				{@const meta = entryMeta(e)}
-				{@const price = entryPrice(e)}
-				<li class="flex items-center gap-3 px-6 py-3">
-					<span
-						class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full {meta.bg}"
-						aria-hidden="true"
-					>
-						<Icon icon={meta.icon} class="h-4 w-4 {meta.text}" />
-					</span>
-					<div class="min-w-0 flex-1">
-						<p class="truncate text-sm font-medium text-slate-900" title={entryLabel(e)}>
-							{entryLabel(e)}
-						</p>
-						<p class="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-500">
-							<span>{entrySubtext(e)}</span>
-							<span aria-hidden="true">·</span>
-							<span>{e.entry_date ? formatDate(e.entry_date) : formatDateTime(e.created_at)}</span>
-							{#if e.type === 'charge' && e.invoice_ref && e.invoice_number}
-								<a
-									href={resolve('/app/invoices/[id]', { id: e.invoice_ref })}
-									class="inline-flex items-center rounded-full bg-indigo-50 px-2 py-0.5 font-medium text-indigo-700 ring-1 ring-indigo-600/20 hover:bg-indigo-100"
-								>
-									Included in {e.invoice_number}
-								</a>
-							{/if}
-						</p>
-					</div>
-					<p class="shrink-0 text-sm font-semibold whitespace-nowrap {meta.text}">{price}</p>
-				</li>
-			{/each}
-		</ul>
-	{/if}
-</section>
-
-<!-- Ledger balance summary -->
-<section
-	class="mt-6 rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
-	aria-labelledby="ledger-balance-h"
->
-	<h2 id="ledger-balance-h" class="text-base font-semibold text-slate-900">
-		Project ledger (balance)
-	</h2>
-	{#if !ledgerData}
-		<p class="mt-4 text-sm text-slate-500">Ledger unavailable.</p>
-	{:else}
-		{@const disc = discountDisplay()}
-		{@const due = Number(ledgerSummary?.due) || 0}
-		{@const advanceBal = Number(ledgerSummary?.advance_balance) || 0}
-		<dl class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-			<div>
-				<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Subtotal</dt>
-				<dd class="mt-1 text-lg font-semibold text-slate-900">
-					{fmtPrice(ledgerSummary?.subtotal)}
-				</dd>
-			</div>
-			<div>
-				<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Discount</dt>
-				<dd class="mt-1 text-lg font-semibold text-slate-900">
-					{disc.display}
-					{#if disc.hint}
-						<span class="ml-1 text-xs font-normal text-slate-500">({disc.hint})</span>
-					{/if}
-				</dd>
-			</div>
-			<div>
-				<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Total</dt>
-				<dd class="mt-1 text-lg font-semibold text-slate-900">{fmtPrice(ledgerSummary?.total)}</dd>
-			</div>
-			<div>
-				<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Paid</dt>
-				<dd class="mt-1 text-lg font-semibold text-green-700">{fmtPrice(ledgerSummary?.paid)}</dd>
-			</div>
-			<div>
-				<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Due</dt>
-				<dd class="mt-1 text-lg font-bold {due > 0 ? 'text-red-600' : 'text-green-700'}">
-					{fmtPrice(ledgerSummary?.due)}
-				</dd>
-			</div>
-		</dl>
-		{#if advanceBal > 0}
-			<div class="mt-4 rounded-md border border-indigo-200 bg-indigo-50 p-3">
-				<p class="text-sm font-medium text-indigo-900">
-					Client Advance Credit: <span class="font-bold text-indigo-700">{fmtPrice(ledgerSummary?.advance_balance)}</span>
-				</p>
-				<p class="mt-0.5 text-xs text-indigo-700">
-					Payments received exceed current charges. Credit will automatically apply toward future charges.
-				</p>
-			</div>
-		{/if}
-	{/if}
-</section>
-
+{#if activeTab === 'services'}
 <!-- Services -->
 <section
 	class="mt-6 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"
@@ -1055,7 +1049,299 @@
 		</div>
 	{/if}
 </section>
+{/if}
 
+{#if activeTab === 'ledger'}
+{#if canManage}
+	<div class="mt-6 flex flex-wrap items-center gap-3">
+		<button
+			type="button"
+			onclick={openPaymentDialog}
+			class="inline-flex items-center gap-2 rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-emerald-700 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-none"
+		>
+			<Icon icon={arrowDown} class="h-4 w-4" />
+			Record payment
+		</button>
+		<button
+			type="button"
+			onclick={openStatementPreview}
+			class="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+		>
+			Preview statement
+		</button>
+		<button
+			type="button"
+			onclick={openGenerateDialog}
+			class="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+		>
+			Generate invoice
+		</button>
+		<button
+			type="button"
+			onclick={openAdjustDialog}
+			class="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+		>
+			Add adjustment
+		</button>
+		<button
+			type="button"
+			onclick={openDiscountDialog}
+			class="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+		>
+			Edit discount
+		</button>
+		<!-- eslint-disable svelte/no-navigation-without-resolve -- query string appended to a resolved route -->
+		<a
+			href={resolve('/app/invoices/new') + '?project_id=' + data.project.id}
+			class="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+		>
+			Custom invoice
+		</a>
+		<!-- eslint-enable svelte/no-navigation-without-resolve -->
+	</div>
+{/if}
+
+<!-- Ledger balance summary -->
+<section
+	class="mt-6 rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
+	aria-labelledby="ledger-balance-h"
+>
+	<h2 id="ledger-balance-h" class="text-base font-semibold text-slate-900">
+		Project ledger (balance)
+	</h2>
+	{#if !ledgerData}
+		<p class="mt-4 text-sm text-slate-500">Ledger unavailable.</p>
+	{:else}
+		{@const disc = discountDisplay()}
+		{@const due = Number(ledgerSummary?.due) || 0}
+		{@const advanceBal = Number(ledgerSummary?.advance_balance) || 0}
+		<dl class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+			<div>
+				<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Subtotal</dt>
+				<dd class="mt-1 text-lg font-semibold text-slate-900">
+					{fmtPrice(ledgerSummary?.subtotal)}
+				</dd>
+			</div>
+			<div>
+				<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Discount</dt>
+				<dd class="mt-1 text-lg font-semibold text-slate-900">
+					{disc.display}
+					{#if disc.hint}
+						<span class="ml-1 text-xs font-normal text-slate-500">({disc.hint})</span>
+					{/if}
+				</dd>
+			</div>
+			<div>
+				<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Total</dt>
+				<dd class="mt-1 text-lg font-semibold text-slate-900">{fmtPrice(ledgerSummary?.total)}</dd>
+			</div>
+			<div>
+				<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Paid</dt>
+				<dd class="mt-1 text-lg font-semibold text-green-700">{fmtPrice(ledgerSummary?.paid)}</dd>
+			</div>
+			<div>
+				<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Due</dt>
+				<dd class="mt-1 text-lg font-bold {due > 0 ? 'text-red-600' : 'text-green-700'}">
+					{fmtPrice(ledgerSummary?.due)}
+				</dd>
+			</div>
+		</dl>
+		{#if advanceBal > 0}
+			<div class="mt-4 rounded-md border border-indigo-200 bg-indigo-50 p-3">
+				<p class="text-sm font-medium text-indigo-900">
+					Client Advance Credit: <span class="font-bold text-indigo-700">{fmtPrice(ledgerSummary?.advance_balance)}</span>
+				</p>
+				<p class="mt-0.5 text-xs text-indigo-700">
+					Payments received exceed current charges. Credit will automatically apply toward future charges.
+				</p>
+			</div>
+		{/if}
+	{/if}
+</section>
+
+<!-- Ledger -->
+<section
+	class="mt-6 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"
+	aria-labelledby="ledger-h"
+>
+	<div
+		class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-6 py-4"
+	>
+		<div>
+			<h2 id="ledger-h" class="text-base font-semibold text-slate-900">Ledger timeline</h2>
+			<p class="mt-0.5 text-sm text-slate-500">
+				Balance-forward timeline of charges, payments and refunds.
+			</p>
+		</div>
+	</div>
+
+	{#if !ledgerData}
+		<p class="px-6 py-8 text-sm text-slate-500">Ledger unavailable.</p>
+	{:else if ledgerEntries.length === 0}
+		<p class="px-6 py-8 text-sm text-slate-500">No ledger entries yet.</p>
+	{:else}
+		<ul class="divide-y divide-slate-100">
+			{#each ledgerEntries as e (e.id)}
+				{@const meta = entryMeta(e)}
+				{@const price = entryPrice(e)}
+				<li class="flex items-center gap-3 px-6 py-3">
+					<span
+						class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full {meta.bg}"
+						aria-hidden="true"
+					>
+						<Icon icon={meta.icon} class="h-4 w-4 {meta.text}" />
+					</span>
+					<div class="min-w-0 flex-1">
+						<p class="truncate text-sm font-medium text-slate-900" title={entryLabel(e)}>
+							{entryLabel(e)}
+						</p>
+						<p class="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-500">
+							<span>{entrySubtext(e)}</span>
+							<span aria-hidden="true">·</span>
+							<span>{e.entry_date ? formatDate(e.entry_date) : formatDateTime(e.created_at)}</span>
+							{#if e.type === 'charge' && e.invoice_ref && e.invoice_number}
+								<a
+									href={resolve('/app/invoices/[id]', { id: e.invoice_ref })}
+									class="inline-flex items-center rounded-full bg-indigo-50 px-2 py-0.5 font-medium text-indigo-700 ring-1 ring-indigo-600/20 hover:bg-indigo-100"
+								>
+									Included in {e.invoice_number}
+								</a>
+							{/if}
+						</p>
+					</div>
+					<p class="shrink-0 text-sm font-semibold whitespace-nowrap {meta.text}">{price}</p>
+				</li>
+			{/each}
+		</ul>
+	{/if}
+</section>
+{/if}
+
+{#if activeTab === 'invoices'}
+<!-- Invoices -->
+<section
+	class="mt-6 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"
+	aria-labelledby="invoices-tab-h"
+>
+	<div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-6 py-4">
+		<div>
+			<h2 id="invoices-tab-h" class="text-base font-semibold text-slate-900">Project Invoices</h2>
+			<p class="mt-0.5 text-sm text-slate-500">
+				{invoiceList.length} {invoiceList.length === 1 ? 'invoice' : 'invoices'} issued or drafted for this project
+			</p>
+		</div>
+		{#if canManage}
+			<div class="flex flex-wrap items-center gap-2">
+				<button
+					type="button"
+					onclick={openGenerateDialog}
+					class="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+				>
+					Generate Statement Invoice
+				</button>
+				<!-- eslint-disable svelte/no-navigation-without-resolve -- query string appended to a resolved route -->
+				<a
+					href={`${resolve('/app/invoices/new')}?project_id=${data.project.id}`}
+					class="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+				>
+					New Custom Invoice
+				</a>
+				<!-- eslint-enable svelte/no-navigation-without-resolve -->
+			</div>
+		{/if}
+	</div>
+
+	{#if invoiceList.length === 0}
+		<div class="px-6 py-12 text-center">
+			<p class="text-sm text-slate-500">No invoices generated for this project yet.</p>
+			{#if canManage}
+				<div class="mt-4 flex flex-wrap justify-center gap-3">
+					<button
+						type="button"
+						onclick={openGenerateDialog}
+						class="rounded-md bg-indigo-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+					>
+						Generate statement invoice
+					</button>
+					<!-- eslint-disable svelte/no-navigation-without-resolve -->
+					<a
+						href={`${resolve('/app/invoices/new')}?project_id=${data.project.id}`}
+						class="rounded-md border border-slate-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+					>
+						Create custom invoice
+					</a>
+					<!-- eslint-enable svelte/no-navigation-without-resolve -->
+				</div>
+			{/if}
+		</div>
+	{:else}
+		<div class="overflow-x-auto">
+			<table class="min-w-full divide-y divide-slate-200">
+				<thead class="bg-slate-50">
+					<tr>
+						<th scope="col" class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase">Invoice #</th>
+						<th scope="col" class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase">Status</th>
+						<th scope="col" class="px-4 py-3 text-right text-xs font-semibold tracking-wide text-slate-600 uppercase">Total</th>
+						<th scope="col" class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase">Issue date</th>
+						<th scope="col" class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase">Due date</th>
+						<th scope="col" class="px-4 py-3 text-right text-xs font-semibold tracking-wide text-slate-600 uppercase">Actions</th>
+					</tr>
+				</thead>
+				<tbody class="divide-y divide-slate-200">
+					{#each invoiceList as inv (inv.id)}
+						<tr class="hover:bg-slate-50">
+							<td class="px-4 py-3 text-sm font-medium text-slate-900">
+								<a
+									href={resolve('/app/invoices/[id]', { id: inv.id })}
+									class="font-semibold text-indigo-600 hover:text-indigo-500"
+								>
+									{inv.invoice_number ? inv.invoice_number : 'Draft'}
+								</a>
+							</td>
+							<td class="px-4 py-3"><StatusBadge status={inv.status} /></td>
+							<td class="px-4 py-3 text-right text-sm font-semibold whitespace-nowrap text-slate-900">{fmtPrice(inv.total)}</td>
+							<td class="px-4 py-3 text-sm whitespace-nowrap text-slate-600">{formatDate(inv.issue_date)}</td>
+							<td class="px-4 py-3 text-sm whitespace-nowrap text-slate-600">{formatDate(inv.due_date)}</td>
+							<td class="px-4 py-3 text-right">
+								<div class="flex items-center justify-end gap-3 text-sm">
+									<a
+										href={resolve('/app/invoices/[id]', { id: inv.id })}
+										class="font-medium text-indigo-600 hover:text-indigo-500"
+									>
+										View
+									</a>
+									{#if inv.status === 'draft' && canManage}
+										<button
+											type="button"
+											disabled={issueBusyId === inv.id}
+											onclick={() => issueProjectInvoice(inv)}
+											class="font-medium text-emerald-600 hover:text-emerald-500 disabled:opacity-50"
+										>
+											{#if issueBusyId === inv.id}Issuing...{:else}Issue{/if}
+										</button>
+									{/if}
+									{#if inv.status !== 'draft'}
+										<button
+											type="button"
+											disabled={pdfBusyId === inv.id}
+											onclick={() => downloadSingleInvoicePdf(inv)}
+											class="font-medium text-slate-600 hover:text-slate-900 disabled:opacity-50"
+										>
+											{#if pdfBusyId === inv.id}Downloading...{:else}PDF{/if}
+										</button>
+									{/if}
+								</div>
+							</td>
+						</tr>
+					{/each}
+				</tbody>
+			</table>
+		</div>
+	{/if}
+</section>
+{/if}
+
+{#if activeTab === 'comments'}
 <!-- Comments -->
 <section
 	class="mt-6 rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
@@ -1066,6 +1352,7 @@
 		<CommentThread projectId={data.project.id} {fetch} {token} realm="admin" staff={true} />
 	</div>
 </section>
+{/if}
 
 <!-- Add adjustment dialog -->
 <Dialog.Root bind:open={adjustOpen}>
@@ -1625,6 +1912,119 @@
 					Confirm & Issue Invoice
 				</button>
 			</div>
+		</Dialog.Content>
+	</Dialog.Portal>
+</Dialog.Root>
+
+<!-- Record project payment dialog -->
+<Dialog.Root bind:open={paymentOpen}>
+	<Dialog.Portal>
+		<Dialog.Overlay class="fixed inset-0 z-40 bg-black/50" />
+		<Dialog.Content
+			class="fixed top-1/2 left-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-6 shadow-xl focus:outline-none"
+		>
+			<div class="flex items-center justify-between">
+				<Dialog.Title class="text-lg font-semibold text-slate-900">Record Project Payment</Dialog.Title>
+				<Dialog.Close
+					aria-label="Close"
+					class="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+				>
+					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-5 w-5" aria-hidden="true">
+						<path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"/>
+					</svg>
+				</Dialog.Close>
+			</div>
+
+			<Dialog.Description class="mt-2 text-sm text-slate-600">
+				Record a payment or transaction received directly for this project. It will synchronize across the live ledger and balance-forward statement.
+			</Dialog.Description>
+
+			{#if paymentErr}
+				<p role="alert" class="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+					{paymentErr}
+				</p>
+			{/if}
+
+			<form
+				class="mt-4 space-y-4"
+				onsubmit={(e) => {
+					e.preventDefault();
+					savePayment();
+				}}
+			>
+				<div>
+					<label for="pay-amount" class="block text-sm font-medium text-slate-700">Amount received</label>
+					<div class="relative mt-1 rounded-md shadow-sm">
+						<div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+							<span class="text-slate-500 sm:text-sm">$</span>
+						</div>
+						<input
+							id="pay-amount"
+							type="number"
+							step="0.01"
+							min="0.01"
+							placeholder="0.00"
+							bind:value={paymentAmount}
+							required
+							class="block w-full rounded-md border-slate-300 pl-7 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+						/>
+					</div>
+				</div>
+
+				<div class="grid grid-cols-2 gap-4">
+					<div>
+						<label for="pay-method" class="block text-sm font-medium text-slate-700">Payment method</label>
+						<select
+							id="pay-method"
+							bind:value={paymentMethod}
+							class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+						>
+							<option value="bank_transfer">Bank Transfer</option>
+							<option value="card">Credit Card</option>
+							<option value="cash">Cash</option>
+							<option value="other">Other</option>
+						</select>
+					</div>
+					<div>
+						<label for="pay-date" class="block text-sm font-medium text-slate-700">Payment date</label>
+						<input
+							id="pay-date"
+							type="date"
+							bind:value={paymentDate}
+							required
+							class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+						/>
+					</div>
+				</div>
+
+				<div>
+					<label for="pay-note" class="block text-sm font-medium text-slate-700">Reference / Note (optional)</label>
+					<input
+						id="pay-note"
+						type="text"
+						placeholder="Check #, Wire reference, Deposit memo..."
+						bind:value={paymentNote}
+						class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+					/>
+				</div>
+
+				<div class="mt-6 flex justify-end gap-3 pt-2">
+					<Dialog.Close
+						class="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+					>
+						Cancel
+					</Dialog.Close>
+					<button
+						type="submit"
+						disabled={paymentBusy}
+						aria-busy={paymentBusy}
+						class="inline-flex items-center gap-2 rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+					>
+						{#if paymentBusy}<Spinner class="h-4 w-4 text-white" />{/if}
+						Save payment
+					</button>
+				</div>
+			</form>
 		</Dialog.Content>
 	</Dialog.Portal>
 </Dialog.Root>

@@ -11,7 +11,7 @@ export async function load({ fetch, params }) {
 	const token = auth.token;
 
 	try {
-		const [project, users, overview, ledger, draftInvoices] = await Promise.all([
+		const [project, users, overview, ledger, draftInvoices, invoices] = await Promise.all([
 			projectApi.getProject(fetch, token, params.id),
 			tenantApi
 				.listUsers(fetch, token, { page_size: 100, is_active: true })
@@ -20,6 +20,9 @@ export async function load({ fetch, params }) {
 			projectApi.getProjectLedger(fetch, token, params.id).catch(() => null),
 			invoiceApi
 				.listInvoices(fetch, token, { project_id: params.id, status: 'draft', page_size: 5 })
+				.catch(() => ({ items: [] })),
+			invoiceApi
+				.listInvoices(fetch, token, { project_id: params.id, page_size: 100 })
 				.catch(() => ({ items: [] }))
 		]);
 
@@ -45,7 +48,7 @@ export async function load({ fetch, params }) {
 			if (r) serviceDetails[r.id] = r;
 		}
 
-		return { project, users: users.items, serviceDetails, overview, ledger, draftInvoices };
+		return { project, users: users.items, serviceDetails, overview, ledger, draftInvoices, invoices };
 	} catch (e) {
 		if (e instanceof ApiError && e.status === 404) {
 			throw error(404, 'Project not found');

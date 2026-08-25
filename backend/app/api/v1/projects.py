@@ -37,6 +37,7 @@ from app.schemas.projects import (
     ProjectListResponse,
     ProjectMilestoneItem,
     ProjectOverviewResponse,
+    ProjectPaymentCreateRequest,
     ProjectServiceFinancialItem,
     ProjectServiceItem,
     ProjectUpdateRequest,
@@ -486,6 +487,44 @@ async def add_manual_adjustment_endpoint(
         project_id=pid,
         amount=body.amount,
         description=body.description,
+        actor_id=user.id,
+    )
+    return LedgerEntryResponse(
+        id=entry.id,
+        type=entry.type,
+        amount=f"{entry.amount:.2f}",
+        description=entry.description,
+        source_type=entry.source_type,
+        source_id=entry.source_id,
+        invoice_ref=entry.invoice_ref,
+        invoice_number=None,
+        entry_date=entry.entry_date,
+        created_at=entry.created_at,
+    )
+
+
+@router.post(
+    "/{project_id}/payments",
+    response_model=LedgerEntryResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def record_project_payment_endpoint(
+    project_id: str,
+    body: ProjectPaymentCreateRequest,
+    session: AsyncSession = Depends(get_session),
+    user: AdminUser = Depends(require_permission("manage", "projects")),
+) -> LedgerEntryResponse:
+    """Record a direct payment/transaction on the project. Admin/Manager only."""
+    tenant_id = _get_tenant_id(user)
+    pid = _parse_uuid(project_id, kind="Project")
+    entry = await ledger_service.add_project_payment(
+        session,
+        tenant_id=tenant_id,
+        project_id=pid,
+        amount=body.amount,
+        method=body.method,
+        entry_date=body.entry_date,
+        reference_note=body.reference_note,
         actor_id=user.id,
     )
     return LedgerEntryResponse(

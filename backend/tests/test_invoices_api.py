@@ -695,6 +695,27 @@ class TestInvoicePDF:
         assert 'filename="DRAFT.pdf"' in resp.headers["content-disposition"]
 
     @pytest.mark.asyncio
+    async def test_paid_invoice_pdf_renders_successfully(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        ctx = await _bootstrap(db_session)
+        headers = await _admin_auth_header(ctx["admin"])
+        inv_id = await _create_invoice(client, headers, ctx["project"].id, ctx["ps"].id)
+        await client.post(f"/api/v1/tenant/invoices/{inv_id}/issue", headers=headers)
+
+        # Record a payment
+        await client.post(
+            f"/api/v1/tenant/invoices/{inv_id}/transactions",
+            json={"amount": 50.00, "method": "bank_transfer", "reference_note": "Deposit"},
+            headers=headers,
+        )
+
+        resp = await client.get(f"/api/v1/tenant/invoices/{inv_id}/pdf", headers=headers)
+        assert resp.status_code == 200
+        assert resp.headers["content-type"].startswith("application/pdf")
+        assert resp.content[:4] == b"%PDF"
+
+    @pytest.mark.asyncio
     async def test_pdf_not_found(self, client: AsyncClient, db_session: AsyncSession):
         ctx = await _bootstrap(db_session)
         resp = await client.get(
