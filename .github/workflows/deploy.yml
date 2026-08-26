@@ -12,10 +12,10 @@ concurrency:
 
 jobs:
   # ============================================================================
-  # 1. FRONTEND DEPLOYMENT (SvelteKit Build -> cPanel Frontend Subdomain)
+  # 1. FRONTEND DEPLOYMENT (Static SPA Build -> cPanel Apache Web Folder)
   # ============================================================================
   deploy-frontend:
-    name: Build & Deploy Frontend
+    name: Build & Deploy Frontend (SPA)
     runs-on: ubuntu-latest
     if: |
       github.event_name == 'workflow_dispatch' ||
@@ -50,7 +50,7 @@ jobs:
           EOF
           fi
 
-      - name: Build Frontend Application
+      - name: Build Frontend Application (SPA Static Build)
         working-directory: ./frontend
         run: npm run build
 
@@ -66,7 +66,7 @@ jobs:
           dangerous-clean-slate: false
 
   # ============================================================================
-  # 2. BACKEND DEPLOYMENT (Direct Sync via SSH -> cPanel Python App)
+  # 2. BACKEND DEPLOYMENT (FastAPI + Migrations via SSH/Rsync)
   # ============================================================================
   deploy-backend:
     name: Deploy Backend & Run Migrations
@@ -80,36 +80,42 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Sync Backend Files to cPanel via SSH (SCP)
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.CPANEL_SSH_HOST }}
-          username: ${{ secrets.CPANEL_SSH_USER }}
-          key: ${{ secrets.CPANEL_SSH_KEY }}
-          port: ${{ secrets.CPANEL_SSH_PORT || 22 }}
-          source: "backend,passenger_wsgi.py"
-          target: "${{ secrets.CPANEL_BACKEND_DIR || '/home/enginee2/api-zenengr.synafeia.com' }}"
-          overwrite: true
+      - name: Setup SSH Key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.CPANEL_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H -p ${{ secrets.CPANEL_SSH_PORT || 22 }} ${{ secrets.CPANEL_SSH_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Configure .env, Install Dependencies & Restart
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.CPANEL_SSH_HOST }}
-          username: ${{ secrets.CPANEL_SSH_USER }}
-          key: ${{ secrets.CPANEL_SSH_KEY }}
-          port: ${{ secrets.CPANEL_SSH_PORT || 22 }}
-          script: |
+      - name: Rsync Backend Files to cPanel
+        run: |
+          SSH_PORT="${{ secrets.CPANEL_SSH_PORT || 22 }}"
+          SSH_USER="${{ secrets.CPANEL_SSH_USER }}"
+          SSH_HOST="${{ secrets.CPANEL_SSH_HOST }}"
+          APP_DIR="${{ secrets.CPANEL_BACKEND_DIR || '/home/enginee2/api-zenengr.synafeia.com' }}"
+
+          echo "==> Syncing backend and passenger_wsgi.py to $APP_DIR"
+          rsync -avz -e "ssh -p $SSH_PORT" --delete --exclude '.git' --exclude '__pycache__' --exclude '.venv' backend passenger_wsgi.py "$SSH_USER@$SSH_HOST:$APP_DIR/"
+
+      - name: Configure .env, Install Dependencies, Run Migrations & Restart
+        run: |
+          SSH_PORT="${{ secrets.CPANEL_SSH_PORT || 22 }}"
+          SSH_USER="${{ secrets.CPANEL_SSH_USER }}"
+          SSH_HOST="${{ secrets.CPANEL_SSH_HOST }}"
+          APP_DIR="${{ secrets.CPANEL_BACKEND_DIR || '/home/enginee2/api-zenengr.synafeia.com' }}"
+
+          ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" << 'EOF'
             set -e
-            APP_DIR="${{ secrets.CPANEL_BACKEND_DIR || '/home/enginee2/api-zenengr.synafeia.com' }}"
+            APP_DIR="/home/enginee2/api-zenengr.synafeia.com"
             echo "==> Configuring backend in $APP_DIR"
             cd "$APP_DIR"
 
-            # 1. Inject Production Environment (from GitHub Secrets)
+            # 1. Inject Production Environment
             if [ -n "${{ secrets.BACKEND_PROD_ENV }}" ]; then
               echo "==> Writing backend/.env file"
-              cat << 'EOF' > backend/.env
-            ${{ secrets.BACKEND_PROD_ENV }}
-            EOF
+              cat << 'ENVEOF' > backend/.env
+          ${{ secrets.BACKEND_PROD_ENV }}
+          ENVEOF
               chmod 600 backend/.env
             fi
 
@@ -120,13 +126,14 @@ jobs:
               source ~/virtualenv/api-zenengr.synafeia.com/3.12/bin/activate
             fi
 
-            # 3. Install/sync backend dependencies & apply database migrations to Neon
-            cd backend
+            # 3. Install dependencies & run Neon database migrations
+            cd "$APP_DIR/backend"
             pip install -U pip setuptools wheel
             pip install -r requirements.txt
             alembic upgrade head
 
-            # 4. Hot-reload cPanel Passenger
+            # 4. Trigger Phusion Passenger reload
             mkdir -p "$APP_DIR/tmp"
             touch "$APP_DIR/tmp/restart.txt"
             echo "==> Backend deployed & restarted successfully"
+          EOF
