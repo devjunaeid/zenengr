@@ -42,6 +42,13 @@ SYSTEM_ROLE_PERMISSIONS: dict[str, frozenset[tuple[str, str]]] = {
     **{role.value: frozenset(perms) for role, perms in _TENANT_MATRIX.items()},
 }
 
+_SYSTEM_ROLE_IDS: dict[str, uuid.UUID] = {
+    AdminUserRole.SUPER_ADMIN.value: uuid.UUID("11111111-1111-4111-8111-111111111111"),
+    AdminUserRole.ADMIN.value: uuid.UUID("22222222-2222-4222-8222-222222222222"),
+    AdminUserRole.MANAGER.value: uuid.UUID("33333333-3333-4333-8333-333333333333"),
+    AdminUserRole.EMPLOYEE.value: uuid.UUID("44444444-4444-4444-8444-444444444444"),
+}
+
 # Names that may never be used for tenant custom roles (collide with the
 # built-in role semantics / enforcement bypasses).
 _RESERVED_ROLE_NAMES: frozenset[str] = frozenset(
@@ -544,3 +551,67 @@ async def get_permission_catalog_for_tenant(
             continue
         scoped.append(item)
     return scoped
+
+
+async def sync_system_roles_and_permissions(session: AsyncSession) -> dict[str, int]:
+    """Synchronize system built-in roles and permissions from SYSTEM_ROLE_PERMISSIONS.
+
+    Idempotent:
+    - Ensures all system roles exist (super_admin, admin, manager, employee).
+    - Ensures all (action, resource) permissions in SYSTEM_ROLE_PERMISSIONS exist.
+    - Safe to run on every application startup or CLI command.
+    """
+    system_role_descriptions: dict[str, str] = {
+        AdminUserRole.SUPER_ADMIN.value: "Super admin with full platform access",
+        AdminUserRole.ADMIN.value: "Tenant administrator with full tenant access",
+        AdminUserRole.MANAGER.value: "Tenant manager with operational access",
+        AdminUserRole.EMPLOYEE.value: "Tenant employee with standard access",
+    }
+
+    roles_created = 0
+    perms_created = 0
+
+    for role_name, role_id in _SYSTEM_ROLE_IDS.items():
+        stmt = select(Role).where(
+            Role.is_system == True,  # noqa: E712
+            Role.tenant_id.is_(None),
+            Role.name == role_name,
+        )
+        role = (await session.execute(stmt)).scalar_one_or_none()
+        if role is None:
+            role = Role(
+                id=role_id,
+                tenant_id=None,
+                name=role_name,
+                description=system_role_descriptions.get(
+                    role_name, f"System built-in role: {role_name}"
+                ),
+                is_system=True,
+            )
+            session.add(role)
+            await session.flush()
+            roles_created += 1
+
+        desired_perms = SYSTEM_ROLE_PERMISSIONS.get(role_name, frozenset())
+        existing_stmt = select(RolePermission).where(RolePermission.role_id == role.id)
+        existing_rows = (await session.execute(existing_stmt)).scalars().all()
+        existing_pairs = {(p.action, p.resource) for p in existing_rows}
+
+        for action, resource in desired_perms:
+            if (action, resource) not in existing_pairs:
+                session.add(
+                    RolePermission(
+                        id=uuid.uuid4(),
+                        role_id=role.id,
+                        action=action,
+                        resource=resource,
+                        granted=True,
+                    )
+                )
+                perms_created += 1
+
+    if roles_created > 0 or perms_created > 0:
+        await session.commit()
+
+    return {"roles_created": roles_created, "permissions_created": perms_created}
+

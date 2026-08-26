@@ -1,3 +1,5 @@
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -7,11 +9,23 @@ from fastapi.staticfiles import StaticFiles
 from app.api.v1.router import api_router
 from app.core.config import get_settings
 from app.core.errors import register_error_handlers
+from app.db.session import async_session_factory
+from app.services.roles import sync_system_roles_and_permissions
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    try:
+        async with async_session_factory() as session:
+            await sync_system_roles_and_permissions(session)
+    except Exception:
+        pass
+    yield
 
 
 def create_app() -> FastAPI:
     settings = get_settings()
-    app = FastAPI(title="ZenEngr API", version="0.1.0")
+    app = FastAPI(title="ZenEngr API", version="0.1.0", lifespan=lifespan)
 
     app.add_middleware(
         CORSMiddleware,
