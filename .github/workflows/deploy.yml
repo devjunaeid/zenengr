@@ -78,15 +78,15 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H -p ${{ secrets.CPANEL_SSH_PORT || 22 }} ${{ secrets.CPANEL_SSH_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Rsync Backend Files to cPanel
+      - name: Transfer Backend Files to cPanel via SSH
         run: |
           SSH_PORT="${{ secrets.CPANEL_SSH_PORT || 22 }}"
           SSH_USER="${{ secrets.CPANEL_SSH_USER }}"
           SSH_HOST="${{ secrets.CPANEL_SSH_HOST }}"
           APP_DIR="${{ secrets.CPANEL_BACKEND_DIR || '/home/enginee2/api-zenengr.synafeia.com' }}"
 
-          echo "==> Syncing backend and passenger_wsgi.py to $APP_DIR"
-          rsync -avz -e "ssh -p $SSH_PORT" --delete --exclude '.git' --exclude '__pycache__' --exclude '.venv' backend passenger_wsgi.py "$SSH_USER@$SSH_HOST:$APP_DIR/"
+          echo "==> Transferring backend and passenger_wsgi.py to $APP_DIR"
+          tar -czf - --exclude='.git' --exclude='__pycache__' --exclude='.venv' backend passenger_wsgi.py | ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "mkdir -p $APP_DIR && tar -xzf - -C $APP_DIR"
 
       - name: Configure .env, Install Dependencies, Run Migrations & Restart
         run: |
