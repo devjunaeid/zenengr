@@ -12,12 +12,11 @@ concurrency:
 
 jobs:
   # ============================================================================
-  # 1. FRONTEND DEPLOYMENT (SvelteKit / Vite SPA Build)
+  # 1. FRONTEND DEPLOYMENT (SvelteKit Build -> cPanel Frontend Subdomain)
   # ============================================================================
   deploy-frontend:
     name: Build & Deploy Frontend
     runs-on: ubuntu-latest
-    # Only run if frontend files or this workflow file changed
     if: |
       github.event_name == 'workflow_dispatch' ||
       contains(github.event.head_commit.modified, 'frontend/') ||
@@ -46,7 +45,7 @@ jobs:
           EOF
           else
             cat << 'EOF' > .env
-          PUBLIC_API_URL=${{ vars.FRONTEND_PUBLIC_API_URL || 'https://api.yourdomain.com/api/v1' }}
+          PUBLIC_API_URL=${{ vars.FRONTEND_PUBLIC_API_URL || 'http://api-zenengr.synafeia.com/api/v1' }}
           PUBLIC_APP_NAME="ZenEngr"
           EOF
           fi
@@ -63,25 +62,36 @@ jobs:
           password: ${{ secrets.CPANEL_FTP_PASSWORD }}
           protocol: ftps
           local-dir: ./frontend/build/
-          server-dir: ${{ secrets.CPANEL_FRONTEND_DIR || '/public_html/' }}
+          server-dir: ${{ secrets.CPANEL_FRONTEND_DIR || '/' }}
           dangerous-clean-slate: false
 
   # ============================================================================
-  # 2. BACKEND DEPLOYMENT (FastAPI Python App + Auto-Migrations)
+  # 2. BACKEND DEPLOYMENT (Direct Sync via SSH -> cPanel Python App)
   # ============================================================================
   deploy-backend:
     name: Deploy Backend & Run Migrations
     runs-on: ubuntu-latest
-    # Only run if backend files or this workflow file changed
     if: |
       github.event_name == 'workflow_dispatch' ||
       contains(github.event.head_commit.modified, 'backend/') ||
-      contains(github.event.head_commit.added, 'backend/')
+      contains(github.event.head_commit.added, 'backend/') ||
+      contains(github.event.head_commit.modified, 'passenger_wsgi.py')
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Deploy Backend & Apply Migrations via SSH
+      - name: Sync Backend Files to cPanel via SSH (SCP)
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.CPANEL_SSH_HOST }}
+          username: ${{ secrets.CPANEL_SSH_USER }}
+          key: ${{ secrets.CPANEL_SSH_KEY }}
+          port: ${{ secrets.CPANEL_SSH_PORT || 22 }}
+          source: "backend,passenger_wsgi.py"
+          target: "${{ secrets.CPANEL_BACKEND_DIR || '/home/enginee2/api-zenengr.synafeia.com' }}"
+          overwrite: true
+
+      - name: Configure .env, Install Dependencies & Restart
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.CPANEL_SSH_HOST }}
@@ -90,34 +100,33 @@ jobs:
           port: ${{ secrets.CPANEL_SSH_PORT || 22 }}
           script: |
             set -e
-            APP_DIR="${{ secrets.CPANEL_BACKEND_DIR || '~/api.yourdomain.com' }}"
-            echo "==> Deploying to $APP_DIR"
+            APP_DIR="${{ secrets.CPANEL_BACKEND_DIR || '/home/enginee2/api-zenengr.synafeia.com' }}"
+            echo "==> Configuring backend in $APP_DIR"
             cd "$APP_DIR"
 
-            # 1. Update backend source code
-            git pull origin main
-
-            # 2. Inject Production Environment (1-secret approach supports 50-100+ variables)
+            # 1. Inject Production Environment (from GitHub Secrets)
             if [ -n "${{ secrets.BACKEND_PROD_ENV }}" ]; then
-              echo "==> Updating .env file"
+              echo "==> Writing backend/.env file"
               cat << 'EOF' > backend/.env
             ${{ secrets.BACKEND_PROD_ENV }}
             EOF
               chmod 600 backend/.env
             fi
 
-            # 3. Sync dependencies and run database migrations
-            cd backend
-            if command -v uv &> /dev/null; then
-              uv sync --no-dev
-              uv run alembic upgrade head
-            else
-              source ../virtualenv/bin/activate || source ../venv/bin/activate
-              pip install -r <(python -m pip freeze) -r requirements.txt || true
-              alembic upgrade head
+            # 2. Activate cPanel Python 3.12 Virtualenv
+            if [ -f "/home/enginee2/virtualenv/api-zenengr.synafeia.com/3.12/bin/activate" ]; then
+              source /home/enginee2/virtualenv/api-zenengr.synafeia.com/3.12/bin/activate
+            elif [ -f ~/virtualenv/api-zenengr.synafeia.com/3.12/bin/activate ]; then
+              source ~/virtualenv/api-zenengr.synafeia.com/3.12/bin/activate
             fi
 
-            # 4. Trigger cPanel Passenger restart
-            mkdir -p ../tmp
-            touch ../tmp/restart.txt
+            # 3. Install/sync backend dependencies & apply database migrations to Neon
+            cd backend
+            pip install -U pip setuptools wheel
+            pip install -r requirements.txt
+            alembic upgrade head
+
+            # 4. Hot-reload cPanel Passenger
+            mkdir -p "$APP_DIR/tmp"
+            touch "$APP_DIR/tmp/restart.txt"
             echo "==> Backend deployed & restarted successfully"
