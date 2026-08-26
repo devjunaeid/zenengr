@@ -5,7 +5,12 @@ import { setTenantSettings } from '$lib/stores/settings.svelte.js';
 
 export async function load({ fetch }) {
 	const user = await requireRole(fetch, ['admin', 'manager', 'employee']);
-	const profile = await tenantApi.getProfile(fetch, auth.token);
+	let profile = { business_name: 'ZenEngr' };
+	try {
+		profile = await tenantApi.getProfile(fetch, auth.token);
+	} catch {
+		// Profile fallback if tenant profile is not yet initialized
+	}
 	await loadTenantSettings(fetch);
 	return { user, profile };
 }

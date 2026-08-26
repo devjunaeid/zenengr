@@ -1,0 +1,123 @@
+name: Monorepo CI/CD Deployment to cPanel
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # ============================================================================
+  # 1. FRONTEND DEPLOYMENT (SvelteKit / Vite SPA Build)
+  # ============================================================================
+  deploy-frontend:
+    name: Build & Deploy Frontend
+    runs-on: ubuntu-latest
+    # Only run if frontend files or this workflow file changed
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      contains(github.event.head_commit.modified, 'frontend/') ||
+      contains(github.event.head_commit.added, 'frontend/')
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Frontend Dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Configure Frontend Production .env
+        working-directory: ./frontend
+        run: |
+          if [ -n "${{ secrets.FRONTEND_PROD_ENV }}" ]; then
+            cat << 'EOF' > .env
+          ${{ secrets.FRONTEND_PROD_ENV }}
+          EOF
+          else
+            cat << 'EOF' > .env
+          PUBLIC_API_URL=${{ vars.FRONTEND_PUBLIC_API_URL || 'https://api.yourdomain.com/api/v1' }}
+          PUBLIC_APP_NAME="ZenEngr"
+          EOF
+          fi
+
+      - name: Build Frontend Application
+        working-directory: ./frontend
+        run: npm run build
+
+      - name: Deploy Frontend to cPanel via FTPS
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.CPANEL_FTP_SERVER }}
+          username: ${{ secrets.CPANEL_FTP_USERNAME }}
+          password: ${{ secrets.CPANEL_FTP_PASSWORD }}
+          protocol: ftps
+          local-dir: ./frontend/build/
+          server-dir: ${{ secrets.CPANEL_FRONTEND_DIR || '/public_html/' }}
+          dangerous-clean-slate: false
+
+  # ============================================================================
+  # 2. BACKEND DEPLOYMENT (FastAPI Python App + Auto-Migrations)
+  # ============================================================================
+  deploy-backend:
+    name: Deploy Backend & Run Migrations
+    runs-on: ubuntu-latest
+    # Only run if backend files or this workflow file changed
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      contains(github.event.head_commit.modified, 'backend/') ||
+      contains(github.event.head_commit.added, 'backend/')
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Deploy Backend & Apply Migrations via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.CPANEL_SSH_HOST }}
+          username: ${{ secrets.CPANEL_SSH_USER }}
+          key: ${{ secrets.CPANEL_SSH_KEY }}
+          port: ${{ secrets.CPANEL_SSH_PORT || 22 }}
+          script: |
+            set -e
+            APP_DIR="${{ secrets.CPANEL_BACKEND_DIR || '~/api.yourdomain.com' }}"
+            echo "==> Deploying to $APP_DIR"
+            cd "$APP_DIR"
+
+            # 1. Update backend source code
+            git pull origin main
+
+            # 2. Inject Production Environment (1-secret approach supports 50-100+ variables)
+            if [ -n "${{ secrets.BACKEND_PROD_ENV }}" ]; then
+              echo "==> Updating .env file"
+              cat << 'EOF' > backend/.env
+            ${{ secrets.BACKEND_PROD_ENV }}
+            EOF
+              chmod 600 backend/.env
+            fi
+
+            # 3. Sync dependencies and run database migrations
+            cd backend
+            if command -v uv &> /dev/null; then
+              uv sync --no-dev
+              uv run alembic upgrade head
+            else
+              source ../virtualenv/bin/activate || source ../venv/bin/activate
+              pip install -r <(python -m pip freeze) -r requirements.txt || true
+              alembic upgrade head
+            fi
+
+            # 4. Trigger cPanel Passenger restart
+            mkdir -p ../tmp
+            touch ../tmp/restart.txt
+            echo "==> Backend deployed & restarted successfully"

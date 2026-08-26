@@ -1,7 +1,7 @@
 <script>
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { page } from '$app/state';
+	import { navigating, page } from '$app/state';
 	import Icon from '@iconify/svelte';
 	import viewDashboard from '@iconify-icons/mdi/view-dashboard';
 	import accountGroup from '@iconify-icons/mdi/account-group';
@@ -64,8 +64,8 @@
 		})
 	);
 
-	const brandColor = $derived(data.profile.branding?.color);
-	const logoUrl = $derived(data.profile.branding?.logo_url);
+	const brandColor = $derived(data?.profile?.branding?.color);
+	const logoUrl = $derived(data?.profile?.branding?.logo_url);
 
 	function isActive(item) {
 		return item.exact ? page.url.pathname === item.href : page.url.pathname.startsWith(item.href);
@@ -77,7 +77,7 @@
 	}
 </script>
 
-<svelte:head><title>{data.profile.business_name} — ZenEngr</title></svelte:head>
+<svelte:head><title>{data?.profile?.business_name ?? 'ZenEngr'} — ZenEngr</title></svelte:head>
 
 <div class="flex min-h-screen flex-col bg-slate-50">
 	<header class="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-3">
@@ -85,7 +85,7 @@
 			{#if logoUrl}
 				<img
 					src={assetUrl(logoUrl)}
-					alt={`${data.profile.business_name} logo`}
+					alt={`${data?.profile?.business_name ?? 'Tenant'} logo`}
 					class="h-7 w-auto"
 				/>
 			{:else if brandColor}
@@ -95,13 +95,13 @@
 					aria-hidden="true"
 				></span>
 			{/if}
-			{data.profile.business_name}
+			{data?.profile?.business_name ?? 'ZenEngr'}
 		</span>
 		<div class="flex items-center gap-4">
 			<NotificationBell realm="admin" />
 			<span class="text-sm text-slate-700">
-				{data.user.full_name}
-				<span class="text-slate-400">({data.user.role})</span>
+				{data?.user?.full_name ?? ''}
+				<span class="text-slate-400">({data?.user?.role ?? ''})</span>
 			</span>
 			<button
 				type="button"
@@ -134,7 +134,7 @@
 				{/each}
 			</nav>
 		</aside>
-		<main class="mx-auto w-full max-w-7xl flex-1 p-6">
+		<main class="mx-auto w-full max-w-7xl flex-1 p-6 transition-opacity duration-150 {navigating.to ? 'opacity-50 pointer-events-none' : 'opacity-100'}">
 			{@render children()}
 		</main>
 	</div>
