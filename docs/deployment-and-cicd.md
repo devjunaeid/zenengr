@@ -30,24 +30,24 @@ Go to **GitHub Repository $\rightarrow$ Settings $\rightarrow$ Secrets and varia
 ### A. Repository Variables (Non-sensitive Config)
 Click **New repository variable**:
 
-| Variable Name | Description | Example Value |
+| Variable Name | Description | Value |
 | :--- | :--- | :--- |
-| `FRONTEND_PUBLIC_API_URL` | Public URL of your FastAPI backend | `https://api.yourdomain.com/api/v1` |
+| `FRONTEND_PUBLIC_API_URL` | Public URL of your FastAPI backend | `http://api-zenengr.synafeia.com/api/v1` |
 
 ### B. Repository Secrets (Encrypted Credentials)
 Click **New repository secret**:
 
 #### 1. Deployment Credentials (Connecting to cPanel)
-| Secret Name | Description | Example Value |
+| Secret Name | Description | Your Exact Value |
 | :--- | :--- | :--- |
-| `CPANEL_SSH_HOST` | cPanel Server IP or Hostname | `server123.yourhost.com` |
-| `CPANEL_SSH_USER` | cPanel Username | `mycpaneluser` |
+| `CPANEL_SSH_HOST` | cPanel Server IP or Hostname | `synafeia.com` (or your cPanel Server IP) |
+| `CPANEL_SSH_USER` | cPanel Username | `enginee2` |
 | `CPANEL_SSH_KEY` | Private SSH Key (OpenSSH format) | `-----BEGIN OPENSSH PRIVATE KEY-----...` |
-| `CPANEL_FTP_SERVER` | FTP Hostname for frontend upload | `ftp.yourdomain.com` |
-| `CPANEL_FTP_USERNAME` | FTP Username | `deploy@yourdomain.com` |
-| `CPANEL_FTP_PASSWORD` | FTP Password | `strong_ftp_password` |
-| `CPANEL_FRONTEND_DIR` | *(Optional)* cPanel frontend directory | `/public_html/app/` (Default: `/public_html/`) |
-| `CPANEL_BACKEND_DIR` | *(Optional)* cPanel backend directory | `~/api.yourdomain.com` |
+| `CPANEL_FTP_SERVER` | FTP Hostname for frontend upload | `synafeia.com` (or FTP host) |
+| `CPANEL_FTP_USERNAME` | FTP Username | `deploy@zenengr.synafeia.com` (or cPanel FTP user) |
+| `CPANEL_FTP_PASSWORD` | FTP Password | `your_ftp_password` |
+| `CPANEL_FRONTEND_DIR` | cPanel frontend directory | `/zenengr.synafeia.com/` (or `/home/enginee2/zenengr.synafeia.com/`) |
+| `CPANEL_BACKEND_DIR` | cPanel backend directory | `/home/enginee2/api-zenengr.synafeia.com` |
 
 #### 2. Production Environment Variables (50–100+ Envs in Single Secrets)
 | Secret Name | Description |
@@ -101,24 +101,22 @@ zenengr/
 ---
 
 ## 4. Initial cPanel Setup
-
-### Frontend Subdomain Setup:
-1. In cPanel, go to **Domains $\rightarrow$ Create A New Domain**.
-2. Domain: `app.yourdomain.com`.
-3. Document Root: `/home/user/public_html/app` (or `/home/user/app.yourdomain.com`).
-
-### Backend Subdomain Setup (Python App):
-1. In cPanel, open **Setup Python App**.
-2. Click **Create Application**:
-   - **Python version**: `3.11` or `3.12` / `3.14`.
-   - **Application root**: `api.yourdomain.com`.
-   - **Application URL**: `api.yourdomain.com`.
-   - **Application startup file**: `passenger_wsgi.py`.
-   - **Application Entry point**: `application`.
-3. Create `passenger_wsgi.py` in `api.yourdomain.com`:
+1. Domain: `zenengr.synafeia.com` (Document Root: `/home/enginee2/zenengr.synafeia.com`)
+2. In cPanel, open **Setup Python App**:
+   - **Python version**: `3.11` or `3.12`
+   - **Application root**: `api-zenengr.synafeia.com` (maps to `/home/enginee2/api-zenengr.synafeia.com`)
+   - **Application URL**: `api-zenengr.synafeia.com`
+   - **Application startup file**: `passenger_wsgi.py`
+   - **Application Entry point**: `application`
+3. In `/home/enginee2/api-zenengr.synafeia.com`, create `passenger_wsgi.py`:
    ```python
    import sys, os
-   sys.path.insert(0, os.path.dirname(__file__) + "/backend")
+   sys.path.insert(0, os.path.join(os.path.dirname(__file__), "backend"))
    from app.main import create_app
    application = create_app()
+   ```
+4. Clone the repository once into `/home/enginee2/api-zenengr.synafeia.com`:
+   ```bash
+   cd /home/enginee2/api-zenengr.synafeia.com
+   git clone <your-repo-url> .
    ```
