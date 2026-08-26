@@ -17,10 +17,6 @@ jobs:
   deploy-frontend:
     name: Build & Deploy Frontend (SPA)
     runs-on: ubuntu-latest
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      contains(github.event.head_commit.modified, 'frontend/') ||
-      contains(github.event.head_commit.added, 'frontend/')
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -71,11 +67,6 @@ jobs:
   deploy-backend:
     name: Deploy Backend & Run Migrations
     runs-on: ubuntu-latest
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      contains(github.event.head_commit.modified, 'backend/') ||
-      contains(github.event.head_commit.added, 'backend/') ||
-      contains(github.event.head_commit.modified, 'passenger_wsgi.py')
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
