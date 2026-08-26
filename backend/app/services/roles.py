@@ -16,12 +16,13 @@ update/delete/reset/assign, all audited and cache-aware.
 
 from __future__ import annotations
 
+import time
 import uuid
 
 from fastapi import HTTPException, status
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import joinedload, selectinload
 
 from app.models.admin_user import AdminUser
 from app.models.enums import ActorType, AdminUserRole
@@ -237,11 +238,11 @@ async def list_roles(session: AsyncSession, *, tenant_id: uuid.UUID) -> list[Rol
             or_(Role.tenant_id.is_(None), Role.tenant_id == tenant_id),
             ~and_(Role.tenant_id.is_(None), Role.name == AdminUserRole.SUPER_ADMIN.value),
         )
-        .options(selectinload(Role.permissions))
+        .options(joinedload(Role.permissions))
         .order_by(Role.tenant_id.is_not(None), Role.name)
     )
     result = await session.execute(stmt)
-    return list(result.scalars().all())
+    return list(result.unique().scalars().all())
 
 
 async def create_role(
@@ -507,6 +508,9 @@ async def effective_permissions(session: AsyncSession, *, user: AdminUser) -> li
     Otherwise return the role's granted pairs from role_permissions.
     Falls back to the static matrix (has_permission) when role_id is None.
     """
+    if user.role in (AdminUserRole.SUPER_ADMIN, AdminUserRole.ADMIN):
+        return [f"{p['action']}.{p['resource']}" for p in PERMISSION_CATALOG]
+
     if user.role_id is None:
         return sorted(
             f"{p['action']}.{p['resource']}"
@@ -529,6 +533,16 @@ async def effective_permissions(session: AsyncSession, *, user: AdminUser) -> li
 # ── Catalog ───────────────────────────────────────────────────────────────
 
 
+async def clear_catalog_cache(tenant_id: uuid.UUID | None = None) -> None:
+    """Clear tenant permission catalog cache."""
+    from app.core.cache import cache, tenant_catalog_cache_key
+
+    if tenant_id is not None:
+        await cache.delete(tenant_catalog_cache_key(tenant_id))
+    else:
+        await cache.clear()
+
+
 def get_permission_catalog() -> list[dict[str, str]]:
     """Return the permission catalog (action/resource/label/group) for the UI."""
     return PERMISSION_CATALOG
@@ -537,19 +551,27 @@ def get_permission_catalog() -> list[dict[str, str]]:
 async def get_permission_catalog_for_tenant(
     session: AsyncSession, *, tenant_id: uuid.UUID
 ) -> list[dict[str, str]]:
-    """Return the permission catalog scoped to the tenant's feature flags.
+    """Return the permission catalog scoped to the tenant's feature flags (cached)."""
+    from app.core.cache import cache, tenant_catalog_cache_key
 
-    Items whose resource maps to a feature flag that is disabled for the
-    tenant are dropped (e.g. comments_module off -> no post/edit comments).
-    Resources with no flag mapping (admin_users, tenant_settings, profile,
-    ...) are always kept. Same item shape as PERMISSION_CATALOG.
-    """
+    key = tenant_catalog_cache_key(tenant_id)
+    cached = await cache.get(key)
+    if cached is not None:
+        return cached
+
+    from app.services.feature_flags import get_resolved_flags
+
+    resolved_flags = await get_resolved_flags(session, tenant_id)
+    flags_map = {f["key"]: f["enabled"] for f in resolved_flags}
+
     scoped: list[dict[str, str]] = []
     for item in PERMISSION_CATALOG:
         flag = FEATURE_KEY_BY_RESOURCE.get(item["resource"])
-        if flag is not None and not await is_feature_enabled(session, tenant_id, flag):
+        if flag is not None and not flags_map.get(flag, True):
             continue
         scoped.append(item)
+
+    await cache.set(key, scoped, expire=300)
     return scoped
 
 

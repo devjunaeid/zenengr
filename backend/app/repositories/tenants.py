@@ -7,7 +7,7 @@ from typing import Any
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import joinedload, selectinload
 
 from app.models.admin_user import AdminUser
 from app.models.enums import TenantStatus
@@ -22,13 +22,13 @@ async def get_by_id(
     stmt = select(Tenant)
     if load_relations:
         stmt = stmt.options(
-            selectinload(Tenant.plan),
-            selectinload(Tenant.subscription),
-            selectinload(Tenant.settings),
+            joinedload(Tenant.plan),
+            joinedload(Tenant.subscription),
+            joinedload(Tenant.settings),
         )
     stmt = stmt.where(Tenant.id == tenant_id)
     result = await session.execute(stmt)
-    return result.scalar_one_or_none()
+    return result.unique().scalar_one_or_none()
 
 
 async def get_by_slug(session: AsyncSession, slug: str) -> Tenant | None:
@@ -71,20 +71,26 @@ async def list_paginated(
     Returns (items, total).
     """
     query = select(Tenant).options(
-        selectinload(Tenant.plan),
-        selectinload(Tenant.subscription),
+        joinedload(Tenant.plan),
+        joinedload(Tenant.subscription),
     )
+
+    count_q = select(func.count(Tenant.id))
 
     if status is not None:
         query = query.where(Tenant.status == status)
+        count_q = count_q.where(Tenant.status == status)
     if q:
         pattern = f"%{q}%"
         query = query.where(or_(Tenant.business_name.ilike(pattern), Tenant.slug.ilike(pattern)))
+        count_q = count_q.where(or_(Tenant.business_name.ilike(pattern), Tenant.slug.ilike(pattern)))
 
     # Total count
-    count_q = select(func.count()).select_from(query.subquery())
     total_result = await session.execute(count_q)
     total: int = total_result.scalar_one()
+
+    if total == 0:
+        return [], 0
 
     # Sort
     if sort == "business_name":

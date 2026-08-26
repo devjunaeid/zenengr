@@ -6,16 +6,16 @@ import uuid
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import joinedload, selectinload
 
 from app.models.client_invite import ClientInvite
 
 
 async def get_by_id(session: AsyncSession, invite_id: uuid.UUID) -> ClientInvite | None:
-    """Fetch invite by primary key with client and tenant loaded."""
+    """Fetch invite by primary key with client and tenant loaded in 1 query."""
     stmt = (
         select(ClientInvite)
-        .options(selectinload(ClientInvite.client), selectinload(ClientInvite.tenant))
+        .options(joinedload(ClientInvite.client), joinedload(ClientInvite.tenant))
         .where(ClientInvite.id == invite_id)
     )
     result = await session.execute(stmt)
@@ -23,10 +23,10 @@ async def get_by_id(session: AsyncSession, invite_id: uuid.UUID) -> ClientInvite
 
 
 async def get_by_token_hash(session: AsyncSession, token_hash: str) -> ClientInvite | None:
-    """Fetch invite by SHA-256 token hash with client and tenant loaded."""
+    """Fetch invite by SHA-256 token hash with client and tenant loaded in 1 query."""
     stmt = (
         select(ClientInvite)
-        .options(selectinload(ClientInvite.client), selectinload(ClientInvite.tenant))
+        .options(joinedload(ClientInvite.client), joinedload(ClientInvite.tenant))
         .where(ClientInvite.token_hash == token_hash)
     )
     result = await session.execute(stmt)
@@ -40,12 +40,12 @@ async def get_by_client_id(
     """List invites for a client, newest first."""
     stmt = (
         select(ClientInvite)
-        .options(selectinload(ClientInvite.client), selectinload(ClientInvite.tenant))
+        .options(joinedload(ClientInvite.client), joinedload(ClientInvite.tenant))
         .where(ClientInvite.client_id == client_id)
         .order_by(ClientInvite.created_at.desc())
     )
     result = await session.execute(stmt)
-    return list(result.scalars().all())
+    return list(result.unique().scalars().all())
 
 
 async def get_pending_by_client_and_email(

@@ -22,6 +22,7 @@ dependencies = [
     "python-multipart>=0.0.32",
     "boto3>=1.43.64",
     "aiosmtplib>=5.1.2",
+    "cashews[redis]>=7.0",
 ]
 
 [project.scripts]

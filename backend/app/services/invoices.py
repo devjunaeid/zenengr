@@ -20,7 +20,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import joinedload, selectinload
 
 from app.models.enums import (
     ActorType,
@@ -181,7 +181,7 @@ async def _get_project_service_for_invoice(
     """Fetch a project_service that belongs to the given project in the tenant."""
     stmt = (
         select(ProjectService)
-        .options(selectinload(ProjectService.service))
+        .options(joinedload(ProjectService.service))
         .join(Project, ProjectService.project_id == Project.id)
         .where(
             ProjectService.id == project_service_id,
@@ -198,12 +198,12 @@ async def _get_invoice_with_relations(
     tenant_id: uuid.UUID,
     invoice_id: uuid.UUID,
 ) -> Invoice | None:
-    """Fetch an invoice with line_items + project eager-loaded, tenant-scoped."""
+    """Fetch an invoice with line_items + project eager-loaded in 1 query, tenant-scoped."""
     stmt = (
         select(Invoice)
         .options(
-            selectinload(Invoice.line_items),
-            selectinload(Invoice.project),
+            joinedload(Invoice.line_items),
+            joinedload(Invoice.project),
         )
         .execution_options(populate_existing=True)
         .where(Invoice.id == invoice_id, Invoice.tenant_id == tenant_id)

@@ -184,14 +184,14 @@ async def get_tenant_settings(
     tenant_id: uuid.UUID,
     role: AdminUserRole,
 ) -> list[dict[str, Any]]:
-    """Get all settings for a tenant with editable flag and masking.
+    """Get all settings for a tenant with editable flag and masking (cached in cashews)."""
+    from app.core.cache import cache, tenant_settings_cache_key
 
-    Returns every DEFAULT_SETTINGS entry merged with stored overrides:
-    value is the stored row value when present, else the default. Extra
-    stored rows (e.g. super_admin_only) are appended after the defaults.
+    cache_key = f"{tenant_settings_cache_key(tenant_id)}:{role.value}"
+    cached = await cache.get(cache_key)
+    if cached is not None:
+        return cached
 
-    Masking: super_admin_only values shown as null for tenant callers.
-    """
     result = await session.execute(
         select(TenantSetting).where(TenantSetting.tenant_id == tenant_id)
     )
@@ -240,6 +240,7 @@ async def get_tenant_settings(
             }
         )
 
+    await cache.set(cache_key, items, expire=300)
     return items
 
 
@@ -311,6 +312,9 @@ async def update_tenant_setting(
         await session.flush()
         await session.refresh(setting)
         await session.commit()
+        from app.core.cache import invalidate_tenant_metadata
+
+        await invalidate_tenant_metadata(tenant_id)
         return {"key": key, "old_value": None, "new_value": setting.value}
 
     # Validate
@@ -321,5 +325,8 @@ async def update_tenant_setting(
     await session.flush()
     await session.refresh(setting)
     await session.commit()
+    from app.core.cache import invalidate_tenant_metadata
+
+    await invalidate_tenant_metadata(tenant_id)
 
     return {"key": key, "old_value": old_value, "new_value": setting.value}

@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.api.v1.router import api_router
+from app.core.cache import init_cache
 from app.core.config import get_settings
 from app.core.errors import register_error_handlers
 from app.db.session import async_session_factory
@@ -15,6 +16,7 @@ from app.services.roles import sync_system_roles_and_permissions
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    init_cache()
     try:
         async with async_session_factory() as session:
             await sync_system_roles_and_permissions(session)

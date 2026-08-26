@@ -125,11 +125,14 @@ async def resolve_flag_detail(
 
 
 async def get_resolved_flags(session: AsyncSession, tenant_id: uuid.UUID) -> list[dict[str, Any]]:
-    """Get all resolved flags for a tenant with source info.
+    """Get all resolved flags for a tenant with source info (cached in cashews)."""
+    from app.core.cache import cache, tenant_flags_cache_key
 
-    Returns the FULL catalog (FEATURE_KEYS), plus any non-catalog keys with
-    existing rows (overrides or plan defaults) for back-compat.
-    """
+    cache_key = tenant_flags_cache_key(tenant_id)
+    cached = await cache.get(cache_key)
+    if cached is not None:
+        return cached
+
     tenant = await session.get(Tenant, tenant_id)
     if tenant is None:
         raise HTTPException(
@@ -137,25 +140,39 @@ async def get_resolved_flags(session: AsyncSession, tenant_id: uuid.UUID) -> lis
             detail="Tenant not found",
         )
 
-    # Catalog keys always resolve; non-catalog keys with rows are kept too.
-    known_keys: set[str] = set(_KNOWN_KEYS)
+    # 1. Fetch overrides in 1 query
+    override_stmt = select(TenantFeatureFlag).where(TenantFeatureFlag.tenant_id == tenant_id)
+    override_rows = (await session.execute(override_stmt)).scalars().all()
+    override_map = {o.key: o.enabled for o in override_rows}
 
-    overrides = await session.execute(
-        select(TenantFeatureFlag).where(TenantFeatureFlag.tenant_id == tenant_id)
-    )
-    for o in overrides.scalars().all():
-        known_keys.add(o.key)
+    # 2. Fetch plan defaults in 1 query
+    plan_default_map: dict[str, bool] = {}
+    if tenant.plan_id is not None:
+        pd_stmt = select(PlanFeatureDefault).where(PlanFeatureDefault.plan_id == tenant.plan_id)
+        pd_rows = (await session.execute(pd_stmt)).scalars().all()
+        plan_default_map = {pd.key: pd.enabled for pd in pd_rows}
 
-    plan_defaults = await session.execute(
-        select(PlanFeatureDefault).where(PlanFeatureDefault.plan_id == tenant.plan_id)
-    )
-    for pd in plan_defaults.scalars().all():
-        known_keys.add(pd.key)
+    # 3. Resolve in memory (0 extra queries)
+    known_keys: set[str] = set(_KNOWN_KEYS) | set(override_map.keys()) | set(plan_default_map.keys())
 
     results: list[dict[str, Any]] = []
     for key in sorted(known_keys):
-        detail = await resolve_flag_detail(session, tenant_id, key)
-        results.append(detail)
+        if key in override_map:
+            results.append({"key": key, "enabled": override_map[key], "source": "override"})
+        elif key in plan_default_map:
+            results.append(
+                {"key": key, "enabled": plan_default_map[key], "source": "plan_default"}
+            )
+        else:
+            results.append(
+                {
+                    "key": key,
+                    "enabled": _CATALOG_DEFAULTS.get(key, False),
+                    "source": "system_default",
+                }
+            )
+
+    await cache.set(cache_key, results, expire=300)
     return results
 
 
@@ -197,6 +214,9 @@ async def set_override(
         session.add(flag)
     await session.flush()
     await session.refresh(flag)
+    from app.core.cache import invalidate_tenant_metadata
+
+    await invalidate_tenant_metadata(tenant_id)
     return flag
 
 
@@ -216,6 +236,9 @@ async def remove_override(session: AsyncSession, tenant_id: uuid.UUID, key: str)
         )
     await session.delete(flag)
     await session.flush()
+    from app.core.cache import invalidate_tenant_metadata
+
+    await invalidate_tenant_metadata(tenant_id)
 
 
 async def get_plan_defaults(session: AsyncSession, plan_id: uuid.UUID) -> list[dict[str, Any]]:
@@ -245,4 +268,7 @@ async def set_plan_default(
         session.add(pd)
     await session.flush()
     await session.refresh(pd)
+    from app.core.cache import cache
+
+    await cache.clear()
     return pd

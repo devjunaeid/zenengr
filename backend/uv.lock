@@ -133,6 +133,7 @@ dependencies = [
     { name = "asyncpg" },
     { name = "bcrypt" },
     { name = "boto3" },
+    { name = "cashews", extra = ["redis"] },
     { name = "email-validator" },
     { name = "fastapi", extra = ["standard"] },
     { name = "pydantic-settings" },
@@ -172,6 +173,7 @@ requires-dist = [
     { name = "asyncpg", specifier = ">=0.30" },
     { name = "bcrypt", specifier = ">=4.0,<5.1" },
     { name = "boto3", specifier = ">=1.43.64" },
+    { name = "cashews", extras = ["redis"], specifier = ">=7.0" },
     { name = "email-validator", specifier = ">=2.0" },
     { name = "fastapi", extras = ["standard"], specifier = ">=0.140.0" },
     { name = "httpx", marker = "extra == 'dev'", specifier = ">=0.27" },
@@ -277,6 +279,20 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/3b/67/0e39203c5c67f750874478cf89124486044580ec5cb391eec8eb13cf25b8/botocore-1.43.64.tar.gz", hash = "sha256:a2bb131f48111094fae0a2c896b42593797e935d9c22abb2ebae4290c6dbb5ea", size = 15842274, upload-time = "2026-08-04T20:12:31.598Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/3d/d1/f27d1a4fb571e102828a4672cb3d19e0409275eb92c701b67a85879c0b04/botocore-1.43.64-py3-none-any.whl", hash = "sha256:f0a01c47d631ab95589c244566bca971294724b21862de1c12c7c3b0de236272", size = 15525459, upload-time = "2026-08-04T20:12:28.58Z" },
+]
+
+[[package]]
+name = "cashews"
+version = "7.5.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/44/73/31598b352165cd0f0b777df1eb67e33f334e29fcd7eb4f4bb48a41b9affe/cashews-7.5.0.tar.gz", hash = "sha256:3f88b8c5ced0ea4826915a1ff67055b647252dd65ef25f4813316a6341f00b37", size = 97699, upload-time = "2026-03-02T22:28:52.462Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/0d/14/06cca741567a2ec458fb1db9d053e72477d9da2be387c1d705cb1060b2c6/cashews-7.5.0-py3-none-any.whl", hash = "sha256:e79cb4e5cc164d8f2d2856b166d45dcc2dd8d53b95874d2c6d07dfdb1c9ac3c4", size = 82413, upload-time = "2026-03-02T22:28:50.98Z" },
+]
+
+[package.optional-dependencies]
+redis = [
+    { name = "redis" },
 ]
 
 [[package]]

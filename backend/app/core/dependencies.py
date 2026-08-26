@@ -17,6 +17,13 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import TokenPayload, decode_access_token
+from app.core.cache import (
+    cache,
+    client_user_cache_key,
+    invalidate_client_user,
+    invalidate_user,
+    user_cache_key,
+)
 from app.db.session import get_session
 from app.models.admin_user import AdminUser
 from app.models.client_user import ClientUser
@@ -25,19 +32,15 @@ from app.models.role import Role
 from app.repositories import admin_users as admin_user_repo
 from app.services.permissions import has_permission, role_has_permission
 
-import time
-
 _security_scheme = HTTPBearer()
 
-_USER_CACHE: dict[uuid.UUID, tuple[float, AdminUser]] = {}
 
-
-def invalidate_user_cache(user_id: uuid.UUID | None = None) -> None:
+async def invalidate_user_cache(user_id: uuid.UUID | None = None) -> None:
     """Clear cached admin user (called on user or role mutation)."""
     if user_id is not None:
-        _USER_CACHE.pop(user_id, None)
+        await invalidate_user(user_id)
     else:
-        _USER_CACHE.clear()
+        await cache.clear()
 
 
 async def get_current_admin_user(
@@ -68,14 +71,12 @@ async def get_current_admin_user(
             detail="Invalid token payload",
         ) from exc
 
-    now = time.monotonic()
-    cached = _USER_CACHE.get(user_id)
-    if cached is not None and now < cached[0] and cached[1].is_active:
-        user = cached[1]
-    else:
+    key = user_cache_key(user_id)
+    user = await cache.get(key)
+    if user is None or not user.is_active:
         user = await admin_user_repo.get_by_id(session, user_id)
         if user is not None and user.is_active:
-            _USER_CACHE[user_id] = (now + 60.0, user)
+            await cache.set(key, user, expire=60)
 
     if user is None or not user.is_active:
         raise HTTPException(
@@ -135,7 +136,13 @@ async def get_current_client_user(
             detail="Invalid token payload",
         ) from exc
 
-    user = await client_user_repo.get_by_id(session, user_id)
+    c_key = client_user_cache_key(user_id)
+    user = await cache.get(c_key)
+    if user is None or not user.is_active:
+        user = await client_user_repo.get_by_id(session, user_id)
+        if user is not None and user.is_active:
+            await cache.set(c_key, user, expire=60)
+
     if user is None or not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
