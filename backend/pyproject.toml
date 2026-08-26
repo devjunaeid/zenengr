@@ -27,6 +27,8 @@ dependencies = [
 [project.scripts]
 db-check = "scripts.db_check:main"
 sync-permissions = "scripts.sync_permissions:main"
+seed-dev = "scripts.seed_dev:main"
+seed_dev = "scripts.seed_dev:main"
 
 [project.optional-dependencies]
 dev = [

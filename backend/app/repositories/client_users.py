@@ -6,7 +6,7 @@ import uuid
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import joinedload, selectinload
 
 from app.models.client_user import ClientUser
 
@@ -15,7 +15,7 @@ async def get_by_email(session: AsyncSession, email: str) -> ClientUser | None:
     """Fetch client user by email with client relationship."""
     stmt = (
         select(ClientUser)
-        .options(selectinload(ClientUser.client), selectinload(ClientUser.tenant))
+        .options(joinedload(ClientUser.client), joinedload(ClientUser.tenant))
         .where(ClientUser.email == email.lower().strip())
     )
     result = await session.execute(stmt)
@@ -26,7 +26,7 @@ async def get_by_id(session: AsyncSession, user_id: uuid.UUID) -> ClientUser | N
     """Fetch client user by primary key with client + tenant relationships."""
     stmt = (
         select(ClientUser)
-        .options(selectinload(ClientUser.client), selectinload(ClientUser.tenant))
+        .options(joinedload(ClientUser.client), joinedload(ClientUser.tenant))
         .where(ClientUser.id == user_id)
     )
     result = await session.execute(stmt)

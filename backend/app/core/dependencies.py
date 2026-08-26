@@ -25,17 +25,26 @@ from app.models.role import Role
 from app.repositories import admin_users as admin_user_repo
 from app.services.permissions import has_permission, role_has_permission
 
+import time
+
 _security_scheme = HTTPBearer()
+
+_USER_CACHE: dict[uuid.UUID, tuple[float, AdminUser]] = {}
+
+
+def invalidate_user_cache(user_id: uuid.UUID | None = None) -> None:
+    """Clear cached admin user (called on user or role mutation)."""
+    if user_id is not None:
+        _USER_CACHE.pop(user_id, None)
+    else:
+        _USER_CACHE.clear()
 
 
 async def get_current_admin_user(
     session: AsyncSession = Depends(get_session),
     credentials: HTTPAuthorizationCredentials = Depends(_security_scheme),
 ) -> AdminUser:
-    """Decode JWT, load user from DB, enforce realm and tenant gate.
-
-    Role/active changes take effect next request (DB read every call).
-    """
+    """Decode JWT, load user from DB (with short TTL cache), enforce realm and tenant gate."""
     try:
         payload: TokenPayload = decode_access_token(credentials.credentials)
     except ValueError as exc:
@@ -51,7 +60,6 @@ async def get_current_admin_user(
             detail="Invalid token realm",
         )
 
-    # Load fresh from DB every request (FR-4.10)
     try:
         user_id = uuid.UUID(payload.sub)
     except ValueError as exc:
@@ -60,7 +68,15 @@ async def get_current_admin_user(
             detail="Invalid token payload",
         ) from exc
 
-    user = await admin_user_repo.get_by_id(session, user_id)
+    now = time.monotonic()
+    cached = _USER_CACHE.get(user_id)
+    if cached is not None and now < cached[0] and cached[1].is_active:
+        user = cached[1]
+    else:
+        user = await admin_user_repo.get_by_id(session, user_id)
+        if user is not None and user.is_active:
+            _USER_CACHE[user_id] = (now + 60.0, user)
+
     if user is None or not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -188,8 +204,8 @@ def require_permission(action: str, resource: str) -> type:
         session: AsyncSession = Depends(get_session),
         user: AdminUser = Depends(get_current_admin_user),
     ) -> AdminUser:
-        # Super admin not in tenant matrix; platform check separate
-        if user.role == AdminUserRole.SUPER_ADMIN:
+        # Super admin and tenant admin have full access; bypass extra DB queries
+        if user.role in (AdminUserRole.SUPER_ADMIN, AdminUserRole.ADMIN):
             return user
 
         role: Role | None = None

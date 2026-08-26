@@ -6,7 +6,7 @@ import uuid
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import joinedload, selectinload
 
 from app.models.admin_user import AdminUser
 from app.models.enums import AdminUserRole
@@ -16,7 +16,7 @@ async def get_by_email(session: AsyncSession, email: str) -> AdminUser | None:
     """Fetch admin user by email (case-insensitive via lowered storage)."""
     stmt = (
         select(AdminUser)
-        .options(selectinload(AdminUser.tenant))
+        .options(joinedload(AdminUser.tenant))
         .where(AdminUser.email == email.lower().strip())
     )
     result = await session.execute(stmt)
@@ -24,8 +24,8 @@ async def get_by_email(session: AsyncSession, email: str) -> AdminUser | None:
 
 
 async def get_by_id(session: AsyncSession, user_id: uuid.UUID) -> AdminUser | None:
-    """Fetch admin user by primary key with tenant relationship."""
-    stmt = select(AdminUser).options(selectinload(AdminUser.tenant)).where(AdminUser.id == user_id)
+    """Fetch admin user by primary key with tenant relationship in single query."""
+    stmt = select(AdminUser).options(joinedload(AdminUser.tenant)).where(AdminUser.id == user_id)
     result = await session.execute(stmt)
     return result.scalar_one_or_none()
 

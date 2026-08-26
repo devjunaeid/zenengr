@@ -77,12 +77,18 @@ async def list_projects_for_tenant(
     if client_id is not None:
         query = query.where(Project.client_id == client_id)
 
-    # Count (strip options to avoid double-counting in joined query)
-    count_q = select(func.count()).select_from(
-        select(Project).where(Project.tenant_id == tenant_id).subquery()
-    )
+    # Count
+    count_q = select(func.count(Project.id)).where(Project.tenant_id == tenant_id)
+    if status is not None:
+        count_q = count_q.where(Project.status == status)
+    if client_id is not None:
+        count_q = count_q.where(Project.client_id == client_id)
+
     total_result = await session.execute(count_q)
     total: int = total_result.scalar_one()
+
+    if total == 0:
+        return [], 0
 
     # Sort
     if sort:
