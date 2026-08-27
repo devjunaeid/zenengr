@@ -18,6 +18,9 @@ out/
 !frontend/.env.example
 !backend/.env.example
 
+# Internal dev scratch docs
+docs/dev/
+
 # IDE
 .vscode/
 .idea/

@@ -1,147 +1,140 @@
-# Agentic Development Template
+# ZenEngr
 
-> A template for bootstrapping AI-driven development with opencode.
-> Use this as a starting scaffold for any new or existing software project.
+> **Multi-Tenant Engineering Management & Client Collaboration Platform**
+> Built with FastAPI, SvelteKit, Neon PostgreSQL, and a unified caching & automated CI/CD architecture.
 
-## What this template provides
-
-1. **Docs-first workflow:** Every implementation starts from feature → user stories → todos → progress.
-2. **Frontmatter-based docs:** Features, stories, todos, and decisions live as small, machine-readable files under `docs/`. opencode can scan them in milliseconds even as the project grows.
-3. **opencode integration:**
-   - `Agent.md` at the root tells opencode which files to read and which workflow to follow.
-   - `AGENTS.md` gives opencode high-level context about this scaffold.
-   - `opencode.json` configures project defaults, permissions, MCP, and instructions.
-   - `.opencode/skill/` holds local skills; `.opencode/command/` registers `/project-init` and `/project-status`.
-4. **One-command onboarding:** Run `/project-init` to let the agent discover or ask about the tech stack and populate the docs automatically.
-
-## Quick start
-
-### For a brand-new project
-
-1. Copy this template into a new directory.
-2. Open the directory in opencode.
-3. Type `/project-init`.
-4. Answer the stack/product questions (or let the agent scan an existing codebase).
-5. The agent will populate `docs/index.md`, `docs/features/`, `docs/stories/`, `docs/todos/`, `docs/progress.md`, `docs/frontend-standard.md`, `docs/backend-standard.md`, `docs/ui-ux-spec.md`, and `docs/mcp-setup.md`.
-6. Review the generated docs, then run `/project-status` and start implementing the first available task.
-
-### For an existing codebase
-
-1. Copy this template into the repository root (do not overwrite existing source files).
-2. Open in opencode and run `/project-init`.
-3. The agent will scan manifests like `package.json`, `pyproject.toml`, `go.mod`, etc., to pre-fill the stack, then ask you to confirm.
-4. Review and refine the generated docs before starting work.
-
-## File structure
-
-```text
-Agent.md                          # Root agent instructions — read first every session
-AGENTS.md                         # opencode repository guidance
-README.md                         # This file — template documentation
-opencode.json                     # Project settings, permissions, MCP, instructions
-.opencode/
-  skill/
-    project-init/                 # project-init skill
-      SKILL.md
-      instructions.md
-    project-status/               # project-status skill
-      SKILL.md
-      instructions.md
-  command/
-    project-init.md               # /project-init slash command
-    project-status.md             # /project-status slash command
-docs/
-  index.md                        # Auto-generated project dashboard
-  progress.md                     # Living progress tracker
-  stack-discovery.md              # Stack questionnaire filled by /project-init
-  frontend-standard.md            # Frontend coding standards
-  backend-standard.md             # Backend coding standards
-  ui-ux-spec.md                   # UI/UX specification
-  code-review-checklist.md        # Post-implementation review checklist
-  verification-checklist.md       # Pre-merge verification checklist
-  mcp-setup.md                    # MCP server recommendations
-  features/                       # One file per feature (frontmatter-based)
-  stories/                        # One file per user story
-  todos/                          # One file per implementation task
-  decisions/                      # Architecture / product decisions
-  sprints/                        # Sprint plans and retrospectives
-```
-
-## Customizing the template
-
-### Change the skills / commands
-
-Edit `.opencode/skill/project-init/instructions.md` to adjust the onboarding questions, detected files, or generated docs.
-
-Register additional slash commands by adding markdown files under `.opencode/command/`:
-
-```markdown
----
-description: One sentence describing what the command does.
-agent: build
 ---
 
-(command body — the prompt opencode runs)
-```
+## 🚀 Architecture Overview
 
-### Add default MCP servers
+ZenEngr is structured as a decoupled monorepo:
 
-Edit `opencode.json` `mcp` to include servers every project should have. Keep token values as `{env:TOKEN_NAME}` and never commit real secrets.
-
-### Add organization-wide standards
-
-Replace or extend `docs/frontend-standard.md` and `docs/backend-standard.md` with your team's conventions. These files are imported by every project that uses this template.
-
-### Add domain-specific doc templates
-
-If your projects typically need extra planning artifacts — e.g., `docs/data-model.md`, `docs/security-model.md`, `docs/api-contract.md` — add them under `docs/` and reference them in `Agent.md` so the agent reads them for context.
-
-## Distributing the template
-
-- Share this directory as a Git repository or a downloadable archive.
-- When a developer clones it, they should replace `README.md` with their project description after running `/project-init`.
-- Keep the `Agent.md`, `AGENTS.md`, `opencode.json`, `.opencode/`, and `docs/` structure intact so future opencode sessions can use the established workflow.
-
-## Important conventions
-
-1. **Scaffold ≠ product.** The files in this template are starting points. `/project-init` exists specifically to switch context from "this is the scaffold" to "this is the actual project being built."
-2. **Docs live in `docs/`.** Do not scatter PRDs, user stories, or progress trackers across the repository root.
-3. **Progress is updated after every meaningful change.** No task is "done" until `docs/progress.md` reflects it.
-4. **Review gates are required.** Every task goes through the checklists in `docs/code-review-checklist.md` and `docs/verification-checklist.md`.
-
-## Workflow summary
+* **Backend (`backend/`)**: High-performance asynchronous REST API powered by **FastAPI**, **SQLAlchemy 2.0** (async), **Alembic**, and **Cashews** (in-memory + Redis toggleable caching).
+* **Frontend (`frontend/`)**: Modern reactive web application powered by **SvelteKit 2**, **Svelte 5 Runes**, **Tailwind CSS v4**, and **Bits UI**.
+* **Database**: **PostgreSQL 16** (Local Docker) / **Neon Serverless PostgreSQL** (Cloud/Production with SSL & connection pooling).
+* **Infrastructure & CI/CD**: Containerized local development via **Docker Compose**, automated zero-downtime deployment via **GitHub Actions**.
 
 ```
-/project-init
-      │
-      ▼
-Fill docs/stack-discovery.md
-      │
-      ▼
-Generate docs/features/
-      │
-      ▼
-Generate docs/stories/
-      │
-      ▼
-Generate docs/todos/
-      │
-      ▼
-/project-status (before each session)
-      │
-      ▼
-Implement (frontend or backend standard)
-      │
-      ▼
-Code review + verification checklists
-      │
-      ▼
-Update docs/todos/ and docs/progress.md
+zenengr/
+├── frontend/                 # SvelteKit 2 SPA client portal & admin dashboard
+├── backend/                  # FastAPI async REST API & Alembic migrations
+├── docker-compose.yml        # Local dev stack (Postgres, Redis, MailHog, pgAdmin)
+├── passenger_wsgi.py         # Production entry bridge for cPanel / CloudLinux
+└── .github/workflows/
+    └── deploy.yml            # Automated CI/CD pipeline (SSH / FTPS)
 ```
 
-## Troubleshooting
+---
 
-- **"/project-init" not found:** Ensure `.opencode/command/project-init.md` exists and restart opencode.
-- **Skill overwrites my edits:** `/project-init` is designed to ask before overwriting non-placeholder content. If it does not, refine the rules in `.opencode/skill/project-init/instructions.md`.
-- **"/project-status" not found:** Ensure `.opencode/command/project-status.md` exists and restart opencode.
-- **MCP config not picked up:** Restart opencode or check that `opencode.json` is valid JSON and the server command is installed. Do not commit secrets.
+## 🛠️ Tech Stack
+
+| Layer | Technology |
+| :--- | :--- |
+| **Backend Framework** | [FastAPI](https://fastapi.tiangolo.com/) (Python 3.11+) |
+| **ORM & Database Driver** | [SQLAlchemy 2.0 Async](https://docs.sqlalchemy.org/) + [asyncpg](https://github.com/MagicStack/asyncpg) |
+| **Database** | [PostgreSQL 16](https://www.postgresql.org/) / [Neon](https://neon.tech/) |
+| **Caching Layer** | [Cashews](https://github.com/Krukov/cashews) (`memory` in RAM or `redis` distributed) |
+| **Frontend Framework** | [SvelteKit 2](https://kit.svelte.dev/) + [Svelte 5](https://svelte.dev/) (Runes) |
+| **Styling & UI** | [Tailwind CSS v4](https://tailwindcss.com/) + [Bits UI](https://bits-ui.com/) |
+| **Package Managers** | [uv](https://github.com/astral-sh/uv) (Python) + [npm](https://npmjs.com/) (Node.js) |
+| **Process Management** | Phusion Passenger (cPanel) / Uvicorn (Docker/VPS) |
+
+---
+
+## ⚡ Quick Start (Local Development)
+
+### 1. Prerequisites
+* [Docker & Docker Compose](https://www.docker.com/) (or OrbStack)
+* [Node.js 22+](https://nodejs.org/)
+* [Python 3.11+ / uv](https://github.com/astral-sh/uv)
+
+### 2. Environment Setup
+ZenEngr uses an isolated 3-tier environment structure:
+
+```bash
+# 1. Setup root infrastructure env (Docker Compose)
+cp .env.example .env
+
+# 2. Setup backend API env
+cp backend/.env.example backend/.env
+
+# 3. Setup frontend client env
+cp frontend/.env.example frontend/.env
+```
+
+### 3. Launch Local Dev Stack (One Command)
+Start the complete containerized development environment with live hot-reloading:
+
+```bash
+docker compose --profile dev up
+```
+
+Once running:
+* **Frontend Web App**: [`http://localhost:5173`](http://localhost:5173)
+* **Backend REST API**: [`http://localhost:8000`](http://localhost:8000)
+* **Interactive API Docs (Swagger)**: [`http://localhost:8000/docs`](http://localhost:8000/docs)
+* **MailHog (Email Sandbox)**: [`http://localhost:8025`](http://localhost:8025)
+* **pgAdmin (Database Manager)**: [`http://localhost:5050`](http://localhost:5050)
+
+---
+
+## 🧪 Testing & Code Quality
+
+Run targeted checks directly or inside the running containers:
+
+### Backend (Python / uv / pytest)
+```bash
+# Run backend test suite
+docker exec zenengr-backend-dev-1 uv run pytest
+
+# Check syntax and linting
+docker exec zenengr-backend-dev-1 uv run ruff check .
+
+# Database connection inspector
+docker exec zenengr-backend-dev-1 uv run db-check
+```
+
+### Frontend (SvelteKit / ESLint / Prettier)
+```bash
+# Type check and SvelteKit verification
+docker exec zenengr-frontend-dev-1 npm run check
+
+# Lint and format
+docker exec zenengr-frontend-dev-1 npm run lint
+```
+
+---
+
+## 🚢 Production Deployment & CI/CD
+
+ZenEngr includes an automated GitHub Actions deployment pipeline ([`.github/workflows/deploy.yml`](.github/workflows/deploy.yml)).
+
+### CI/CD Workflow:
+1. **Frontend Deployment**:
+   - Compiles SvelteKit into a static Single Page Application (SPA) with Apache `.htaccess` fallback routing.
+   - Deploys static build files directly to your frontend subdomain web directory via FTPS.
+2. **Backend Deployment**:
+   - Syncs `backend/` and `passenger_wsgi.py` via SSH.
+   - Injects production secrets from `BACKEND_PROD_ENV`.
+   - Activates Python virtual environment and installs dependencies.
+   - Automatically runs `alembic upgrade head` to apply database schema migrations to Neon.
+   - Touches `tmp/restart.txt` to trigger zero-downtime application reloads.
+
+For detailed setup steps and secret configuration, see [**`docs/deployment-and-cicd.md`**](docs/deployment-and-cicd.md).
+
+---
+
+## 📚 Project Documentation
+
+All specifications, architectural blueprints, and standards live in the [`docs/`](docs/) directory:
+
+* [`docs/deployment-and-cicd.md`](docs/deployment-and-cicd.md) — Production hosting & CI/CD pipeline reference.
+* [`docs/frontend-standard.md`](docs/frontend-standard.md) — Svelte 5 & UI conventions.
+* [`docs/backend-standard.md`](docs/backend-standard.md) — FastAPI, multi-tenancy, and API standards.
+* [`docs/ui-ux-spec.md`](docs/ui-ux-spec.md) — Design tokens, aesthetics, and layout guidelines.
+* [`docs/progress.md`](docs/progress.md) — Feature tracker and delivery log.
+
+---
+
+## 📄 License
+Private & Proprietary. All rights reserved.

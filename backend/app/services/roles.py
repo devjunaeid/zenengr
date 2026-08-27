@@ -16,6 +16,7 @@ update/delete/reset/assign, all audited and cache-aware.
 
 from __future__ import annotations
 
+import os
 import time
 import uuid
 
@@ -24,6 +25,7 @@ from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, selectinload
 
+from app.core.security import hash_password
 from app.models.admin_user import AdminUser
 from app.models.enums import ActorType, AdminUserRole
 from app.models.role import Role, RolePermission
@@ -635,5 +637,36 @@ async def sync_system_roles_and_permissions(session: AsyncSession) -> dict[str, 
     if roles_created > 0 or perms_created > 0:
         await session.commit()
 
+    # Ensure default superadmin user exists
+    await ensure_default_superadmin(session)
+
     return {"roles_created": roles_created, "permissions_created": perms_created}
+
+
+async def ensure_default_superadmin(session: AsyncSession) -> AdminUser | None:
+    """Idempotently ensure a superadmin user exists in the database.
+
+    Reads credentials from SEED_SUPERADMIN_EMAIL and SEED_SUPERADMIN_PASSWORD environment variables.
+    """
+    stmt = select(AdminUser).where(AdminUser.role == AdminUserRole.SUPER_ADMIN)
+    existing = (await session.execute(stmt)).scalars().first()
+    if existing is not None:
+        return existing
+
+    email = os.getenv("SEED_SUPERADMIN_EMAIL", "admin@zenengr.dev").lower().strip()
+    password = os.getenv("SEED_SUPERADMIN_PASSWORD", "password")
+
+    super_role = await get_system_role(session, AdminUserRole.SUPER_ADMIN.value)
+    superadmin = AdminUser(
+        id=uuid.uuid4(),
+        email=email,
+        hashed_password=hash_password(password),
+        full_name="Super Administrator",
+        role=AdminUserRole.SUPER_ADMIN,
+        role_id=super_role.id if super_role else None,
+        is_active=True,
+    )
+    session.add(superadmin)
+    await session.commit()
+    return superadmin
 
