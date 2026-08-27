@@ -38,6 +38,9 @@ jobs:
           cat << 'EOF' > .env
           ${{ secrets.FRONTEND_PROD_ENV }}
           EOF
+          cat << 'EOF' > .env.production
+          ${{ secrets.FRONTEND_PROD_ENV }}
+          EOF
 
       - name: Build Frontend Application (SPA Static Build)
         working-directory: ./frontend

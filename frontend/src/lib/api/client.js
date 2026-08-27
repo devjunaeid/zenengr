@@ -1,6 +1,6 @@
-import { env } from '$env/dynamic/public';
+import { PUBLIC_API_URL } from '$env/static/public';
 
-export const BASE_URL = (env.PUBLIC_API_URL ?? 'http://localhost:8000/api/v1').replace(/\/$/, '');
+export const BASE_URL = (PUBLIC_API_URL || 'https://api-zenengr.synafeia.com/api/v1').replace(/\/$/, '');
 
 /**
  * Resolve a backend-relative asset URL (e.g. /uploads/logo.png) to an absolute URL on the API origin.
