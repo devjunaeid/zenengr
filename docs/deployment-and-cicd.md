@@ -40,6 +40,7 @@ Click **New repository secret**:
 | `CPANEL_FTP_PASSWORD` | FTP Password | `your_ftp_password` |
 | `CPANEL_FRONTEND_DIR` | cPanel frontend directory | `/zenengr.synafeia.com/` (or `/home/enginee2/zenengr.synafeia.com/`) |
 | `CPANEL_BACKEND_DIR` | cPanel backend directory | `/home/enginee2/api-zenengr.synafeia.com` |
+| `CPANEL_VENV_BIN` | *(Optional)* Virtualenv bin path | `/home/enginee2/virtualenv/api-zenengr.synafeia.com/3.12/bin` |
 
 ### 2. Application Environment Secrets (Single Multiline Secrets)
 | Secret Name | Description |
