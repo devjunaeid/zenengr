@@ -14,3 +14,4 @@ cashews[redis]>=7.0
 alembic>=1.13
 uvicorn>=0.30.0
 a2wsgi>=1.10.7
+cryptography>=42.0.0
