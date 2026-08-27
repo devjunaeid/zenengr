@@ -39,6 +39,16 @@ def create_app() -> FastAPI:
 
     register_error_handlers(app)
 
+    @app.get("/", tags=["Health"])
+    @app.get("/healthz", tags=["Health"])
+    async def health_check() -> dict[str, str]:
+        return {
+            "status": "healthy",
+            "app": "ZenEngr API",
+            "environment": settings.environment,
+            "version": "0.1.0",
+        }
+
     app.include_router(api_router)
 
     # Serve public files from the storage local backend namespace (legacy

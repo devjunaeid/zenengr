@@ -23,6 +23,7 @@ dependencies = [
     "boto3>=1.43.64",
     "aiosmtplib>=5.1.2",
     "cashews[redis]>=7.0",
+    "a2wsgi>=1.10.7",
 ]
 
 [project.scripts]

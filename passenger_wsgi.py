@@ -9,7 +9,9 @@ if backend_dir not in sys.path:
 if cwd not in sys.path:
     sys.path.insert(0, cwd)
 
+from a2wsgi import ASGIMiddleware
 from app.main import create_app
 
-# Phusion Passenger ASGI/WSGI entry point
-application = create_app()
+# Convert FastAPI ASGI application to WSGI for cPanel Phusion Passenger
+fastapi_app = create_app()
+application = ASGIMiddleware(fastapi_app)
