@@ -100,6 +100,13 @@ async def get_tenant_profile(
 ) -> TenantProfileResponse:
     """Get current tenant profile."""
     tenant_id = _get_tenant_or_raise(user)
+    from app.core.cache import cache
+
+    cache_key = f"tenant_profile:{tenant_id}"
+    cached = await cache.get(cache_key)
+    if cached is not None:
+        return TenantProfileResponse(**cached)
+
     tenant = await _load_tenant_with_relations(session, tenant_id)
     if tenant is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tenant not found")
@@ -107,7 +114,7 @@ async def get_tenant_profile(
     plan_name = tenant.plan.name if tenant.plan else "Unknown"
     sub_status = tenant.subscription.status if tenant.subscription else None
 
-    return TenantProfileResponse(
+    res = TenantProfileResponse(
         id=tenant.id,
         business_name=tenant.business_name,
         slug=tenant.slug,
@@ -119,6 +126,8 @@ async def get_tenant_profile(
         plan_id=tenant.plan_id,
         subscription_status=sub_status,
     )
+    await cache.set(cache_key, res.model_dump(mode="json"), expire=300)
+    return res
 
 
 @router.patch("/profile", response_model=TenantProfileResponse)
@@ -167,6 +176,8 @@ async def update_tenant_profile(
             details={"updated_fields": list(update_kwargs.keys())},
         )
         await session.commit()
+        from app.core.cache import cache
+        await cache.delete(f"tenant_profile:{tenant_id}")
     else:
         plan_name = tenant.plan.name if tenant.plan else "Unknown"
         sub_status = tenant.subscription.status if tenant.subscription else None

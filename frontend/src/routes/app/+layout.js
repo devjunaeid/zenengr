@@ -3,16 +3,23 @@ import { requireRole } from '$lib/guards.js';
 import { auth } from '$lib/stores/auth.svelte.js';
 import { setTenantSettings } from '$lib/stores/settings.svelte.js';
 
+let cachedProfile = null;
+let cachedSettingsLoaded = false;
+
 export async function load({ fetch }) {
 	const user = await requireRole(fetch, ['admin', 'manager', 'employee']);
-	let profile = { business_name: 'ZenEngr' };
-	try {
-		profile = await tenantApi.getProfile(fetch, auth.token);
-	} catch {
-		// Profile fallback if tenant profile is not yet initialized
+	if (!cachedProfile) {
+		try {
+			cachedProfile = await tenantApi.getProfile(fetch, auth.token);
+		} catch {
+			cachedProfile = { business_name: 'ZenEngr' };
+		}
 	}
-	await loadTenantSettings(fetch);
-	return { user, profile };
+	if (!cachedSettingsLoaded) {
+		await loadTenantSettings(fetch);
+		cachedSettingsLoaded = true;
+	}
+	return { user, profile: cachedProfile };
 }
 
 async function loadTenantSettings(fetch) {
