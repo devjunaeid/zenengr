@@ -23,9 +23,10 @@ import {
 
 const MAX_ITEMS = 50;
 const PING_INTERVAL_MS = 30_000;
+const POLL_INTERVAL_MS = 45_000;
 const MIN_RECONNECT_MS = 2_000;
 const MAX_RECONNECT_MS = 30_000;
-const MAX_RECONNECT_ATTEMPTS = 10;
+const MAX_RECONNECT_ATTEMPTS = 1;
 const RECONNECT_JITTER_MS = 1_000;
 const RESET_BACKOFF_OPEN_MS = 10_000;
 /**
@@ -63,6 +64,8 @@ class NotificationStore {
 	#reconnectTimer = null;
 	/** @type {ReturnType<typeof setInterval>|null} */
 	#pingTimer = null;
+	/** @type {ReturnType<typeof setInterval>|null} */
+	#pollTimer = null;
 	/** @type {boolean} */
 	#closing = false;
 
@@ -131,6 +134,7 @@ class NotificationStore {
 		this.#closing = true;
 		this.#closeSocket();
 		this.#stopPing();
+		this.#stopPolling();
 		this.#stopReconnectTimer();
 		this.items = [];
 		this.unread = 0;
@@ -199,6 +203,7 @@ class NotificationStore {
 			if (this.#ws !== ws) return;
 			this.wsState = 'open';
 			this.#lastOpenAt = Date.now();
+			this.#stopPolling();
 			this.#startPing();
 		};
 
@@ -219,20 +224,17 @@ class NotificationStore {
 			this.wsState = 'closed';
 			this.#stopPing();
 			if (this.#closing) return;
-			// A connection that stayed open > RESET_BACKOFF_OPEN_MS proves
-			// the link (and auth) are healthy — reset backoff + attempt budget.
 			const openMs =
 				this.#lastOpenAt === null ? 0 : Date.now() - /** @type {number} */ (this.#lastOpenAt);
 			if (openMs > RESET_BACKOFF_OPEN_MS) {
 				this.#reconnectDelay = MIN_RECONNECT_MS;
 				this.#reconnectAttempts = 0;
 			}
-			// Graceful / intentional closes never reconnect.
 			if (GRACEFUL_CLOSE_CODES.has(event.code)) return;
-			// Abnormal close (1006 / error): reconnect with backoff, but stop
-			// after MAX_RECONNECT_ATTEMPTS consecutive failures until the next
-			// manual init (nav remount, logout/login, full page load).
-			if (this.#reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) return;
+			if (this.#reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+				this.#startPolling(fetchFn, realm);
+				return;
+			}
 			this.#reconnectAttempts += 1;
 			this.#scheduleReconnect(fetchFn, realm);
 		};
@@ -292,6 +294,33 @@ class NotificationStore {
 		if (this.#reconnectTimer !== null) {
 			clearTimeout(this.#reconnectTimer);
 			this.#reconnectTimer = null;
+		}
+	}
+
+	/**
+	 * @param {typeof fetch} fetchFn
+	 * @param {NotificationRealm} realm
+	 */
+	#startPolling(fetchFn, realm) {
+		this.#stopPolling();
+		if (!browser || this.#closing) return;
+		this.#pollTimer = setInterval(async () => {
+			if (!this.#token || this.#closing || this.wsState === 'open') return;
+			try {
+				const count = await unreadCount(fetchFn, this.#token, realm);
+				if (count && typeof count.count === 'number') {
+					this.unread = count.count;
+				}
+			} catch {
+				// Quietly ignore polling network errors.
+			}
+		}, POLL_INTERVAL_MS);
+	}
+
+	#stopPolling() {
+		if (this.#pollTimer !== null) {
+			clearInterval(this.#pollTimer);
+			this.#pollTimer = null;
 		}
 	}
 
