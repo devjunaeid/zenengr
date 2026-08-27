@@ -5,9 +5,10 @@ import traceback
 cwd = os.path.dirname(os.path.abspath(__file__))
 backend_dir = os.path.join(cwd, "backend")
 venv_dir = "/home/enginee2/virtualenv/api-zenengr.synafeia.com/3.12"
-site_packages = os.path.join(venv_dir, "lib", "python3.12", "site-packages")
+site_packages_lib = os.path.join(venv_dir, "lib", "python3.12", "site-packages")
+site_packages_lib64 = os.path.join(venv_dir, "lib64", "python3.12", "site-packages")
 
-for path in [backend_dir, cwd, site_packages]:
+for path in [backend_dir, cwd, site_packages_lib, site_packages_lib64]:
     if os.path.exists(path) and path not in sys.path:
         sys.path.insert(0, path)
 

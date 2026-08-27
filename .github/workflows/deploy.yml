@@ -31,9 +31,11 @@ jobs:
           filters: |
             frontend:
               - 'frontend/**'
+              - '.github/workflows/deploy.yml'
             backend:
               - 'backend/**'
               - 'passenger_wsgi.py'
+              - '.github/workflows/deploy.yml'
 
   # ============================================================================
   # 1. FRONTEND DEPLOYMENT (Static SPA Build -> cPanel Apache Web Folder)
