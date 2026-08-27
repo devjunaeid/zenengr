@@ -123,7 +123,7 @@ class NotificationStore {
 		}
 		if (this.#token !== token) return;
 		this.initialized = true;
-		this.#connect(fetchFn, realm);
+		this.#startPolling(fetchFn, realm);
 	}
 
 	/**
