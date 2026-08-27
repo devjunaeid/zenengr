@@ -26,6 +26,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 
 
 def create_app() -> FastAPI:
+    init_cache()
     settings = get_settings()
     app = FastAPI(title="ZenEngr API", version="0.1.0", lifespan=lifespan)
 

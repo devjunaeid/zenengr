@@ -55,6 +55,11 @@ class _FallbackCache:
 
 
 cache = _cashews_cache if _HAS_CASHEWS else _FallbackCache()
+if _HAS_CASHEWS and cache is not None:
+    try:
+        cache.setup("mem://")
+    except Exception:
+        pass
 
 
 def init_cache() -> None:
