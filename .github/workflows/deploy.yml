@@ -129,11 +129,14 @@ jobs:
 
             # 1. Inject Production Environment
             if [ -n "${{ secrets.BACKEND_PROD_ENV }}" ]; then
-              echo "==> Writing backend/.env file"
+              echo "==> Writing backend/.env and root .env file"
               cat << 'ENVEOF' > backend/.env
           ${{ secrets.BACKEND_PROD_ENV }}
           ENVEOF
-              chmod 600 backend/.env
+              cat << 'ENVEOF' > .env
+          ${{ secrets.BACKEND_PROD_ENV }}
+          ENVEOF
+              chmod 600 backend/.env .env
             fi
 
             # 2. Use cPanel Python 3.12 Virtualenv binaries

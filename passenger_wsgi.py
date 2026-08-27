@@ -12,6 +12,22 @@ for path in [backend_dir, cwd, site_packages_lib, site_packages_lib64]:
     if os.path.exists(path) and path not in sys.path:
         sys.path.insert(0, path)
 
+# Explicitly load production environment variables from .env
+for env_file in [os.path.join(backend_dir, ".env"), os.path.join(cwd, ".env")]:
+    if os.path.exists(env_file):
+        try:
+            with open(env_file, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith("#") and "=" in line:
+                        k, v = line.split("=", 1)
+                        k = k.strip()
+                        v = v.strip().strip('"').strip("'")
+                        if k:
+                            os.environ[k] = v
+        except Exception:
+            pass
+
 try:
     from a2wsgi import ASGIMiddleware
     from app.main import create_app
