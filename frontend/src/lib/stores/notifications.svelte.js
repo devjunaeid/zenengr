@@ -94,15 +94,7 @@ class NotificationStore {
 	 */
 	async init(fetchFn, token, realm) {
 		if (this.#initInFlight) return;
-		if (this.initialized && this.#token === token) {
-			if (this.wsState === 'open' || this.wsState === 'connecting') return;
-			// Socket gone or reconnect budget exhausted — reconnect without
-			// re-fetching. This is the "manual re-init" path.
-			this.#reconnectAttempts = 0;
-			this.#reconnectDelay = MIN_RECONNECT_MS;
-			this.#connect(fetchFn, realm);
-			return;
-		}
+		if (this.initialized && this.#token === token) return;
 		if (this.initialized) this.reset();
 		this.#token = token;
 		this.#initInFlight = true;
