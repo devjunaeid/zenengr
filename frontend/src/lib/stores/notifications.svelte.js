@@ -183,65 +183,7 @@ class NotificationStore {
 	 * @param {NotificationRealm} realm
 	 */
 	#connect(fetchFn, realm) {
-		if (this.wsState === 'open' || this.wsState === 'connecting') return;
-		if (this.#closing) return;
-		this.#closeSocket();
-		this.#stopReconnectTimer();
-		if (!browser) return;
-		this.wsState = 'connecting';
-		/** @type {WebSocket} */
-		let ws;
-		try {
-			ws = new WebSocket(wsUrl(`/ws/${realm === 'client' ? 'client' : 'admin'}`, this.#token));
-		} catch {
-			this.#scheduleReconnect(fetchFn, realm);
-			return;
-		}
-		this.#ws = ws;
-
-		ws.onopen = () => {
-			if (this.#ws !== ws) return;
-			this.wsState = 'open';
-			this.#lastOpenAt = Date.now();
-			this.#stopPolling();
-			this.#startPing();
-		};
-
-		ws.onmessage = (event) => {
-			if (this.#ws !== ws) return;
-			try {
-				const msg = JSON.parse(String(event.data));
-				if (msg && typeof msg.id === 'string' && msg.event_type) {
-					this.#pushItem(/** @type {NotificationItem} */ (msg));
-				}
-			} catch {
-				// Malformed frame — ignore.
-			}
-		};
-
-		ws.onclose = (event) => {
-			if (this.#ws !== ws) return;
-			this.wsState = 'closed';
-			this.#stopPing();
-			if (this.#closing) return;
-			const openMs =
-				this.#lastOpenAt === null ? 0 : Date.now() - /** @type {number} */ (this.#lastOpenAt);
-			if (openMs > RESET_BACKOFF_OPEN_MS) {
-				this.#reconnectDelay = MIN_RECONNECT_MS;
-				this.#reconnectAttempts = 0;
-			}
-			if (GRACEFUL_CLOSE_CODES.has(event.code)) return;
-			if (this.#reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-				this.#startPolling(fetchFn, realm);
-				return;
-			}
-			this.#reconnectAttempts += 1;
-			this.#scheduleReconnect(fetchFn, realm);
-		};
-
-		ws.onerror = () => {
-			if (this.#ws === ws) ws.close();
-		};
+		this.#startPolling(fetchFn, realm);
 	}
 
 	/**
