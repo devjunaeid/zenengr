@@ -23,22 +23,14 @@ This guide documents the automated CI/CD pipeline for deploying the **Frontend**
 
 ---
 
-## 2. GitHub Secrets & Variables Configuration
+## 2. GitHub Secrets Configuration
 
-Go to **GitHub Repository $\rightarrow$ Settings $\rightarrow$ Secrets and variables $\rightarrow$ Actions**.
+Go to **GitHub Repository $\rightarrow$ Settings $\rightarrow$ Secrets and variables $\rightarrow$ Actions $\rightarrow$ Secrets tab**.
 
-### A. Repository Variables (Non-sensitive Config)
-Click **New repository variable**:
-
-| Variable Name | Description | Value |
-| :--- | :--- | :--- |
-| `FRONTEND_PUBLIC_API_URL` | Public URL of your FastAPI backend | `http://api-zenengr.synafeia.com/api/v1` |
-
-### B. Repository Secrets (Encrypted Credentials)
 Click **New repository secret**:
 
-#### 1. Deployment Credentials (Connecting to cPanel)
-| Secret Name | Description | Your Exact Value |
+### 1. Deployment Credentials (Connecting to cPanel)
+| Secret Name | Description | Value |
 | :--- | :--- | :--- |
 | `CPANEL_SSH_HOST` | cPanel Server IP or Hostname | `synafeia.com` (or your cPanel Server IP) |
 | `CPANEL_SSH_USER` | cPanel Username | `enginee2` |
@@ -49,11 +41,11 @@ Click **New repository secret**:
 | `CPANEL_FRONTEND_DIR` | cPanel frontend directory | `/zenengr.synafeia.com/` (or `/home/enginee2/zenengr.synafeia.com/`) |
 | `CPANEL_BACKEND_DIR` | cPanel backend directory | `/home/enginee2/api-zenengr.synafeia.com` |
 
-#### 2. Production Environment Variables (50–100+ Envs in Single Secrets)
+### 2. Application Environment Secrets (Single Multiline Secrets)
 | Secret Name | Description |
 | :--- | :--- |
-| `BACKEND_PROD_ENV` | Paste your **entire multiline production `backend/.env`** here |
-| `FRONTEND_PROD_ENV` | *(Optional)* Paste your **production `frontend/.env`** here |
+| `FRONTEND_PROD_ENV` | Paste your **entire `frontend/.env.production`** content here |
+| `BACKEND_PROD_ENV` | Paste your **entire `backend/.env.production`** content here |
 
 **Example content for `BACKEND_PROD_ENV`**:
 ```env

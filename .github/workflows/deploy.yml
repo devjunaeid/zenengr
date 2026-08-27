@@ -35,16 +35,9 @@ jobs:
       - name: Configure Frontend Production .env
         working-directory: ./frontend
         run: |
-          if [ -n "${{ secrets.FRONTEND_PROD_ENV }}" ]; then
-            cat << 'EOF' > .env
+          cat << 'EOF' > .env
           ${{ secrets.FRONTEND_PROD_ENV }}
           EOF
-          else
-            cat << 'EOF' > .env
-          PUBLIC_API_URL=${{ vars.FRONTEND_PUBLIC_API_URL || 'http://api-zenengr.synafeia.com/api/v1' }}
-          PUBLIC_APP_NAME="ZenEngr"
-          EOF
-          fi
 
       - name: Build Frontend Application (SPA Static Build)
         working-directory: ./frontend
