@@ -99,7 +99,7 @@ def validate_setting_value(key: str, value: str) -> None:
     elif key == "timezone":
         try:
             zoneinfo.ZoneInfo(value)
-        except ValueError, TypeError, zoneinfo.ZoneInfoNotFoundError:
+        except (ValueError, TypeError, zoneinfo.ZoneInfoNotFoundError):
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail=(

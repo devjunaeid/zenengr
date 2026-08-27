@@ -63,7 +63,7 @@ async def _record_activity(
 def _validate_timezone(value: str) -> None:
     try:
         zoneinfo.ZoneInfo(value)
-    except ValueError, TypeError, zoneinfo.ZoneInfoNotFoundError:
+    except (ValueError, TypeError, zoneinfo.ZoneInfoNotFoundError):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
