@@ -16,14 +16,8 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.cache import cache, invalidate_user
 from app.core.security import TokenPayload, decode_access_token
-from app.core.cache import (
-    cache,
-    client_user_cache_key,
-    invalidate_client_user,
-    invalidate_user,
-    user_cache_key,
-)
 from app.db.session import get_session
 from app.models.admin_user import AdminUser
 from app.models.client_user import ClientUser
@@ -71,13 +65,7 @@ async def get_current_admin_user(
             detail="Invalid token payload",
         ) from exc
 
-    key = user_cache_key(user_id)
-    user = await cache.get(key)
-    if user is None or not user.is_active:
-        user = await admin_user_repo.get_by_id(session, user_id)
-        if user is not None and user.is_active:
-            await cache.set(key, user, expire=60)
-
+    user = await admin_user_repo.get_by_id(session, user_id)
     if user is None or not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -136,13 +124,7 @@ async def get_current_client_user(
             detail="Invalid token payload",
         ) from exc
 
-    c_key = client_user_cache_key(user_id)
-    user = await cache.get(c_key)
-    if user is None or not user.is_active:
-        user = await client_user_repo.get_by_id(session, user_id)
-        if user is not None and user.is_active:
-            await cache.set(c_key, user, expire=60)
-
+    user = await client_user_repo.get_by_id(session, user_id)
     if user is None or not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
