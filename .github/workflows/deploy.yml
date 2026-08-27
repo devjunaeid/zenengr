@@ -12,10 +12,36 @@ concurrency:
 
 jobs:
   # ============================================================================
+  # 0. DETECT CHANGED PATHS (Only deploy what actually changed)
+  # ============================================================================
+  changes:
+    name: Detect Changed Paths
+    runs-on: ubuntu-latest
+    outputs:
+      frontend: ${{ steps.filter.outputs.frontend }}
+      backend: ${{ steps.filter.outputs.backend }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Check for File Changes
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            frontend:
+              - 'frontend/**'
+            backend:
+              - 'backend/**'
+              - 'passenger_wsgi.py'
+
+  # ============================================================================
   # 1. FRONTEND DEPLOYMENT (Static SPA Build -> cPanel Apache Web Folder)
   # ============================================================================
   deploy-frontend:
     name: Build & Deploy Frontend (SPA)
+    needs: changes
+    if: ${{ needs.changes.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
@@ -58,10 +84,12 @@ jobs:
           dangerous-clean-slate: false
 
   # ============================================================================
-  # 2. BACKEND DEPLOYMENT (FastAPI + Migrations via SSH/Rsync)
+  # 2. BACKEND DEPLOYMENT (FastAPI + Migrations via SSH/Tarball)
   # ============================================================================
   deploy-backend:
     name: Deploy Backend & Run Migrations
+    needs: changes
+    if: ${{ needs.changes.outputs.backend == 'true' || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
