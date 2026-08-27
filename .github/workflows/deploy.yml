@@ -109,8 +109,8 @@ jobs:
           SSH_HOST="${{ secrets.CPANEL_SSH_HOST }}"
           APP_DIR="${{ secrets.CPANEL_BACKEND_DIR || '/home/enginee2/api-zenengr.synafeia.com' }}"
 
-          echo "==> Transferring backend and passenger_wsgi.py to $APP_DIR"
-          tar -czf - --exclude='.git' --exclude='__pycache__' --exclude='.venv' backend passenger_wsgi.py | ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "mkdir -p $APP_DIR && tar -xzf - -C $APP_DIR"
+          echo "==> Transferring backend and passenger_wsgi.py to $APP_DIR via scp"
+          scp -P "$SSH_PORT" -r backend passenger_wsgi.py "$SSH_USER@$SSH_HOST:$APP_DIR/"
 
       - name: Configure .env, Install Dependencies, Run Migrations & Restart
         run: |
