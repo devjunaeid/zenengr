@@ -80,6 +80,11 @@
 <svelte:head><title>{data?.profile?.business_name ?? 'ZenEngr'} — ZenEngr</title></svelte:head>
 
 <div class="flex min-h-screen flex-col bg-slate-50">
+	{#if navigating.to}
+		<div class="fixed top-0 left-0 right-0 z-50 h-1 bg-indigo-100 overflow-hidden" role="progressbar" aria-label="Loading page">
+			<div class="h-full bg-indigo-600 animate-pulse w-full"></div>
+		</div>
+	{/if}
 	<header class="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-3">
 		<span class="flex items-center gap-2 text-sm font-semibold text-slate-900">
 			{#if logoUrl}

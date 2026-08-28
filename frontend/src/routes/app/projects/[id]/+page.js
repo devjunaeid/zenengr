@@ -1,5 +1,7 @@
 import { error } from '@sveltejs/kit';
 import { ApiError } from '$lib/api/client.js';
+import * as clientsApi from '$lib/api/clients.js';
+import * as filesApi from '$lib/api/files.js';
 import * as invoiceApi from '$lib/api/invoices.js';
 import * as projectApi from '$lib/api/projects.js';
 import * as serviceApi from '$lib/api/services.js';
@@ -11,7 +13,7 @@ export async function load({ fetch, params }) {
 	const token = auth.token;
 
 	try {
-		const [project, users, overview, ledger, draftInvoices, invoices] = await Promise.all([
+		const [project, users, overview, ledger, draftInvoices, invoices, projectFiles, folderTree] = await Promise.all([
 			projectApi.getProject(fetch, token, params.id),
 			tenantApi
 				.listUsers(fetch, token, { page_size: 100, is_active: true })
@@ -23,32 +25,50 @@ export async function load({ fetch, params }) {
 				.catch(() => ({ items: [] })),
 			invoiceApi
 				.listInvoices(fetch, token, { project_id: params.id, page_size: 100 })
-				.catch(() => ({ items: [] }))
+				.catch(() => ({ items: [] })),
+			filesApi
+				.listFiles(fetch, token, { project_id: params.id, scope: 'project', page_size: 100 })
+				.catch(() => ({ items: [], total: 0 })),
+			filesApi.listFolders(fetch, token).catch(() => [])
 		]);
 
-		const activeSvcIds = project.services
-			.filter((s) => s.status === 'active')
-			.map((s) => s.service_id);
-		const seen = new Set();
-		const uniqueSvcIds = activeSvcIds.filter((id) => {
-			if (seen.has(id)) return false;
-			seen.add(id);
-			return true;
-		});
-		const detailResults = await Promise.all(
-			uniqueSvcIds.map((id) =>
-				serviceApi
-					.getService(fetch, token, id)
-					.then((d) => ({ id, name: d.name, steps: d.steps ?? [] }))
-					.catch(() => null)
+		const [client, detailResults] = await Promise.all([
+			project.client_id
+				? clientsApi.getClient(fetch, token, project.client_id).catch(() => null)
+				: null,
+			Promise.all(
+				Array.from(
+					new Set(
+						project.services
+							.filter((s) => s.status === 'active')
+							.map((s) => s.service_id)
+					)
+				).map((id) =>
+					serviceApi
+						.getService(fetch, token, id)
+						.then((d) => ({ id, name: d.name, steps: d.steps ?? [] }))
+						.catch(() => null)
+				)
 			)
-		);
+		]);
+
 		const serviceDetails = {};
 		for (const r of detailResults) {
 			if (r) serviceDetails[r.id] = r;
 		}
 
-		return { project, users: users.items, serviceDetails, overview, ledger, draftInvoices, invoices };
+		return {
+			project,
+			client,
+			users: users.items,
+			serviceDetails,
+			overview,
+			ledger,
+			draftInvoices,
+			invoices,
+			projectFiles: projectFiles.items ?? [],
+			folderTree
+		};
 	} catch (e) {
 		if (e instanceof ApiError && e.status === 404) {
 			throw error(404, 'Project not found');

@@ -5,6 +5,11 @@
 	import * as smtpApi from '$lib/api/smtp.js';
 	import Spinner from '$lib/components/Spinner.svelte';
 	import { auth } from '$lib/stores/auth.svelte.js';
+	import Icon from '@iconify/svelte';
+	import emailCheck from '@iconify-icons/mdi/email-check';
+	import serverSecurity from '@iconify-icons/mdi/server-security';
+	import sendOutline from '@iconify-icons/mdi/send-outline';
+	import accountLock from '@iconify-icons/mdi/account-lock';
 
 	let { data } = $props();
 
@@ -34,7 +39,7 @@
 		saveMsg = null;
 		saveErr = null;
 		if (enabled && (!host.trim() || !fromEmail.trim())) {
-			saveErr = 'Host and From email are required when SMTP is enabled.';
+			saveErr = 'Host and From Email are required when SMTP delivery is enabled.';
 			return;
 		}
 		saving = true;
@@ -61,7 +66,8 @@
 			hasPassword = updated.has_password;
 			password = '';
 			clearPassword = false;
-			saveMsg = 'Saved.';
+			saveMsg = 'SMTP settings saved successfully.';
+			setTimeout(() => (saveMsg = null), 3000);
 			await invalidateAll();
 		} catch (e) {
 			saveErr = e instanceof ApiError ? e.message : 'Save failed.';
@@ -78,7 +84,7 @@
 			const res = await smtpApi.testSmtpConfig(fetch, token);
 			testMsg = res.message;
 		} catch (e) {
-			testErr = e instanceof ApiError ? e.message : 'Test failed.';
+			testErr = e instanceof ApiError ? e.message : 'Test email failed. Check your credentials.';
 		} finally {
 			testing = false;
 		}
@@ -87,187 +93,232 @@
 
 <svelte:head><title>Email (SMTP) — ZenEngr</title></svelte:head>
 
-<h1 class="text-2xl font-semibold text-slate-900">Email (SMTP)</h1>
-<p class="mt-1 text-sm text-slate-500">
-	Configure the SMTP server used to send emails from this tenant.
-</p>
-
-<section
-	class="mt-6 max-w-2xl rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
-	aria-labelledby="smtp-h"
->
-	<h2 id="smtp-h" class="text-base font-semibold text-slate-900">SMTP settings</h2>
+<div class="space-y-6">
 	{#if saveMsg}
-		<p
-			role="status"
-			class="mt-3 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800"
-		>
-			{saveMsg}
-		</p>
+		<div role="status" class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-semibold text-emerald-800 shadow-2xs">
+			✓ {saveMsg}
+		</div>
 	{/if}
 	{#if saveErr}
-		<p
-			role="alert"
-			class="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
-		>
+		<div role="alert" class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-semibold text-red-800 shadow-2xs">
 			{saveErr}
-		</p>
+		</div>
 	{/if}
+
 	<form
-		class="mt-4 space-y-4"
 		onsubmit={(e) => {
 			e.preventDefault();
 			saveSmtp();
 		}}
+		class="space-y-6"
 	>
-		<label class="inline-flex items-center gap-2 text-sm text-slate-700">
-			<input
-				type="checkbox"
-				bind:checked={enabled}
-				class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-			/>
-			Send email via SMTP
-		</label>
-		<div class="grid gap-4 sm:grid-cols-2">
-			<div>
-				<label for="smtp-host" class="block text-sm font-medium text-slate-700">Host</label>
-				<input
-					id="smtp-host"
-					type="text"
-					bind:value={host}
-					placeholder="smtp.example.com"
-					required={enabled}
-					class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-				/>
+		<!-- SMTP Delivery Status Card -->
+		<section class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xs">
+			<div class="p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+				<div class="flex items-center gap-3">
+					<div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl {enabled ? 'bg-indigo-50 text-indigo-600' : 'bg-slate-100 text-slate-400'}">
+						<Icon icon={emailCheck} class="h-5 w-5" />
+					</div>
+					<div>
+						<h2 class="text-sm font-bold text-slate-900">Custom SMTP Delivery</h2>
+						<p class="text-xs text-slate-500">Route all transactional client invitations, invoice notifications, and resets through your server.</p>
+					</div>
+				</div>
+
+				<label class="relative inline-flex cursor-pointer items-center gap-3">
+					<input
+						type="checkbox"
+						bind:checked={enabled}
+						class="peer sr-only"
+					/>
+					<div class="h-6 w-11 rounded-full bg-slate-200 peer-checked:bg-indigo-600 peer-focus:ring-2 peer-focus:ring-indigo-500 peer-focus:ring-offset-2 transition-colors after:absolute after:top-0.5 after:left-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow-xs after:transition-all peer-checked:after:translate-x-full"></div>
+					<span class="text-xs font-semibold text-slate-700">{enabled ? 'Active' : 'Disabled'}</span>
+				</label>
 			</div>
-			<div>
-				<label for="smtp-port" class="block text-sm font-medium text-slate-700">Port</label>
-				<input
-					id="smtp-port"
-					type="number"
-					bind:value={port}
-					min="1"
-					max="65535"
-					class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-				/>
+		</section>
+
+		<!-- Server & Connection Card -->
+		<section class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xs">
+			<div class="border-b border-slate-100 bg-slate-50/60 px-6 py-4">
+				<div class="flex items-center gap-2.5">
+					<div class="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
+						<Icon icon={serverSecurity} class="h-4 w-4" />
+					</div>
+					<div>
+						<h2 class="text-sm font-bold text-slate-900">Server Connection & Encryption</h2>
+						<p class="text-xs text-slate-500">Host address, connection port, and TLS/SSL security mode.</p>
+					</div>
+				</div>
 			</div>
-			<div>
-				<label for="smtp-username" class="block text-sm font-medium text-slate-700">Username</label>
-				<input
-					id="smtp-username"
-					type="text"
-					bind:value={username}
-					autocomplete="off"
-					class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-				/>
-			</div>
-			<div>
-				<label for="smtp-password" class="block text-sm font-medium text-slate-700">Password</label>
-				<input
-					id="smtp-password"
-					type="password"
-					bind:value={password}
-					disabled={clearPassword}
-					placeholder={initial.has_password ? '•••••• (unchanged)' : ''}
-					autocomplete="new-password"
-					class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
-				/>
-				{#if hasPassword}
-					<label class="mt-2 inline-flex cursor-pointer items-center gap-2 text-xs text-slate-600">
+
+			<div class="p-6">
+				<div class="grid gap-5 sm:grid-cols-3">
+					<div class="sm:col-span-2">
+						<label for="smtp-host" class="block text-xs font-semibold uppercase tracking-wider text-slate-700">
+							SMTP Host / Server Address <span class="text-red-500">*</span>
+						</label>
 						<input
-							type="checkbox"
-							bind:checked={clearPassword}
-							class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+							id="smtp-host"
+							type="text"
+							bind:value={host}
+							placeholder="smtp.mailgun.org or host.docker.internal"
+							required={enabled}
+							class="mt-1.5 block w-full rounded-lg border-slate-300 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 py-2.5 px-3 font-mono"
 						/>
-						Clear saved password
-					</label>
-					<p class="mt-1 text-xs text-slate-500">Leave blank to keep the current password.</p>
-					{#if (username ?? '').trim() === ''}
-						<p class="mt-1 text-xs text-amber-600">
-							Username is empty — saving will also clear the saved password.
-						</p>
-					{/if}
-				{:else}
-					<p class="mt-1 text-xs text-slate-500">
-						No password saved — fine for unauthenticated SMTP (e.g. Mailpit).
-					</p>
+					</div>
+
+					<div>
+						<label for="smtp-port" class="block text-xs font-semibold uppercase tracking-wider text-slate-700">
+							Port Number <span class="text-red-500">*</span>
+						</label>
+						<input
+							id="smtp-port"
+							type="number"
+							bind:value={port}
+							min="1"
+							max="65535"
+							class="mt-1.5 block w-full rounded-lg border-slate-300 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 py-2.5 px-3 font-mono"
+						/>
+					</div>
+
+					<div class="sm:col-span-3">
+						<label for="smtp-mode" class="block text-xs font-semibold uppercase tracking-wider text-slate-700">
+							Security &amp; Encryption Mode
+						</label>
+						<select
+							id="smtp-mode"
+							bind:value={mode}
+							class="mt-1.5 block w-full max-w-sm rounded-lg border-slate-300 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 py-2.5 px-3"
+						>
+							<option value="none">None (Plaintext / Local Dev)</option>
+							<option value="starttls">STARTTLS (Port 587 / Modern Standard)</option>
+							<option value="ssl">SSL / TLS (Port 465 / Direct Encrypted)</option>
+						</select>
+					</div>
+				</div>
+			</div>
+		</section>
+
+		<!-- Credentials & Sender Identity Card -->
+		<section class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xs">
+			<div class="border-b border-slate-100 bg-slate-50/60 px-6 py-4">
+				<div class="flex items-center gap-2.5">
+					<div class="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
+						<Icon icon={accountLock} class="h-4 w-4" />
+					</div>
+					<div>
+						<h2 class="text-sm font-bold text-slate-900">Authentication & Sender Identity</h2>
+						<p class="text-xs text-slate-500">Login credentials and the outgoing display name on outgoing emails.</p>
+					</div>
+				</div>
+			</div>
+
+			<div class="p-6 space-y-5">
+				<div class="grid gap-5 sm:grid-cols-2">
+					<div>
+						<label for="smtp-username" class="block text-xs font-semibold uppercase tracking-wider text-slate-700">
+							SMTP Username
+						</label>
+						<input
+							id="smtp-username"
+							type="text"
+							bind:value={username}
+							autocomplete="off"
+							placeholder="postmaster@yourdomain.com"
+							class="mt-1.5 block w-full rounded-lg border-slate-300 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 py-2.5 px-3"
+						/>
+					</div>
+
+					<div>
+						<label for="smtp-password" class="block text-xs font-semibold uppercase tracking-wider text-slate-700">
+							SMTP Password
+						</label>
+						<input
+							id="smtp-password"
+							type="password"
+							bind:value={password}
+							disabled={clearPassword}
+							placeholder={hasPassword ? '•••••••• (saved and encrypted)' : 'Enter password'}
+							autocomplete="new-password"
+							class="mt-1.5 block w-full rounded-lg border-slate-300 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 disabled:bg-slate-50 disabled:text-slate-400 py-2.5 px-3"
+						/>
+						{#if hasPassword}
+							<label class="mt-2 inline-flex cursor-pointer items-center gap-2 text-xs text-slate-600">
+								<input
+									type="checkbox"
+									bind:checked={clearPassword}
+									class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+								/>
+								Clear saved password
+							</label>
+						{/if}
+					</div>
+
+					<div>
+						<label for="smtp-from-email" class="block text-xs font-semibold uppercase tracking-wider text-slate-700">
+							From Email Address <span class="text-red-500">*</span>
+						</label>
+						<input
+							id="smtp-from-email"
+							type="email"
+							bind:value={fromEmail}
+							placeholder="billing@yourdomain.com"
+							required={enabled}
+							class="mt-1.5 block w-full rounded-lg border-slate-300 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 py-2.5 px-3"
+						/>
+					</div>
+
+					<div>
+						<label for="smtp-from-name" class="block text-xs font-semibold uppercase tracking-wider text-slate-700">
+							From Display Name
+						</label>
+						<input
+							id="smtp-from-name"
+							type="text"
+							bind:value={fromName}
+							placeholder="ZenEngr Billing"
+							class="mt-1.5 block w-full rounded-lg border-slate-300 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 py-2.5 px-3"
+						/>
+					</div>
+				</div>
+
+				<div class="flex flex-wrap items-center justify-between border-t border-slate-100 pt-5 gap-3">
+					<div class="flex items-center gap-2">
+						<button
+							type="button"
+							disabled={testing}
+							aria-busy={testing}
+							onclick={sendTest}
+							class="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:opacity-60 transition-colors"
+						>
+							{#if testing}<Spinner class="h-3 w-3" />{/if}
+							<Icon icon={sendOutline} class="h-3.5 w-3.5 text-slate-500" />
+							Send Test Email
+						</button>
+					</div>
+
+					<button
+						type="submit"
+						disabled={saving}
+						aria-busy={saving}
+						class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-5 py-2 text-xs font-semibold text-white shadow-2xs hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:opacity-60 transition-colors"
+					>
+						{#if saving}<Spinner class="h-3.5 w-3.5 text-white" />{/if}
+						Save SMTP Configuration
+					</button>
+				</div>
+
+				{#if testMsg}
+					<div role="status" class="rounded-lg border border-emerald-200 bg-emerald-50 p-3.5 text-xs font-semibold text-emerald-800">
+						✓ {testMsg}
+					</div>
+				{/if}
+				{#if testErr}
+					<div role="alert" class="rounded-lg border border-red-200 bg-red-50 p-3.5 text-xs font-semibold text-red-800">
+						{testErr}
+					</div>
 				{/if}
 			</div>
-			<div>
-				<label for="smtp-from-email" class="block text-sm font-medium text-slate-700"
-					>From email</label
-				>
-				<input
-					id="smtp-from-email"
-					type="email"
-					bind:value={fromEmail}
-					placeholder="noreply@example.com"
-					required={enabled}
-					class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-				/>
-			</div>
-			<div>
-				<label for="smtp-from-name" class="block text-sm font-medium text-slate-700"
-					>From name</label
-				>
-				<input
-					id="smtp-from-name"
-					type="text"
-					bind:value={fromName}
-					placeholder="ZenEngr"
-					class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-				/>
-			</div>
-			<div>
-				<label for="smtp-mode" class="block text-sm font-medium text-slate-700">Security mode</label
-				>
-				<select
-					id="smtp-mode"
-					bind:value={mode}
-					class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-				>
-					<option value="none">None</option>
-					<option value="starttls">STARTTLS</option>
-					<option value="ssl">SSL</option>
-				</select>
-			</div>
-		</div>
-		<div class="flex flex-wrap items-center gap-3">
-			<button
-				type="submit"
-				disabled={saving}
-				aria-busy={saving}
-				class="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
-			>
-				{#if saving}<Spinner class="h-4 w-4 text-white" />{/if}
-				Save
-			</button>
-			<button
-				type="button"
-				disabled={testing}
-				aria-busy={testing}
-				onclick={sendTest}
-				class="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
-			>
-				{#if testing}<Spinner class="h-3.5 w-3.5" />{/if}
-				Send test email
-			</button>
-		</div>
+		</section>
 	</form>
-	{#if testMsg}
-		<p
-			role="status"
-			class="mt-4 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800"
-		>
-			{testMsg}
-		</p>
-	{/if}
-	{#if testErr}
-		<p
-			role="alert"
-			class="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
-		>
-			{testErr}
-		</p>
-	{/if}
-</section>
+</div>

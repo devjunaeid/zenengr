@@ -112,13 +112,26 @@ export async function apiFetch(fetchFn, path, options = {}) {
 
 	const data = await res.json().catch(() => null);
 	if (!res.ok) {
-		const envelope = data && data.error ? data.error : {};
-		throw new ApiError(
-			res.status,
-			envelope.code ?? 'UNKNOWN',
-			envelope.message ?? res.statusText,
-			envelope.details ?? {}
-		);
+		let message = res.statusText;
+		let code = 'UNKNOWN';
+		let details = {};
+
+		if (data) {
+			if (typeof data.detail === 'string') {
+				message = data.detail;
+			} else if (Array.isArray(data.detail) && data.detail.length > 0) {
+				message = data.detail.map((d) => d.msg || d.message || JSON.stringify(d)).join(', ');
+				details = { validation: data.detail };
+			} else if (data.error && typeof data.error === 'object') {
+				code = data.error.code ?? code;
+				message = data.error.message ?? message;
+				details = data.error.details ?? details;
+			} else if (typeof data.message === 'string') {
+				message = data.message;
+			}
+		}
+
+		throw new ApiError(res.status, code, message, details);
 	}
 	return data;
 }

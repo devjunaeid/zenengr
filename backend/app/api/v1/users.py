@@ -18,6 +18,8 @@ from app.repositories import admin_users as admin_user_repo
 from app.repositories import password_reset_tokens as token_repo
 from app.schemas.roles import UserRoleUpdateRequest
 from app.schemas.users import (
+    AdminSetUserPasswordRequest,
+    AdminUserCreateRequest,
     ResetPasswordRequest,
     UserListItem,
     UserListResponse,
@@ -73,6 +75,7 @@ async def _get_tenant_user(
 async def list_users(
     page: int = 1,
     page_size: int = 20,
+    search: str | None = None,
     is_active: bool | None = None,
     role: AdminUserRole | None = None,
     session: AsyncSession = Depends(get_session),
@@ -90,6 +93,7 @@ async def list_users(
         current_user.tenant_id,
         page=page,
         page_size=page_size,
+        search=search,
         is_active=is_active,
         role=role,
     )
@@ -110,6 +114,99 @@ async def list_users(
         page=page,
         page_size=page_size,
     )
+
+
+@tenant_router.post("/users", response_model=UserListItem, status_code=status.HTTP_201_CREATED)
+async def create_user(
+    body: AdminUserCreateRequest,
+    session: AsyncSession = Depends(get_session),
+    current_user: AdminUser = Depends(require_permission("manage", "admin_users")),
+) -> UserListItem:
+    """Create a new employee/staff member directly with email, password, and role."""
+    if current_user.tenant_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User must belong to a tenant",
+        )
+
+    # 1. Plan limit check
+    from app.services.limits import check_limit
+
+    await check_limit(session, current_user.tenant_id, "admin_users")
+
+    # 2. Password policy validation
+    from app.services.password_policy import get_min_password_length, validate_password_policy
+
+    min_length = await get_min_password_length(session, current_user.tenant_id)
+    validate_password_policy(body.password, min_length)
+
+    # 3. Email uniqueness check
+    normalized_email = body.email.lower().strip()
+    existing = await admin_user_repo.get_by_email(session, normalized_email)
+    if existing is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="A user with this email already exists",
+        )
+
+    # 4. Resolve role
+    target_role = AdminUserRole.EMPLOYEE
+    target_role_id = None
+    if body.role_id:
+        from app.models.role import Role
+
+        try:
+            r_uuid = uuid.UUID(body.role_id)
+            r = await session.get(Role, r_uuid)
+            if r and (r.tenant_id is None or r.tenant_id == current_user.tenant_id):
+                target_role_id = r.id
+                try:
+                    target_role = AdminUserRole(r.name)
+                except ValueError:
+                    target_role = AdminUserRole.EMPLOYEE
+        except ValueError:
+            pass
+
+    # 5. Create user
+    new_user = AdminUser(
+        tenant_id=current_user.tenant_id,
+        email=normalized_email,
+        full_name=body.full_name.strip(),
+        hashed_password=hash_password(body.password),
+        role=target_role,
+        role_id=target_role_id,
+        is_active=True,
+    )
+    session.add(new_user)
+    await session.flush()
+
+    # 6. Default role fallback if role_id not set
+    if new_user.role_id is None:
+        await role_service.attach_default_role(session, new_user)
+        await session.flush()
+
+    # 7. Audit log
+    await audit_log(
+        session,
+        tenant_id=current_user.tenant_id,
+        actor_id=current_user.id,
+        actor_type=ActorType.ADMIN_USER,
+        action="user.created",
+        entity_type="admin_user",
+        entity_id=str(new_user.id),
+        details={"email": normalized_email, "role": new_user.role.value},
+    )
+
+    await session.commit()
+    return UserListItem(
+        id=new_user.id,
+        email=new_user.email,
+        full_name=new_user.full_name,
+        role=new_user.role,
+        is_active=new_user.is_active,
+        created_at=new_user.created_at,
+    )
+
 
 
 @tenant_router.patch("/users/{user_id}/role", status_code=status.HTTP_200_OK)
@@ -320,7 +417,112 @@ async def admin_reset_password(
     return {"status": "ok"}
 
 
+@tenant_router.post("/users/{user_id}/set-password", status_code=status.HTTP_200_OK)
+async def admin_set_password(
+    user_id: str,
+    body: AdminSetUserPasswordRequest,
+    session: AsyncSession = Depends(get_session),
+    current_user: AdminUser = Depends(require_permission("manage", "admin_users")),
+) -> dict[str, str]:
+    """Admin directly sets a new password for an employee."""
+    if current_user.tenant_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User must belong to a tenant",
+        )
+
+    try:
+        target_uid = uuid.UUID(user_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        ) from None
+
+    target = await _get_tenant_user(session, target_uid, current_user.tenant_id)
+
+    # Validate password policy
+    from app.services.password_policy import get_min_password_length, validate_password_policy
+
+    min_length = await get_min_password_length(session, current_user.tenant_id)
+    validate_password_policy(body.password, min_length)
+
+    target.hashed_password = hash_password(body.password)
+    await session.flush()
+
+    await audit_log(
+        session,
+        tenant_id=current_user.tenant_id,
+        actor_id=current_user.id,
+        actor_type=ActorType.ADMIN_USER,
+        action="user.password_reset_by_admin",
+        entity_type="admin_user",
+        entity_id=str(target.id),
+        details={"email": target.email},
+    )
+
+    await session.commit()
+    return {"status": "ok"}
+
+
+@tenant_router.delete("/users/{user_id}", status_code=status.HTTP_200_OK)
+async def delete_user(
+    user_id: str,
+    session: AsyncSession = Depends(get_session),
+    current_user: AdminUser = Depends(require_permission("manage", "admin_users")),
+) -> dict[str, str]:
+    """Archive / Delete an employee from the tenant. Last-admin guard applies."""
+    if current_user.tenant_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User must belong to a tenant",
+        )
+
+    try:
+        target_uid = uuid.UUID(user_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        ) from None
+
+    target = await _get_tenant_user(session, target_uid, current_user.tenant_id)
+
+    # Cannot delete self
+    if target.id == current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Cannot delete yourself",
+        )
+
+    # Last-admin guard
+    if target.role == AdminUserRole.ADMIN:
+        try:
+            await ensure_not_last_admin(session, current_user.tenant_id, target.id)
+        except LastAdminError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=str(exc),
+            ) from exc
+
+    await audit_log(
+        session,
+        tenant_id=current_user.tenant_id,
+        actor_id=current_user.id,
+        actor_type=ActorType.ADMIN_USER,
+        action="user.archived",
+        entity_type="admin_user",
+        entity_id=str(target.id),
+        details={"email": target.email, "full_name": target.full_name},
+    )
+
+    await session.delete(target)
+    await session.commit()
+    return {"status": "ok"}
+
+
 # ── Public endpoints ───────────────────────────────────────────────────────
+
 
 
 @public_router.post("/reset-password", status_code=status.HTTP_200_OK)

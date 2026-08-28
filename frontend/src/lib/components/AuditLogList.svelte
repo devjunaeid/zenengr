@@ -21,7 +21,7 @@
 
 	/** @param {Record<string, any>} entry */
 	function actorName(entry) {
-		return entry.actor_name || (entry.actor_type ? humanize(entry.actor_type) : 'System');
+		return entry?.actor_name || (entry?.actor_type ? humanize(entry.actor_type) : 'System');
 	}
 
 	/**
@@ -29,9 +29,9 @@
 	 * @returns {{ label: string, href: string|null }}
 	 */
 	function entityInfo(entry) {
-		const label = entry.entity_label || (entry.entity_type ? humanize(entry.entity_type) : '');
+		const label = entry?.entity_label || (entry?.entity_type ? humanize(entry.entity_type) : '');
 		let href = null;
-		if (linkPrefix && entry.entity_label) {
+		if (linkPrefix && entry?.entity_label && entry?.entity_type) {
 			const route = auditEntityHref(entry.entity_type, entry.entity_id);
 			if (route) href = `${linkPrefix}${route}`;
 		}
@@ -40,8 +40,10 @@
 
 	/** @param {Record<string, any>} entry */
 	function detailRows(entry) {
-		return formatAuditDetails(entry.details);
+		return formatAuditDetails(entry?.details);
 	}
+
+	let safeEntries = $derived(Array.isArray(entries) ? entries : []);
 
 	let today = $derived(formatDate(new Date().toISOString()));
 	let yesterday = $derived(formatDate(new Date(Date.now() - 86_400_000).toISOString()));
@@ -50,7 +52,7 @@
 	function dayLabel(day) {
 		if (day === today) return 'Today';
 		if (day === yesterday) return 'Yesterday';
-		return day;
+		return day || 'Recent';
 	}
 
 	/**
@@ -58,11 +60,10 @@
 	 * @type {Array<{ day: string, items: Array<Record<string, any>> }>}
 	 */
 	let groups = $derived.by(() => {
-		/** @type {Array<{ day: string, items: Array<Record<string, any>> }>} */
 		const out = [];
-		/** @type {{ day: string, items: Array<Record<string, any>> }|null} */
 		let current = null;
-		for (const entry of entries) {
+		for (const entry of safeEntries) {
+			if (!entry) continue;
 			const day = formatDate(entry.created_at);
 			if (!current || current.day !== day) {
 				current = { day, items: [] };
@@ -74,11 +75,11 @@
 	});
 </script>
 
-{#if entries.length === 0}
+{#if safeEntries.length === 0}
 	<p class="px-6 py-8 text-sm text-slate-500">No activity yet.</p>
 {:else}
 	<div class="divide-y divide-slate-100">
-		{#each groups as group (group.day)}
+		{#each groups as group, gIdx (`${group.day}-${gIdx}`)}
 			<section aria-label={dayLabel(group.day)}>
 				<h3
 					class="sticky top-0 z-10 border-b border-slate-200 bg-slate-50/95 px-6 py-2 text-xs font-semibold tracking-wide text-slate-500 uppercase backdrop-blur"
@@ -86,7 +87,7 @@
 					{dayLabel(group.day)}
 				</h3>
 				<ul class="divide-y divide-slate-100">
-					{#each group.items as entry (entry.id)}
+					{#each group.items as entry, eIdx (`${entry?.id ?? 'item'}-${eIdx}`)}
 						{@const rows = detailRows(entry)}
 						{@const entity = entityInfo(entry)}
 						<li class="flex gap-3 px-6 py-3 hover:bg-slate-50">
@@ -133,7 +134,7 @@
 											Details
 										</summary>
 										<dl class="mt-2 space-y-1 rounded-md bg-slate-50 px-3 py-2">
-											{#each rows as row (row.label)}
+											{#each rows as row, idx (`${row.label}-${idx}`)}
 												<div class="flex gap-2 text-xs">
 													<dt class="w-32 shrink-0 text-slate-500">{row.label}</dt>
 													<dd class="min-w-0 break-words text-slate-700">{row.value}</dd>

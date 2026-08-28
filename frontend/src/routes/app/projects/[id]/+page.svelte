@@ -14,16 +14,27 @@
 	import StatusBadge from '$lib/components/StatusBadge.svelte';
 	import ToggleSwitch from '$lib/components/ToggleSwitch.svelte';
 	import { auth } from '$lib/stores/auth.svelte.js';
-	import { formatDate, formatDateTime, fmtPrice, humanize } from '$lib/utils/format.js';
+	import { formatAddress } from '$lib/utils/address.js';
+	import { formatDate, formatDateTime, fmtPrice, fmtBytes, humanize, formatProjectCode } from '$lib/utils/format.js';
+	import * as filesApi from '$lib/api/files.js';
+	import FileCard from '$lib/components/FileCard.svelte';
+	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
 	import Icon from '@iconify/svelte';
+	import account from '@iconify-icons/mdi/account';
 	import apps from '@iconify-icons/mdi/apps';
 	import arrowDown from '@iconify-icons/mdi/arrow-down';
 	import arrowUp from '@iconify-icons/mdi/arrow-up';
 	import comment from '@iconify-icons/mdi/comment';
+	import domain from '@iconify-icons/mdi/domain';
+	import emailOutline from '@iconify-icons/mdi/email-outline';
 	import fileMultiple from '@iconify-icons/mdi/file-multiple';
+	import folderOutline from '@iconify-icons/mdi/folder-outline';
+	import mapMarkerOutline from '@iconify-icons/mdi/map-marker-outline';
 	import minusCircle from '@iconify-icons/mdi/minus-circle';
+	import phoneOutline from '@iconify-icons/mdi/phone-outline';
 	import plusCircle from '@iconify-icons/mdi/plus-circle';
 	import receiptText from '@iconify-icons/mdi/receipt-text';
+	import upload from '@iconify-icons/mdi/upload';
 	import viewDashboard from '@iconify-icons/mdi/view-dashboard';
 
 	let { data } = $props();
@@ -32,6 +43,184 @@
 	let invoiceList = $derived(data.invoices?.items ?? []);
 	let issueBusyId = $state(null);
 	let pdfBusyId = $state(null);
+
+	// ── Project Files State ──────────────────────────────────────────────────
+	let projectFileList = $derived(data.projectFiles ?? []);
+	let fileSearchQuery = $state('');
+	let fileServiceFilter = $state('all');
+	let showFileUploadModal = $state(false);
+	let uploadTargetFolderId = $state('');
+	let uploadBusy = $state(false);
+	/** @type {string|null} */
+	let uploadErr = $state(null);
+	/** @type {any} */
+	let renameTarget = $state(null);
+	let newFileName = $state('');
+	let renameBusy = $state(false);
+	/** @type {string|null} */
+	let renameErr = $state(null);
+	/** @type {any} */
+	let deleteFileTarget = $state(null);
+	let deleteFileBusy = $state(false);
+	/** @type {any} */
+	let previewTarget = $state(null);
+	/** @type {string|null} */
+	let previewUrl = $state(null);
+	let previewLoading = $state(false);
+
+	let projectFolderNodes = $derived.by(() => {
+		const roots = Array.isArray(data.folderTree) ? data.folderTree : [];
+		const projRoot = roots.find((r) => r.scope === 'project');
+		if (!projRoot) return [];
+		const thisProjFolder = projRoot.children.find((c) => c.project_id === data.project.id);
+		return thisProjFolder ? thisProjFolder.children : [];
+	});
+
+	let activeServicesList = $derived(
+		(data.project.services ?? []).filter((s) => s.status === 'active')
+	);
+
+	let filteredProjectFiles = $derived(
+		projectFileList.filter((f) => {
+			if (fileSearchQuery.trim()) {
+				const q = fileSearchQuery.toLowerCase().trim();
+				if (!f.name?.toLowerCase().includes(q)) return false;
+			}
+			if (fileServiceFilter !== 'all') {
+				if (fileServiceFilter === 'general') {
+					if (f.folder_id) return false;
+				} else {
+					if (f.folder_id !== fileServiceFilter) return false;
+				}
+			}
+			return true;
+		})
+	);
+
+	let uploadTargetChoice = $state('general');
+	let isDraggingDropzone = $state(false);
+
+	/** @param {string} [target] */
+	function openUploadModal(target = 'general') {
+		uploadTargetChoice = target;
+		uploadErr = null;
+		showFileUploadModal = true;
+	}
+
+	/** @param {FileList|File[]} files */
+	async function processFilesUpload(files) {
+		if (!files || !files.length) return;
+		uploadBusy = true;
+		uploadErr = null;
+		try {
+			let targetFolderId = null;
+
+			// If attaching to a specific service
+			if (uploadTargetChoice.startsWith('service:')) {
+				const svcId = uploadTargetChoice.replace('service:', '');
+				const svcName = data.serviceDetails[svcId]?.name || 'Service Deliverables';
+				const existing = projectFolderNodes.find((f) => f.name.toLowerCase() === svcName.toLowerCase());
+				if (existing) {
+					targetFolderId = existing.id;
+				} else {
+					const roots = Array.isArray(data.folderTree) ? data.folderTree : [];
+					const projRoot = roots.find((r) => r.scope === 'project');
+					const thisProjFolder = projRoot?.children?.find((c) => c.project_id === data.project.id);
+					const newFolder = await filesApi.createFolder(fetch, token, {
+						name: svcName,
+						scope: 'project',
+						project_id: data.project.id,
+						parent_id: thisProjFolder?.id || null
+					});
+					targetFolderId = newFolder.id;
+				}
+			} else if (uploadTargetChoice.startsWith('folder:')) {
+				targetFolderId = uploadTargetChoice.replace('folder:', '');
+			}
+
+			for (const file of Array.from(files)) {
+				const fd = new FormData();
+				fd.append('file', file);
+				fd.append('scope', 'project');
+				fd.append('project_id', data.project.id);
+				if (targetFolderId) {
+					fd.append('folder_id', targetFolderId);
+				}
+				await filesApi.uploadFile(fetch, token, fd);
+			}
+			showFileUploadModal = false;
+			actionMsg = `${files.length} file(s) uploaded successfully.`;
+			await invalidateAll();
+		} catch (err) {
+			uploadErr = err instanceof ApiError ? err.message : 'Upload failed.';
+		} finally {
+			uploadBusy = false;
+			isDraggingDropzone = false;
+		}
+	}
+
+	/** @param {any} e */
+	async function handleFileUpload(e) {
+		const files = e.target.files;
+		await processFilesUpload(files);
+	}
+
+	async function executeFileDelete() {
+		if (!deleteFileTarget) return;
+		deleteFileBusy = true;
+		try {
+			await filesApi.deleteFile(fetch, token, deleteFileTarget.id);
+			deleteFileTarget = null;
+			actionMsg = 'File removed successfully.';
+			await invalidateAll();
+		} catch (err) {
+			actionErr = err instanceof ApiError ? err.message : 'Failed to delete file.';
+		} finally {
+			deleteFileBusy = false;
+		}
+	}
+
+	/** @param {any} f */
+	function openRenameModal(f) {
+		renameTarget = f;
+		newFileName = f.name;
+		renameErr = null;
+	}
+
+	async function executeFileRename() {
+		if (!renameTarget || !newFileName.trim()) return;
+		renameBusy = true;
+		renameErr = null;
+		try {
+			await filesApi.renameFile(fetch, token, renameTarget.id, { name: newFileName.trim() });
+			renameTarget = null;
+			await invalidateAll();
+		} catch (err) {
+			renameErr = err instanceof ApiError ? err.message : 'Failed to rename file.';
+		} finally {
+			renameBusy = false;
+		}
+	}
+
+	/** @param {any} f */
+	function handleFileDownload(f) {
+		filesApi.downloadFile(fetch, token, f.id, f.name);
+	}
+
+	/** @param {any} f */
+	async function handleFilePreview(f) {
+		previewTarget = f;
+		previewUrl = null;
+		previewLoading = true;
+		try {
+			const blob = await filesApi.getFileBlob(fetch, token, f.id);
+			previewUrl = URL.createObjectURL(blob);
+		} catch {
+			previewUrl = null;
+		} finally {
+			previewLoading = false;
+		}
+	}
 
 	async function issueProjectInvoice(inv) {
 		issueBusyId = inv.id;
@@ -532,6 +721,9 @@
 <div class="mt-2 flex flex-wrap items-center justify-between gap-3">
 	<div class="flex items-center gap-3">
 		<h1 class="text-2xl font-semibold text-slate-900">{data.project.name}</h1>
+		<span class="inline-flex items-center font-mono text-xs font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200">
+			{formatProjectCode(data.project.id)}
+		</span>
 		<StatusBadge status={data.project.status} />
 	</div>
 	{#if canManage}
@@ -667,6 +859,19 @@
 		</button>
 		<button
 			type="button"
+			onclick={() => (activeTab = 'files')}
+			class="flex items-center gap-2 border-b-2 py-3 px-2 text-sm font-medium {activeTab === 'files'
+				? 'border-indigo-600 text-indigo-600'
+				: 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700'}"
+		>
+			<Icon icon={folderOutline} class="h-4 w-4" />
+			Files
+			<span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
+				{projectFileList.length}
+			</span>
+		</button>
+		<button
+			type="button"
 			onclick={() => (activeTab = 'comments')}
 			class="flex items-center gap-2 border-b-2 py-3 px-2 text-sm font-medium {activeTab === 'comments'
 				? 'border-indigo-600 text-indigo-600'
@@ -679,203 +884,212 @@
 </div>
 
 {#if activeTab === 'overview'}
-	{#if data.draftInvoices.items.length > 0}
-		<section
-			class="mt-6 rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3"
-			aria-labelledby="open-draft-h"
-		>
-			<h2 id="open-draft-h" class="text-sm font-semibold text-indigo-900">Project statement</h2>
-			<ul class="mt-1.5 space-y-1">
-				{#each data.draftInvoices.items as inv (inv.id)}
-					<li>
-						<a
-							href={resolve('/app/invoices/[id]', { id: inv.id })}
-							class="text-sm font-medium text-indigo-600 underline-offset-2 hover:text-indigo-500 hover:underline"
-						>
-							{inv.invoice_number ? `Draft ${inv.invoice_number}` : 'Draft'} — {fmtPrice(inv.total)}
-						</a>
-					</li>
-				{/each}
-			</ul>
-		</section>
-	{/if}
+<!-- Overview Tab -->
+<div class="mt-6 space-y-6">
+	<!-- Client Information Card -->
+	<section class="rounded-xl border border-slate-200 bg-white p-6 shadow-2xs" aria-labelledby="client-info-h">
+		<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-4">
+			<div class="flex items-center gap-3">
+				<div class="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+					<Icon icon={account} class="h-6 w-6" />
+				</div>
+				<div>
+					<div class="flex items-center gap-2">
+						<h2 id="client-info-h" class="text-base font-semibold text-slate-900">
+							{data.client?.name ?? 'Client Information'}
+						</h2>
+						{#if data.client?.client_type}
+							<span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 capitalize">
+								{data.client.client_type}
+							</span>
+						{/if}
+						{#if data.client?.status}
+							<StatusBadge status={data.client.status} />
+						{/if}
+					</div>
+					<p class="text-xs text-slate-500 mt-0.5">Primary client for this project</p>
+				</div>
+			</div>
 
-<!-- Overview -->
-<section
-	class="mt-6 rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
-	aria-labelledby="overview-h"
->
-	<h2 id="overview-h" class="text-base font-semibold text-slate-900">Overview</h2>
-	<dl class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-		<div>
-			<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Client</dt>
-			<dd class="mt-1 text-sm">
+			{#if data.project.client_id}
 				<a
 					href={resolve('/app/clients/[id]', { id: data.project.client_id })}
-					class="text-indigo-600 hover:text-indigo-500"
+					class="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-700 transition-colors"
 				>
-					View client
+					View Client Profile &rarr;
 				</a>
-			</dd>
+			{/if}
 		</div>
-		<div>
-			<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Start date</dt>
-			<dd class="mt-1 text-sm text-slate-900">{fmtDate(data.project.start_date)}</dd>
-		</div>
-		<div>
-			<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Owner</dt>
-			<dd class="mt-1 text-sm text-slate-900">
-				{#if data.project.owner_id}
-					{data.users.find((u) => u.id === data.project.owner_id)?.full_name ?? '—'}
-				{:else}
-					<span class="text-slate-400">Unassigned</span>
-				{/if}
-			</dd>
-		</div>
-		<div>
-			<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Services</dt>
-			<dd class="mt-1 text-sm text-slate-900">{data.project.services.length}</dd>
-		</div>
-	</dl>
 
-	<div class="mt-5">
-		<div class="flex items-baseline justify-between">
-			<p class="text-xs font-medium tracking-wide text-slate-500 uppercase">Milestone progress</p>
-			<p class="text-xs text-slate-600">
-				{milestoneCompleted} / {milestoneTotal}
-				{#if milestoneTotal > 0}({progressPct}%){/if}
-			</p>
-		</div>
-		{#if milestoneTotal > 0}
-			<div
-				class="mt-2 h-2 w-full rounded-full bg-slate-100"
-				role="progressbar"
-				aria-valuenow={milestoneCompleted}
-				aria-valuemin={0}
-				aria-valuemax={milestoneTotal}
-				aria-label={`Milestone progress for ${data.project.name}`}
-			>
-				<div class="h-2 rounded-full bg-indigo-600" style="width: {progressPct}%"></div>
-			</div>
-		{:else}
-			<p class="mt-2 text-sm text-slate-500">No milestones yet.</p>
-		{/if}
-	</div>
-
-	<div class="mt-5 grid gap-4 sm:grid-cols-3">
-		<div>
-			<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Total</dt>
-			<dd class="mt-1 text-lg font-semibold text-slate-900">
-				{ledgerSummary ? fmtPrice(ledgerSummary.total) : (data.overview?.financials ? fmtPrice(data.overview.financials.total) : '—')}
-			</dd>
-		</div>
-		<div>
-			<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Paid</dt>
-			<dd class="mt-1 text-lg font-semibold text-green-700">
-				{ledgerSummary ? fmtPrice(ledgerSummary.paid) : (data.overview?.financials ? fmtPrice(data.overview.financials.paid) : '—')}
-			</dd>
-		</div>
-		<div>
-			<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Due</dt>
-			<dd class="mt-1 text-lg font-bold {Number(ledgerSummary?.due ?? data.overview?.financials?.due) > 0 ? 'text-red-600' : 'text-green-700'}">
-				{ledgerSummary ? fmtPrice(ledgerSummary.due) : (data.overview?.financials ? fmtPrice(data.overview.financials.due) : '—')}
-			</dd>
-		</div>
-	</div>
-	{#if Number(ledgerSummary?.advance_balance ?? data.overview?.financials?.advance_balance) > 0}
-		<div class="mt-3 rounded-md bg-indigo-50 px-4 py-2 text-sm text-indigo-900">
-			Advance Credit: <span class="font-bold text-indigo-700">{fmtPrice(ledgerSummary?.advance_balance ?? data.overview?.financials?.advance_balance)}</span>
-		</div>
-	{/if}
-
-	{#if data.overview?.service_breakdown?.length}
-		<div class="mt-5 overflow-hidden rounded-md border border-slate-200">
-			<table class="min-w-full divide-y divide-slate-200">
-				<thead class="bg-slate-100">
-					<tr>
-						<th
-							scope="col"
-							class="px-4 py-2.5 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
-							>Service</th
-						>
-						<th
-							scope="col"
-							class="px-4 py-2.5 text-right text-xs font-semibold tracking-wide text-slate-600 uppercase"
-							>Invoiced</th
-						>
-						<th
-							scope="col"
-							class="px-4 py-2.5 text-right text-xs font-semibold tracking-wide text-slate-600 uppercase"
-							>Paid</th
-						>
-						<th
-							scope="col"
-							class="px-4 py-2.5 text-right text-xs font-semibold tracking-wide text-slate-600 uppercase"
-							>Outstanding</th
-						>
-					</tr>
-				</thead>
-				<tbody class="divide-y divide-slate-200">
-					{#each data.overview.service_breakdown as row (row.service_id)}
-						<tr class="hover:bg-slate-50">
-							<td class="px-4 py-2.5 text-sm font-medium text-slate-900">{row.service_name}</td>
-							<td class="px-4 py-2.5 text-right text-sm whitespace-nowrap text-slate-700"
-								>{fmtPrice(row.total_invoiced)}</td
-							>
-							<td class="px-4 py-2.5 text-right text-sm whitespace-nowrap text-slate-700"
-								>{fmtPrice(row.total_paid)}</td
-							>
-							<td class="px-4 py-2.5 text-right text-sm whitespace-nowrap text-slate-900"
-								>{fmtPrice(row.total_outstanding)}</td
-							>
-						</tr>
-					{/each}
-				</tbody>
-			</table>
-		</div>
-	{/if}
-
-	<div class="mt-5">
-		<div class="flex items-center justify-between">
-			<p class="text-sm font-medium text-slate-700">Linked invoices</p>
-			<!-- eslint-disable svelte/no-navigation-without-resolve -- query string appended to a resolved route -->
-			<a
-				href={`${resolve('/app/invoices/new')}?project_id=${data.project.id}`}
-				class="text-sm font-medium text-indigo-600 hover:text-indigo-500"
-			>
-				New invoice
-			</a>
-			<!-- eslint-enable svelte/no-navigation-without-resolve -->
-		</div>
-		{#if !data.overview}
-			<p class="mt-2 text-sm text-slate-500">Could not load invoice summary.</p>
-		{:else if data.overview.linked_invoices.length === 0}
-			<p class="mt-2 text-sm text-slate-500">No invoices yet.</p>
-		{:else}
-			<ul class="mt-3 divide-y divide-slate-200 rounded-md border border-slate-200">
-				{#each data.overview.linked_invoices as inv (inv.id)}
-					<li class="flex items-center justify-between gap-3 px-4 py-3">
-						<a
-							href={resolve('/app/invoices/[id]', { id: inv.id })}
-							class="text-sm font-medium text-indigo-600 hover:text-indigo-500"
-						>
-							{inv.number ?? 'Draft'}
+		<dl class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+			<div>
+				<dt class="flex items-center gap-1.5 text-xs font-medium text-slate-500 uppercase tracking-wider">
+					<Icon icon={emailOutline} class="h-3.5 w-3.5 text-slate-400" />
+					Email
+				</dt>
+				<dd class="mt-1 text-sm text-slate-900">
+					{#if data.client?.email}
+						<a href={`mailto:${data.client.email}`} class="text-indigo-600 hover:underline">
+							{data.client.email}
 						</a>
-						<div class="flex items-center gap-3">
-							<StatusBadge status={inv.status} />
-							<span class="text-sm whitespace-nowrap text-slate-700">{fmtPrice(inv.total)}</span>
-						</div>
-					</li>
-				{/each}
-			</ul>
-		{/if}
-	</div>
+					{:else}
+						<span class="text-slate-400">&mdash;</span>
+					{/if}
+				</dd>
+			</div>
 
-	<div class="mt-5 grid gap-3 text-xs text-slate-500 sm:grid-cols-2">
+			<div>
+				<dt class="flex items-center gap-1.5 text-xs font-medium text-slate-500 uppercase tracking-wider">
+					<Icon icon={phoneOutline} class="h-3.5 w-3.5 text-slate-400" />
+					Phone
+				</dt>
+				<dd class="mt-1 text-sm text-slate-900">
+					{#if data.client?.phone}
+						<a href={`tel:${data.client.phone}`} class="text-slate-700 hover:underline">
+							{data.client.phone}
+						</a>
+					{:else}
+						<span class="text-slate-400">&mdash;</span>
+					{/if}
+				</dd>
+			</div>
+
+			<div>
+				<dt class="flex items-center gap-1.5 text-xs font-medium text-slate-500 uppercase tracking-wider">
+					<Icon icon={mapMarkerOutline} class="h-3.5 w-3.5 text-slate-400" />
+					Billing Address
+				</dt>
+				<dd class="mt-1 text-sm text-slate-900">
+					{#if data.client?.billing_address && formatAddress(data.client.billing_address)}
+						<span>{formatAddress(data.client.billing_address)}</span>
+					{:else}
+						<span class="text-slate-400">&mdash;</span>
+					{/if}
+				</dd>
+			</div>
+
+			<div>
+				<dt class="text-xs font-medium text-slate-500 uppercase tracking-wider">Tags</dt>
+				<dd class="mt-1 flex flex-wrap gap-1">
+					{#if data.client?.tags && data.client.tags.length > 0}
+						{#each data.client.tags as tag (tag)}
+							<span class="rounded-md bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
+								{tag}
+							</span>
+						{/each}
+					{:else}
+						<span class="text-xs text-slate-400">&mdash;</span>
+					{/if}
+				</dd>
+			</div>
+		</dl>
+	</section>
+
+	<!-- Project Details & Milestones Card -->
+	<section class="rounded-xl border border-slate-200 bg-white p-6 shadow-2xs" aria-labelledby="project-details-h">
+		<h2 id="project-details-h" class="text-base font-semibold text-slate-900">Project Details</h2>
+		<dl class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+			<div>
+				<dt class="text-xs font-medium tracking-wider text-slate-500 uppercase">Start Date</dt>
+				<dd class="mt-1 text-sm text-slate-900 font-medium">{fmtDate(data.project.start_date)}</dd>
+			</div>
+			<div>
+				<dt class="text-xs font-medium tracking-wider text-slate-500 uppercase">Target Due Date</dt>
+				<dd class="mt-1 text-sm text-slate-900 font-medium">
+					{data.project.target_delivery_date ? fmtDate(data.project.target_delivery_date) : '—'}
+				</dd>
+			</div>
+			<div>
+				<dt class="text-xs font-medium tracking-wider text-slate-500 uppercase">Project Owner</dt>
+				<dd class="mt-1 text-sm text-slate-900 font-medium">
+					{#if data.project.owner_id}
+						{data.users.find((u) => u.id === data.project.owner_id)?.full_name ?? '—'}
+					{:else}
+						<span class="text-slate-400">Unassigned</span>
+					{/if}
+				</dd>
+			</div>
+			<div>
+				<dt class="text-xs font-medium tracking-wider text-slate-500 uppercase">Active Services</dt>
+				<dd class="mt-1 text-sm text-slate-900 font-medium">{data.project.services.length}</dd>
+			</div>
+		</dl>
+
+		<div class="mt-6 border-t border-slate-100 pt-5">
+			<div class="flex items-baseline justify-between">
+				<p class="text-xs font-semibold tracking-wider text-slate-600 uppercase">Milestone Progress</p>
+				<p class="text-xs font-medium text-slate-700">
+					{milestoneCompleted} of {milestoneTotal} completed
+					{#if milestoneTotal > 0}
+						<span class="font-bold text-indigo-600">({progressPct}%)</span>
+					{/if}
+				</p>
+			</div>
+			{#if milestoneTotal > 0}
+				<div
+					class="mt-2 h-2.5 w-full overflow-hidden rounded-full bg-slate-100"
+					role="progressbar"
+					aria-valuenow={milestoneCompleted}
+					aria-valuemin={0}
+					aria-valuemax={milestoneTotal}
+					aria-label={`Milestone progress for ${data.project.name}`}
+				>
+					<div class="h-full rounded-full bg-indigo-600 transition-all duration-300" style="width: {progressPct}%"></div>
+				</div>
+			{:else}
+				<p class="mt-2 text-xs text-slate-500">No milestones attached to this project's services yet.</p>
+			{/if}
+		</div>
+	</section>
+
+	<!-- Financial Overview Card -->
+	<section class="rounded-xl border border-slate-200 bg-white p-6 shadow-2xs" aria-labelledby="fin-overview-h">
+		<div class="flex items-center justify-between border-b border-slate-100 pb-3">
+			<h2 id="fin-overview-h" class="text-base font-semibold text-slate-900">Financial Snapshot</h2>
+			<button
+				type="button"
+				onclick={() => (activeTab = 'invoices')}
+				class="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:text-indigo-700"
+			>
+				Go to Invoices ({invoiceList.length}) &rarr;
+			</button>
+		</div>
+
+		<div class="mt-4 grid gap-4 sm:grid-cols-3">
+			<div class="rounded-lg bg-slate-50 p-4 border border-slate-100">
+				<dt class="text-xs font-medium tracking-wider text-slate-500 uppercase">Project Total</dt>
+				<dd class="mt-1 text-xl font-bold text-slate-900">
+					{ledgerSummary ? fmtPrice(ledgerSummary.total) : (data.overview?.financials ? fmtPrice(data.overview.financials.total) : '—')}
+				</dd>
+			</div>
+			<div class="rounded-lg bg-emerald-50/60 p-4 border border-emerald-100">
+				<dt class="text-xs font-medium tracking-wider text-emerald-700 uppercase">Total Paid</dt>
+				<dd class="mt-1 text-xl font-bold text-emerald-700">
+					{ledgerSummary ? fmtPrice(ledgerSummary.paid) : (data.overview?.financials ? fmtPrice(data.overview.financials.paid) : '—')}
+				</dd>
+			</div>
+			<div class="rounded-lg p-4 border {Number(ledgerSummary?.due ?? data.overview?.financials?.due) > 0 ? 'bg-amber-50/60 border-amber-200' : 'bg-slate-50 border-slate-100'}">
+				<dt class="text-xs font-medium tracking-wider {Number(ledgerSummary?.due ?? data.overview?.financials?.due) > 0 ? 'text-amber-800' : 'text-slate-500'} uppercase">Outstanding Due</dt>
+				<dd class="mt-1 text-xl font-bold {Number(ledgerSummary?.due ?? data.overview?.financials?.due) > 0 ? 'text-amber-800' : 'text-emerald-700'}">
+					{ledgerSummary ? fmtPrice(ledgerSummary.due) : (data.overview?.financials ? fmtPrice(data.overview.financials.due) : '—')}
+				</dd>
+			</div>
+		</div>
+
+		{#if Number(ledgerSummary?.advance_balance ?? data.overview?.financials?.advance_balance) > 0}
+			<div class="mt-3 rounded-lg bg-indigo-50 p-3 text-xs text-indigo-900 border border-indigo-100 flex items-center justify-between">
+				<span>Advance Credit Available:</span>
+				<span class="font-bold text-indigo-700 text-sm">{fmtPrice(ledgerSummary?.advance_balance ?? data.overview?.financials?.advance_balance)}</span>
+			</div>
+		{/if}
+	</section>
+
+	<!-- Timestamps -->
+	<div class="flex flex-wrap items-center justify-between text-xs text-slate-400 px-1">
 		<p>Created {formatDateTime(data.project.created_at)}</p>
-		<p>Updated {formatDateTime(data.project.updated_at)}</p>
+		<p>Last updated {formatDateTime(data.project.updated_at)}</p>
 	</div>
-</section>
+</div>
 {/if}
 
 {#if activeTab === 'services'}
@@ -1336,6 +1550,116 @@
 					{/each}
 				</tbody>
 			</table>
+		</div>
+	{/if}
+</section>
+{/if}
+
+{#if activeTab === 'files'}
+<!-- Project Files -->
+<section class="mt-6 space-y-4" aria-labelledby="project-files-h">
+	<!-- Control Toolbar -->
+	<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-xl border border-slate-200 bg-white p-3.5 shadow-2xs">
+		<div class="flex flex-1 flex-col gap-3 sm:flex-row sm:items-center">
+			<!-- Search Box -->
+			<div class="relative flex-1 max-w-sm">
+				<div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+					<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+					</svg>
+				</div>
+				<input
+					type="text"
+					bind:value={fileSearchQuery}
+					placeholder="Search project files..."
+					class="block w-full rounded-lg border-slate-300 pl-9 pr-8 text-sm placeholder-slate-400 shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
+				/>
+				{#if fileSearchQuery}
+					<button
+						type="button"
+						onclick={() => (fileSearchQuery = '')}
+						class="absolute inset-y-0 right-0 flex items-center pr-2.5 text-slate-400 hover:text-slate-600"
+						aria-label="Clear search"
+					>
+						<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+						</svg>
+					</button>
+				{/if}
+			</div>
+
+			<!-- Filter Selector -->
+			<div class="flex items-center gap-2">
+				<select
+					bind:value={fileServiceFilter}
+					class="rounded-lg border-slate-300 text-sm shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
+				>
+					<option value="all">All Files ({projectFileList.length})</option>
+					<option value="general">General Project Files</option>
+					{#if projectFolderNodes.length > 0}
+						<optgroup label="Folders & Services">
+							{#each projectFolderNodes as fn (fn.id)}
+								<option value={fn.id}>📁 {fn.name}</option>
+							{/each}
+						</optgroup>
+					{/if}
+				</select>
+			</div>
+		</div>
+
+		<div>
+			<button
+				type="button"
+				onclick={() => openUploadModal('general')}
+				class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-2xs hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors"
+			>
+				<Icon icon={upload} class="h-4 w-4" />
+				Upload File
+			</button>
+		</div>
+	</div>
+
+	<!-- Files Grid -->
+	{#if filteredProjectFiles.length === 0}
+		<div class="rounded-xl border border-slate-200 bg-white p-12 text-center shadow-2xs">
+			<div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-500">
+				<Icon icon={folderOutline} class="h-6 w-6" />
+			</div>
+			<h3 class="mt-3 text-sm font-semibold text-slate-900">No project files found</h3>
+			<p class="mt-1 text-xs text-slate-500">
+				{fileSearchQuery || fileServiceFilter !== 'all'
+					? 'No files match your current search criteria.'
+					: 'Upload design assets, deliverables, contracts, or specifications for this project.'}
+			</p>
+			{#if fileSearchQuery || fileServiceFilter !== 'all'}
+				<div class="mt-4">
+					<button
+						type="button"
+						onclick={() => {
+							fileSearchQuery = '';
+							fileServiceFilter = 'all';
+						}}
+						class="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-200"
+					>
+						Clear filters
+					</button>
+				</div>
+			{/if}
+		</div>
+	{:else}
+		<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+			{#each filteredProjectFiles as f (f.id)}
+				<FileCard
+					file={f}
+					canAct={true}
+					{token}
+					onpreview={() => handleFilePreview(f)}
+					ondownload={() => handleFileDownload(f)}
+					onrename={() => openRenameModal(f)}
+					onmove={() => {}}
+					ondelete={() => (deleteFileTarget = f)}
+				/>
+			{/each}
 		</div>
 	{/if}
 </section>
@@ -2028,3 +2352,240 @@
 		</Dialog.Content>
 	</Dialog.Portal>
 </Dialog.Root>
+
+<!-- File Upload Dialog -->
+{#if showFileUploadModal}
+	<div
+		class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-xs"
+		role="dialog"
+		aria-modal="true"
+	>
+		<div class="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+			<div class="flex items-center justify-between border-b border-slate-100 pb-3">
+				<h2 class="text-lg font-semibold text-slate-900">Upload Project File</h2>
+				<button
+					type="button"
+					onclick={() => (showFileUploadModal = false)}
+					class="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+				>
+					<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+					</svg>
+				</button>
+			</div>
+
+			{#if uploadErr}
+				<p class="mt-3 rounded-md bg-red-50 p-2.5 text-sm text-red-700">{uploadErr}</p>
+			{/if}
+
+			<div class="mt-4 space-y-4">
+				<!-- File Destination / Service Folder -->
+				<div>
+					<label for="upload-target-modal" class="block text-xs font-semibold uppercase tracking-wider text-slate-700">
+						Attach To
+					</label>
+					<select
+						id="upload-target-modal"
+						bind:value={uploadTargetChoice}
+						class="mt-1.5 block w-full rounded-lg border-slate-300 text-sm shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
+					>
+						<option value="general">📁 General Project Files (Root)</option>
+						{#if activeServicesList.length > 0}
+							<optgroup label="Attach to Service">
+								{#each activeServicesList as s (s.id)}
+									<option value={`service:${s.service_id}`}>
+										⚡ {data.serviceDetails[s.service_id]?.name ?? 'Service'}
+									</option>
+								{/each}
+							</optgroup>
+						{/if}
+						{#if projectFolderNodes.length > 0}
+							<optgroup label="Project Folders">
+								{#each projectFolderNodes as fn (fn.id)}
+									<option value={`folder:${fn.id}`}>📁 {fn.name}</option>
+								{/each}
+							</optgroup>
+						{/if}
+					</select>
+					<p class="mt-1 text-xs text-slate-500">
+						Files uploaded here stay in sync with the central Files repository under Project Files.
+					</p>
+				</div>
+
+				<!-- File Picker -->
+				<div>
+					<label for="file-upload-input" class="block text-xs font-semibold uppercase tracking-wider text-slate-700">
+						Select File(s)
+					</label>
+					<input
+						id="file-upload-input"
+						type="file"
+						multiple
+						onchange={handleFileUpload}
+						disabled={uploadBusy}
+						class="mt-1.5 block w-full text-sm text-slate-500 file:mr-4 file:rounded-lg file:border-0 file:bg-indigo-50 file:px-4 file:py-2 file:text-xs file:font-semibold file:text-indigo-700 hover:file:bg-indigo-100"
+					/>
+				</div>
+
+				{#if uploadBusy}
+					<div class="flex items-center justify-center gap-2 py-4 text-sm text-indigo-600">
+						<Spinner class="h-5 w-5 text-indigo-600" />
+						Uploading file(s)...
+					</div>
+				{/if}
+			</div>
+
+			<div class="mt-6 flex justify-end">
+				<button
+					type="button"
+					onclick={() => (showFileUploadModal = false)}
+					class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+				>
+					Cancel
+				</button>
+			</div>
+		</div>
+	</div>
+{/if}
+
+<!-- File Rename Dialog -->
+{#if renameTarget}
+	<div
+		class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-xs"
+		role="dialog"
+		aria-modal="true"
+	>
+		<div class="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+			<div class="flex items-center justify-between border-b border-slate-100 pb-3">
+				<h2 class="text-lg font-semibold text-slate-900">Rename File</h2>
+				<button
+					type="button"
+					onclick={() => (renameTarget = null)}
+					class="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+				>
+					<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+					</svg>
+				</button>
+			</div>
+
+			{#if renameErr}
+				<p class="mt-3 rounded-md bg-red-50 p-2.5 text-sm text-red-700">{renameErr}</p>
+			{/if}
+
+			<form
+				class="mt-4 space-y-4"
+				onsubmit={(e) => {
+					e.preventDefault();
+					executeFileRename();
+				}}
+			>
+				<div>
+					<label for="new-file-name" class="block text-xs font-semibold uppercase tracking-wider text-slate-700">
+						File Name
+					</label>
+					<input
+						id="new-file-name"
+						type="text"
+						bind:value={newFileName}
+						required
+						class="mt-1.5 block w-full rounded-lg border-slate-300 text-sm shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
+					/>
+				</div>
+
+				<div class="mt-6 flex justify-end gap-3">
+					<button
+						type="button"
+						onclick={() => (renameTarget = null)}
+						class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+					>
+						Cancel
+					</button>
+					<button
+						type="submit"
+						disabled={renameBusy}
+						class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
+					>
+						{#if renameBusy}<Spinner class="h-4 w-4 text-white" />{/if}
+						Save
+					</button>
+				</div>
+			</form>
+		</div>
+	</div>
+{/if}
+
+<!-- File Preview Modal -->
+{#if previewTarget}
+	<div
+		class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 p-4 backdrop-blur-xs"
+		role="dialog"
+		aria-modal="true"
+	>
+		<div class="flex max-h-[90vh] w-full max-w-3xl flex-col rounded-xl bg-white shadow-2xl">
+			<div class="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+				<div>
+					<h2 class="text-base font-semibold text-slate-900">{previewTarget.name}</h2>
+					<p class="text-xs text-slate-500">{fmtBytes(previewTarget.size_bytes)} • {previewTarget.content_type}</p>
+				</div>
+				<div class="flex items-center gap-2">
+					<button
+						type="button"
+						onclick={() => handleFileDownload(previewTarget)}
+						class="inline-flex items-center gap-1.5 rounded-lg bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100"
+					>
+						Download
+					</button>
+					<button
+						type="button"
+						onclick={() => (previewTarget = null)}
+						class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+					>
+						<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+						</svg>
+					</button>
+				</div>
+			</div>
+
+			<div class="flex flex-1 items-center justify-center overflow-auto p-6 bg-slate-50">
+				{#if previewLoading}
+					<Spinner class="h-8 w-8 text-indigo-600" />
+				{:else if previewUrl && previewTarget.content_type.startsWith('image/')}
+					<img src={previewUrl} alt={previewTarget.name} class="max-h-[70vh] rounded-lg object-contain shadow-sm" />
+				{:else if previewUrl && previewTarget.content_type === 'application/pdf'}
+					<iframe src={previewUrl} title={previewTarget.name} class="h-[70vh] w-full rounded-lg border border-slate-200"></iframe>
+				{:else}
+					<div class="text-center py-12">
+						<p class="text-sm font-medium text-slate-900">Preview not available for this file type</p>
+						<p class="mt-1 text-xs text-slate-500">Download the file to view its full content.</p>
+						<button
+							type="button"
+							onclick={() => handleFileDownload(previewTarget)}
+							class="mt-4 inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+						>
+							Download File
+						</button>
+					</div>
+				{/if}
+			</div>
+		</div>
+	</div>
+{/if}
+
+<!-- Delete File Confirm Dialog -->
+<ConfirmDialog
+	bind:open={
+		() => deleteFileTarget !== null,
+		(v) => {
+			if (!v) deleteFileTarget = null;
+		}
+	}
+	title="Delete File"
+	description={deleteFileTarget ? `Permanently delete "${deleteFileTarget.name}" from this project?` : ''}
+	confirmLabel="Delete"
+	destructive
+	busy={deleteFileBusy}
+	onconfirm={executeFileDelete}
+/>
+

@@ -5,6 +5,10 @@
 	import * as tenantApi from '$lib/api/tenant.js';
 	import Spinner from '$lib/components/Spinner.svelte';
 	import { auth } from '$lib/stores/auth.svelte.js';
+	import Icon from '@iconify/svelte';
+	import domain from '@iconify-icons/mdi/domain';
+	import imageOutline from '@iconify-icons/mdi/image-outline';
+	import paletteOutline from '@iconify-icons/mdi/palette-outline';
 
 	let { data } = $props();
 
@@ -13,7 +17,7 @@
 
 	let businessName = $state(untrack(() => data.profile.business_name));
 	let contactPhone = $state(untrack(() => data.profile.contact_info?.phone ?? ''));
-	let brandingColor = $state(untrack(() => data.profile.branding?.color ?? ''));
+	let brandingColor = $state(untrack(() => data.profile.branding?.color ?? '#4F46E5'));
 	let profileBusy = $state(false);
 	let profileMsg = $state(null);
 	let profileErr = $state(null);
@@ -26,7 +30,7 @@
 
 	async function uploadLogo() {
 		if (!logoFile) {
-			logoErr = 'Pick an image file first.';
+			logoErr = 'Select an image file first.';
 			return;
 		}
 		logoBusy = true;
@@ -36,7 +40,8 @@
 			const res = await tenantApi.uploadLogo(fetch, token, logoFile);
 			logoUrl = res.logo_url;
 			logoFile = null;
-			logoMsg = 'Logo updated.';
+			logoMsg = 'Logo updated successfully.';
+			setTimeout(() => (logoMsg = null), 3000);
 			await invalidateAll();
 		} catch (e) {
 			logoErr = e instanceof ApiError ? e.message : 'Upload failed.';
@@ -55,7 +60,8 @@
 				contact_info: { ...data.profile.contact_info, phone: contactPhone },
 				branding: { ...data.profile.branding, color: brandingColor }
 			});
-			profileMsg = 'Profile saved.';
+			profileMsg = 'Business profile saved.';
+			setTimeout(() => (profileMsg = null), 3000);
 			await invalidateAll();
 		} catch (e) {
 			profileErr = e instanceof ApiError ? e.message : 'Save failed.';
@@ -65,136 +71,186 @@
 	}
 </script>
 
-<svelte:head><title>Settings — ZenEngr</title></svelte:head>
+<svelte:head><title>Business Profile — ZenEngr</title></svelte:head>
 
-<h1 class="text-2xl font-semibold text-slate-900">Settings</h1>
-
-<!-- Tenant profile -->
-<section
-	class="mt-6 max-w-2xl rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
-	aria-labelledby="profile-h"
->
-	<h2 id="profile-h" class="text-base font-semibold text-slate-900">Business profile</h2>
-	{#if !isAdmin}
-		<p class="mt-1 text-sm text-slate-500">Only tenant admins can edit the profile.</p>
-	{/if}
-	{#if profileMsg}
-		<p
-			role="status"
-			class="mt-3 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800"
-		>
-			{profileMsg}
-		</p>
-	{/if}
-	{#if profileErr}
-		<p
-			role="alert"
-			class="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
-		>
-			{profileErr}
-		</p>
-	{/if}
-	<form
-		class="mt-4 space-y-4"
-		onsubmit={(e) => {
-			e.preventDefault();
-			saveProfile();
-		}}
-	>
-		<div>
-			<label for="sp-name" class="block text-sm font-medium text-slate-700">Business name</label>
-			<input
-				id="sp-name"
-				type="text"
-				bind:value={businessName}
-				required
-				maxlength="255"
-				disabled={!isAdmin}
-				class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:bg-slate-50 disabled:text-slate-500"
-			/>
-		</div>
-		<div class="grid gap-4 sm:grid-cols-2">
-			<div>
-				<label for="sp-phone" class="block text-sm font-medium text-slate-700">Contact phone</label>
-				<input
-					id="sp-phone"
-					type="text"
-					bind:value={contactPhone}
-					disabled={!isAdmin}
-					class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:bg-slate-50 disabled:text-slate-500"
-				/>
-			</div>
-			<div>
-				<label for="sp-color" class="block text-sm font-medium text-slate-700">Brand color</label>
-				<input
-					id="sp-color"
-					type="text"
-					bind:value={brandingColor}
-					placeholder="#4F46E5"
-					disabled={!isAdmin}
-					class="mt-1 block w-full rounded-md border-slate-300 font-mono text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:bg-slate-50 disabled:text-slate-500"
-				/>
+<div class="space-y-6">
+	<!-- Business Profile Form Card -->
+	<section class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xs">
+		<div class="border-b border-slate-100 bg-slate-50/60 px-6 py-4">
+			<div class="flex items-center gap-2.5">
+				<div class="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
+					<Icon icon={domain} class="h-4 w-4" />
+				</div>
+				<div>
+					<h2 class="text-sm font-bold text-slate-900">Organization Profile</h2>
+					<p class="text-xs text-slate-500">Official business identity displayed across invoices and client portals.</p>
+				</div>
 			</div>
 		</div>
-		{#if isAdmin}
-			<button
-				type="submit"
-				disabled={profileBusy}
-				aria-busy={profileBusy}
-				class="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+
+		<div class="p-6">
+			{#if profileMsg}
+				<div role="status" class="mb-5 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-semibold text-emerald-800">
+					✓ {profileMsg}
+				</div>
+			{/if}
+			{#if profileErr}
+				<div role="alert" class="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-xs font-semibold text-red-800">
+					{profileErr}
+				</div>
+			{/if}
+
+			<form
+				class="space-y-5"
+				onsubmit={(e) => {
+					e.preventDefault();
+					saveProfile();
+				}}
 			>
-				{#if profileBusy}<Spinner class="h-4 w-4 text-white" />{/if}
-				Save profile
-			</button>
-		{/if}
-	</form>
-</section>
+				<div class="grid gap-5 sm:grid-cols-2">
+					<div class="sm:col-span-2">
+						<label for="sp-name" class="block text-xs font-semibold uppercase tracking-wider text-slate-700">
+							Business Name <span class="text-red-500">*</span>
+						</label>
+						<input
+							id="sp-name"
+							type="text"
+							bind:value={businessName}
+							required
+							maxlength="255"
+							disabled={!isAdmin}
+							placeholder="e.g. ZenEngr Solutions Inc."
+							class="mt-1.5 block w-full rounded-lg border-slate-300 text-sm shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 disabled:bg-slate-50 disabled:text-slate-500 py-2.5 px-3"
+						/>
+					</div>
 
-<!-- Tenant logo -->
-<section
-	class="mt-6 max-w-2xl rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
-	aria-labelledby="logo-h"
->
-	<h2 id="logo-h" class="text-base font-semibold text-slate-900">Logo</h2>
-	<p class="mt-1 text-sm text-slate-500">Shown in the app header. PNG, JPEG, WebP, or GIF.</p>
-	{#if logoMsg}
-		<p
-			role="status"
-			class="mt-3 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800"
-		>
-			{logoMsg}
-		</p>
-	{/if}
-	{#if logoErr}
-		<p
-			role="alert"
-			class="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
-		>
-			{logoErr}
-		</p>
-	{/if}
-	<div class="mt-4 flex flex-wrap items-center gap-3">
-		<input
-			id="sp-logo"
-			type="file"
-			accept="image/png,image/jpeg,image/webp,image/gif"
-			disabled={!isAdmin || logoBusy}
-			onchange={(e) =>
-				(logoFile = e.currentTarget.files?.[0] ?? null)}
-			class="block w-full max-w-xs text-sm text-slate-700 file:mr-3 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-slate-700 hover:file:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-60"
-		/>
-		<button
-			type="button"
-			disabled={!isAdmin || logoBusy || !logoFile}
-			aria-busy={logoBusy}
-			onclick={uploadLogo}
-			class="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
-		>
-			{#if logoBusy}<Spinner class="h-4 w-4 text-white" />{/if}
-			Upload
-		</button>
-		{#if logoUrl}
-			<img src={assetUrl(logoUrl)} alt="Current business logo" class="h-10 w-auto" />
-		{/if}
-	</div>
-</section>
+					<div>
+						<label for="sp-phone" class="block text-xs font-semibold uppercase tracking-wider text-slate-700">
+							Contact / Support Phone
+						</label>
+						<input
+							id="sp-phone"
+							type="text"
+							bind:value={contactPhone}
+							disabled={!isAdmin}
+							placeholder="+1 (555) 000-0000"
+							class="mt-1.5 block w-full rounded-lg border-slate-300 text-sm shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 disabled:bg-slate-50 disabled:text-slate-500 py-2.5 px-3"
+						/>
+					</div>
+
+					<div>
+						<label for="sp-color" class="block text-xs font-semibold uppercase tracking-wider text-slate-700">
+							Primary Brand Color
+						</label>
+						<div class="mt-1.5 flex items-center gap-2">
+							<input
+								type="color"
+								bind:value={brandingColor}
+								disabled={!isAdmin}
+								class="h-10 w-12 cursor-pointer rounded-lg border border-slate-300 bg-white p-1 shadow-2xs"
+							/>
+							<input
+								id="sp-color"
+								type="text"
+								bind:value={brandingColor}
+								placeholder="#4F46E5"
+								disabled={!isAdmin}
+								class="block w-full font-mono uppercase rounded-lg border-slate-300 text-sm shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 disabled:bg-slate-50 disabled:text-slate-500 py-2.5 px-3"
+							/>
+						</div>
+					</div>
+				</div>
+
+				{#if isAdmin}
+					<div class="flex justify-end border-t border-slate-100 pt-5">
+						<button
+							type="submit"
+							disabled={profileBusy}
+							aria-busy={profileBusy}
+							class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-xs font-semibold text-white shadow-2xs hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60 transition-colors"
+						>
+							{#if profileBusy}<Spinner class="h-3.5 w-3.5 text-white" />{/if}
+							Save Profile Changes
+						</button>
+					</div>
+				{/if}
+			</form>
+		</div>
+	</section>
+
+	<!-- Brand Logo Card -->
+	<section class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xs">
+		<div class="border-b border-slate-100 bg-slate-50/60 px-6 py-4">
+			<div class="flex items-center gap-2.5">
+				<div class="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
+					<Icon icon={imageOutline} class="h-4 w-4" />
+				</div>
+				<div>
+					<h2 class="text-sm font-bold text-slate-900">Brand Logo</h2>
+					<p class="text-xs text-slate-500">Visible in top navigation, email receipts, and invoice PDFs.</p>
+				</div>
+			</div>
+		</div>
+
+		<div class="p-6">
+			{#if logoMsg}
+				<div role="status" class="mb-5 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-semibold text-emerald-800">
+					✓ {logoMsg}
+				</div>
+			{/if}
+			{#if logoErr}
+				<div role="alert" class="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-xs font-semibold text-red-800">
+					{logoErr}
+				</div>
+			{/if}
+
+			<div class="flex flex-col gap-6 sm:flex-row sm:items-center">
+				<!-- Logo Preview -->
+				<div class="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 p-2">
+					{#if logoUrl}
+						<img
+							src={assetUrl(logoUrl)}
+							alt="Company Logo"
+							class="h-full w-full object-contain"
+						/>
+					{:else}
+						<Icon icon={imageOutline} class="h-8 w-8 text-slate-300" />
+					{/if}
+				</div>
+
+				<!-- Upload Inputs -->
+				<div class="flex-1 space-y-3">
+					<label for="sp-logo" class="block text-xs font-semibold uppercase tracking-wider text-slate-700">
+						Upload New Logo File
+					</label>
+					<p class="text-xs text-slate-500">Supports PNG, JPEG, WebP, or SVG (Max 2MB).</p>
+					{#if isAdmin}
+						<div class="flex flex-wrap items-center gap-3">
+							<input
+								id="sp-logo"
+								type="file"
+								accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
+								onchange={(e) => {
+									logoFile = e.currentTarget.files?.[0] ?? null;
+								}}
+								class="block text-xs text-slate-500 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-slate-700 hover:file:bg-slate-200 cursor-pointer"
+							/>
+							{#if logoFile}
+								<button
+									type="button"
+									disabled={logoBusy}
+									aria-busy={logoBusy}
+									onclick={uploadLogo}
+									class="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white shadow-2xs hover:bg-indigo-700 disabled:opacity-60 transition-colors"
+								>
+									{#if logoBusy}<Spinner class="h-3 w-3 text-white" />{/if}
+									Upload Logo
+								</button>
+							{/if}
+						</div>
+					{/if}
+				</div>
+			</div>
+		</div>
+	</section>
+</div>

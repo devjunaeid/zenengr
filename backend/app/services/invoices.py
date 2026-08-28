@@ -293,19 +293,34 @@ async def _resolve_line_items(
     return resolved
 
 
-def _format_invoice_number(template: str, next_number: int, *, tenant_prefix: str) -> str:
+def _format_invoice_number(
+    template: str,
+    next_number: int,
+    *,
+    tenant_prefix: str,
+    invoice_prefix: str = "INV",
+) -> str:
     """Render an invoice number from a format template."""
     if not template:
-        template = "INV-{YYYY}-{SEQ:04d}"
-    year = str(date.today().year)
+        template = "{PREFIX}-{YYYY}-{SEQ:04d}"
+    today = date.today()
+    year = str(today.year)
+    short_year = year[-2:]
+    month = f"{today.month:02d}"
 
     def _pad(match: re.Match[str]) -> str:
         width = int(match.group(1))
         return str(next_number).zfill(width)
 
     out = _SEQ_PAD_RE.sub(_pad, template)
+    out = out.replace("{SEQ+1000}", str(1000 + next_number))
+    out = out.replace("{SEQ+100}", str(100 + next_number))
     out = out.replace("{SEQ}", str(next_number)).replace("{seq}", str(next_number))
     out = out.replace("{YYYY}", year).replace("{year}", year)
+    out = out.replace("{YY}", short_year).replace("{yy}", short_year)
+    out = out.replace("{MM}", month).replace("{mm}", month)
+    out = out.replace("{PREFIX}", invoice_prefix).replace("{prefix}", invoice_prefix)
+    out = out.replace("{INITIAL}", invoice_prefix).replace("{initial}", invoice_prefix)
     out = out.replace("{tenant_prefix}", tenant_prefix)
     return out
 
@@ -819,6 +834,13 @@ async def generate_invoice_number(
     tenant's row does not exist it is inserted; on a primary-key race the
     transaction is rolled back and the winning row is re-locked.
     """
+    prefix_setting = await get_tenant_setting_by_key(session, tenant_id, "invoice_prefix")
+    invoice_prefix = (
+        prefix_setting.value.strip().upper()
+        if prefix_setting is not None and prefix_setting.value
+        else "INV"
+    )
+
     slug_stmt = select(Tenant.slug).where(Tenant.id == tenant_id)
     slug = (await session.execute(slug_stmt)).scalar_one_or_none()
     tenant_prefix = (slug or "TENANT").upper()
@@ -849,7 +871,12 @@ async def generate_invoice_number(
     seq.last_number = next_number
     seq.format_template = format_template
     await session.flush()
-    return _format_invoice_number(format_template, next_number, tenant_prefix=tenant_prefix)
+    return _format_invoice_number(
+        format_template,
+        next_number,
+        tenant_prefix=tenant_prefix,
+        invoice_prefix=invoice_prefix,
+    )
 
 
 # ── Cumulative Statement Invoice Generation (FEAT-019, TODO-189) ────────────

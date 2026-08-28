@@ -64,7 +64,31 @@ async def _count_active_clients(session: AsyncSession, tenant_id: uuid.UUID) -> 
         Client.status != ClientStatus.ARCHIVED,
     )
     result = await session.execute(stmt)
-    return result.scalar_one()
+    return result.scalar_one() or 0
+
+
+async def _count_active_projects(session: AsyncSession, tenant_id: uuid.UUID) -> int:
+    """Count active / in-progress projects for a tenant."""
+    from app.models.enums import ProjectStatus
+    from app.models.project import Project
+
+    stmt = select(func.count()).where(
+        Project.tenant_id == tenant_id,
+        Project.status.in_([ProjectStatus.ACTIVE, ProjectStatus.DRAFT, ProjectStatus.ON_HOLD]),
+    )
+    result = await session.execute(stmt)
+    return result.scalar_one() or 0
+
+
+async def _calculate_storage_mb(session: AsyncSession, tenant_id: uuid.UUID) -> float:
+    """Calculate total stored file asset megabytes for a tenant."""
+    from app.models.file_asset import FileAsset
+
+    stmt = select(func.coalesce(func.sum(FileAsset.size_bytes), 0)).where(
+        FileAsset.tenant_id == tenant_id,
+    )
+    total_bytes = (await session.execute(stmt)).scalar_one() or 0
+    return round(float(total_bytes) / (1024 * 1024), 2)
 
 
 def _get_tenant_or_raise(user: AdminUser) -> uuid.UUID:
@@ -384,8 +408,8 @@ async def get_tenant_plan_and_usage(
         usage=UsageCounts(
             admin_users=admin_count,
             clients=await _count_active_clients(session, tenant_id),
-            active_projects=0,  # TODO: wire to Project model
-            storage_mb=0,  # TODO: wire to storage tracking
+            active_projects=await _count_active_projects(session, tenant_id),
+            storage_mb=await _calculate_storage_mb(session, tenant_id),
         ),
     )
 

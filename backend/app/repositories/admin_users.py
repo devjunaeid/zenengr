@@ -6,7 +6,7 @@ import uuid
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload, selectinload
+from sqlalchemy.orm import joinedload
 
 from app.models.admin_user import AdminUser
 from app.models.enums import AdminUserRole
@@ -36,12 +36,23 @@ async def get_by_tenant_id(
     *,
     page: int = 1,
     page_size: int = 20,
+    search: str | None = None,
     is_active: bool | None = None,
     role: AdminUserRole | None = None,
 ) -> tuple[list[AdminUser], int]:
     """List admin users for a tenant with optional filters. Returns (items, total)."""
+    from sqlalchemy import or_
+
     query = select(AdminUser).where(AdminUser.tenant_id == tenant_id)
 
+    if search:
+        term = f"%{search.strip()}%"
+        query = query.where(
+            or_(
+                AdminUser.full_name.ilike(term),
+                AdminUser.email.ilike(term),
+            )
+        )
     if is_active is not None:
         query = query.where(AdminUser.is_active == is_active)
     if role is not None:

@@ -15,10 +15,7 @@ export async function load({ fetch }) {
 			cachedProfile = { business_name: 'ZenEngr' };
 		}
 	}
-	if (!cachedSettingsLoaded) {
-		await loadTenantSettings(fetch);
-		cachedSettingsLoaded = true;
-	}
+	await loadTenantSettings(fetch);
 	return { user, profile: cachedProfile };
 }
 
@@ -30,7 +27,9 @@ async function loadTenantSettings(fetch) {
 			currency: pick('currency'),
 			timezone: pick('timezone'),
 			date_format: pick('date_format'),
-			time_format: pick('time_format')
+			time_format: pick('time_format'),
+			invoice_prefix: pick('invoice_prefix'),
+			invoice_number_format: pick('invoice_number_format')
 		});
 	} catch {
 		// Settings unreachable — keep store defaults.

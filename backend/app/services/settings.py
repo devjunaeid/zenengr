@@ -33,6 +33,11 @@ DEFAULT_SETTINGS: list[dict[str, Any]] = [
         "permission_level": PermissionLevel.TENANT_ADMIN_EDITABLE,
     },
     {
+        "key": "invoice_prefix",
+        "value": "INV",
+        "permission_level": PermissionLevel.TENANT_ADMIN_EDITABLE,
+    },
+    {
         "key": "invoice_number_format",
         "value": "INV-{YYYY}-{SEQ:04d}",
         "permission_level": PermissionLevel.TENANT_ADMIN_EDITABLE,
@@ -96,6 +101,13 @@ def validate_setting_value(key: str, value: str) -> None:
                     f"Invalid currency '{value}'. Must be ISO 4217 alpha-3 code (e.g. USD, EUR)."
                 ),
             )
+    elif key == "invoice_prefix":
+        clean = value.strip().upper()
+        if not clean or len(clean) > 10 or not clean.replace("-", "").replace("_", "").isalnum():
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="Invalid invoice_prefix. Must be 1-10 alphanumeric characters (e.g. INV, BILL, ZEN).",
+            )
     elif key == "timezone":
         try:
             zoneinfo.ZoneInfo(value)
@@ -107,11 +119,12 @@ def validate_setting_value(key: str, value: str) -> None:
                     "Must be IANA timezone name (e.g. UTC, America/New_York)."
                 ),
             ) from None
-    elif key == "invoice_number_format" and "{seq}" not in value.lower():
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail=(f"Invalid invoice_number_format '{value}'. Must contain '{{seq}}' token."),
-        )
+    elif key == "invoice_number_format":
+        if "{seq" not in value.lower():
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=(f"Invalid invoice_number_format '{value}'. Must contain '{{SEQ}}' token."),
+            )
     elif key == "date_format" and value not in _VALID_DATE_FORMATS:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,

@@ -154,6 +154,93 @@ export const AUDIT_ACTION_OPTIONS = (() => {
 	return out;
 })();
 
+/**
+ * Curated tenant-scoped actions available in tenant app workspace.
+ * Omits platform/super-admin only actions (Plan, Tenant suspended/flag overrides).
+ */
+export const TENANT_AUDIT_ACTION_OPTIONS = (() => {
+	const tenantGroups = [
+		{
+			group: 'Projects & Milestones',
+			prefix: 'project.'
+		},
+		{
+			group: 'Invoices',
+			prefix: 'invoice.'
+		},
+		{
+			group: 'Clients & CRM',
+			prefix: 'client'
+		},
+		{
+			group: 'Team & Staff',
+			prefixes: ['user.', 'invite.']
+		},
+		{
+			group: 'Files & Folders',
+			prefix: 'file.'
+		},
+		{
+			group: 'Service Catalog',
+			prefix: 'service.'
+		},
+		{
+			group: 'Tenant Settings & Branding',
+			prefixes: ['tenant.profile_updated', 'tenant.branding.', 'tenant.setting_updated']
+		},
+		{
+			group: 'Email (SMTP)',
+			prefix: 'smtp_config.'
+		},
+		{
+			group: 'Roles & Permissions',
+			prefix: 'role.'
+		},
+		{
+			group: 'Discussions & Comments',
+			prefix: 'comment.'
+		}
+	];
+
+	/** @type {Array<{ group: string, items: Array<{ value: string, label: string }> }>} */
+	const out = [];
+	for (const tg of tenantGroups) {
+		const items = [];
+		for (const [action, meta] of Object.entries(AUDIT_ACTIONS)) {
+			let matches = false;
+			if (tg.prefix && action.startsWith(tg.prefix)) {
+				// Avoid including payment-specific ones in pure invoice group if we want them distinct
+				if (tg.prefix === 'invoice.' && (action.includes('payment') || action.includes('refund') || action.includes('advance'))) {
+					matches = false;
+				} else {
+					matches = true;
+				}
+			} else if (tg.prefixes && tg.prefixes.some((p) => action.startsWith(p))) {
+				matches = true;
+			}
+			if (matches) {
+				items.push({ value: action, label: meta.label });
+			}
+		}
+		if (items.length > 0) {
+			out.push({ group: tg.group, items });
+		}
+	}
+
+	// Add Payments group explicitly
+	const paymentItems = [];
+	for (const [action, meta] of Object.entries(AUDIT_ACTIONS)) {
+		if (meta.group === 'Payments') {
+			paymentItems.push({ value: action, label: meta.label });
+		}
+	}
+	if (paymentItems.length > 0) {
+		out.splice(2, 0, { group: 'Payments & Credits', items: paymentItems });
+	}
+
+	return out;
+})();
+
 /** @type {Record<string, any>} */
 const GROUP_ICONS = {
 	Tenant: officeBuilding,

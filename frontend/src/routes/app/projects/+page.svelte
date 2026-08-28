@@ -7,7 +7,7 @@
 	import Pagination from '$lib/components/Pagination.svelte';
 	import StatusBadge from '$lib/components/StatusBadge.svelte';
 	import { auth } from '$lib/stores/auth.svelte.js';
-	import { formatDate, humanize } from '$lib/utils/format.js';
+	import { formatDate, humanize, formatProjectCode } from '$lib/utils/format.js';
 
 	let { data } = $props();
 
@@ -165,12 +165,17 @@
 					{#each data.projects.items as p (p.id)}
 						<tr class="hover:bg-slate-50">
 							<td class="px-4 py-3 text-sm font-medium text-slate-900">
-								<a
-									href={resolve('/app/projects/[id]', { id: p.id })}
-									class="text-indigo-600 hover:text-indigo-500"
-								>
-									{p.name}
-								</a>
+								<div class="flex items-center gap-2">
+									<a
+										href={resolve('/app/projects/[id]', { id: p.id })}
+										class="text-indigo-600 hover:text-indigo-500 font-semibold"
+									>
+										{p.name}
+									</a>
+									<span class="font-mono text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">
+										{formatProjectCode(p.id)}
+									</span>
+								</div>
 							</td>
 							<td class="px-4 py-3"><StatusBadge status={p.status} /></td>
 							<td class="px-4 py-3 text-right text-sm text-slate-700">{p.service_count}</td>

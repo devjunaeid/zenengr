@@ -119,3 +119,6 @@ async def invalidate_tenant_metadata(tenant_id: uuid.UUID | str) -> None:
     await cache.delete(tenant_catalog_cache_key(tenant_id))
     await cache.delete(tenant_flags_cache_key(tenant_id))
     await cache.delete(tenant_settings_cache_key(tenant_id))
+    from app.models.enums import AdminUserRole
+    for role in AdminUserRole:
+        await cache.delete(f"{tenant_settings_cache_key(tenant_id)}:{role.value}")

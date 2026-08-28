@@ -31,3 +31,15 @@ class UserListResponse(BaseModel):
 class ResetPasswordRequest(BaseModel):
     token: str
     new_password: str
+
+
+class AdminUserCreateRequest(BaseModel):
+    full_name: str
+    email: str
+    password: str
+    role_id: str | None = None
+
+
+class AdminSetUserPasswordRequest(BaseModel):
+    password: str
+

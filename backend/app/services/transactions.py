@@ -587,13 +587,68 @@ async def build_client_ledger(
 ) -> dict[str, Any]:
     """Client ledger: advance balance + chronological signed money entries.
 
-    Entries combine the client's invoice transactions (payments + refunds,
-    client-linked invoices only), the client's advance receipts, and advance
-    applications (allocations on the client's invoices). Running balance is
-    the cumulative sum of the signed entry amounts.
+    Entries combine:
+    1. Project ledger direct payments/refunds (FEAT-018)
+    2. Invoice transactions (payments + refunds on client-linked invoices)
+    3. Client advance receipts and advance applications
+    Running balance is the cumulative sum of signed entry amounts.
     """
+    from app.models.enums import LedgerEntryType
+    from app.models.ledger_entry import LedgerEntry
+    from app.services.ledger import get_project_ledger
+
     entries: list[dict[str, Any]] = []
 
+    # 1. Project Ledger direct entries (payments and refunds)
+    pl_stmt = (
+        select(LedgerEntry, Project)
+        .join(Project, LedgerEntry.project_id == Project.id)
+        .where(
+            Project.tenant_id == tenant_id,
+            Project.client_id == client_id,
+        )
+        .order_by(LedgerEntry.entry_date.asc(), LedgerEntry.created_at.asc())
+    )
+    pl_rows = (await session.execute(pl_stmt)).all()
+
+    known_tx_ids = {entry.source_id for entry, _ in pl_rows if entry.source_id is not None}
+
+    for pl_entry, proj in pl_rows:
+        entry_dt = (
+            datetime.combine(pl_entry.entry_date, datetime.min.time(), tzinfo=UTC)
+            if pl_entry.created_at is None
+            else pl_entry.created_at
+        )
+        if pl_entry.type == LedgerEntryType.PAYMENT:
+            entries.append(
+                {
+                    "id": pl_entry.id,
+                    "kind": "payment",
+                    "amount": f"{_money(pl_entry.amount):.2f}",
+                    "reference": pl_entry.description or f"Project Payment ({proj.name})",
+                    "invoice_id": pl_entry.invoice_ref,
+                    "created_at": entry_dt,
+                    "_value": _money(pl_entry.amount),
+                    "_ts": entry_dt,
+                    "_prio": 0,
+                }
+            )
+        elif pl_entry.type == LedgerEntryType.REFUND:
+            entries.append(
+                {
+                    "id": pl_entry.id,
+                    "kind": "refund",
+                    "amount": f"-{_money(pl_entry.amount):.2f}",
+                    "reference": pl_entry.description or f"Project Refund ({proj.name})",
+                    "invoice_id": pl_entry.invoice_ref,
+                    "created_at": entry_dt,
+                    "_value": -_money(pl_entry.amount),
+                    "_ts": entry_dt,
+                    "_prio": 2,
+                }
+            )
+
+    # 2. Invoice transactions (avoid double counting transactions already recorded as project ledger entries)
     tx_rows = (
         (
             await session.execute(
@@ -612,6 +667,8 @@ async def build_client_ledger(
         .all()
     )
     for tx in tx_rows:
+        if tx.id in known_tx_ids:
+            continue
         if tx.direction == TransactionDirection.CREDIT:
             entries.append(
                 {
@@ -641,6 +698,7 @@ async def build_client_ledger(
                 }
             )
 
+    # 3. Client advance receipts
     adv_rows = (
         (
             await session.execute(
@@ -668,6 +726,7 @@ async def build_client_ledger(
             }
         )
 
+    # 4. Advance applications
     applied_rows = (
         await session.execute(
             select(
@@ -709,10 +768,21 @@ async def build_client_ledger(
         running = _money(running + entry["_value"])
         entry["running_balance"] = f"{running:.2f}"
 
-    advance_balance = _money(sum((adv.remaining_amount for adv in adv_rows), Decimal("0")))
+    # Calculate aggregate advance balance (unallocated client advances + project statement advance balances)
+    client_adv_balance = _money(sum((adv.remaining_amount for adv in adv_rows), Decimal("0")))
+    
+    projects_stmt = select(Project).where(Project.client_id == client_id, Project.tenant_id == tenant_id)
+    projects = list((await session.execute(projects_stmt)).scalars().all())
+    
+    project_adv_balance = Decimal("0")
+    for proj in projects:
+        data = await get_project_ledger(session, tenant_id=tenant_id, project_id=proj.id)
+        project_adv_balance += Decimal(data["summary"]["advance_balance"])
+
+    total_advance_balance = _money(client_adv_balance + project_adv_balance)
 
     return {
-        "advance_balance": f"{advance_balance:.2f}",
+        "advance_balance": f"{total_advance_balance:.2f}",
         "entries": [
             {key: value for key, value in entry.items() if not key.startswith("_")}
             for entry in entries

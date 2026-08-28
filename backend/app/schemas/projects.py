@@ -7,7 +7,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 from app.models.enums import MilestoneStatus, PaymentMethod, ProjectServiceStatus, ProjectStatus
 
@@ -57,6 +57,11 @@ class ProjectListItem(BaseModel):
     milestone_completed: int = 0
     created_at: datetime
     updated_at: datetime
+
+    @computed_field
+    @property
+    def short_code(self) -> str:
+        return str(self.id).replace("-", "")[:6].upper()
 
 
 class ProjectListResponse(BaseModel):
@@ -110,6 +115,11 @@ class ProjectDetailResponse(BaseModel):
     services: list[ProjectServiceItem]
     milestones: list[ProjectMilestoneItem]
 
+    @computed_field
+    @property
+    def short_code(self) -> str:
+        return str(self.id).replace("-", "")[:6].upper()
+
 
 class ProjectCreateResponse(BaseModel):
     model_config = {"from_attributes": True}
@@ -124,6 +134,11 @@ class ProjectCreateResponse(BaseModel):
     service_count: int
     milestone_count: int
     created_at: datetime
+
+    @computed_field
+    @property
+    def short_code(self) -> str:
+        return str(self.id).replace("-", "")[:6].upper()
 
 
 # ── Attach service ──────────────────────────────────────────────────────────

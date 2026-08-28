@@ -69,7 +69,7 @@ class UsageCounts(BaseModel):
     admin_users: int = 0
     clients: int = 0
     active_projects: int = 0
-    storage_mb: int = 0
+    storage_mb: float = 0.0
 
 
 class TenantPlanResponse(BaseModel):

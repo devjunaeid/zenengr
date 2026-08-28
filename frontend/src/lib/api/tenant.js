@@ -154,6 +154,40 @@ export function changeRole(fetchFn, token, userId, roleId) {
 /**
  * @param {typeof fetch} fetchFn
  * @param {string} token
+ * @param {{ email: string, full_name: string, password: string, role_id?: string|null }} body
+ */
+export function createUser(fetchFn, token, body) {
+	return apiFetch(fetchFn, '/tenant/users', { method: 'POST', token, body });
+}
+
+/**
+ * Direct password reset by tenant admin.
+ * @param {typeof fetch} fetchFn
+ * @param {string} token
+ * @param {string} userId
+ * @param {string} password
+ */
+export function setUserPassword(fetchFn, token, userId, password) {
+	return apiFetch(fetchFn, `/tenant/users/${userId}/set-password`, {
+		method: 'POST',
+		token,
+		body: { password }
+	});
+}
+
+/**
+ * Archive / Delete employee.
+ * @param {typeof fetch} fetchFn
+ * @param {string} token
+ * @param {string} userId
+ */
+export function deleteUser(fetchFn, token, userId) {
+	return apiFetch(fetchFn, `/tenant/users/${userId}`, { method: 'DELETE', token });
+}
+
+/**
+ * @param {typeof fetch} fetchFn
+ * @param {string} token
  * @param {string} userId
  * @param {'deactivate'|'reactivate'} action
  */

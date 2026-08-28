@@ -297,3 +297,14 @@ export function slugify(value) {
 		.replace(/[^a-z0-9]+/g, '-')
 		.replace(/^-+|-+$/g, '');
 }
+
+/**
+ * Format a project UUID into a short, unique 6-character alphanumeric code.
+ * @param {string|null|undefined} id
+ * @returns {string}
+ */
+export function formatProjectCode(id) {
+	if (!id) return '';
+	const clean = String(id).replace(/[^a-zA-Z0-9]/g, '').slice(0, 6).toUpperCase();
+	return `#${clean}`;
+}

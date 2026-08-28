@@ -1,6 +1,8 @@
 <script>
 	import Icon from '@iconify/svelte';
-	import chevronDown from '@iconify-icons/mdi/chevron-down';
+	import emailOutline from '@iconify-icons/mdi/email-outline';
+	import bellOutline from '@iconify-icons/mdi/bell-outline';
+	import checkCircle from '@iconify-icons/mdi/check-circle';
 	import { untrack } from 'svelte';
 	import * as accountApi from '$lib/api/account.js';
 	import { ApiError } from '$lib/api/client.js';
@@ -21,14 +23,35 @@
 		'project_created'
 	];
 
-	const EVENT_LABELS = {
-		new_comment: 'New comment',
-		invoice_issued: 'Invoice issued',
-		payment_received: 'Payment received',
-		refund_recorded: 'Refund recorded',
-		advance_applied: 'Advance applied',
-		milestone_completed: 'Milestone completed',
-		project_created: 'Project created'
+	const EVENT_METADATA = {
+		new_comment: {
+			label: 'New Discussion Comment',
+			description: 'When a team member or client posts a comment on a project.'
+		},
+		invoice_issued: {
+			label: 'Invoice Issued',
+			description: 'When a new draft invoice is officially issued to a client.'
+		},
+		payment_received: {
+			label: 'Payment Received',
+			description: 'When a transaction payment is successfully recorded on an invoice.'
+		},
+		refund_recorded: {
+			label: 'Refund Recorded',
+			description: 'When a credit or payment refund is processed on a ledger.'
+		},
+		advance_applied: {
+			label: 'Advance Credit Applied',
+			description: 'When available client credit is used toward an invoice balance.'
+		},
+		milestone_completed: {
+			label: 'Milestone Completed',
+			description: 'When a service milestone step is marked as done.'
+		},
+		project_created: {
+			label: 'Project Created',
+			description: 'When a new client project workspace is initialized.'
+		}
 	};
 
 	function buildPrefs(loaded) {
@@ -85,107 +108,88 @@
 
 <svelte:head><title>Notifications — ZenEngr</title></svelte:head>
 
-<h1 class="text-2xl font-semibold text-slate-900">Notifications</h1>
-<p class="mt-1 text-sm text-slate-500">
-	Control which events notify you — Email vs in-app independently.
-</p>
-
-<div class="mt-6 space-y-6">
+<div class="space-y-6">
 	{#if prefsError}
-		<div
-			role="alert"
-			class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
-		>
+		<div role="alert" class="rounded-xl border border-red-200 bg-red-50 p-4 text-xs font-semibold text-red-800 shadow-2xs">
 			{prefsError}
 		</div>
-	{:else if prefsSaved}
-		<div
-			role="status"
-			class="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800"
-		>
-			Saved
+	{/if}
+	{#if prefsSaved}
+		<div role="status" class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-semibold text-emerald-800 shadow-2xs flex items-center gap-1.5 animate-fade-in">
+			<Icon icon={checkCircle} class="h-4 w-4 text-emerald-600" />
+			Notification preferences saved.
 		</div>
 	{/if}
 
-	<!-- Email -->
-	<details open class="group rounded-lg border border-slate-200 bg-white shadow-sm">
-		<summary
-			class="flex cursor-pointer list-none items-center justify-between gap-2 rounded-lg px-6 py-4 select-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none [&::-webkit-details-marker]:hidden"
-		>
-			<span class="flex flex-wrap items-center gap-2">
-				<span class="text-base font-semibold text-slate-900">Email notifications</span>
-				<span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600"
-					>{emailOnCount} of {EVENT_TYPES.length} on</span
-				>
+	<!-- In-App Notifications Card -->
+	<section class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xs">
+		<div class="border-b border-slate-100 bg-slate-50/60 px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+			<div class="flex items-center gap-2.5">
+				<div class="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
+					<Icon icon={bellOutline} class="h-4 w-4" />
+				</div>
+				<div>
+					<h2 class="text-sm font-bold text-slate-900">In-App Notification Feed</h2>
+					<p class="text-xs text-slate-500">Real-time alerts shown in your top bell activity center.</p>
+				</div>
+			</div>
+			<span class="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
+				{inappOnCount} of {EVENT_TYPES.length} active
 			</span>
-			<Icon
-				icon={chevronDown}
-				class="h-5 w-5 shrink-0 text-slate-400 transition-transform group-open:rotate-180"
-			/>
-		</summary>
-		<div class="border-t border-slate-200 px-6 pb-2">
-			<ul class="divide-y divide-slate-200">
-				{#each emailPrefs as pref (pref.event_type)}
-					<li
-						class="flex items-center justify-between py-3"
-						aria-busy={savingPref === toggleKey('email', pref)}
-					>
-						<div>
-							<p class="text-sm font-medium text-slate-800">
-								{EVENT_LABELS[pref.event_type] ?? humanize(pref.event_type)}
-							</p>
-							<p class="text-xs text-slate-500">{pref.event_type}</p>
-						</div>
-						<ToggleSwitch
-							checked={pref.enabled}
-							disabled={savingPref === toggleKey('email', pref)}
-							label={`Email: ${EVENT_LABELS[pref.event_type] ?? humanize(pref.event_type)}`}
-							onchange={(enabled) => togglePref('email', pref.event_type, enabled)}
-						/>
-					</li>
-				{/each}
-			</ul>
 		</div>
-	</details>
 
-	<!-- In-app -->
-	<details class="group rounded-lg border border-slate-200 bg-white shadow-sm">
-		<summary
-			class="flex cursor-pointer list-none items-center justify-between gap-2 rounded-lg px-6 py-4 select-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none [&::-webkit-details-marker]:hidden"
-		>
-			<span class="flex flex-wrap items-center gap-2">
-				<span class="text-base font-semibold text-slate-900">In-app notifications</span>
-				<span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600"
-					>{inappOnCount} of {EVENT_TYPES.length} on</span
-				>
-			</span>
-			<Icon
-				icon={chevronDown}
-				class="h-5 w-5 shrink-0 text-slate-400 transition-transform group-open:rotate-180"
-			/>
-		</summary>
-		<div class="border-t border-slate-200 px-6 pb-2">
-			<ul class="divide-y divide-slate-200">
-				{#each inappPrefs as pref (pref.event_type)}
-					<li
-						class="flex items-center justify-between py-3"
-						aria-busy={savingPref === toggleKey('inapp', pref)}
-					>
-						<div>
-							<p class="text-sm font-medium text-slate-800">
-								{EVENT_LABELS[pref.event_type] ?? humanize(pref.event_type)}
-							</p>
-							<p class="text-xs text-slate-500">{pref.event_type}</p>
-						</div>
-						<ToggleSwitch
-							checked={pref.enabled}
-							disabled={savingPref === toggleKey('inapp', pref)}
-							label={`In-app: ${EVENT_LABELS[pref.event_type] ?? humanize(pref.event_type)}`}
-							onchange={(enabled) => togglePref('inapp', pref.event_type, enabled)}
-						/>
-					</li>
-				{/each}
-			</ul>
+		<div class="divide-y divide-slate-100">
+			{#each inappPrefs as pref (pref.event_type)}
+				{@const meta = EVENT_METADATA[pref.event_type] || { label: humanize(pref.event_type), description: '' }}
+				<div class="flex items-center justify-between p-5 hover:bg-slate-50/40 transition-colors">
+					<div class="max-w-lg">
+						<p class="text-sm font-semibold text-slate-900">{meta.label}</p>
+						<p class="mt-0.5 text-xs text-slate-500">{meta.description}</p>
+					</div>
+					<ToggleSwitch
+						checked={pref.enabled}
+						disabled={savingPref === toggleKey('inapp', pref)}
+						label={`In-app: ${meta.label}`}
+						onchange={(enabled) => togglePref('inapp', pref.event_type, enabled)}
+					/>
+				</div>
+			{/each}
 		</div>
-	</details>
+	</section>
+
+	<!-- Email Notifications Card -->
+	<section class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xs">
+		<div class="border-b border-slate-100 bg-slate-50/60 px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+			<div class="flex items-center gap-2.5">
+				<div class="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
+					<Icon icon={emailOutline} class="h-4 w-4" />
+				</div>
+				<div>
+					<h2 class="text-sm font-bold text-slate-900">Email Notifications</h2>
+					<p class="text-xs text-slate-500">Direct transactional email summaries delivered to your inbox.</p>
+				</div>
+			</div>
+			<span class="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
+				{emailOnCount} of {EVENT_TYPES.length} active
+			</span>
+		</div>
+
+		<div class="divide-y divide-slate-100">
+			{#each emailPrefs as pref (pref.event_type)}
+				{@const meta = EVENT_METADATA[pref.event_type] || { label: humanize(pref.event_type), description: '' }}
+				<div class="flex items-center justify-between p-5 hover:bg-slate-50/40 transition-colors">
+					<div class="max-w-lg">
+						<p class="text-sm font-semibold text-slate-900">{meta.label}</p>
+						<p class="mt-0.5 text-xs text-slate-500">{meta.description}</p>
+					</div>
+					<ToggleSwitch
+						checked={pref.enabled}
+						disabled={savingPref === toggleKey('email', pref)}
+						label={`Email: ${meta.label}`}
+						onchange={(enabled) => togglePref('email', pref.event_type, enabled)}
+					/>
+				</div>
+			{/each}
+		</div>
+	</section>
 </div>
