@@ -206,6 +206,11 @@ async def get_client_invoice_endpoint(
     paid_amount = f"{paid:.2f}"
     balance_due = f"{_clamp_non_negative(Decimal(invoice.total) - paid):.2f}"
 
+    tenant_stmt = select(Tenant).where(Tenant.id == invoice.tenant_id)
+    tenant = (await session.execute(tenant_stmt)).scalar_one_or_none()
+    tenant_name = tenant.business_name if tenant else None
+    tenant_logo = tenant.logo_url if tenant else None
+
     line_items = sorted(invoice.line_items, key=lambda li: li.created_at)
     return ClientInvoiceDetailResponse(
         id=invoice.id,
@@ -221,6 +226,8 @@ async def get_client_invoice_endpoint(
         notes=invoice.notes,
         paid_amount=paid_amount,
         balance_due=balance_due,
+        tenant_business_name=tenant_name,
+        tenant_logo_url=tenant_logo,
         line_items=[_to_line_item_response(li) for li in line_items],
         created_at=invoice.created_at,
         updated_at=invoice.updated_at,

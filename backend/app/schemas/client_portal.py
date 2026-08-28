@@ -58,6 +58,8 @@ class ClientInvoiceDetailResponse(BaseModel):
     notes: str
     paid_amount: str
     balance_due: str
+    tenant_business_name: str | None = None
+    tenant_logo_url: str | None = None
     line_items: list[InvoiceLineItemResponse]
     created_at: datetime
     updated_at: datetime

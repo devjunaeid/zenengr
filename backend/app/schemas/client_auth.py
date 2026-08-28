@@ -39,6 +39,7 @@ class ClientMeResponse(BaseModel):
     client_id: str
     tenant_id: str
     tenant_name: str | None = None
+    tenant_logo_url: str | None = None
     avatar_url: str | None = None
     phone: str | None = None
     timezone: str | None = None

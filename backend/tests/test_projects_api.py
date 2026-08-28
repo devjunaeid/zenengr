@@ -1688,140 +1688,43 @@ async def _line_items_for_invoice(
 
 class TestAutoInvoice:
     @pytest.mark.asyncio
-    async def test_create_with_auto_invoice_creates_draft(
+    async def test_create_and_attach_services_without_auto_drafts(
         self, client: AsyncClient, db_session: AsyncSession
     ):
         ctx = await _bootstrap(db_session)
+        admin_headers = await _admin_auth_header(ctx["admin"])
         resp = await client.post(
             "/api/v1/tenant/projects/",
             json={
-                "name": "AutoInv",
+                "name": "ProjectOnDemand",
                 "client_id": str(ctx["client"].id),
                 "service_ids": [str(ctx["svc_a"].id)],
-                "auto_invoice": True,
             },
-            headers=await _admin_auth_header(ctx["admin"]),
+            headers=admin_headers,
         )
         assert resp.status_code == 201
         pid = resp.json()["id"]
-        assert resp.json()["auto_invoice"] is True
 
+        # Projects are created without auto-generating draft invoices
         invoices = await _invoices_for_project(db_session, pid)
-        assert len(invoices) == 1
-        inv = invoices[0]
-        assert inv.status == InvoiceStatus.DRAFT
-        assert inv.subtotal == Decimal("500.00")
-        assert inv.is_auto is True
+        assert len(invoices) == 0
 
-        items = await _line_items_for_invoice(db_session, inv.id)
-        assert len(items) == 1
-        assert items[0].description == ctx["svc_a"].name
-        assert items[0].entry_date == date.today()
-        assert items[0].quantity == Decimal("1")
-        assert items[0].unit_price == Decimal("500.00")
-        assert items[0].amount == Decimal("500.00")
-        assert items[0].project_service_id is not None
-
-    @pytest.mark.asyncio
-    async def test_attach_appends_to_same_draft(
-        self, client: AsyncClient, db_session: AsyncSession
-    ):
-        ctx = await _bootstrap(db_session)
-        admin_headers = await _admin_auth_header(ctx["admin"])
-        pid = (
-            await client.post(
-                "/api/v1/tenant/projects/",
-                json={
-                    "name": "AutoAttach",
-                    "client_id": str(ctx["client"].id),
-                    "service_ids": [str(ctx["svc_a"].id)],
-                    "auto_invoice": True,
-                },
-                headers=admin_headers,
-            )
-        ).json()["id"]
+        # Attaching services also keeps financial tracking on the live statement without auto-drafting
         await client.patch(
             f"/api/v1/tenant/projects/{pid}",
             json={"status": "active"},
             headers=admin_headers,
         )
-
-        resp = await client.post(
-            f"/api/v1/tenant/projects/{pid}/services",
-            json={"service_id": str(ctx["svc_b"].id)},
-            headers=admin_headers,
-        )
-        assert resp.status_code == 201
-
-        invoices = await _invoices_for_project(db_session, pid)
-        assert len(invoices) == 1
-        inv = invoices[0]
-        assert inv.status == InvoiceStatus.DRAFT
-        assert inv.subtotal == Decimal("1000.00")
-        assert inv.is_auto is True
-
-        items = await _line_items_for_invoice(db_session, inv.id)
-        assert len(items) == 2
-        assert items[0].description == ctx["svc_a"].name
-        assert items[1].description == ctx["svc_b"].name
-        assert all(item.entry_date == date.today() for item in items)
-        assert items[1].unit_price == Decimal("500.00")
-        assert items[1].amount == Decimal("500.00")
-
-    @pytest.mark.asyncio
-    async def test_issue_blocked_attach_stays_on_same_draft(
-        self, client: AsyncClient, db_session: AsyncSession
-    ):
-        ctx = await _bootstrap(db_session)
-        admin_headers = await _admin_auth_header(ctx["admin"])
-        pid = (
-            await client.post(
-                "/api/v1/tenant/projects/",
-                json={
-                    "name": "AutoIssue",
-                    "client_id": str(ctx["client"].id),
-                    "service_ids": [str(ctx["svc_a"].id)],
-                    "auto_invoice": True,
-                },
-                headers=admin_headers,
-            )
-        ).json()["id"]
-        await client.patch(
-            f"/api/v1/tenant/projects/{pid}",
-            json={"status": "active"},
-            headers=admin_headers,
-        )
-
-        draft = (await _invoices_for_project(db_session, pid))[0]
-        issue_resp = await client.post(
-            f"/api/v1/tenant/invoices/{draft.id}/issue",
-            headers=admin_headers,
-        )
-        # statements cannot be issued -> attach still appends to the same draft
-        assert issue_resp.status_code == 422
-        assert "cannot be issued" in issue_resp.json()["error"]["message"]
-
         attach_resp = await client.post(
             f"/api/v1/tenant/projects/{pid}/services",
             json={"service_id": str(ctx["svc_b"].id)},
             headers=admin_headers,
         )
         assert attach_resp.status_code == 201
-
-        invoices = await _invoices_for_project(db_session, pid)
-        assert len(invoices) == 1
-        inv = invoices[0]
-        assert inv.status == InvoiceStatus.DRAFT
-        assert inv.is_auto is True
-        assert inv.subtotal == Decimal("1000.00")
-        assert inv.total == Decimal("1000.00")
-        items = await _line_items_for_invoice(db_session, inv.id)
-        assert len(items) == 2
-        assert items[0].description == ctx["svc_a"].name
-        assert items[1].description == ctx["svc_b"].name
+        assert len(await _invoices_for_project(db_session, pid)) == 0
 
     @pytest.mark.asyncio
-    async def test_auto_invoice_false_creates_no_drafts(
+    async def test_generate_statement_invoice_on_demand(
         self, client: AsyncClient, db_session: AsyncSession
     ):
         ctx = await _bootstrap(db_session)
@@ -1830,158 +1733,21 @@ class TestAutoInvoice:
             await client.post(
                 "/api/v1/tenant/projects/",
                 json={
-                    "name": "NoAuto",
+                    "name": "StatementOnDemand",
                     "client_id": str(ctx["client"].id),
                     "service_ids": [str(ctx["svc_a"].id)],
                 },
                 headers=admin_headers,
             )
         ).json()["id"]
-        assert len(await _invoices_for_project(db_session, pid)) == 0
 
-        await client.patch(
-            f"/api/v1/tenant/projects/{pid}",
-            json={"status": "active"},
+        # Generate statement invoice on demand
+        gen_resp = await client.post(
+            f"/api/v1/tenant/projects/{pid}/statement-invoice",
             headers=admin_headers,
         )
-        resp = await client.post(
-            f"/api/v1/tenant/projects/{pid}/services",
-            json={"service_id": str(ctx["svc_b"].id)},
-            headers=admin_headers,
-        )
-        assert resp.status_code == 201
-        assert len(await _invoices_for_project(db_session, pid)) == 0
+        assert gen_resp.status_code == 200
+        inv_data = gen_resp.json()
+        assert inv_data["is_auto"] is True
+        assert inv_data["status"] == "draft"
 
-    @pytest.mark.asyncio
-    async def test_patch_toggle_auto_invoice_persisted(
-        self, client: AsyncClient, db_session: AsyncSession
-    ):
-        ctx = await _bootstrap(db_session)
-        admin_headers = await _admin_auth_header(ctx["admin"])
-        pid = (
-            await client.post(
-                "/api/v1/tenant/projects/",
-                json={
-                    "name": "Toggle",
-                    "client_id": str(ctx["client"].id),
-                    "service_ids": [str(ctx["svc_a"].id)],
-                },
-                headers=admin_headers,
-            )
-        ).json()["id"]
-        assert len(await _invoices_for_project(db_session, pid)) == 0
-
-        # Toggle on -> persisted on detail
-        upd = await client.patch(
-            f"/api/v1/tenant/projects/{pid}",
-            json={"auto_invoice": True},
-            headers=admin_headers,
-        )
-        assert upd.status_code == 200
-        assert upd.json()["auto_invoice"] is True
-
-        # Attach while on -> draft created
-        await client.patch(
-            f"/api/v1/tenant/projects/{pid}",
-            json={"status": "active"},
-            headers=admin_headers,
-        )
-        resp = await client.post(
-            f"/api/v1/tenant/projects/{pid}/services",
-            json={"service_id": str(ctx["svc_b"].id)},
-            headers=admin_headers,
-        )
-        assert resp.status_code == 201
-        assert len(await _invoices_for_project(db_session, pid)) == 1
-        assert (await _invoices_for_project(db_session, pid))[0].is_auto is True
-
-        # Toggle off -> persisted
-        upd2 = await client.patch(
-            f"/api/v1/tenant/projects/{pid}",
-            json={"auto_invoice": False},
-            headers=admin_headers,
-        )
-        assert upd2.status_code == 200
-        assert upd2.json()["auto_invoice"] is False
-
-    @pytest.mark.asyncio
-    async def test_attach_auto_invoice_failure_swallowed(
-        self, client: AsyncClient, db_session: AsyncSession, monkeypatch: pytest.MonkeyPatch
-    ):
-        ctx = await _bootstrap(db_session)
-        admin_headers = await _admin_auth_header(ctx["admin"])
-
-        async def _boom(session, **kwargs):
-            raise RuntimeError("boom")
-
-        monkeypatch.setattr(
-            "app.services.invoices.append_service_to_draft_invoice", _boom
-        )
-
-        # Create with auto_invoice but no services (create path skips invoice)
-        pid = (
-            await client.post(
-                "/api/v1/tenant/projects/",
-                json={
-                    "name": "Swallow",
-                    "client_id": str(ctx["client"].id),
-                    "auto_invoice": True,
-                },
-                headers=admin_headers,
-            )
-        ).json()["id"]
-        await client.patch(
-            f"/api/v1/tenant/projects/{pid}",
-            json={"status": "active"},
-            headers=admin_headers,
-        )
-
-        # Attach must still succeed even though the auto-invoice helper raises
-        resp = await client.post(
-            f"/api/v1/tenant/projects/{pid}/services",
-            json={"service_id": str(ctx["svc_b"].id)},
-            headers=admin_headers,
-        )
-        assert resp.status_code == 201
-        assert resp.json()["service_id"] == str(ctx["svc_b"].id)
-        assert len(await _invoices_for_project(db_session, pid)) == 0
-
-    @pytest.mark.asyncio
-    async def test_auto_invoice_issue_blocked_flag_kept(
-        self, client: AsyncClient, db_session: AsyncSession
-    ):
-        ctx = await _bootstrap(db_session)
-        admin_headers = await _admin_auth_header(ctx["admin"])
-        pid = (
-            await client.post(
-                "/api/v1/tenant/projects/",
-                json={
-                    "name": "AutoIssueFlag",
-                    "client_id": str(ctx["client"].id),
-                    "service_ids": [str(ctx["svc_a"].id)],
-                    "auto_invoice": True,
-                },
-                headers=admin_headers,
-            )
-        ).json()["id"]
-        draft = (await _invoices_for_project(db_session, pid))[0]
-        assert draft.is_auto is True
-
-        # auto statements can never be issued
-        resp = await client.post(
-            f"/api/v1/tenant/invoices/{draft.id}/issue",
-            headers=admin_headers,
-        )
-        assert resp.status_code == 422
-        assert "cannot be issued" in resp.json()["error"]["message"]
-
-        # the flag survives and the statement stays DRAFT
-        inv = (await _invoices_for_project(db_session, pid))[0]
-        assert inv.status == InvoiceStatus.DRAFT
-        assert inv.is_auto is True
-
-        # staff detail keeps the flag
-        detail = await client.get(f"/api/v1/tenant/invoices/{draft.id}", headers=admin_headers)
-        assert detail.status_code == 200
-        assert detail.json()["is_auto"] is True
-        assert detail.json()["status"] == "draft"

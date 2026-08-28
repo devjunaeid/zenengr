@@ -9,6 +9,7 @@
 	import { page } from '$app/state';
 	import { portalAuth } from '$lib/stores/portalAuth.svelte.js';
 	import NotificationBell from '$lib/components/NotificationBell.svelte';
+	import { assetUrl } from '$lib/api/client.js';
 
 	let { children } = $props();
 
@@ -45,12 +46,19 @@
 	<div class="flex min-h-screen flex-col bg-slate-50">
 		<!-- Top bar -->
 		<header
-			class="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3 sm:px-6"
+			class="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3 sm:px-6 print:hidden"
 		>
 			<div class="flex items-center gap-3">
-				<span class="text-sm font-semibold text-slate-900">
-					{portalAuth.tenantName || 'Client Portal'}
-				</span>
+				<a href={resolve('/client/projects')} class="flex items-center gap-2.5 text-sm font-semibold text-slate-900 hover:opacity-90 transition-opacity">
+					{#if portalAuth.tenantLogoUrl}
+						<img
+							src={assetUrl(portalAuth.tenantLogoUrl)}
+							alt={`${portalAuth.tenantName || 'Tenant'} logo`}
+							class="h-7 max-h-7 max-w-[140px] w-auto object-contain shrink-0"
+						/>
+					{/if}
+					<span>{portalAuth.tenantName || 'Client Portal'}</span>
+				</a>
 			</div>
 			<div class="flex items-center gap-3">
 				<NotificationBell realm="client" />
@@ -88,14 +96,14 @@
 
 		{#if menuOpen}
 			<div
-				class="fixed inset-0 z-40 bg-black/30 sm:hidden"
+				class="fixed inset-0 z-40 bg-black/30 sm:hidden print:hidden"
 				onclick={() => (menuOpen = false)}
 				role="presentation"
 			></div>
 		{/if}
 
-		<div class="flex flex-1">
-			<aside class="hidden w-56 shrink-0 border-r border-slate-200 bg-white sm:block">
+		<div class="flex flex-1 print:block print:w-full">
+			<aside class="hidden w-56 shrink-0 border-r border-slate-200 bg-white sm:block print:hidden">
 				<nav aria-label="Client navigation" class="space-y-1 p-3">
 					{#each nav as item (item.href)}
 						{@const active = isActive(item)}

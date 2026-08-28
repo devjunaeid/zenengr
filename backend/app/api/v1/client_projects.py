@@ -114,6 +114,7 @@ async def list_client_projects_endpoint(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
     status_val: str | None = Query(default=None, alias="status"),
+    q: str | None = Query(default=None),
     session: AsyncSession = Depends(get_session),
     user: ClientUser = Depends(get_current_client_user),
 ) -> ClientProjectListResponse:
@@ -144,6 +145,10 @@ async def list_client_projects_endpoint(
     )
     if status_filter is not None:
         base = base.where(Project.status == status_filter)
+
+    if q and q.strip():
+        term = f"%{q.strip()}%"
+        base = base.where(Project.name.ilike(term) | Project.description.ilike(term))
 
     total: int = (
         await session.execute(select(func.count()).select_from(base.subquery()))

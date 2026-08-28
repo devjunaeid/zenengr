@@ -10,6 +10,8 @@ let client = $state(null);
 /** @type {string|null} */
 let tenantName = $state('');
 /** @type {string|null} */
+let tenantLogoUrl = $state(null);
+/** @type {string|null} */
 let token = $state(null);
 let initialized = $state(false);
 
@@ -30,6 +32,9 @@ export const portalAuth = {
 	},
 	get tenantName() {
 		return tenantName;
+	},
+	get tenantLogoUrl() {
+		return tenantLogoUrl;
 	},
 	get token() {
 		return token;
@@ -66,6 +71,7 @@ export const portalAuth = {
 		const me = await portalApi.me(fetchFn, res.access_token);
 		client = me.client;
 		tenantName = me.tenant_name ?? '';
+		tenantLogoUrl = me.tenant_logo_url ?? null;
 		user = me;
 		initialized = true;
 		if (browser) localStorage.setItem(TOKEN_KEY, res.access_token);
@@ -84,6 +90,7 @@ export const portalAuth = {
 		const me = await portalApi.me(fetchFn, res.access_token);
 		client = me.client;
 		tenantName = me.tenant_name ?? '';
+		tenantLogoUrl = me.tenant_logo_url ?? null;
 		user = me;
 		initialized = true;
 		if (browser) localStorage.setItem(TOKEN_KEY, res.access_token);
@@ -94,6 +101,7 @@ export const portalAuth = {
 		user = null;
 		client = null;
 		tenantName = '';
+		tenantLogoUrl = null;
 		token = null;
 		if (browser) localStorage.removeItem(TOKEN_KEY);
 	}
@@ -110,6 +118,7 @@ async function restore(fetchFn) {
 			user = me;
 			client = me.client;
 			tenantName = me.tenant_name ?? '';
+			tenantLogoUrl = me.tenant_logo_url ?? null;
 			token = saved;
 		} catch {
 			if (browser) localStorage.removeItem(TOKEN_KEY);

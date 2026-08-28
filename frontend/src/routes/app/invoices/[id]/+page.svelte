@@ -2,7 +2,7 @@
 	import { goto, invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { Dialog } from 'bits-ui';
-	import { ApiError } from '$lib/api/client.js';
+	import { ApiError, assetUrl } from '$lib/api/client.js';
 	import * as invoiceApi from '$lib/api/invoices.js';
 	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
@@ -13,6 +13,8 @@
 	let { data } = $props();
 
 	const token = auth.token;
+	const logoUrl = $derived(data.profile?.branding?.logo_url || data.profile?.logo_url);
+	const businessName = $derived(data.profile?.business_name || 'ZenEngr');
 
 	let actionErr = $state(null);
 	let actionMsg = $state(null);
@@ -188,7 +190,9 @@
 			0
 		)
 	);
-	const balanceDue = $derived(Math.max(0, (Number(data.invoice.total) || 0) - totalPaid));
+	const invTotal = $derived(Number(data.invoice.total) || 0);
+	const balanceDue = $derived(Math.max(0, invTotal - totalPaid));
+	const advanceCredit = $derived(Math.max(0, totalPaid - invTotal));
 
 	function openPay() {
 		payErr = null;
@@ -284,7 +288,28 @@
 			</span>
 		{/if}
 	</div>
-	<div class="flex flex-wrap items-center gap-2">
+	<div class="flex flex-wrap items-center gap-2 print:hidden">
+		<button
+			type="button"
+			onclick={() => window.print()}
+			class="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+		>
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="2"
+				stroke-linecap="round"
+				stroke-linejoin="round"
+				class="h-4 w-4 text-slate-500"
+			>
+				<polyline points="6 9 6 2 18 2 18 9"></polyline>
+				<path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+				<rect x="6" y="14" width="12" height="8"></rect>
+			</svg>
+			Print Invoice
+		</button>
 		<button
 			type="button"
 			onclick={downloadPdf}
@@ -453,135 +478,170 @@
 	</section>
 {/if}
 
-<div class="mt-6 grid gap-6 lg:grid-cols-2">
-	<section
-		class="rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
-		aria-labelledby="totals-h"
-	>
-		<h2 id="totals-h" class="text-base font-semibold text-slate-900">Totals</h2>
-		<dl class="mt-4 grid gap-4 sm:grid-cols-3">
+<!-- Printable Visual Invoice Document -->
+<article id="printable-invoice" class="mt-6 rounded-2xl border border-slate-200 bg-white p-8 sm:p-12 shadow-sm print:mt-0 print:border-none print:shadow-none print:p-0 print:m-0">
+	<!-- Header / Brand -->
+	<div class="flex flex-col sm:flex-row justify-between items-start gap-6 border-b border-slate-200 pb-8">
+		<div class="flex items-center gap-4">
+			{#if logoUrl}
+				<img
+					src={assetUrl(logoUrl)}
+					alt={businessName}
+					class="h-12 w-auto max-w-[180px] object-contain rounded"
+				/>
+			{/if}
 			<div>
-				<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Subtotal</dt>
-				<dd class="mt-1 text-sm text-slate-900">{fmtPrice(data.invoice.subtotal)}</dd>
+				<h2 class="text-2xl font-black text-slate-900 tracking-tight">
+					{businessName}
+				</h2>
+				<p class="text-xs text-slate-500 mt-0.5">Official Client Statement</p>
 			</div>
-			<div>
-				<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Tax</dt>
-				<dd class="mt-1 text-sm text-slate-900">{fmtPrice(data.invoice.tax_total)}</dd>
-			</div>
-			<div>
-				<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Total</dt>
-				<dd class="mt-1 text-sm font-semibold text-slate-900">{fmtPrice(data.invoice.total)}</dd>
-			</div>
-		</dl>
-	</section>
-
-	<section
-		class="rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
-		aria-labelledby="dates-h"
-	>
-		<h2 id="dates-h" class="text-base font-semibold text-slate-900">Dates</h2>
-		<dl class="mt-4 grid gap-4 sm:grid-cols-2">
-			<div>
-				<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Issue date</dt>
-				<dd class="mt-1 text-sm text-slate-900">{formatDate(data.invoice.issue_date)}</dd>
-			</div>
-			<div>
-				<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Due date</dt>
-				<dd class="mt-1 text-sm text-slate-900">{formatDate(data.invoice.due_date)}</dd>
-			</div>
-		</dl>
-	</section>
-</div>
-
-{#if data.invoice.notes}
-	<section
-		class="mt-6 rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
-		aria-labelledby="notes-h"
-	>
-		<h2 id="notes-h" class="text-base font-semibold text-slate-900">Notes</h2>
-		<p class="mt-2 text-sm whitespace-pre-wrap text-slate-700">{data.invoice.notes}</p>
-	</section>
-{/if}
-
-<section
-	class="mt-6 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"
-	aria-labelledby="items-h"
->
-	<div class="border-b border-slate-200 px-6 py-4">
-		<h2 id="items-h" class="text-base font-semibold text-slate-900">Line items</h2>
-		<p class="mt-0.5 text-sm text-slate-500">
-			{data.invoice.line_items.length}
-			{data.invoice.line_items.length === 1 ? 'item' : 'items'}
-		</p>
-	</div>
-	{#if data.invoice.line_items.length === 0}
-		<p class="px-6 py-8 text-sm text-slate-500">No line items on this invoice.</p>
-	{:else}
-		<div class="overflow-x-auto">
-			<table class="min-w-full divide-y divide-slate-200">
-				<thead class="bg-slate-50">
-					<tr>
-						<th
-							scope="col"
-							class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
-							>Date</th
-						>
-						<th
-							scope="col"
-							class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
-							>Description</th
-						>
-						<th
-							scope="col"
-							class="px-4 py-3 text-right text-xs font-semibold tracking-wide text-slate-600 uppercase"
-							>Qty</th
-						>
-						<th
-							scope="col"
-							class="px-4 py-3 text-right text-xs font-semibold tracking-wide text-slate-600 uppercase"
-							>Unit price</th
-						>
-						<th
-							scope="col"
-							class="px-4 py-3 text-right text-xs font-semibold tracking-wide text-slate-600 uppercase"
-							>Amount</th
-						>
-					</tr>
-				</thead>
-				<tbody class="divide-y divide-slate-200">
-					{#each data.invoice.line_items as li (li.id)}
-						<tr class="hover:bg-slate-50">
-							<td class="px-4 py-3 text-sm whitespace-nowrap text-slate-700"
-								>{formatDate(li.entry_date)}</td
-							>
-							<td class="px-4 py-3 text-sm font-medium text-slate-900">
-								<div class="flex flex-wrap items-center gap-2">
-									{li.description}
-									{#if li.project_service_id}
-										<span
-											class="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 ring-1 ring-slate-500/20 ring-inset"
-											>from service</span
-										>
-									{/if}
-								</div>
-							</td>
-							<td class="px-4 py-3 text-right text-sm text-slate-700">{li.quantity}</td>
-							<td class="px-4 py-3 text-right text-sm whitespace-nowrap text-slate-700"
-								>{fmtPrice(li.unit_price)}</td
-							>
-							<td class="px-4 py-3 text-right text-sm whitespace-nowrap text-slate-900"
-								>{fmtPrice(li.amount)}</td
-							>
-						</tr>
-					{/each}
-				</tbody>
-			</table>
 		</div>
-	{/if}
-</section>
+
+		<div class="text-left sm:text-right">
+			<div class="inline-flex items-center gap-2">
+				<span class="text-base font-bold text-slate-900">{number}</span>
+				<StatusBadge status={data.invoice.status} />
+			</div>
+			<p class="text-xs text-slate-500 mt-1">
+				Project: <span class="font-semibold text-slate-800">{data.invoice.project_id ? 'Project Invoice' : 'General Invoice'}</span>
+			</p>
+		</div>
+	</div>
+
+	<!-- Billing Info & Dates Grid -->
+	<div class="grid grid-cols-1 sm:grid-cols-2 gap-8 py-8 border-b border-slate-200 text-xs">
+		<div>
+			<h3 class="font-bold uppercase tracking-wider text-slate-400 text-[10px]">Billed To</h3>
+			<p class="mt-2 text-sm font-bold text-slate-900">
+				{data.invoice.client_id ? 'Client Account' : 'General Client'}
+			</p>
+		</div>
+
+		<div class="sm:text-right space-y-1.5">
+			<div>
+				<span class="text-slate-500">Issue Date:</span>
+				<span class="font-semibold text-slate-900 ml-2">{formatDate(data.invoice.issue_date)}</span>
+			</div>
+			<div>
+				<span class="text-slate-500">Due Date:</span>
+				<span class="font-semibold text-slate-900 ml-2">{formatDate(data.invoice.due_date)}</span>
+			</div>
+			{#if data.invoice.project_id}
+				<div>
+					<span class="text-slate-500">Project:</span>
+					<a
+						href={resolve('/app/projects/[id]', { id: data.invoice.project_id })}
+						class="font-semibold text-indigo-600 hover:text-indigo-700 ml-2 print:text-slate-900"
+					>
+						View Project
+					</a>
+				</div>
+			{/if}
+		</div>
+	</div>
+
+	<!-- Line Items Table -->
+	<div class="py-6 overflow-x-auto">
+		<table class="min-w-full divide-y divide-slate-200 text-xs">
+			<thead>
+				<tr class="text-slate-500 font-bold uppercase tracking-wider text-[10px]">
+					<th scope="col" class="py-2.5 text-left">Description</th>
+					<th scope="col" class="py-2.5 text-right">Qty</th>
+					<th scope="col" class="py-2.5 text-right">Unit Price</th>
+					<th scope="col" class="py-2.5 text-right">Amount</th>
+				</tr>
+			</thead>
+			<tbody class="divide-y divide-slate-100">
+				{#each data.invoice.line_items as li (li.id)}
+					<tr>
+						<td class="py-3 text-slate-900 font-medium">
+							{li.description}
+							{#if li.project_service_id}
+								<span class="block text-[11px] text-slate-500">from attached service</span>
+							{/if}
+						</td>
+						<td class="py-3 text-right text-slate-700 font-mono">
+							{li.quantity}
+						</td>
+						<td class="py-3 text-right text-slate-700 font-mono">
+							{fmtPrice(li.unit_price)}
+						</td>
+						<td class="py-3 text-right text-slate-900 font-bold font-mono">
+							{fmtPrice(li.amount)}
+						</td>
+					</tr>
+				{/each}
+			</tbody>
+		</table>
+	</div>
+
+	<!-- Financial Summary Breakdown (Full Width) -->
+	<div class="border-t border-slate-200 pt-6 space-y-4">
+		<div class="w-full space-y-2 text-xs">
+			<div class="flex justify-between items-center text-slate-600">
+				<span class="font-medium">Subtotal</span>
+				<span class="font-mono font-medium">{fmtPrice(data.invoice.subtotal)}</span>
+			</div>
+			{#if Number(data.invoice.tax_total) > 0}
+				<div class="flex justify-between items-center text-slate-600">
+					<span class="font-medium">Tax</span>
+					<span class="font-mono font-medium">{fmtPrice(data.invoice.tax_total)}</span>
+				</div>
+			{/if}
+			<div class="flex justify-between items-center text-sm font-bold text-slate-900 border-t border-slate-200 pt-2 pb-1">
+				<span>Total</span>
+				<span class="font-mono">{fmtPrice(data.invoice.total)}</span>
+			</div>
+
+			<!-- Itemized Payment Transaction Breakdown (Full Width) -->
+			{#if data.transactions && data.transactions.length > 0}
+				<div class="pt-2 border-t border-slate-100 space-y-2">
+					{#each data.transactions as tx (tx.id)}
+						{@const isDebit = tx.direction === 'debit'}
+						<div class="flex justify-between items-center text-xs {isDebit ? 'text-emerald-700' : 'text-red-600'}">
+							<span class="font-medium pr-4">
+								{formatDate(tx.recorded_at)} · {isDebit ? 'Payment' : 'Refund'} ({humanize(tx.method)})
+								{#if tx.reference_note}
+									<span class="text-slate-500 font-normal">({tx.reference_note})</span>
+								{/if}
+							</span>
+							<span class="font-mono font-semibold whitespace-nowrap">
+								{isDebit ? '−' : '+'}{fmtPrice(tx.amount)}
+							</span>
+						</div>
+					{/each}
+				</div>
+			{:else if totalPaid > 0}
+				<div class="flex justify-between items-center text-emerald-600 font-medium pt-1 text-xs">
+					<span>Amount Paid</span>
+					<span class="font-mono">−{fmtPrice(totalPaid)}</span>
+				</div>
+			{/if}
+
+			<div class="flex justify-between items-center text-sm font-bold {balanceDue > 0 ? 'text-amber-600' : 'text-slate-900'} border-t border-dashed border-slate-200 pt-2">
+				<span>Balance Due</span>
+				<span class="font-mono">{fmtPrice(balanceDue)}</span>
+			</div>
+			{#if advanceCredit > 0}
+				<div class="flex justify-between items-center text-xs font-semibold text-emerald-700 pt-1">
+					<span>Advance Credit / Overpayment</span>
+					<span class="font-mono">+{fmtPrice(advanceCredit)}</span>
+				</div>
+			{/if}
+		</div>
+
+		{#if data.invoice.notes}
+			<div class="pt-4 border-t border-slate-100 text-xs text-slate-600">
+				<h4 class="font-bold text-slate-900 uppercase text-[10px] tracking-wider mb-1">Notes & Terms</h4>
+				<p class="whitespace-pre-wrap">{data.invoice.notes}</p>
+			</div>
+		{/if}
+	</div>
+</article>
 
 <section
-	class="mt-6 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"
+	class="mt-8 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm print:hidden"
 	aria-labelledby="transactions-h"
 >
 	<div class="flex items-center justify-between border-b border-slate-200 px-6 py-4">
@@ -1147,3 +1207,32 @@
 		</Dialog.Content>
 	</Dialog.Portal>
 </Dialog.Root>
+
+<style>
+	@media print {
+		:global(body) {
+			background: white !important;
+			color: #0f172a !important;
+		}
+		:global(header),
+		:global(aside),
+		:global(nav),
+		:global(.print\\:hidden) {
+			display: none !important;
+		}
+		:global(main) {
+			padding: 0 !important;
+			margin: 0 !important;
+			max-width: 100% !important;
+			width: 100% !important;
+		}
+		#printable-invoice {
+			box-shadow: none !important;
+			border: none !important;
+			padding: 0 !important;
+			margin: 0 !important;
+			width: 100% !important;
+			max-width: 100% !important;
+		}
+	}
+</style>

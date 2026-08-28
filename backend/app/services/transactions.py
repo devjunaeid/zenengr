@@ -768,21 +768,10 @@ async def build_client_ledger(
         running = _money(running + entry["_value"])
         entry["running_balance"] = f"{running:.2f}"
 
-    # Calculate aggregate advance balance (unallocated client advances + project statement advance balances)
-    client_adv_balance = _money(sum((adv.remaining_amount for adv in adv_rows), Decimal("0")))
-    
-    projects_stmt = select(Project).where(Project.client_id == client_id, Project.tenant_id == tenant_id)
-    projects = list((await session.execute(projects_stmt)).scalars().all())
-    
-    project_adv_balance = Decimal("0")
-    for proj in projects:
-        data = await get_project_ledger(session, tenant_id=tenant_id, project_id=proj.id)
-        project_adv_balance += Decimal(data["summary"]["advance_balance"])
-
-    total_advance_balance = _money(client_adv_balance + project_adv_balance)
+    advance_balance = _money(sum((adv.remaining_amount for adv in adv_rows), Decimal("0")))
 
     return {
-        "advance_balance": f"{total_advance_balance:.2f}",
+        "advance_balance": f"{advance_balance:.2f}",
         "entries": [
             {key: value for key, value in entry.items() if not key.startswith("_")}
             for entry in entries

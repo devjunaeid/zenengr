@@ -47,11 +47,16 @@ router = APIRouter(prefix="/tenant", tags=["tenant"])
 
 _ALLOWED_IMAGE_TYPES = {
     "image/png": ".png",
+    "image/x-png": ".png",
     "image/jpeg": ".jpg",
+    "image/jpg": ".jpg",
+    "image/pjpeg": ".jpg",
     "image/webp": ".webp",
     "image/gif": ".gif",
+    "image/svg+xml": ".svg",
+    "image/svg": ".svg",
 }
-_MAX_LOGO_BYTES = 2 * 1024 * 1024
+_MAX_LOGO_BYTES = 5 * 1024 * 1024
 
 
 async def _count_active_clients(session: AsyncSession, tenant_id: uuid.UUID) -> int:
@@ -322,24 +327,33 @@ async def upload_branding_logo(
     if tenant is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tenant not found")
 
-    content_type = file.content_type or ""
-    if not content_type.startswith("image/"):
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail="Logo must be an image",
-        )
+    content_type = (file.content_type or "").lower()
+    filename = (file.filename or "").lower()
+
+    if content_type not in _ALLOWED_IMAGE_TYPES and filename:
+        if filename.endswith(".png"):
+            content_type = "image/png"
+        elif filename.endswith((".jpg", ".jpeg")):
+            content_type = "image/jpeg"
+        elif filename.endswith(".webp"):
+            content_type = "image/webp"
+        elif filename.endswith(".gif"):
+            content_type = "image/gif"
+        elif filename.endswith(".svg"):
+            content_type = "image/svg+xml"
+
     ext = _ALLOWED_IMAGE_TYPES.get(content_type)
     if ext is None:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail="Unsupported image type. Use PNG, JPEG, WebP, or GIF.",
+            detail="Unsupported image type. Use PNG, JPEG, WebP, GIF, or SVG.",
         )
 
     data = await file.read()
     if len(data) > _MAX_LOGO_BYTES:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail="Logo too large",
+            detail="Logo too large (max 5MB)",
         )
 
     storage_key = f"public/{tenant_id}/{uuid.uuid4().hex}{ext}"
@@ -365,6 +379,8 @@ async def upload_branding_logo(
         details={"logo_url": logo_url},
     )
     await session.commit()
+    from app.core.cache import cache
+    await cache.delete(f"tenant_profile:{tenant_id}")
 
     return {"logo_url": logo_url}
 

@@ -12,6 +12,7 @@
 	import MilestoneStatusSelector from '$lib/components/MilestoneStatusSelector.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
 	import StatusBadge from '$lib/components/StatusBadge.svelte';
+	import CopyBadge from '$lib/components/CopyBadge.svelte';
 	import ToggleSwitch from '$lib/components/ToggleSwitch.svelte';
 	import { auth } from '$lib/stores/auth.svelte.js';
 	import { formatAddress } from '$lib/utils/address.js';
@@ -270,23 +271,6 @@
 			actionErr = e instanceof ApiError ? e.message : 'Status change failed.';
 		} finally {
 			statusBusy = false;
-		}
-	}
-
-	let autoInvoiceBusy = $state(false);
-
-	async function toggleAutoInvoice(next) {
-		autoInvoiceBusy = true;
-		actionErr = null;
-		actionMsg = null;
-		try {
-			await projectApi.updateProject(fetch, token, data.project.id, { auto_invoice: next });
-			actionMsg = `Statement ${next ? 'enabled' : 'disabled'}.`;
-			await invalidateAll();
-		} catch (e) {
-			actionErr = e instanceof ApiError ? e.message : 'Could not update statement.';
-		} finally {
-			autoInvoiceBusy = false;
 		}
 	}
 
@@ -721,24 +705,11 @@
 <div class="mt-2 flex flex-wrap items-center justify-between gap-3">
 	<div class="flex items-center gap-3">
 		<h1 class="text-2xl font-semibold text-slate-900">{data.project.name}</h1>
-		<span class="inline-flex items-center font-mono text-xs font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200">
-			{formatProjectCode(data.project.id)}
-		</span>
+		<CopyBadge value={data.project.id} />
 		<StatusBadge status={data.project.status} />
 	</div>
 	{#if canManage}
 		<div class="flex flex-wrap items-center gap-2">
-			<span
-				class="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-1.5"
-			>
-				<ToggleSwitch
-					checked={data.project.auto_invoice}
-					disabled={autoInvoiceBusy}
-					onchange={toggleAutoInvoice}
-					label="Statement invoice"
-				/>
-				<span class="text-sm font-medium text-slate-700">Statement invoice</span>
-			</span>
 			<a
 				href={resolve('/app/projects/[id]/edit', { id: data.project.id })}
 				class="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"

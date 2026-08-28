@@ -3,72 +3,72 @@
 	import { ApiError } from '$lib/api/client.js';
 	import * as portalApi from '$lib/api/portal.js';
 	import Spinner from '$lib/components/Spinner.svelte';
+	import StatusBadge from '$lib/components/StatusBadge.svelte';
+	import TimezoneSelect from '$lib/components/TimezoneSelect.svelte';
 	import { portalAuth } from '$lib/stores/portalAuth.svelte.js';
 	import { formatAddress } from '$lib/utils/address.js';
 	import { formatDateTime, humanize } from '$lib/utils/format.js';
+	import Icon from '@iconify/svelte';
+	import accountOutline from '@iconify-icons/mdi/account-outline';
+	import officeBuilding from '@iconify-icons/mdi/office-building';
+	import lockOutline from '@iconify-icons/mdi/lock-outline';
+	import bellOutline from '@iconify-icons/mdi/bell-outline';
+	import checkCircle from '@iconify-icons/mdi/check-circle';
+	import alertCircleOutline from '@iconify-icons/mdi/alert-circle-outline';
 
 	// Layout guard guarantees these exist
 	const client = /** @type {import('$lib/api/portal.js').PortalClient} */ (portalAuth.client);
 	const token = /** @type {string} */ (portalAuth.token);
 
-	// Account (portal user) initial values from the session store
-	// (store typedef covers login fields only; cast for extended profile fields)
+	let activeTab = $state('profile');
+
 	const sessionUser = /** @type {any} */ (portalAuth.user) ?? {};
 	const accountInitial = {
 		full_name: sessionUser.full_name ?? '',
 		email: sessionUser.email ?? '',
 		phone: sessionUser.phone ?? '',
-		timezone: sessionUser.timezone ?? '',
-		language: sessionUser.language ?? '',
+		timezone: sessionUser.timezone ?? 'UTC',
+		language: sessionUser.language ?? 'en',
 		avatar_url: sessionUser.avatar_url ?? '',
 		pending_email: sessionUser.pending_email ?? null
 	};
 
-	// Contact edit state
-	let email = $state(client.email ?? '');
-	let phone = $state(client.phone ?? '');
-	let saving = $state(false);
-	/** @type {string|null} */
-	let saveError = $state(null);
-	/** @type {string|null} */
-	let saveSuccess = $state(null);
+	// ── Company Contact edit state ──────────────────────────────────────────
+	let companyEmail = $state(client.email ?? '');
+	let companyPhone = $state(client.phone ?? '');
+	let savingCompany = $state(false);
+	let companyError = $state(/** @type {string|null} */ (null));
+	let companySuccess = $state(/** @type {string|null} */ (null));
 
-	async function saveContact() {
-		if (saving) return;
-		saving = true;
-		saveError = null;
-		saveSuccess = null;
+	async function saveCompanyContact() {
+		if (savingCompany) return;
+		savingCompany = true;
+		companyError = null;
+		companySuccess = null;
 		try {
 			const fields = {};
-			if (email !== (client.email ?? '')) fields.email = email;
-			if (phone !== (client.phone ?? '')) fields.phone = phone;
+			if (companyEmail !== (client.email ?? '')) fields.email = companyEmail;
+			if (companyPhone !== (client.phone ?? '')) fields.phone = companyPhone;
 			if (Object.keys(fields).length === 0) {
-				saveSuccess = 'No changes to save.';
-				saving = false;
+				companySuccess = 'No changes to save.';
+				savingCompany = false;
 				return;
 			}
-			await portalApi.updateProfile(fetch, /** @type {string} */ (portalAuth.token), fields);
-			// Refresh client data in store
-			const me = await portalApi.me(fetch, /** @type {string} */ (portalAuth.token));
-			// Update local reference
+			await portalApi.updateProfile(fetch, token, fields);
+			const me = await portalApi.me(fetch, token);
 			if (portalAuth.client) {
 				portalAuth.client.email = me.client.email;
 				portalAuth.client.phone = me.client.phone;
 			}
-			saveSuccess = 'Contact details updated.';
+			companySuccess = 'Company contact details updated.';
 		} catch (e) {
-			if (e instanceof ApiError) {
-				saveError = e.message;
-			} else {
-				saveError = 'Unable to save. Try again.';
-			}
+			companyError = e instanceof ApiError ? e.message : 'Unable to save. Try again.';
 		} finally {
-			saving = false;
+			savingCompany = false;
 		}
 	}
 
-	// ── Account (portal user) profile ──────────────────────────────────────
-
+	// ── Personal Account Profile ────────────────────────────────────────────
 	let accountFullName = $state(accountInitial.full_name);
 	let accountEmail = $state(accountInitial.email);
 	let accountPhone = $state(accountInitial.phone);
@@ -77,10 +77,8 @@
 	let accountAvatar = $state(accountInitial.avatar_url);
 	let pendingEmail = $state(accountInitial.pending_email);
 	let savingAccount = $state(false);
-	/** @type {string|null} */
-	let accountError = $state(null);
-	/** @type {string|null} */
-	let accountSuccess = $state(null);
+	let accountError = $state(/** @type {string|null} */ (null));
+	let accountSuccess = $state(/** @type {string|null} */ (null));
 
 	async function saveAccount() {
 		if (savingAccount) return;
@@ -88,7 +86,6 @@
 		accountError = null;
 		accountSuccess = null;
 		try {
-			/** @type {Record<string, any>} */
 			const body = {
 				full_name: accountFullName.trim(),
 				email: accountEmail.trim(),
@@ -98,7 +95,6 @@
 				avatar_url: accountAvatar.trim() || null
 			};
 			const updated = await accountApi.updateProfile(fetch, token, body, { realm: 'client' });
-			// Refresh session store user (getter exposes the reactive object)
 			const me = await portalApi.me(fetch, token);
 			if (portalAuth.user) {
 				portalAuth.user.full_name = me.full_name;
@@ -107,13 +103,13 @@
 			accountFullName = updated.full_name;
 			accountEmail = updated.email;
 			accountPhone = updated.phone ?? '';
-			accountTimezone = updated.timezone ?? '';
-			accountLanguage = updated.language ?? '';
+			accountTimezone = updated.timezone ?? 'UTC';
+			accountLanguage = updated.language ?? 'en';
 			accountAvatar = updated.avatar_url ?? '';
 			pendingEmail = updated.pending_email ?? null;
 			accountSuccess = pendingEmail
 				? 'Account updated. Check your inbox to confirm the new email.'
-				: 'Account updated.';
+				: 'Account profile updated successfully.';
 		} catch (e) {
 			accountError = e instanceof ApiError ? e.message : 'Unable to save. Try again.';
 		} finally {
@@ -121,16 +117,13 @@
 		}
 	}
 
-	// ── Change password ─────────────────────────────────────────────────────
-
+	// ── Change Password ─────────────────────────────────────────────────────
 	let currentPassword = $state('');
 	let newPassword = $state('');
 	let confirmPassword = $state('');
 	let changing = $state(false);
-	/** @type {string|null} */
-	let changeError = $state(null);
-	/** @type {string|null} */
-	let changeSuccess = $state(null);
+	let changeError = $state(/** @type {string|null} */ (null));
+	let changeSuccess = $state(/** @type {string|null} */ (null));
 
 	async function submitPassword() {
 		if (changing) return;
@@ -155,7 +148,7 @@
 			currentPassword = '';
 			newPassword = '';
 			confirmPassword = '';
-			changeSuccess = 'Password updated.';
+			changeSuccess = 'Password updated successfully.';
 		} catch (e) {
 			changeError = e instanceof ApiError ? e.message : 'Unable to change password. Try again.';
 		} finally {
@@ -163,8 +156,7 @@
 		}
 	}
 
-	// ── Notification preferences ────────────────────────────────────────────
-
+	// ── Notification Preferences ────────────────────────────────────────────
 	const EVENT_TYPES = [
 		'new_comment',
 		'invoice_issued',
@@ -175,7 +167,6 @@
 		'project_created'
 	];
 
-	/** @type {Record<string, string>} */
 	const EVENT_LABELS = {
 		new_comment: 'New comment',
 		invoice_issued: 'Invoice issued',
@@ -186,9 +177,6 @@
 		project_created: 'Project created'
 	};
 
-	/**
-	 * @param {Array<{ event_type: string, enabled: boolean }>} loaded
-	 */
 	function buildPrefs(loaded) {
 		return EVENT_TYPES.map((eventType) => {
 			const found = loaded.find((p) => p.event_type === eventType);
@@ -198,10 +186,8 @@
 
 	let emailPrefs = $state(buildPrefs([]));
 	let inappPrefs = $state(buildPrefs([]));
-	/** @type {string|null} */
-	let savingPref = $state(null);
-	/** @type {string|null} */
-	let prefsError = $state(null);
+	let savingPref = $state(/** @type {string|null} */ (null));
+	let prefsError = $state(/** @type {string|null} */ (null));
 	let prefsSaved = $state(false);
 
 	Promise.all([
@@ -216,11 +202,6 @@
 			prefsError = e instanceof ApiError ? e.message : 'Unable to load preferences.';
 		});
 
-	/**
-	 * @param {'email'|'inapp'} channel
-	 * @param {string} eventType
-	 * @param {boolean} enabled
-	 */
 	async function togglePref(channel, eventType, enabled) {
 		if (savingPref) return;
 		savingPref = `${channel}:${eventType}`;
@@ -243,478 +224,372 @@
 		} catch (e) {
 			const idx = arr.findIndex((x) => x.event_type === eventType);
 			if (idx >= 0) arr[idx].enabled = !enabled;
-			prefsError = e instanceof ApiError ? e.message : 'Unable to save preference. Try again.';
+			prefsError = e instanceof ApiError ? e.message : 'Unable to save preference.';
 		} finally {
 			savingPref = null;
 		}
 	}
 
-	// ── Activity history ────────────────────────────────────────────────────
-
-	/** @type {Array<{ id: string, event_type: string, description: string, old_value: string|null, new_value: string|null, created_at: string }>} */
-	let activity = $state([]);
-	/** @type {string|null} */
-	let activityError = $state(null);
-
-	accountApi
-		.getActivity(fetch, token, { realm: 'client' })
-		.then((entries) => {
-			activity = entries;
-		})
-		.catch((e) => {
-			activityError = e instanceof ApiError ? e.message : 'Unable to load activity.';
-		});
+	const TABS = [
+		{ id: 'profile', label: 'Personal Profile', icon: accountOutline },
+		{ id: 'company', label: 'Company Details', icon: officeBuilding },
+		{ id: 'security', label: 'Security & Password', icon: lockOutline },
+		{ id: 'notifications', label: 'Notifications', icon: bellOutline }
+	];
 </script>
 
-<svelte:head><title>Profile — Client Portal</title></svelte:head>
+<svelte:head><title>Account Settings — Client Portal</title></svelte:head>
 
 <div class="space-y-6">
-	<h1 class="text-xl font-semibold text-slate-900">Profile</h1>
-
-	<!-- Contact details card -->
-	<div class="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-		<h2 class="text-base font-semibold text-slate-900">Contact details</h2>
-		<p class="mt-1 text-sm text-slate-500">Update your email and phone number.</p>
-
-		{#if saveError}
-			<div
-				role="alert"
-				class="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
-			>
-				{saveError}
-			</div>
-		{/if}
-		{#if saveSuccess}
-			<div
-				role="status"
-				class="mt-4 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800"
-			>
-				{saveSuccess}
-			</div>
-		{/if}
-
-		<form
-			class="mt-4 space-y-4"
-			onsubmit={(e) => {
-				e.preventDefault();
-				saveContact();
-			}}
-		>
-			<div>
-				<label for="email" class="block text-sm font-medium text-slate-700">Email</label>
-				<input
-					id="email"
-					type="email"
-					bind:value={email}
-					required
-					autocomplete="email"
-					class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-				/>
-			</div>
-			<div>
-				<label for="phone" class="block text-sm font-medium text-slate-700">Phone</label>
-				<input
-					id="phone"
-					type="tel"
-					bind:value={phone}
-					autocomplete="tel"
-					class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-				/>
-			</div>
-			<div>
-				<button
-					type="submit"
-					disabled={saving}
-					aria-busy={saving}
-					class="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
-				>
-					{#if saving}<Spinner class="h-4 w-4 text-white" />{/if}
-					Save changes
-				</button>
-			</div>
-		</form>
+	<!-- Page Header -->
+	<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+		<div>
+			<h1 class="text-xl font-bold text-slate-900">Account & Profile Settings</h1>
+			<p class="text-xs text-slate-500">Manage your profile, credentials, and company preferences</p>
+		</div>
 	</div>
 
-	<!-- Billing details card (read-only) -->
-	<div class="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-		<h2 class="text-base font-semibold text-slate-900">Billing details</h2>
-		<p class="mt-1 text-sm text-slate-500">
-			Read-only. Contact your agency to change billing details.
-		</p>
-
-		<dl class="mt-4 space-y-3">
-			<div>
-				<dt class="text-sm font-medium text-slate-500">Client name</dt>
-				<dd class="mt-0.5 text-sm text-slate-900">{client.name}</dd>
-			</div>
-			<div>
-				<dt class="text-sm font-medium text-slate-500">Billing address</dt>
-				<dd class="mt-0.5 text-sm whitespace-pre-line text-slate-900">
-					{formatAddress(client.billing_address) || '—'}
-				</dd>
-			</div>
-			<div>
-				<dt class="text-sm font-medium text-slate-500">Tax ID</dt>
-				<dd class="mt-0.5 text-sm text-slate-900">{client.tax_id ?? '—'}</dd>
-			</div>
-		</dl>
-
-		<p class="mt-4 text-xs text-slate-400">
-			Need to change billing info? Contact your service provider.
-		</p>
+	<!-- Tab Navigation Modules -->
+	<div class="flex flex-wrap gap-1.5 rounded-xl border border-slate-200 bg-white p-1.5 shadow-2xs">
+		{#each TABS as tab (tab.id)}
+			{@const active = activeTab === tab.id}
+			<button
+				type="button"
+				onclick={() => (activeTab = tab.id)}
+				class="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold transition-all {active
+					? 'bg-indigo-600 text-white shadow-2xs'
+					: 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}"
+			>
+				<Icon icon={tab.icon} class="h-4 w-4 shrink-0 {active ? 'text-white' : 'text-slate-400'}" />
+				{tab.label}
+			</button>
+		{/each}
 	</div>
 
-	<!-- Your account (portal user) -->
-	<div class="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-		<h2 class="text-base font-semibold text-slate-900">Your account</h2>
-		<p class="mt-1 text-sm text-slate-500">
-			Your portal profile, security, and notification settings.
-		</p>
+	<!-- Module 1: Personal Profile -->
+	{#if activeTab === 'profile'}
+		<section class="rounded-xl border border-slate-200 bg-white p-6 shadow-2xs max-w-3xl">
+			<h2 class="text-sm font-bold text-slate-900 pb-4 border-b border-slate-100">Personal Information</h2>
 
-		<!-- Account profile -->
-		<h3 class="mt-6 text-sm font-semibold text-slate-900">Account profile</h3>
-		<p class="mt-1 text-sm text-slate-500">
-			Changing your email sends a verification email before the address is active.
-		</p>
+			{#if accountSuccess}
+				<div role="status" class="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800 flex items-center gap-2">
+					<Icon icon={checkCircle} class="h-4 w-4 text-emerald-600 shrink-0" />
+					{accountSuccess}
+				</div>
+			{/if}
+			{#if accountError}
+				<div role="alert" class="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-800 flex items-center gap-2">
+					<Icon icon={alertCircleOutline} class="h-4 w-4 text-red-600 shrink-0" />
+					{accountError}
+				</div>
+			{/if}
 
-		{#if pendingEmail}
-			<div
-				role="status"
-				class="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800"
+			<form
+				class="mt-5 space-y-4 text-xs"
+				onsubmit={(e) => {
+					e.preventDefault();
+					saveAccount();
+				}}
 			>
-				Verification pending for {pendingEmail}. Check your inbox to confirm.
-			</div>
-		{/if}
-		{#if accountError}
-			<div
-				role="alert"
-				class="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
-			>
-				{accountError}
-			</div>
-		{/if}
-		{#if accountSuccess}
-			<div
-				role="status"
-				class="mt-4 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800"
-			>
-				{accountSuccess}
-			</div>
-		{/if}
-
-		<form
-			class="mt-4 max-w-2xl space-y-4"
-			onsubmit={(e) => {
-				e.preventDefault();
-				saveAccount();
-			}}
-		>
-			<div class="grid gap-4 sm:grid-cols-2">
 				<div>
-					<label for="acct-full-name" class="block text-sm font-medium text-slate-700"
-						>Full name</label
-					>
+					<label for="acc-name" class="block font-semibold text-slate-700">Full Name</label>
 					<input
-						id="acct-full-name"
+						id="acc-name"
 						type="text"
 						bind:value={accountFullName}
 						required
-						autocomplete="name"
-						class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+						class="mt-1 block w-full rounded-lg border-slate-300 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
 					/>
 				</div>
+
+				<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+					<div>
+						<label for="acc-email" class="block font-semibold text-slate-700">Email Address</label>
+						<input
+							id="acc-email"
+							type="email"
+							bind:value={accountEmail}
+							required
+							class="mt-1 block w-full rounded-lg border-slate-300 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
+						/>
+						{#if pendingEmail}
+							<p class="mt-1 text-[11px] text-amber-600 font-medium">Pending confirmation: {pendingEmail}</p>
+						{/if}
+					</div>
+
+					<div>
+						<label for="acc-phone" class="block font-semibold text-slate-700">Phone Number</label>
+						<input
+							id="acc-phone"
+							type="tel"
+							bind:value={accountPhone}
+							placeholder="+1..."
+							class="mt-1 block w-full rounded-lg border-slate-300 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
+						/>
+					</div>
+				</div>
+
+				<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+					<div>
+						<label for="acc-tz" class="block font-semibold text-slate-700">Timezone</label>
+						<div class="mt-1">
+							<TimezoneSelect id="acc-tz" bind:value={accountTimezone} />
+						</div>
+					</div>
+
+					<div>
+						<label for="acc-lang" class="block font-semibold text-slate-700">Preferred Language</label>
+						<select
+							id="acc-lang"
+							bind:value={accountLanguage}
+							class="mt-1 block w-full rounded-lg border-slate-300 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 py-2"
+						>
+							<option value="en">English (US)</option>
+							<option value="es">Español</option>
+							<option value="fr">Français</option>
+							<option value="de">Deutsch</option>
+						</select>
+					</div>
+				</div>
+
+				<div class="pt-4 flex justify-end">
+					<button
+						type="submit"
+						disabled={savingAccount}
+						class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-2xs hover:bg-indigo-700 transition-colors disabled:opacity-60"
+					>
+						{#if savingAccount}
+							<Spinner class="h-4 w-4 text-white" />
+						{/if}
+						Save Profile
+					</button>
+				</div>
+			</form>
+		</section>
+
+	<!-- Module 2: Company Details -->
+	{:else if activeTab === 'company'}
+		<section class="rounded-xl border border-slate-200 bg-white p-6 shadow-2xs max-w-3xl">
+			<div class="flex items-center justify-between pb-4 border-b border-slate-100">
 				<div>
-					<label for="acct-email" class="block text-sm font-medium text-slate-700">Email</label>
+					<h2 class="text-sm font-bold text-slate-900">Company Information</h2>
+					<p class="text-xs text-slate-500 mt-0.5">Assigned company profile and billing representation</p>
+				</div>
+				<StatusBadge status={client.status} />
+			</div>
+
+			{#if companySuccess}
+				<div role="status" class="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800 flex items-center gap-2">
+					<Icon icon={checkCircle} class="h-4 w-4 text-emerald-600 shrink-0" />
+					{companySuccess}
+				</div>
+			{/if}
+			{#if companyError}
+				<div role="alert" class="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-800 flex items-center gap-2">
+					<Icon icon={alertCircleOutline} class="h-4 w-4 text-red-600 shrink-0" />
+					{companyError}
+				</div>
+			{/if}
+
+			<div class="mt-5 space-y-4 text-xs">
+				<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+					<div class="rounded-xl border border-slate-100 bg-slate-50/60 p-3.5">
+						<span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Company Name</span>
+						<p class="mt-1 text-sm font-bold text-slate-900">{client.name}</p>
+					</div>
+					<div class="rounded-xl border border-slate-100 bg-slate-50/60 p-3.5">
+						<span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Tax ID / VAT</span>
+						<p class="mt-1 text-sm font-bold text-slate-900">{client.tax_id || '—'}</p>
+					</div>
+				</div>
+
+				<div class="rounded-xl border border-slate-100 bg-slate-50/60 p-3.5">
+					<span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Billing Address</span>
+					<p class="mt-1 text-xs text-slate-700 whitespace-pre-wrap">{formatAddress(client.billing_address) || 'No billing address on file.'}</p>
+				</div>
+
+				<form
+					class="pt-4 border-t border-slate-100 space-y-4"
+					onsubmit={(e) => {
+						e.preventDefault();
+						saveCompanyContact();
+					}}
+				>
+					<h3 class="font-bold text-slate-900 text-xs">Company Contact Details</h3>
+					<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+						<div>
+							<label for="comp-email" class="block font-semibold text-slate-700">Billing / General Email</label>
+							<input
+								id="comp-email"
+								type="email"
+								bind:value={companyEmail}
+								class="mt-1 block w-full rounded-lg border-slate-300 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
+							/>
+						</div>
+						<div>
+							<label for="comp-phone" class="block font-semibold text-slate-700">Company Phone</label>
+							<input
+								id="comp-phone"
+								type="tel"
+								bind:value={companyPhone}
+								class="mt-1 block w-full rounded-lg border-slate-300 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
+							/>
+						</div>
+					</div>
+
+					<div class="flex justify-end pt-2">
+						<button
+							type="submit"
+							disabled={savingCompany}
+							class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-2xs hover:bg-indigo-700 transition-colors disabled:opacity-60"
+						>
+							{#if savingCompany}
+								<Spinner class="h-4 w-4 text-white" />
+							{/if}
+							Update Company Contact
+						</button>
+					</div>
+				</form>
+			</div>
+		</section>
+
+	<!-- Module 3: Security & Password -->
+	{:else if activeTab === 'security'}
+		<section class="rounded-xl border border-slate-200 bg-white p-6 shadow-2xs max-w-3xl">
+			<h2 class="text-sm font-bold text-slate-900 pb-4 border-b border-slate-100">Security & Password</h2>
+
+			{#if changeSuccess}
+				<div role="status" class="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800 flex items-center gap-2">
+					<Icon icon={checkCircle} class="h-4 w-4 text-emerald-600 shrink-0" />
+					{changeSuccess}
+				</div>
+			{/if}
+			{#if changeError}
+				<div role="alert" class="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-800 flex items-center gap-2">
+					<Icon icon={alertCircleOutline} class="h-4 w-4 text-red-600 shrink-0" />
+					{changeError}
+				</div>
+			{/if}
+
+			<form
+				class="mt-5 space-y-4 text-xs max-w-md"
+				onsubmit={(e) => {
+					e.preventDefault();
+					submitPassword();
+				}}
+			>
+				<div>
+					<label for="cur-pwd" class="block font-semibold text-slate-700">Current Password</label>
 					<input
-						id="acct-email"
-						type="email"
-						bind:value={accountEmail}
+						id="cur-pwd"
+						type="password"
+						bind:value={currentPassword}
 						required
-						autocomplete="email"
-						class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+						class="mt-1 block w-full rounded-lg border-slate-300 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
 					/>
 				</div>
-			</div>
-			<div class="grid gap-4 sm:grid-cols-2">
+
 				<div>
-					<label for="acct-phone" class="block text-sm font-medium text-slate-700">Phone</label>
+					<label for="new-pwd" class="block font-semibold text-slate-700">New Password</label>
 					<input
-						id="acct-phone"
-						type="tel"
-						bind:value={accountPhone}
-						autocomplete="tel"
-						class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+						id="new-pwd"
+						type="password"
+						bind:value={newPassword}
+						required
+						minlength="8"
+						class="mt-1 block w-full rounded-lg border-slate-300 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
+					/>
+					<p class="mt-1 text-[11px] text-slate-400">Must be at least 8 characters long</p>
+				</div>
+
+				<div>
+					<label for="conf-pwd" class="block font-semibold text-slate-700">Confirm New Password</label>
+					<input
+						id="conf-pwd"
+						type="password"
+						bind:value={confirmPassword}
+						required
+						minlength="8"
+						class="mt-1 block w-full rounded-lg border-slate-300 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
 					/>
 				</div>
-				<div>
-					<label for="acct-timezone" class="block text-sm font-medium text-slate-700"
-						>Timezone</label
+
+				<div class="pt-2">
+					<button
+						type="submit"
+						disabled={changing}
+						class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-2xs hover:bg-indigo-700 transition-colors disabled:opacity-60"
 					>
-					<input
-						id="acct-timezone"
-						type="text"
-						bind:value={accountTimezone}
-						placeholder="America/New_York"
-						autocomplete="off"
-						class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-					/>
-					<p class="mt-1 text-xs text-slate-500">IANA timezone, e.g. "America/New_York".</p>
+						{#if changing}
+							<Spinner class="h-4 w-4 text-white" />
+						{/if}
+						Change Password
+					</button>
 				</div>
-			</div>
-			<div class="grid gap-4 sm:grid-cols-2">
+			</form>
+		</section>
+
+	<!-- Module 4: Notification Preferences -->
+	{:else if activeTab === 'notifications'}
+		<section class="rounded-xl border border-slate-200 bg-white p-6 shadow-2xs max-w-3xl">
+			<div class="flex items-center justify-between pb-4 border-b border-slate-100">
 				<div>
-					<label for="acct-language" class="block text-sm font-medium text-slate-700"
-						>Language</label
-					>
-					<input
-						id="acct-language"
-						type="text"
-						bind:value={accountLanguage}
-						placeholder="en"
-						autocomplete="off"
-						class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-					/>
-					<p class="mt-1 text-xs text-slate-500">Language code, e.g. "en".</p>
+					<h2 class="text-sm font-bold text-slate-900">Notification Preferences</h2>
+					<p class="text-xs text-slate-500 mt-0.5">Control which event alerts you receive via email and in-app bell</p>
 				</div>
+				{#if prefsSaved}
+					<span class="text-xs font-semibold text-emerald-600 flex items-center gap-1">
+						<Icon icon={checkCircle} class="h-4 w-4" />
+						Saved
+					</span>
+				{/if}
+			</div>
+
+			{#if prefsError}
+				<div role="alert" class="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-800">
+					{prefsError}
+				</div>
+			{/if}
+
+			<div class="mt-6 space-y-6 text-xs">
+				<!-- In-App Notifications -->
 				<div>
-					<label for="acct-avatar" class="block text-sm font-medium text-slate-700"
-						>Avatar URL</label
-					>
-					<input
-						id="acct-avatar"
-						type="url"
-						bind:value={accountAvatar}
-						autocomplete="off"
-						class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-					/>
-				</div>
-			</div>
-			<div>
-				<button
-					type="submit"
-					disabled={savingAccount}
-					aria-busy={savingAccount}
-					class="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
-				>
-					{#if savingAccount}<Spinner class="h-4 w-4 text-white" />{/if}
-					Save changes
-				</button>
-			</div>
-		</form>
-
-		<!-- Change password -->
-		<h3 class="mt-8 text-sm font-semibold text-slate-900">Change password</h3>
-		<p class="mt-1 text-sm text-slate-500">Password policy: minimum 8 characters.</p>
-
-		{#if changeError}
-			<div
-				role="alert"
-				class="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
-			>
-				{changeError}
-			</div>
-		{/if}
-		{#if changeSuccess}
-			<div
-				role="status"
-				class="mt-4 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800"
-			>
-				{changeSuccess}
-			</div>
-		{/if}
-
-		<form
-			class="mt-4 max-w-md space-y-4"
-			onsubmit={(e) => {
-				e.preventDefault();
-				submitPassword();
-			}}
-		>
-			<div>
-				<label for="c-pw-current" class="block text-sm font-medium text-slate-700"
-					>Current password</label
-				>
-				<input
-					id="c-pw-current"
-					type="password"
-					bind:value={currentPassword}
-					required
-					autocomplete="current-password"
-					class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-				/>
-			</div>
-			<div>
-				<label for="c-pw-new" class="block text-sm font-medium text-slate-700">New password</label>
-				<input
-					id="c-pw-new"
-					type="password"
-					bind:value={newPassword}
-					required
-					minlength="8"
-					autocomplete="new-password"
-					class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-				/>
-			</div>
-			<div>
-				<label for="c-pw-confirm" class="block text-sm font-medium text-slate-700"
-					>Confirm new password</label
-				>
-				<input
-					id="c-pw-confirm"
-					type="password"
-					bind:value={confirmPassword}
-					required
-					minlength="8"
-					autocomplete="new-password"
-					class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-				/>
-			</div>
-			<div>
-				<button
-					type="submit"
-					disabled={changing}
-					aria-busy={changing}
-					class="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
-				>
-					{#if changing}<Spinner class="h-4 w-4 text-white" />{/if}
-					Update password
-				</button>
-			</div>
-		</form>
-
-		<!-- Notification preferences -->
-		<h3 class="mt-8 text-sm font-semibold text-slate-900">Notification preferences</h3>
-		<p class="mt-1 text-sm text-slate-500">
-			Choose which email and in-app notifications you receive. Saves immediately.
-		</p>
-
-		{#if prefsError}
-			<div
-				role="alert"
-				class="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
-			>
-				{prefsError}
-			</div>
-		{/if}
-		{#if prefsSaved}
-			<div
-				role="status"
-				class="mt-4 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800"
-			>
-				Saved
-			</div>
-		{/if}
-
-		<h4 class="mt-5 text-sm font-semibold text-slate-900">Email notifications</h4>
-		<ul class="mt-2 max-w-md divide-y divide-slate-200">
-			{#each emailPrefs as pref (pref.event_type)}
-				<li class="flex items-center justify-between py-3">
-					<div>
-						<p class="text-sm font-medium text-slate-800">
-							{EVENT_LABELS[pref.event_type] ?? humanize(pref.event_type)}
-						</p>
-						<p class="text-xs text-slate-500">{pref.event_type}</p>
-					</div>
-					<label class="inline-flex items-center gap-2 text-sm text-slate-700">
-						<input
-							type="checkbox"
-							checked={pref.enabled}
-							disabled={savingPref !== null}
-							onchange={(e) => togglePref('email', pref.event_type, e.currentTarget.checked)}
-							class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-						/>
-						{pref.enabled ? 'On' : 'Off'}
-					</label>
-				</li>
-			{/each}
-		</ul>
-
-		<h4 class="mt-5 text-sm font-semibold text-slate-900">In-app notifications</h4>
-		<ul class="mt-2 max-w-md divide-y divide-slate-200">
-			{#each inappPrefs as pref (pref.event_type)}
-				<li class="flex items-center justify-between py-3">
-					<div>
-						<p class="text-sm font-medium text-slate-800">
-							{EVENT_LABELS[pref.event_type] ?? humanize(pref.event_type)}
-						</p>
-						<p class="text-xs text-slate-500">{pref.event_type}</p>
-					</div>
-					<label class="inline-flex items-center gap-2 text-sm text-slate-700">
-						<input
-							type="checkbox"
-							checked={pref.enabled}
-							disabled={savingPref !== null}
-							onchange={(e) => togglePref('inapp', pref.event_type, e.currentTarget.checked)}
-							class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-						/>
-						{pref.enabled ? 'On' : 'Off'}
-					</label>
-				</li>
-			{/each}
-		</ul>
-
-		<!-- Activity history -->
-		<h3 class="mt-8 text-sm font-semibold text-slate-900">Activity history</h3>
-		{#if activityError}
-			<div
-				role="alert"
-				class="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
-			>
-				{activityError}
-			</div>
-		{:else if activity.length === 0}
-			<p class="mt-3 text-sm text-slate-500">No activity recorded yet.</p>
-		{:else}
-			<div class="mt-3 overflow-x-auto rounded-lg border border-slate-200">
-				<table class="min-w-full divide-y divide-slate-200">
-					<thead class="bg-slate-50">
-						<tr>
-							<th
-								scope="col"
-								class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
-								>Event</th
-							>
-							<th
-								scope="col"
-								class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
-								>Description</th
-							>
-							<th
-								scope="col"
-								class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
-								>Change</th
-							>
-							<th
-								scope="col"
-								class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
-								>Date</th
-							>
-						</tr>
-					</thead>
-					<tbody class="divide-y divide-slate-200">
-						{#each activity as entry (entry.id)}
-							<tr class="hover:bg-slate-50">
-								<td class="px-4 py-3 text-sm font-medium text-slate-800">
-									{humanize(entry.event_type)}
-								</td>
-								<td class="px-4 py-3 text-sm text-slate-600">{entry.description || '—'}</td>
-								<td class="px-4 py-3 text-sm text-slate-600">
-									{#if entry.old_value || entry.new_value}
-										<span class="font-mono text-xs">{entry.old_value ?? '—'}</span>
-										<span class="mx-1 text-slate-400">→</span>
-										<span class="font-mono text-xs">{entry.new_value ?? '—'}</span>
-									{:else}
-										—
-									{/if}
-								</td>
-								<td class="px-4 py-3 text-sm whitespace-nowrap text-slate-600">
-									{formatDateTime(entry.created_at)}
-								</td>
-							</tr>
+					<h3 class="font-bold text-slate-900 mb-3">In-App Notifications</h3>
+					<div class="divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden">
+						{#each inappPrefs as pref (pref.event_type)}
+							<label class="flex items-center justify-between p-3 hover:bg-slate-50/50 cursor-pointer">
+								<span class="font-semibold text-slate-700">{EVENT_LABELS[pref.event_type] || pref.event_type}</span>
+								<input
+									type="checkbox"
+									checked={pref.enabled}
+									disabled={savingPref === `inapp:${pref.event_type}`}
+									onchange={(e) => togglePref('inapp', pref.event_type, e.currentTarget.checked)}
+									class="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+								/>
+							</label>
 						{/each}
-					</tbody>
-				</table>
+					</div>
+				</div>
+
+				<!-- Email Notifications -->
+				<div>
+					<h3 class="font-bold text-slate-900 mb-3">Email Alerts</h3>
+					<div class="divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden">
+						{#each emailPrefs as pref (pref.event_type)}
+							<label class="flex items-center justify-between p-3 hover:bg-slate-50/50 cursor-pointer">
+								<span class="font-semibold text-slate-700">{EVENT_LABELS[pref.event_type] || pref.event_type}</span>
+								<input
+									type="checkbox"
+									checked={pref.enabled}
+									disabled={savingPref === `email:${pref.event_type}`}
+									onchange={(e) => togglePref('email', pref.event_type, e.currentTarget.checked)}
+									class="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+								/>
+							</label>
+						{/each}
+					</div>
+				</div>
 			</div>
-		{/if}
-	</div>
+		</section>
+	{/if}
 </div>

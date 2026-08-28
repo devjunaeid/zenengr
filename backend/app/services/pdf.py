@@ -163,40 +163,81 @@ async def render_invoice_pdf(
     balance_due = Decimal(f"{max(inv_total - total_paid, Decimal('0')):.2f}")
     advance_credit = Decimal(f"{max(total_paid - inv_total, Decimal('0')):.2f}")
 
-    elements: list[Any] = []
-    elements.append(Paragraph("INVOICE", title_style))
-    if brand_color is not None:
-        elements.append(
-            HRFlowable(
-                width="100%",
-                thickness=1.5,
-                color=brand_color,
-                spaceBefore=2 * mm,
-                spaceAfter=4 * mm,
-            )
-        )
-    else:
-        elements.append(Spacer(1, 6 * mm))
+    # ── Fetch client info if available ─────────────────────────────────────
+    client: Client | None = None
+    if invoice.project is not None and invoice.project.client_id is not None:
+        client = await session.get(Client, invoice.project.client_id)
 
-    # ── Header: business name, number, status, project/client, dates ──────
-    elements.append(
-        Paragraph(f"<b>{tenant.business_name if tenant else 'Invoice'}</b>", styles["Heading2"])
-    )
-    elements.append(Paragraph(f"Number: {invoice.invoice_number or 'DRAFT'}", styles["Normal"]))
-    elements.append(Paragraph(f"Status: {_human_status(invoice.status)}", styles["Normal"]))
+    elements: list[Any] = []
+
+    # ── Top Document Header: 2-Column Split (Brand on left, Invoice Meta on right) ──
+    header_left = [
+        Paragraph(f"<b>{tenant.business_name if tenant else 'ZenEngr'}</b>", ParagraphStyle("BrandTitle", parent=styles["Heading2"], fontSize=16, leading=20, textColor=brand_color or colors.HexColor("#0f172a"))),
+        Paragraph("Official Client Statement", ParagraphStyle("BrandSub", parent=styles["Normal"], fontSize=8.5, leading=12, textColor=colors.HexColor("#64748b"))),
+    ]
+
+    header_right = [
+        Paragraph(f"<b>{invoice.invoice_number or 'DRAFT'}</b>", ParagraphStyle("InvNum", parent=styles["Heading2"], fontSize=15, leading=18, alignment=2, textColor=colors.HexColor("#0f172a"))),
+        Paragraph(f"Status: <b>{_human_status(invoice.status)}</b>", ParagraphStyle("InvStatus", parent=styles["Normal"], fontSize=9, leading=13, alignment=2, textColor=colors.HexColor("#475569"))),
+    ]
     if invoice.project is not None:
-        elements.append(Paragraph(f"Project: {invoice.project.name}", styles["Normal"]))
-        client: Client | None = None
-        if invoice.project.client_id is not None:
-            client = await session.get(Client, invoice.project.client_id)
-        if client is not None:
-            elements.append(Paragraph(f"Client: {client.name}", styles["Normal"]))
-    if invoice.issue_date is not None:
-        elements.append(
-            Paragraph(f"Issue date: {invoice.issue_date.isoformat()}", styles["Normal"])
+        header_right.append(
+            Paragraph(f"Project: <b>{invoice.project.name}</b>", ParagraphStyle("InvProj", parent=styles["Normal"], fontSize=9, leading=13, alignment=2, textColor=colors.HexColor("#475569")))
         )
+
+    header_table = Table([[header_left, header_right]], colWidths=[90 * mm, 80 * mm])
+    header_table.setStyle(
+        TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 0),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+            ("TOPPADDING", (0, 0), (-1, -1), 0),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+        ])
+    )
+    elements.append(header_table)
+    elements.append(
+        HRFlowable(
+            width="100%",
+            thickness=1,
+            color=colors.HexColor("#e2e8f0"),
+            spaceBefore=4 * mm,
+            spaceAfter=4 * mm,
+        )
+    )
+
+    # ── Billed To & Dates: 2-Column Split ─────────────────────────────────
+    billed_left: list[Any] = [
+        Paragraph("<b>BILLED TO</b>", ParagraphStyle("BilledH", parent=styles["Normal"], fontSize=7.5, leading=10, textColor=colors.HexColor("#94a3b8"))),
+    ]
+    if client is not None:
+        billed_left.append(Paragraph(f"<b>{client.name}</b>", ParagraphStyle("ClientName", parent=styles["Normal"], fontSize=10, leading=14, textColor=colors.HexColor("#0f172a"))))
+        if client.email:
+            billed_left.append(Paragraph(client.email, ParagraphStyle("ClientEmail", parent=styles["Normal"], fontSize=8.5, leading=12, textColor=colors.HexColor("#475569"))))
+        if client.phone:
+            billed_left.append(Paragraph(client.phone, ParagraphStyle("ClientPhone", parent=styles["Normal"], fontSize=8.5, leading=12, textColor=colors.HexColor("#475569"))))
+        if client.tax_id:
+            billed_left.append(Paragraph(f"Tax ID / VAT: {client.tax_id}", ParagraphStyle("ClientTax", parent=styles["Normal"], fontSize=8.5, leading=12, textColor=colors.HexColor("#475569"))))
+    else:
+        billed_left.append(Paragraph("General Account", styles["Normal"]))
+
+    dates_right: list[Any] = []
+    if invoice.issue_date is not None:
+        dates_right.append(Paragraph(f"Issue Date: <b>{invoice.issue_date.isoformat()}</b>", ParagraphStyle("DateRow", parent=styles["Normal"], fontSize=9, leading=13, alignment=2, textColor=colors.HexColor("#334155"))))
     if invoice.due_date is not None:
-        elements.append(Paragraph(f"Due date: {invoice.due_date.isoformat()}", styles["Normal"]))
+        dates_right.append(Paragraph(f"Due Date: <b>{invoice.due_date.isoformat()}</b>", ParagraphStyle("DateRow", parent=styles["Normal"], fontSize=9, leading=13, alignment=2, textColor=colors.HexColor("#334155"))))
+
+    info_table = Table([[billed_left, dates_right]], colWidths=[90 * mm, 80 * mm])
+    info_table.setStyle(
+        TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 0),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+            ("TOPPADDING", (0, 0), (-1, -1), 0),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+        ])
+    )
+    elements.append(info_table)
     elements.append(Spacer(1, 6 * mm))
 
     # ── Line items table ──────────────────────────────────────────────────
@@ -216,9 +257,12 @@ async def render_invoice_pdf(
         TableStyle(
             [
                 ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
-                ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
+                ("FONTSIZE", (0, 0), (-1, -1), 8.5),
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f8fafc")),
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
                 ("ALIGN", (2, 0), (-1, -1), "RIGHT"),
+                ("TOPPADDING", (0, 0), (-1, -1), 5),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
             ]
         )
     )
@@ -240,37 +284,54 @@ async def render_invoice_pdf(
         t_date = tx.recorded_at.date().isoformat() if tx.recorded_at else "—"
         t_method = tx.method.value.replace("_", " ").title()
         ref_text = f" ({tx.reference_note})" if tx.reference_note else ""
-        label = f"{t_date} - {t_type} - {t_method}{ref_text}"
+        label = f"{t_date} · {t_type} ({t_method}){ref_text}"
         amt_str = f"-{_money(tx.amount, currency_code)}" if tx.direction == TransactionDirection.DEBIT else f"+{_money(tx.amount, currency_code)}"
         totals_data.append([label, amt_str])
 
     due_row_idx = len(totals_data)
-    totals_data.append(["Due", _money(balance_due, currency_code)])
+    totals_data.append(["Balance Due", _money(balance_due, currency_code)])
     if advance_credit > 0:
         totals_data.append(["Advance Credit", _money(advance_credit, currency_code)])
 
-    totals = Table(totals_data, colWidths=[105 * mm, 65 * mm])
+    totals = Table(totals_data, colWidths=[125 * mm, 45 * mm])
     totals.setStyle(
         TableStyle(
             [
+                ("ALIGN", (0, 0), (0, -1), "LEFT"),
                 ("ALIGN", (1, 0), (1, -1), "RIGHT"),
+                ("FONTSIZE", (0, 0), (-1, -1), 8.5),
+                ("TOPPADDING", (0, 0), (-1, -1), 3.5),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 3.5),
+                ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 0),
                 ("FONTNAME", (0, total_row_idx), (-1, total_row_idx), "Helvetica-Bold"),
-                ("LINEABOVE", (0, total_row_idx), (-1, total_row_idx), 0.5, colors.black),
+                ("LINEABOVE", (0, total_row_idx), (-1, total_row_idx), 0.5, colors.HexColor("#cbd5e1")),
                 ("FONTNAME", (0, due_row_idx), (-1, due_row_idx), "Helvetica-Bold"),
-                ("LINEABOVE", (0, due_row_idx), (-1, due_row_idx), 0.5, colors.black),
+                ("LINEABOVE", (0, due_row_idx), (-1, due_row_idx), 0.5, colors.HexColor("#0f172a")),
             ]
         )
     )
     elements.append(totals)
 
-    # ── Notes ─────────────────────────────────────────────────────────────
+    # ── Notes & Terms ──────────────────────────────────────────────────────
     if invoice.notes:
         elements.append(Spacer(1, 6 * mm))
-        elements.append(Paragraph(f"Notes: {invoice.notes}", styles["Normal"]))
+        elements.append(
+            Paragraph(
+                f"<b>Notes & Terms:</b><br/>{invoice.notes}",
+                ParagraphStyle(
+                    "InvNotes",
+                    parent=styles["Normal"],
+                    fontSize=8.5,
+                    leading=12,
+                    textColor=colors.HexColor("#475569"),
+                ),
+            )
+        )
 
     # ── Footer ────────────────────────────────────────────────────────────
-    elements.append(Spacer(1, 12 * mm))
-    elements.append(Paragraph("Generated by ZenEngr", footer_style))
+    elements.append(Spacer(1, 10 * mm))
+    elements.append(Paragraph(f"Generated by {tenant.business_name if tenant else 'ZenEngr'}", footer_style))
 
     if logo_bytes:
         doc.build(

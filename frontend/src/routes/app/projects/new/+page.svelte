@@ -19,7 +19,6 @@
 	let ownerId = $state(null);
 	let selectedServiceIds = $state([]);
 	let servicePrices = $state({});
-	let autoInvoice = $state(true);
 	let busy = $state(false);
 	let err = $state(null);
 
@@ -124,8 +123,7 @@
 			const body = {
 				name: name.trim(),
 				client_id: clientId,
-				service_ids: selectedServiceIds,
-				auto_invoice: autoInvoice
+				service_ids: selectedServiceIds
 			};
 			const servicePricesMap = {};
 			for (const sid of selectedServiceIds) {
@@ -379,24 +377,6 @@
 			{/if}
 		{/if}
 	</section>
-
-	<div class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-		<div class="flex items-start gap-3">
-			<input
-				id="auto-invoice"
-				type="checkbox"
-				bind:checked={autoInvoice}
-				class="mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-			/>
-			<label for="auto-invoice" class="cursor-pointer text-sm text-slate-700">
-				<span class="font-medium text-slate-900">Statement invoice</span>
-				<span class="mt-0.5 block text-slate-500">
-					Keeps an internal, project-scoped statement updated as services are added (not shown to
-					clients).
-				</span>
-			</label>
-		</div>
-	</div>
 
 	<div class="flex items-center gap-3 pt-2">
 		<button

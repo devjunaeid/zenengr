@@ -344,6 +344,7 @@ async def update_client_profile_endpoint(
         client_id=str(user.client_id),
         tenant_id=str(user.tenant_id),
         tenant_name=tenant.business_name if tenant else None,
+        tenant_logo_url=tenant.logo_url if tenant else None,
         avatar_url=user.avatar_url,
         phone=user.phone,
         timezone=user.timezone,

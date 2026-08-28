@@ -47,13 +47,15 @@ export async function uploadLogo(fetchFn, token, file) {
 		} catch {
 			// non-JSON error body; fall through to generic error
 		}
-		const envelope = data && data.error ? data.error : {};
-		throw new ApiError(
-			res.status,
-			envelope.code ?? 'UNKNOWN',
-			envelope.message ?? res.statusText,
-			envelope.details ?? {}
-		);
+		const msg =
+			data?.error?.message ||
+			(typeof data?.detail === 'string' ? data.detail : null) ||
+			(Array.isArray(data?.detail) ? data.detail.map((d) => d.msg).join(', ') : null) ||
+			(typeof data?.error === 'string' ? data.error : null) ||
+			res.statusText ||
+			'Upload failed';
+		const code = data?.error?.code ?? (res.status === 413 ? 'FILE_TOO_LARGE' : 'UPLOAD_FAILED');
+		throw new ApiError(res.status, code, msg, data?.error?.details ?? {});
 	}
 	return res.json();
 }

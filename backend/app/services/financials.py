@@ -187,32 +187,14 @@ async def list_linked_invoices(
 
 
 async def get_client_financials(session: AsyncSession, *, client_id: uuid.UUID) -> dict[str, str]:
-    """Client financial rollup across all of the client's projects.
-
-    Derives totals directly from the project statement summaries (charges,
-    discounts, direct payments, and invoice transactions) as the single
-    source of truth.
-    """
-    from app.services.ledger import get_project_ledger
-
-    projects_stmt = select(Project).where(Project.client_id == client_id)
-    projects = list((await session.execute(projects_stmt)).scalars().all())
-
-    total_invoiced = Decimal("0")
-    total_paid = Decimal("0")
-    total_outstanding = Decimal("0")
-
-    for proj in projects:
-        data = await get_project_ledger(session, tenant_id=proj.tenant_id, project_id=proj.id)
-        summary = data["summary"]
-        total_invoiced += Decimal(summary["total"])
-        total_paid += Decimal(summary["paid"])
-        total_outstanding += Decimal(summary["due"])
-
+    """Client financial rollup across all of the client's projects."""
+    invoiced = await _client_invoiced(session, client_id)
+    paid = await _client_paid(session, client_id)
+    outstanding = _clamp_non_negative(invoiced - paid)
     return {
-        "total_invoiced": _fmt(total_invoiced),
-        "total_paid": _fmt(total_paid),
-        "total_outstanding": _fmt(total_outstanding),
+        "total_invoiced": _fmt(invoiced),
+        "total_paid": _fmt(paid),
+        "total_outstanding": _fmt(outstanding),
     }
 
 
@@ -224,8 +206,61 @@ async def get_client_financials_batch(
     if not client_ids:
         return result
 
+    invoiced_rows = (
+        await session.execute(
+            select(Project.client_id, func.coalesce(func.sum(Invoice.total), 0))
+            .join(Invoice, Invoice.project_id == Project.id)
+            .where(
+                Project.client_id.in_(client_ids),
+                Invoice.status.in_(_MONEY_STATUSES),
+            )
+            .group_by(Project.client_id)
+        )
+    ).all()
+    paid_rows = (
+        await session.execute(
+            select(Project.client_id, func.coalesce(func.sum(PaymentAllocation.amount), 0))
+            .join(InvoiceLineItem, PaymentAllocation.line_item_id == InvoiceLineItem.id)
+            .join(Invoice, InvoiceLineItem.invoice_id == Invoice.id)
+            .join(Project, Invoice.project_id == Project.id)
+            .where(
+                Project.client_id.in_(client_ids),
+                Invoice.status.in_(_MONEY_STATUSES),
+            )
+            .group_by(Project.client_id)
+        )
+    ).all()
+    refund_rows = (
+        await session.execute(
+            select(Project.client_id, func.coalesce(func.sum(Transaction.amount), 0))
+            .join(Invoice, Transaction.invoice_id == Invoice.id)
+            .join(Project, Invoice.project_id == Project.id)
+            .where(
+                Project.client_id.in_(client_ids),
+                Invoice.status.in_(_MONEY_STATUSES),
+                Transaction.direction == TransactionDirection.CREDIT,
+            )
+            .group_by(Project.client_id)
+        )
+    ).all()
+
+    invoiced_map = {client_id: Decimal(amount) for client_id, amount in invoiced_rows}
+    refund_rows_map = {client_id: Decimal(amount) for client_id, amount in refund_rows}
+    paid_map = {
+        client_id: _clamp_non_negative(
+            Decimal(alloc) - refund_rows_map.get(client_id, Decimal("0"))
+        )
+        for client_id, alloc in paid_rows
+    }
     for cid in client_ids:
-        result[cid] = await get_client_financials(session, client_id=cid)
+        invoiced = invoiced_map.get(cid, Decimal("0"))
+        paid = paid_map.get(cid, Decimal("0"))
+        outstanding = _clamp_non_negative(invoiced - paid)
+        result[cid] = {
+            "total_invoiced": _fmt(invoiced),
+            "total_paid": _fmt(paid),
+            "total_outstanding": _fmt(outstanding),
+        }
     return result
 
 

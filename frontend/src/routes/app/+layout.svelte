@@ -65,7 +65,7 @@
 	);
 
 	const brandColor = $derived(data?.profile?.branding?.color);
-	const logoUrl = $derived(data?.profile?.branding?.logo_url);
+	const logoUrl = $derived(data?.profile?.branding?.logo_url || data?.profile?.logo_url);
 
 	function isActive(item) {
 		return item.exact ? page.url.pathname === item.href : page.url.pathname.startsWith(item.href);
@@ -85,23 +85,23 @@
 			<div class="h-full bg-indigo-600 animate-pulse w-full"></div>
 		</div>
 	{/if}
-	<header class="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-3">
-		<span class="flex items-center gap-2 text-sm font-semibold text-slate-900">
+	<header class="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-3 print:hidden">
+		<a href={resolve('/app/dashboard')} class="flex items-center gap-2.5 text-sm font-semibold text-slate-900 hover:opacity-90 transition-opacity">
 			{#if logoUrl}
 				<img
 					src={assetUrl(logoUrl)}
 					alt={`${data?.profile?.business_name ?? 'Tenant'} logo`}
-					class="h-7 w-auto"
+					class="h-7 max-h-7 max-w-[140px] w-auto object-contain shrink-0"
 				/>
 			{:else if brandColor}
 				<span
-					class="inline-block h-2.5 w-2.5 rounded-full"
+					class="inline-block h-2.5 w-2.5 rounded-full shrink-0"
 					style="background-color: {brandColor}"
 					aria-hidden="true"
 				></span>
 			{/if}
-			{data?.profile?.business_name ?? 'ZenEngr'}
-		</span>
+			<span>{data?.profile?.business_name ?? 'ZenEngr'}</span>
+		</a>
 		<div class="flex items-center gap-4">
 			<NotificationBell realm="admin" />
 			<span class="text-sm text-slate-700">
@@ -118,8 +118,8 @@
 		</div>
 	</header>
 
-	<div class="flex flex-1">
-		<aside class="w-56 shrink-0 border-r border-slate-200 bg-white">
+	<div class="flex flex-1 print:block print:w-full">
+		<aside class="w-56 shrink-0 border-r border-slate-200 bg-white print:hidden">
 			<nav aria-label="Tenant navigation" class="space-y-1 p-3">
 				{#each visibleNav as item (item.href)}
 					{@const active = isActive(item)}

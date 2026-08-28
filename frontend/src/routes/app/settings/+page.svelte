@@ -23,10 +23,23 @@
 	let profileErr = $state(null);
 
 	let logoFile = $state(null);
+	let clientPreview = $state(null);
 	let logoBusy = $state(false);
 	let logoMsg = $state(null);
 	let logoErr = $state(null);
+	let logoTimestamp = $state(Date.now());
 	let logoUrl = $state(untrack(() => data.profile.branding?.logo_url ?? null));
+
+	function onFileSelected(e) {
+		const file = e.currentTarget.files?.[0] ?? null;
+		logoFile = file;
+		logoErr = null;
+		if (file) {
+			clientPreview = URL.createObjectURL(file);
+		} else {
+			clientPreview = null;
+		}
+	}
 
 	async function uploadLogo() {
 		if (!logoFile) {
@@ -39,9 +52,11 @@
 		try {
 			const res = await tenantApi.uploadLogo(fetch, token, logoFile);
 			logoUrl = res.logo_url;
+			logoTimestamp = Date.now();
+			clientPreview = null;
 			logoFile = null;
 			logoMsg = 'Logo updated successfully.';
-			setTimeout(() => (logoMsg = null), 3000);
+			setTimeout(() => (logoMsg = null), 4000);
 			await invalidateAll();
 		} catch (e) {
 			logoErr = e instanceof ApiError ? e.message : 'Upload failed.';
@@ -207,9 +222,15 @@
 			<div class="flex flex-col gap-6 sm:flex-row sm:items-center">
 				<!-- Logo Preview -->
 				<div class="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 p-2">
-					{#if logoUrl}
+					{#if clientPreview}
 						<img
-							src={assetUrl(logoUrl)}
+							src={clientPreview}
+							alt="Selected Logo Preview"
+							class="h-full w-full object-contain"
+						/>
+					{:else if logoUrl}
+						<img
+							src={`${assetUrl(logoUrl)}?t=${logoTimestamp}`}
 							alt="Company Logo"
 							class="h-full w-full object-contain"
 						/>
@@ -223,16 +244,14 @@
 					<label for="sp-logo" class="block text-xs font-semibold uppercase tracking-wider text-slate-700">
 						Upload New Logo File
 					</label>
-					<p class="text-xs text-slate-500">Supports PNG, JPEG, WebP, or SVG (Max 2MB).</p>
+					<p class="text-xs text-slate-500">Supports PNG, JPEG, WebP, GIF, or SVG (Max 5MB).</p>
 					{#if isAdmin}
 						<div class="flex flex-wrap items-center gap-3">
 							<input
 								id="sp-logo"
 								type="file"
-								accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
-								onchange={(e) => {
-									logoFile = e.currentTarget.files?.[0] ?? null;
-								}}
+								accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml,.png,.jpg,.jpeg,.webp,.gif,.svg"
+								onchange={onFileSelected}
 								class="block text-xs text-slate-500 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-slate-700 hover:file:bg-slate-200 cursor-pointer"
 							/>
 							{#if logoFile}
@@ -241,7 +260,7 @@
 									disabled={logoBusy}
 									aria-busy={logoBusy}
 									onclick={uploadLogo}
-									class="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white shadow-2xs hover:bg-indigo-700 disabled:opacity-60 transition-colors"
+									class="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white shadow-2xs hover:bg-indigo-700 disabled:opacity-60 transition-colors cursor-pointer"
 								>
 									{#if logoBusy}<Spinner class="h-3 w-3 text-white" />{/if}
 									Upload Logo
