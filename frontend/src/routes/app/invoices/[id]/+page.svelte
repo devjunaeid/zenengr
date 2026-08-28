@@ -258,225 +258,227 @@
 
 <svelte:head><title>{number} — ZenEngr</title></svelte:head>
 
-<nav aria-label="Breadcrumb" class="text-sm text-slate-500">
-	<ol class="flex items-center gap-1">
-		<li>
-			<a href={resolve('/app/invoices')} class="hover:text-indigo-600">Invoices</a>
-		</li>
-		<li aria-hidden="true">/</li>
-		<li class="font-medium text-slate-700">{number}</li>
-	</ol>
-</nav>
+<div class="print:hidden">
+	<nav aria-label="Breadcrumb" class="text-sm text-slate-500">
+		<ol class="flex items-center gap-1">
+			<li>
+				<a href={resolve('/app/invoices')} class="hover:text-indigo-600">Invoices</a>
+			</li>
+			<li aria-hidden="true">/</li>
+			<li class="font-medium text-slate-700">{number}</li>
+		</ol>
+	</nav>
 
-<div class="mt-2 flex flex-wrap items-center justify-between gap-3">
-	<div class="flex items-center gap-3">
-		<h1 class="text-2xl font-semibold text-slate-900">{number}</h1>
-		<StatusBadge status={data.invoice.status} />
-		{#if data.invoice.is_auto}
-			<span
-				title="Statement invoice — internal, project-scoped"
-				class="inline-flex items-center rounded-full bg-violet-100 px-2.5 py-0.5 text-xs font-medium text-violet-800 ring-1 ring-violet-600/20 ring-inset"
-			>
-				Statement
-			</span>
-		{/if}
-		{#if data.invoice.project_id == null}
-			<span
-				class="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600 ring-1 ring-slate-500/20 ring-inset"
-			>
-				Internal invoice
-			</span>
-		{/if}
-	</div>
-	<div class="flex flex-wrap items-center gap-2 print:hidden">
-		<button
-			type="button"
-			onclick={() => window.print()}
-			class="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
-		>
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				viewBox="0 0 24 24"
-				fill="none"
-				stroke="currentColor"
-				stroke-width="2"
-				stroke-linecap="round"
-				stroke-linejoin="round"
-				class="h-4 w-4 text-slate-500"
-			>
-				<polyline points="6 9 6 2 18 2 18 9"></polyline>
-				<path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
-				<rect x="6" y="14" width="12" height="8"></rect>
-			</svg>
-			Print Invoice
-		</button>
-		<button
-			type="button"
-			onclick={downloadPdf}
-			disabled={downloading || viewing}
-			aria-busy={downloading}
-			class="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
-		>
-			{#if downloading}
-				<Spinner class="h-4 w-4 text-indigo-600" />
-			{:else}
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					viewBox="0 0 20 20"
-					fill="currentColor"
-					class="h-4 w-4"
-					aria-hidden="true"
+	<div class="mt-2 flex flex-wrap items-center justify-between gap-3">
+		<div class="flex items-center gap-3">
+			<h1 class="text-2xl font-semibold text-slate-900">{number}</h1>
+			<StatusBadge status={data.invoice.status} />
+			{#if data.invoice.is_auto}
+				<span
+					title="Statement invoice — internal, project-scoped"
+					class="inline-flex items-center rounded-full bg-violet-100 px-2.5 py-0.5 text-xs font-medium text-violet-800 ring-1 ring-violet-600/20 ring-inset"
 				>
-					<path
-						d="M10.75 2.75a.75.75 0 00-1.5 0v8.614L6.295 8.235a.75.75 0 10-1.09 1.03l4.25 4.5a.75.75 0 001.09 0l4.25-4.5a.75.75 0 00-1.09-1.03l-2.955 3.129V2.75z"
-					/>
-					<path
-						d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z"
-					/>
-				</svg>
+					Statement
+				</span>
 			{/if}
-			Download PDF
-		</button>
-		<button
-			type="button"
-			onclick={viewPdf}
-			disabled={downloading || viewing}
-			aria-busy={viewing}
-			class="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
-		>
-			{#if viewing}
-				<Spinner class="h-4 w-4 text-indigo-600" />
-			{:else}
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					viewBox="0 0 20 20"
-					fill="currentColor"
-					class="h-4 w-4"
-					aria-hidden="true"
+			{#if data.invoice.project_id == null}
+				<span
+					class="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600 ring-1 ring-slate-500/20 ring-inset"
 				>
-					<path d="M10 12.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z" />
-					<path
-						fill-rule="evenodd"
-						d="M.664 10.59a1.651 1.651 0 010-1.186A10.004 10.004 0 0110 3c4.257 0 7.893 2.66 9.336 6.41.147.381.146.804 0 1.186A10.004 10.004 0 0110 17c-4.257 0-7.893-2.66-9.336-6.41zM14 10a4 4 0 11-8 0 4 4 0 018 0z"
-						clip-rule="evenodd"
-					/>
-				</svg>
+					Internal invoice
+				</span>
 			{/if}
-			View
-		</button>
-		{#if data.invoice.status === 'draft'}
-			<a
-				href={resolve('/app/invoices/[id]/edit', { id: data.invoice.id })}
-				class="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
-			>
-				Edit
-			</a>
-			{#if !data.invoice.is_auto}
-				<button
-					type="button"
-					onclick={() => (issueOpen = true)}
-					class="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
-				>
-					Issue
-				</button>
-				<button
-					type="button"
-					onclick={() => (deleteOpen = true)}
-					class="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none"
-				>
-					Delete
-				</button>
-			{/if}
-		{:else if data.invoice.status === 'issued' || data.invoice.status === 'partially_paid' || data.invoice.status === 'paid'}
-			{#if data.invoice.status === 'issued' || data.invoice.status === 'partially_paid'}
-				<button
-					type="button"
-					onclick={() => (applyOpen = true)}
-					disabled={applyBusy}
-					class="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
-				>
-					Apply advance
-				</button>
-			{/if}
-			{#if data.invoice.status === 'partially_paid' || data.invoice.status === 'paid'}
-				<button
-					type="button"
-					onclick={() => (refundOpen = true)}
-					disabled={refundBusy}
-					class="rounded-md border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
-				>
-					Refund
-				</button>
-			{/if}
+		</div>
+		<div class="flex flex-wrap items-center gap-2">
 			<button
 				type="button"
-				onclick={() => (voidOpen = true)}
-				class="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none"
+				onclick={() => window.print()}
+				class="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
 			>
-				Void
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					class="h-4 w-4 text-slate-500"
+				>
+					<polyline points="6 9 6 2 18 2 18 9"></polyline>
+					<path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+					<rect x="6" y="14" width="12" height="8"></rect>
+				</svg>
+				Print Invoice
 			</button>
-		{/if}
-	</div>
-</div>
-
-{#if data.invoice.is_auto}
-	<p class="mt-3 text-sm text-slate-500">
-		Statement invoice — internal to this project; not visible in the client portal.
-	</p>
-{/if}
-
-{#if actionErr}
-	<p
-		role="alert"
-		class="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
-	>
-		{actionErr}
-	</p>
-{/if}
-{#if actionMsg}
-	<p
-		role="status"
-		class="mt-3 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800"
-	>
-		{actionMsg}
-	</p>
-{/if}
-
-{#if pdfErr}
-	<p
-		role="alert"
-		class="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
-	>
-		{pdfErr}
-	</p>
-{/if}
-
-{#if data.invoice.status === 'void'}
-	<section
-		class="mt-6 rounded-lg border-2 border-dashed border-amber-300 bg-amber-50 p-5"
-		aria-labelledby="void-correction-h"
-	>
-		<h2 id="void-correction-h" class="text-sm font-semibold text-amber-900">
-			Correcting a voided invoice
-		</h2>
-		<p class="mt-1 text-sm text-amber-800">
-			This invoice was voided. Corrections are made with a new invoice — financial history is never
-			edited.
-		</p>
-		<div class="mt-3">
-			<!-- eslint-disable svelte/no-navigation-without-resolve -- query string appended to a resolved route -->
-			<a
-				href={data.invoice.project_id
-					? `${resolve('/app/invoices/new')}?project_id=${data.invoice.project_id}`
-					: resolve('/app/invoices/new')}
-				class="rounded-md border border-amber-300 bg-white px-3 py-1.5 text-sm font-medium text-amber-900 hover:bg-amber-100 focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:outline-none"
+			<button
+				type="button"
+				onclick={downloadPdf}
+				disabled={downloading || viewing}
+				aria-busy={downloading}
+				class="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
 			>
-				Create new invoice
-			</a>
-			<!-- eslint-enable svelte/no-navigation-without-resolve -->
+				{#if downloading}
+					<Spinner class="h-4 w-4 text-indigo-600" />
+				{:else}
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						viewBox="0 0 20 20"
+						fill="currentColor"
+						class="h-4 w-4"
+						aria-hidden="true"
+					>
+						<path
+							d="M10.75 2.75a.75.75 0 00-1.5 0v8.614L6.295 8.235a.75.75 0 10-1.09 1.03l4.25 4.5a.75.75 0 001.09 0l4.25-4.5a.75.75 0 00-1.09-1.03l-2.955 3.129V2.75z"
+						/>
+						<path
+							d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z"
+						/>
+					</svg>
+				{/if}
+				Download PDF
+			</button>
+			<button
+				type="button"
+				onclick={viewPdf}
+				disabled={downloading || viewing}
+				aria-busy={viewing}
+				class="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+			>
+				{#if viewing}
+					<Spinner class="h-4 w-4 text-indigo-600" />
+				{:else}
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						viewBox="0 0 20 20"
+						fill="currentColor"
+						class="h-4 w-4"
+						aria-hidden="true"
+					>
+						<path d="M10 12.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z" />
+						<path
+							fill-rule="evenodd"
+							d="M.664 10.59a1.651 1.651 0 010-1.186A10.004 10.004 0 0110 3c4.257 0 7.893 2.66 9.336 6.41.147.381.146.804 0 1.186A10.004 10.004 0 0110 17c-4.257 0-7.893-2.66-9.336-6.41zM14 10a4 4 0 11-8 0 4 4 0 018 0z"
+							clip-rule="evenodd"
+						/>
+					</svg>
+				{/if}
+				View
+			</button>
+			{#if data.invoice.status === 'draft'}
+				<a
+					href={resolve('/app/invoices/[id]/edit', { id: data.invoice.id })}
+					class="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+				>
+					Edit
+				</a>
+				{#if !data.invoice.is_auto}
+					<button
+						type="button"
+						onclick={() => (issueOpen = true)}
+						class="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+					>
+						Issue
+					</button>
+					<button
+						type="button"
+						onclick={() => (deleteOpen = true)}
+						class="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none"
+					>
+						Delete
+					</button>
+				{/if}
+			{:else if data.invoice.status === 'issued' || data.invoice.status === 'partially_paid' || data.invoice.status === 'paid'}
+				{#if data.invoice.status === 'issued' || data.invoice.status === 'partially_paid'}
+					<button
+						type="button"
+						onclick={() => (applyOpen = true)}
+						disabled={applyBusy}
+						class="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+					>
+						Apply advance
+					</button>
+				{/if}
+				{#if data.invoice.status === 'partially_paid' || data.invoice.status === 'paid'}
+					<button
+						type="button"
+						onclick={() => (refundOpen = true)}
+						disabled={refundBusy}
+						class="rounded-md border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+					>
+						Refund
+					</button>
+				{/if}
+				<button
+					type="button"
+					onclick={() => (voidOpen = true)}
+					class="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none"
+				>
+					Void
+				</button>
+			{/if}
 		</div>
-	</section>
-{/if}
+	</div>
+
+	{#if data.invoice.is_auto}
+		<p class="mt-3 text-sm text-slate-500">
+			Statement invoice — internal to this project; not visible in the client portal.
+		</p>
+	{/if}
+
+	{#if actionErr}
+		<p
+			role="alert"
+			class="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+		>
+			{actionErr}
+		</p>
+	{/if}
+	{#if actionMsg}
+		<p
+			role="status"
+			class="mt-3 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800"
+		>
+			{actionMsg}
+		</p>
+	{/if}
+
+	{#if pdfErr}
+		<p
+			role="alert"
+			class="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+		>
+			{pdfErr}
+		</p>
+	{/if}
+
+	{#if data.invoice.status === 'void'}
+		<section
+			class="mt-6 rounded-lg border-2 border-dashed border-amber-300 bg-amber-50 p-5"
+			aria-labelledby="void-correction-h"
+		>
+			<h2 id="void-correction-h" class="text-sm font-semibold text-amber-900">
+				Correcting a voided invoice
+			</h2>
+			<p class="mt-1 text-sm text-amber-800">
+				This invoice was voided. Corrections are made with a new invoice — financial history is never
+				edited.
+			</p>
+			<div class="mt-3">
+				<!-- eslint-disable svelte/no-navigation-without-resolve -- query string appended to a resolved route -->
+				<a
+					href={data.invoice.project_id
+						? `${resolve('/app/invoices/new')}?project_id=${data.invoice.project_id}`
+						: resolve('/app/invoices/new')}
+					class="rounded-md border border-amber-300 bg-white px-3 py-1.5 text-sm font-medium text-amber-900 hover:bg-amber-100 focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:outline-none"
+				>
+					Create new invoice
+				</a>
+				<!-- eslint-enable svelte/no-navigation-without-resolve -->
+			</div>
+		</section>
+	{/if}
+</div>
 
 <!-- Printable Visual Invoice Document -->
 <article id="printable-invoice" class="mt-6 rounded-2xl border border-slate-200 bg-white p-8 sm:p-12 shadow-sm print:mt-0 print:border-none print:shadow-none print:p-0 print:m-0">
@@ -640,8 +642,9 @@
 	</div>
 </article>
 
+<div class="print:hidden">
 <section
-	class="mt-8 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm print:hidden"
+	class="mt-8 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"
 	aria-labelledby="transactions-h"
 >
 	<div class="flex items-center justify-between border-b border-slate-200 px-6 py-4">
@@ -1207,16 +1210,27 @@
 		</Dialog.Content>
 	</Dialog.Portal>
 </Dialog.Root>
+</div>
 
 <style>
 	@media print {
+		@page {
+			margin: 0;
+			size: auto;
+		}
+		:global(html),
 		:global(body) {
-			background: white !important;
+			background: #ffffff !important;
 			color: #0f172a !important;
+			margin: 0 !important;
+			padding: 0 !important;
+			-webkit-print-color-adjust: exact !important;
+			print-color-adjust: exact !important;
 		}
 		:global(header),
 		:global(aside),
 		:global(nav),
+		:global(footer),
 		:global(.print\\:hidden) {
 			display: none !important;
 		}
@@ -1229,10 +1243,12 @@
 		#printable-invoice {
 			box-shadow: none !important;
 			border: none !important;
-			padding: 0 !important;
-			margin: 0 !important;
+			padding: 18mm 20mm !important;
+			margin: 0 auto !important;
 			width: 100% !important;
 			max-width: 100% !important;
+			display: block !important;
+			page-break-inside: avoid;
 		}
 	}
 </style>
