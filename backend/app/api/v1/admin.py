@@ -17,6 +17,7 @@ from app.db.session import get_session
 from app.models.admin_user import AdminUser
 from app.models.enums import ActorType, AdminUserRole, TenantStatus
 from app.schemas.admin import (
+    PasswordResetRequest,
     PlanCreateRequest,
     PlanResponse,
     PlanUpdateRequest,
@@ -29,6 +30,7 @@ from app.schemas.admin import (
     TenantListItem,
     TenantListResponse,
     TenantUpdateRequest,
+    TenantUserItem,
 )
 from app.schemas.tenant import (
     AuditLogEntry,
@@ -213,6 +215,7 @@ async def api_create_tenant(
         plan_id=body.plan_id,
         admin_email=str(body.admin_email),
         admin_full_name=body.admin_full_name,
+        admin_password=body.admin_password,
     )
     return TenantCreateResponse(**result)
 
@@ -725,3 +728,82 @@ async def api_list_platform_audit_logs(
         page=data["page"],
         page_size=data["page_size"],
     )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Tenant Users
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+@router.get("/tenants/{tenant_id}/users", response_model=list[TenantUserItem])
+async def api_list_tenant_users(
+    tenant_id: str,
+    session: AsyncSession = Depends(get_session),
+    _admin: AdminUser = Depends(require_super_admin),
+) -> list[TenantUserItem]:
+    """List all admin users belonging to a tenant."""
+    from sqlalchemy import select
+
+    try:
+        uid = uuid.UUID(tenant_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Tenant not found"
+        ) from None
+    result = await session.execute(
+        select(AdminUser)
+        .where(AdminUser.tenant_id == uid)
+        .order_by(AdminUser.created_at.asc())
+    )
+    users = result.scalars().all()
+    return [
+        TenantUserItem(
+            id=u.id,
+            email=u.email,
+            full_name=u.full_name,
+            role=u.role.value,
+            is_active=u.is_active,
+            created_at=u.created_at,
+        )
+        for u in users
+    ]
+
+
+@router.post(
+    "/tenants/{tenant_id}/users/{user_id}/reset-password",
+    status_code=status.HTTP_200_OK,
+)
+async def api_reset_tenant_user_password(
+    tenant_id: str,
+    user_id: str,
+    body: PasswordResetRequest,
+    session: AsyncSession = Depends(get_session),
+    _admin: AdminUser = Depends(require_super_admin),
+) -> dict[str, str]:
+    """Force-reset a tenant admin user's password. Super admin only."""
+    from app.core.security import hash_password
+    from sqlalchemy import select
+
+    try:
+        t_uid = uuid.UUID(tenant_id)
+        u_uid = uuid.UUID(user_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Not found"
+        ) from None
+
+    result = await session.execute(
+        select(AdminUser).where(
+            AdminUser.id == u_uid,
+            AdminUser.tenant_id == t_uid,
+        )
+    )
+    user = result.scalar_one_or_none()
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found in this tenant"
+        )
+
+    user.hashed_password = hash_password(body.new_password)
+    await session.commit()
+    return {"detail": "Password reset successfully"}

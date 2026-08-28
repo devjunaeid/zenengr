@@ -52,10 +52,11 @@ async def create_tenant(
     plan_id: uuid.UUID,
     admin_email: str,
     admin_full_name: str,
+    admin_password: str | None = None,
 ) -> dict[str, Any]:
     """Create tenant + subscription + settings + tenant admin atomically.
 
-    Returns tenant data with temporary password.
+    Returns tenant data with the password (temp if not provided).
     """
     # Validate slug format
     if not validate_slug(slug):
@@ -119,8 +120,8 @@ async def create_tenant(
         session.add(ts)
     await session.flush()
 
-    # Create tenant admin user with random temp password
-    temp_password = secrets.token_urlsafe(16)
+    # Create tenant admin user — use provided password or generate a random temp
+    temp_password = admin_password if admin_password else secrets.token_urlsafe(16)
     admin_user = AdminUser(
         tenant_id=tenant.id,
         email=email,

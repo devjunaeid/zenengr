@@ -15,6 +15,7 @@
 	let planId = $state(untrack(() => data.plans[0]?.id ?? ''));
 	let adminEmail = $state('');
 	let adminFullName = $state('');
+	let adminPassword = $state('');
 	let busy = $state(false);
 	/** @type {string|null} */
 	let error = $state(null);
@@ -59,7 +60,8 @@
 				slug: slug.trim(),
 				plan_id: planId,
 				admin_email: adminEmail,
-				admin_full_name: adminFullName
+				admin_full_name: adminFullName,
+				...(adminPassword ? { admin_password: adminPassword } : {})
 			});
 		} catch (e) {
 			error = e instanceof ApiError ? e.message : 'Unable to reach the server. Try again.';
@@ -241,6 +243,26 @@
 					class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
 				/>
 			</div>
+		</div>
+
+		<div>
+			<label for="admin_password" class="block text-sm font-medium text-slate-700">
+				Admin password
+				<span class="ml-1 text-xs font-normal text-slate-400">(leave blank to auto-generate)</span>
+			</label>
+			<input
+				id="admin_password"
+				type="password"
+				bind:value={adminPassword}
+				minlength="8"
+				maxlength="128"
+				autocomplete="new-password"
+				placeholder="Min 8 characters, or leave blank"
+				class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+			/>
+			{#if adminPassword && adminPassword.length < 8}
+				<p class="mt-1 text-xs text-red-600">Password must be at least 8 characters.</p>
+			{/if}
 		</div>
 
 		<div class="flex items-center gap-3 border-t border-slate-200 pt-5">

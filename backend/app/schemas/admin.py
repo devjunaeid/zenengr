@@ -57,6 +57,7 @@ class TenantCreateRequest(BaseModel):
     plan_id: uuid.UUID
     admin_email: EmailStr
     admin_full_name: str = Field(..., min_length=1, max_length=255)
+    admin_password: str | None = Field(default=None, min_length=8, max_length=128)
 
 
 class TenantCreateResponse(BaseModel):
@@ -160,3 +161,21 @@ class SubscriptionUpdateRequest(BaseModel):
     status: SubscriptionStatus | None = None
     billing_cycle: BillingCycle | None = None
     renewal_date: date | None = None
+
+
+# ── Tenant user / password-reset schemas ─────────────────────────────────────
+
+
+class TenantUserItem(BaseModel):
+    id: uuid.UUID
+    email: str
+    full_name: str
+    role: str
+    is_active: bool
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class PasswordResetRequest(BaseModel):
+    new_password: str = Field(..., min_length=8, max_length=128)

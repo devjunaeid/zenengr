@@ -55,7 +55,7 @@ export function slugAvailable(fetchFn, token, slug) {
 /**
  * @param {typeof fetch} fetchFn
  * @param {string} token
- * @param {{ business_name: string, slug: string, plan_id: string, admin_email: string, admin_full_name: string }} body
+ * @param {{ business_name: string, slug: string, plan_id: string, admin_email: string, admin_full_name: string, admin_password?: string }} body
  * @returns {Promise<{ id: string, business_name: string, slug: string, status: string, plan_id: string, admin_email: string, temp_password: string }>}
  */
 export function createTenant(fetchFn, token, body) {
@@ -211,5 +211,30 @@ export function setPlanFlagDefault(fetchFn, token, planId, key, enabled) {
 		method: 'PUT',
 		token,
 		body: { enabled }
+	});
+}
+
+/**
+ * @param {typeof fetch} fetchFn
+ * @param {string} token
+ * @param {string} tenantId
+ * @returns {Promise<Array<{ id: string, email: string, full_name: string, role: string, is_active: boolean, created_at: string }>>}
+ */
+export function listTenantUsers(fetchFn, token, tenantId) {
+	return apiFetch(fetchFn, `/admin/tenants/${tenantId}/users`, { token });
+}
+
+/**
+ * @param {typeof fetch} fetchFn
+ * @param {string} token
+ * @param {string} tenantId
+ * @param {string} userId
+ * @param {string} newPassword
+ */
+export function resetTenantUserPassword(fetchFn, token, tenantId, userId, newPassword) {
+	return apiFetch(fetchFn, `/admin/tenants/${tenantId}/users/${userId}/reset-password`, {
+		method: 'POST',
+		token,
+		body: { new_password: newPassword }
 	});
 }

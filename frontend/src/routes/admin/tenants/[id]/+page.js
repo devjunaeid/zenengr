@@ -10,7 +10,7 @@ export async function load({ fetch, params, url }) {
 	const auditPage = Math.max(1, Number(url.searchParams.get('apage') ?? '1') || 1);
 	const auditAction = url.searchParams.get('action') ?? '';
 
-	const [tenant, plans, flags, audit, settings] = await Promise.all([
+	const [tenant, plans, flags, audit, settings, users] = await Promise.all([
 		adminApi.getTenant(fetch, token, id),
 		adminApi.listPlans(fetch, token),
 		adminApi.getFlags(fetch, token, id),
@@ -19,7 +19,8 @@ export async function load({ fetch, params, url }) {
 			page_size: 20,
 			action: auditAction
 		}),
-		adminApi.getTenantSettings(fetch, token, id)
+		adminApi.getTenantSettings(fetch, token, id),
+		adminApi.listTenantUsers(fetch, token, id)
 	]);
 
 	// Subscription is optional; 404 means none exists yet.
@@ -30,5 +31,5 @@ export async function load({ fetch, params, url }) {
 		if (!(e instanceof ApiError && e.status === 404)) throw e;
 	}
 
-	return { tenant, plans, flags, subscription, audit, settings, auditAction };
+	return { tenant, plans, flags, subscription, audit, settings, auditAction, users };
 }
