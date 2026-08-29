@@ -4,9 +4,11 @@
 	import { resolve } from '$app/paths';
 	import { SvelteMap } from 'svelte/reactivity';
 	import { ApiError } from '$lib/api/client.js';
+	import { toast } from 'svelte-sonner';
 	import * as invoiceApi from '$lib/api/invoices.js';
 	import * as projectApi from '$lib/api/projects.js';
 	import * as serviceApi from '$lib/api/services.js';
+	import * as purchaseApi from '$lib/api/purchaseEntries.js';
 	import AssigneePicker from '$lib/components/AssigneePicker.svelte';
 	import CommentThread from '$lib/components/CommentThread.svelte';
 	import MilestoneStatusSelector from '$lib/components/MilestoneStatusSelector.svelte';
@@ -21,6 +23,8 @@
 	import FileCard from '$lib/components/FileCard.svelte';
 	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
 	import Icon from '@iconify/svelte';
+	import cartOutline from '@iconify-icons/mdi/cart-outline';
+	import cart from '@iconify-icons/mdi/cart';
 	import account from '@iconify-icons/mdi/account';
 	import apps from '@iconify-icons/mdi/apps';
 	import arrowDown from '@iconify-icons/mdi/arrow-down';
@@ -150,7 +154,7 @@
 				await filesApi.uploadFile(fetch, token, fd);
 			}
 			showFileUploadModal = false;
-			actionMsg = `${files.length} file(s) uploaded successfully.`;
+			toast.success(`${files.length} file(s) uploaded successfully.`);
 			await invalidateAll();
 		} catch (err) {
 			uploadErr = err instanceof ApiError ? err.message : 'Upload failed.';
@@ -172,10 +176,10 @@
 		try {
 			await filesApi.deleteFile(fetch, token, deleteFileTarget.id);
 			deleteFileTarget = null;
-			actionMsg = 'File removed successfully.';
+			toast.success('File removed successfully.');
 			await invalidateAll();
 		} catch (err) {
-			actionErr = err instanceof ApiError ? err.message : 'Failed to delete file.';
+			toast.error(err instanceof ApiError ? err.message : 'Failed to delete file.');
 		} finally {
 			deleteFileBusy = false;
 		}
@@ -225,13 +229,12 @@
 
 	async function issueProjectInvoice(inv) {
 		issueBusyId = inv.id;
-		actionErr = null;
 		try {
 			await invoiceApi.issueInvoice(fetch, token, inv.id);
-			actionMsg = `Invoice ${inv.invoice_number || ''} issued successfully.`;
+			toast.success(`Invoice ${inv.invoice_number || ''} issued successfully.`);
 			await invalidateAll();
 		} catch (e) {
-			actionErr = e instanceof ApiError ? e.message : 'Could not issue invoice.';
+			toast.error(e instanceof ApiError ? e.message : 'Could not issue invoice.');
 		} finally {
 			issueBusyId = null;
 		}
@@ -239,11 +242,10 @@
 
 	async function downloadSingleInvoicePdf(inv) {
 		pdfBusyId = inv.id;
-		actionErr = null;
 		try {
 			await invoiceApi.downloadInvoicePdf(fetch, token, inv.id, `${inv.invoice_number || 'invoice'}.pdf`);
 		} catch (e) {
-			actionErr = e instanceof ApiError ? e.message : 'Could not download invoice PDF.';
+			toast.error(e instanceof ApiError ? e.message : 'Could not download invoice PDF.');
 		} finally {
 			pdfBusyId = null;
 		}
@@ -255,20 +257,18 @@
 	let canManageMilestones = $derived(auth.can('manage', 'milestones'));
 	let isEmployee = $derived(auth.user?.role === 'employee');
 
-	let actionErr = $state(null);
-	let actionMsg = $state(null);
+
+
 	let statusBusy = $state(false);
 
 	async function changeStatus(next) {
 		statusBusy = true;
-		actionErr = null;
-		actionMsg = null;
 		try {
 			await projectApi.updateProject(fetch, token, data.project.id, { status: next });
-			actionMsg = `Status changed to ${humanize(next)}.`;
+			toast.success(`Status changed to ${humanize(next)}.`);
 			await invalidateAll();
 		} catch (e) {
-			actionErr = e instanceof ApiError ? e.message : 'Status change failed.';
+			toast.error(e instanceof ApiError ? e.message : 'Status change failed.');
 		} finally {
 			statusBusy = false;
 		}
@@ -389,13 +389,11 @@
 
 	async function patchMilestone(m, patch) {
 		milestoneBusy = { ...milestoneBusy, [m.id]: true };
-		actionErr = null;
-		actionMsg = null;
 		try {
 			await projectApi.updateMilestone(fetch, token, data.project.id, m.id, patch);
 			await invalidateAll();
 		} catch (e) {
-			actionErr = e instanceof ApiError ? e.message : 'Update failed.';
+			toast.error(e instanceof ApiError ? e.message : 'Update failed.');
 		} finally {
 			const next = { ...milestoneBusy };
 			delete next[m.id];
@@ -638,7 +636,7 @@
 			const inv = await projectApi.generateStatementInvoice(fetch, token, data.project.id);
 			generateOpen = false;
 			statementOpen = false;
-			actionMsg = `Statement invoice ${inv.invoice_number} generated and issued.`;
+			toast.success(`Statement invoice ${inv.invoice_number} generated and issued.`);
 			await invalidateAll();
 		} catch (e) {
 			generateErr = e instanceof ApiError ? e.message : 'Could not generate statement invoice.';
@@ -680,12 +678,193 @@
 				reference_note: paymentNote.trim()
 			});
 			paymentOpen = false;
-			actionMsg = 'Payment recorded successfully.';
+			toast.success('Payment recorded successfully.');
 			await invalidateAll();
 		} catch (e) {
 			paymentErr = e instanceof ApiError ? e.message : 'Could not record payment.';
 		} finally {
 			paymentBusy = false;
+		}
+	}
+	// ── Purchase Entries State ───────────────────────────────────────────────
+	/** @type {import('$lib/api/purchaseEntries.js').PurchaseEntryListItem[]} */
+	let purchaseList = $state([]);
+	let purchaseListLoading = $state(false);
+	let purchaseListLoaded = $state(false);
+	let purchaseListErr = $state(null);
+	let purchaseGrandTotal = $derived(
+		purchaseList.reduce((s, e) => s + (Number(e.grand_total) || 0), 0)
+	);
+
+	// add/edit modal
+	let purchaseModalOpen = $state(false);
+	let purchaseModalBusy = $state(false);
+	let purchaseModalErr = $state(null);
+	/** @type {import('$lib/api/purchaseEntries.js').PurchaseEntry|null} */
+	let purchaseEditTarget = $state(null); // null = create new
+	let purchaseTitle = $state('');
+	let purchaseNotes = $state('');
+	let purchaseEntryDate = $state('');
+	/** @type {{ id: string|null, item_date: string, description: string, quantity: string, rate: string }[]} */
+	let purchaseRows = $state([]);
+
+	function purchaseRowTotal(row) {
+		const q = Number(row.quantity);
+		const r = Number(row.rate);
+		if (!Number.isFinite(q) || !Number.isFinite(r) || q <= 0 || r < 0) return null;
+		return q * r;
+	}
+
+	let purchaseFormGrandTotal = $derived(
+		purchaseRows.reduce((s, row) => {
+			const t = purchaseRowTotal(row);
+			return s + (t ?? 0);
+		}, 0)
+	);
+
+	function addPurchaseRow() {
+		purchaseRows = [
+			...purchaseRows,
+			{ id: null, item_date: '', description: '', quantity: '1', rate: '' }
+		];
+	}
+
+	function removePurchaseRow(i) {
+		purchaseRows = purchaseRows.filter((_, idx) => idx !== i);
+	}
+
+	async function loadPurchaseEntries() {
+		if (purchaseListLoading) return;
+		purchaseListLoading = true;
+		purchaseListErr = null;
+		try {
+			const res = await purchaseApi.listPurchaseEntries(fetch, token, data.project.id);
+			purchaseList = res.items;
+			purchaseListLoaded = true;
+		} catch (e) {
+			purchaseListErr = e instanceof ApiError ? e.message : 'Could not load purchase entries.';
+		} finally {
+			purchaseListLoading = false;
+		}
+	}
+
+	function openNewPurchaseModal() {
+		purchaseEditTarget = null;
+		purchaseTitle = '';
+		purchaseNotes = '';
+		purchaseEntryDate = new Date().toISOString().slice(0, 10);
+		purchaseRows = [{ id: null, item_date: '', description: '', quantity: '1', rate: '' }];
+		purchaseModalErr = null;
+		purchaseModalOpen = true;
+	}
+
+	/** @param {import('$lib/api/purchaseEntries.js').PurchaseEntry} entry */
+	function openEditPurchaseModal(entry) {
+		purchaseEditTarget = entry;
+		purchaseTitle = entry.title;
+		purchaseNotes = entry.notes;
+		purchaseEntryDate = entry.entry_date ?? '';
+		purchaseRows = entry.items.map((item) => ({
+			id: item.id,
+			item_date: item.item_date ?? '',
+			description: item.description,
+			quantity: item.quantity,
+			rate: item.rate
+		}));
+		purchaseModalErr = null;
+		purchaseModalOpen = true;
+	}
+
+	async function savePurchaseEntry() {
+		purchaseModalErr = null;
+		if (purchaseRows.length === 0) {
+			purchaseModalErr = 'Add at least one item.';
+			return;
+		}
+		for (const row of purchaseRows) {
+			if (!row.description.trim()) {
+				purchaseModalErr = 'All rows must have a description.';
+				return;
+			}
+			const q = Number(row.quantity);
+			const r = Number(row.rate);
+			if (!Number.isFinite(q) || q <= 0) {
+				purchaseModalErr = 'Quantity must be a positive number.';
+				return;
+			}
+			if (!Number.isFinite(r) || r < 0) {
+				purchaseModalErr = 'Rate must be 0 or more.';
+				return;
+			}
+		}
+		purchaseModalBusy = true;
+		const body = {
+			title: purchaseTitle.trim(),
+			notes: purchaseNotes.trim(),
+			entry_date: purchaseEntryDate || null,
+			items: purchaseRows.map((r) => ({
+				item_date: r.item_date || null,
+				description: r.description.trim(),
+				quantity: r.quantity,
+				rate: r.rate
+			}))
+		};
+		try {
+			if (purchaseEditTarget) {
+				await purchaseApi.updatePurchaseEntry(fetch, token, data.project.id, purchaseEditTarget.id, body);
+				toast.success('Purchase entry updated.');
+			} else {
+				await purchaseApi.createPurchaseEntry(fetch, token, data.project.id, body);
+				toast.success('Purchase entry added.');
+			}
+			purchaseModalOpen = false;
+			purchaseListLoaded = false;
+			await loadPurchaseEntries();
+		} catch (e) {
+			purchaseModalErr = e instanceof ApiError ? e.message : 'Could not save purchase entry.';
+		} finally {
+			purchaseModalBusy = false;
+		}
+	}
+
+	// invoice-style view
+	/** @type {import('$lib/api/purchaseEntries.js').PurchaseEntry|null} */
+	let purchaseViewEntry = $state(null);
+	let purchaseViewLoading = $state(false);
+	let purchaseViewErr = $state(null);
+
+	/** @param {import('$lib/api/purchaseEntries.js').PurchaseEntryListItem} listItem */
+	async function openPurchaseView(listItem) {
+		purchaseViewEntry = null;
+		purchaseViewLoading = true;
+		purchaseViewErr = null;
+		try {
+			purchaseViewEntry = await purchaseApi.getPurchaseEntry(fetch, token, data.project.id, listItem.id);
+		} catch (e) {
+			purchaseViewErr = e instanceof ApiError ? e.message : 'Could not load entry.';
+		} finally {
+			purchaseViewLoading = false;
+		}
+	}
+
+	// delete
+	/** @type {import('$lib/api/purchaseEntries.js').PurchaseEntryListItem|null} */
+	let purchaseDeleteTarget = $state(null);
+	let purchaseDeleteBusy = $state(false);
+
+	async function executePurchaseDelete() {
+		if (!purchaseDeleteTarget) return;
+		purchaseDeleteBusy = true;
+		try {
+			await purchaseApi.deletePurchaseEntry(fetch, token, data.project.id, purchaseDeleteTarget.id);
+			purchaseDeleteTarget = null;
+			toast.success('Purchase entry deleted.');
+			purchaseListLoaded = false;
+			await loadPurchaseEntries();
+		} catch (e) {
+			toast.error(e instanceof ApiError ? e.message : 'Could not delete entry.');
+		} finally {
+			purchaseDeleteBusy = false;
 		}
 	}
 </script>
@@ -747,23 +926,6 @@
 		class="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800"
 	>
 		View only — contact an admin to make changes.
-	</p>
-{/if}
-
-{#if actionErr}
-	<p
-		role="alert"
-		class="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
-	>
-		{actionErr}
-	</p>
-{/if}
-{#if actionMsg}
-	<p
-		role="status"
-		class="mt-3 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800"
-	>
-		{actionMsg}
 	</p>
 {/if}
 
@@ -850,6 +1012,25 @@
 		>
 			<Icon icon={comment} class="h-4 w-4" />
 			Comments
+		</button>
+		<button
+			type="button"
+			onclick={() => {
+				activeTab = 'purchases';
+				if (!purchaseListLoaded) loadPurchaseEntries();
+			}}
+			class="flex items-center gap-2 border-b-2 py-3 px-2 text-sm font-medium {activeTab === 'purchases'
+				? 'border-indigo-600 text-indigo-600'
+				: 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700'}"
+			id="tab-purchases"
+		>
+			<Icon icon={cartOutline} class="h-4 w-4" />
+			Purchases
+			{#if purchaseList.length > 0}
+				<span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
+					{purchaseList.length}
+				</span>
+			{/if}
 		</button>
 	</nav>
 </div>
@@ -1648,6 +1829,395 @@
 	</div>
 </section>
 {/if}
+
+{#if activeTab === 'purchases'}
+<!-- ═══════════════════════════════ PURCHASES TAB ════════════════════════════ -->
+<section class="mt-6 space-y-5" aria-labelledby="purchases-h">
+
+	<!-- Header row -->
+	<div class="flex flex-wrap items-center justify-between gap-3">
+		<div>
+			<h2 id="purchases-h" class="text-lg font-semibold text-slate-900 flex items-center gap-2">
+				<Icon icon={cart} class="h-5 w-5 text-indigo-500" />
+				Project Purchases
+			</h2>
+			<p class="text-xs text-slate-500 mt-0.5">Record purchase costs for this project.</p>
+		</div>
+		{#if canManage}
+			<button
+				type="button"
+				onclick={openNewPurchaseModal}
+				class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 transition-colors focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+				id="btn-new-purchase"
+			>
+				<Icon icon={plusCircle} class="h-4 w-4" />
+				New Entry
+			</button>
+		{/if}
+	</div>
+
+	{#if purchaseListErr}
+		<p role="alert" class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{purchaseListErr}</p>
+	{/if}
+
+	{#if purchaseListLoading}
+		<div class="flex items-center gap-2 py-8 justify-center text-slate-500">
+			<Spinner class="h-5 w-5 text-indigo-600" /> Loading purchases…
+		</div>
+	{:else if purchaseList.length === 0}
+		<div class="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 bg-white py-16 text-center">
+			<div class="flex h-14 w-14 items-center justify-center rounded-full bg-indigo-50 mb-4">
+				<Icon icon={cart} class="h-7 w-7 text-indigo-400" />
+			</div>
+			<p class="text-sm font-medium text-slate-700">No purchase entries yet</p>
+			<p class="mt-1 text-xs text-slate-400">Click <strong>New Entry</strong> to record the first purchase.</p>
+		</div>
+	{:else}
+		<!-- Grand total summary bar -->
+		<div class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 flex items-center justify-between">
+			<span class="text-sm font-medium text-slate-500">Total Purchased (all entries)</span>
+			<span class="text-xl font-bold text-slate-900">{fmtPrice(purchaseGrandTotal)}</span>
+		</div>
+
+		<!-- Entry cards -->
+		<div class="space-y-3">
+			{#each purchaseList as entry (entry.id)}
+				<div class="rounded-xl border border-slate-200 bg-white shadow-xs hover:shadow-sm transition-shadow">
+					<div class="flex flex-wrap items-start justify-between gap-3 p-4 border-b border-slate-100">
+						<div class="flex-1 min-w-0">
+							<p class="text-sm font-semibold text-slate-900 truncate">
+								{entry.title || 'Untitled Entry'}
+							</p>
+							<p class="text-xs text-slate-400 mt-0.5">
+								{#if entry.entry_date}{formatDate(entry.entry_date)} ·{/if}
+								{entry.item_count} {entry.item_count === 1 ? 'item' : 'items'}
+							</p>
+						</div>
+						<div class="flex items-center gap-3">
+							<span class="text-base font-bold text-indigo-700">{fmtPrice(entry.grand_total)}</span>
+							<button
+								type="button"
+								onclick={() => openPurchaseView(entry)}
+								class="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-700 transition-colors"
+								title="Invoice-style view"
+							>View</button>
+							{#if canManage}
+								<button
+									type="button"
+									onclick={async () => {
+										const full = await purchaseApi.getPurchaseEntry(fetch, token, data.project.id, entry.id);
+										openEditPurchaseModal(full);
+									}}
+									class="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100 transition-colors"
+								>Edit</button>
+								<button
+									type="button"
+									onclick={() => (purchaseDeleteTarget = entry)}
+									class="rounded-md border border-red-100 bg-red-50 px-2.5 py-1 text-xs font-medium text-red-600 hover:bg-red-100 transition-colors"
+								>Delete</button>
+							{/if}
+						</div>
+					</div>
+				</div>
+			{/each}
+		</div>
+	{/if}
+</section>
+{/if}
+
+<!-- ═══════════════ Purchase Entry — Add/Edit Modal ═══════════════════════ -->
+{#if purchaseModalOpen}
+	<div
+		class="fixed inset-0 z-50 flex items-start justify-center bg-slate-900/60 p-4 pt-12 backdrop-blur-xs overflow-y-auto"
+		role="dialog"
+		aria-modal="true"
+		aria-labelledby="purchase-modal-title"
+	>
+		<div class="w-full max-w-3xl rounded-2xl bg-white shadow-2xl">
+			<!-- Modal header -->
+			<div class="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+				<div>
+					<h2 id="purchase-modal-title" class="text-base font-semibold text-slate-900">
+						{purchaseEditTarget ? 'Edit Purchase Entry' : 'New Purchase Entry'}
+					</h2>
+					<p class="text-xs text-slate-400 mt-0.5">All items belong to this entry. Totals are computed automatically.</p>
+				</div>
+				<button
+					type="button"
+					onclick={() => (purchaseModalOpen = false)}
+					class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+					aria-label="Close"
+				>
+					<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+				</button>
+			</div>
+
+			<div class="px-6 py-5 space-y-5">
+				<!-- Header fields -->
+				<div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+					<div class="sm:col-span-2">
+						<label for="pe-title" class="block text-xs font-medium text-slate-600 mb-1">Entry Title</label>
+						<input
+							id="pe-title"
+							type="text"
+							bind:value={purchaseTitle}
+							placeholder="e.g. Raw materials — August"
+							class="w-full rounded-lg border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+						/>
+					</div>
+					<div>
+						<label for="pe-date" class="block text-xs font-medium text-slate-600 mb-1">Entry Date</label>
+						<input
+							id="pe-date"
+							type="date"
+							bind:value={purchaseEntryDate}
+							class="w-full rounded-lg border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+						/>
+					</div>
+				</div>
+
+				<div>
+					<label for="pe-notes" class="block text-xs font-medium text-slate-600 mb-1">Notes <span class="text-slate-400">(optional)</span></label>
+					<textarea
+						id="pe-notes"
+						bind:value={purchaseNotes}
+						rows="2"
+						placeholder="Additional notes…"
+						class="w-full rounded-lg border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 resize-none"
+					></textarea>
+				</div>
+
+				<!-- Line items table -->
+				<div>
+					<div class="flex items-center justify-between mb-2">
+						<span class="text-xs font-semibold text-slate-700 uppercase tracking-wider">Items</span>
+					</div>
+					<div class="overflow-x-auto rounded-lg border border-slate-200">
+						<table class="w-full text-sm">
+							<thead class="bg-slate-50 border-b border-slate-200">
+								<tr>
+									<th class="px-3 py-2 text-left text-xs font-semibold text-slate-500 w-28">Date</th>
+									<th class="px-3 py-2 text-left text-xs font-semibold text-slate-500">Description</th>
+									<th class="px-3 py-2 text-right text-xs font-semibold text-slate-500 w-24">Qty</th>
+									<th class="px-3 py-2 text-right text-xs font-semibold text-slate-500 w-28">Rate</th>
+									<th class="px-3 py-2 text-right text-xs font-semibold text-slate-500 w-28">Total</th>
+									<th class="px-3 py-2 w-10"></th>
+								</tr>
+							</thead>
+							<tbody class="divide-y divide-slate-100">
+								{#each purchaseRows as row, i (i)}
+									{@const rt = purchaseRowTotal(row)}
+									<tr class="hover:bg-slate-50/60 transition-colors">
+										<td class="px-2 py-1.5">
+											<input
+												type="date"
+												id={`pe-row-date-${i}`}
+												bind:value={purchaseRows[i].item_date}
+												class="w-full rounded border-slate-200 text-xs focus:border-indigo-400 focus:ring-indigo-400"
+											/>
+										</td>
+										<td class="px-2 py-1.5">
+											<input
+												type="text"
+												id={`pe-row-desc-${i}`}
+												bind:value={purchaseRows[i].description}
+												placeholder="Item description"
+												class="w-full rounded border-slate-200 text-xs focus:border-indigo-400 focus:ring-indigo-400"
+											/>
+										</td>
+										<td class="px-2 py-1.5">
+											<input
+												type="number"
+												id={`pe-row-qty-${i}`}
+												min="0.01"
+												step="0.01"
+												bind:value={purchaseRows[i].quantity}
+												class="w-full rounded border-slate-200 text-xs text-right focus:border-indigo-400 focus:ring-indigo-400"
+											/>
+										</td>
+										<td class="px-2 py-1.5">
+											<input
+												type="number"
+												id={`pe-row-rate-${i}`}
+												min="0"
+												step="0.01"
+												bind:value={purchaseRows[i].rate}
+												placeholder="0.00"
+												class="w-full rounded border-slate-200 text-xs text-right focus:border-indigo-400 focus:ring-indigo-400"
+											/>
+										</td>
+										<td class="px-2 py-1.5 text-right">
+											<span class="text-xs font-semibold {rt !== null ? 'text-slate-800' : 'text-slate-300'}">
+												{rt !== null ? fmtPrice(rt) : '—'}
+											</span>
+										</td>
+										<td class="px-2 py-1.5 text-center">
+											<button
+												type="button"
+												onclick={() => removePurchaseRow(i)}
+												class="rounded p-1 text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+												aria-label="Remove row"
+											>
+												<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+											</button>
+										</td>
+									</tr>
+								{/each}
+							</tbody>
+							<!-- Grand total footer -->
+							<tfoot class="bg-indigo-50 border-t-2 border-indigo-200">
+								<tr>
+									<td colspan="4" class="px-3 py-2.5 text-right text-sm font-bold text-indigo-700">Grand Total</td>
+									<td class="px-3 py-2.5 text-right text-sm font-bold text-indigo-700">{fmtPrice(purchaseFormGrandTotal)}</td>
+									<td></td>
+								</tr>
+							</tfoot>
+						</table>
+					</div>
+					<button
+						type="button"
+						onclick={addPurchaseRow}
+						class="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-indigo-600 hover:text-indigo-800 transition-colors"
+						id="btn-add-row"
+					>
+						<Icon icon={plusCircle} class="h-4 w-4" /> Add Row
+					</button>
+				</div>
+
+				{#if purchaseModalErr}
+					<p role="alert" class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{purchaseModalErr}</p>
+				{/if}
+			</div>
+
+			<!-- Modal footer -->
+			<div class="flex items-center justify-end gap-3 border-t border-slate-100 px-6 py-4">
+				<button
+					type="button"
+					onclick={() => (purchaseModalOpen = false)}
+					class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+					disabled={purchaseModalBusy}
+				>Cancel</button>
+				<button
+					type="button"
+					onclick={savePurchaseEntry}
+					disabled={purchaseModalBusy}
+					class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-60"
+					id="btn-save-purchase"
+				>
+					{#if purchaseModalBusy}<Spinner class="h-4 w-4 text-white" />{/if}
+					Save Entry
+				</button>
+			</div>
+		</div>
+	</div>
+{/if}
+
+<!-- ═══════════════ Purchase Entry — Invoice-Style View ═══════════════════ -->
+{#if purchaseViewEntry || purchaseViewLoading || purchaseViewErr}
+	<div
+		class="fixed inset-0 z-50 flex items-start justify-center bg-slate-900/60 p-4 pt-12 backdrop-blur-xs overflow-y-auto"
+		role="dialog"
+		aria-modal="true"
+		aria-labelledby="purchase-view-title"
+	>
+		<div class="w-full max-w-2xl rounded-2xl bg-white shadow-2xl">
+			<!-- View header -->
+			<div class="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+				<h2 id="purchase-view-title" class="text-base font-semibold text-slate-900">Purchase Entry — Detail View</h2>
+				<button
+					type="button"
+					onclick={() => { purchaseViewEntry = null; purchaseViewErr = null; }}
+					class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+					aria-label="Close"
+				>
+					<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+				</button>
+			</div>
+
+			<div class="px-6 py-6">
+				{#if purchaseViewLoading}
+					<div class="flex items-center justify-center py-12">
+						<Spinner class="h-8 w-8 text-indigo-600" />
+					</div>
+				{:else if purchaseViewErr}
+					<p role="alert" class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{purchaseViewErr}</p>
+				{:else if purchaseViewEntry}
+					<!-- Invoice-style document -->
+					<div class="rounded-xl border border-slate-200 overflow-hidden">
+						<!-- Document header -->
+						<div class="border-b border-slate-200 bg-white px-6 py-5">
+							<div class="flex items-start justify-between gap-4">
+								<div>
+									<p class="text-xs uppercase tracking-widest text-slate-400 font-semibold">Purchase Entry</p>
+									<h3 class="mt-1 text-lg font-bold text-slate-900">{purchaseViewEntry.title || 'Untitled Entry'}</h3>
+									<p class="mt-0.5 text-sm text-slate-500">{data.project.name}</p>
+								</div>
+								<div class="text-right">
+									{#if purchaseViewEntry.entry_date}
+										<p class="text-xs text-slate-400">Date</p>
+										<p class="text-sm font-semibold text-slate-700">{formatDate(purchaseViewEntry.entry_date)}</p>
+									{/if}
+								</div>
+							</div>
+							{#if purchaseViewEntry.notes}
+								<p class="mt-3 text-sm text-slate-500 border-t border-slate-100 pt-3">{purchaseViewEntry.notes}</p>
+							{/if}
+						</div>
+
+						<!-- Line items table -->
+						<table class="w-full text-sm">
+							<thead class="bg-slate-50 border-b border-slate-200">
+								<tr>
+									<th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Date</th>
+									<th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Description</th>
+									<th class="px-4 py-2.5 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Qty</th>
+									<th class="px-4 py-2.5 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Rate</th>
+									<th class="px-4 py-2.5 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Total</th>
+								</tr>
+							</thead>
+							<tbody class="divide-y divide-slate-100 bg-white">
+								{#each purchaseViewEntry.items as item (item.id)}
+									<tr>
+										<td class="px-4 py-3 text-slate-500 text-xs whitespace-nowrap">{item.item_date ? formatDate(item.item_date) : '—'}</td>
+										<td class="px-4 py-3 text-slate-800">{item.description}</td>
+										<td class="px-4 py-3 text-right text-slate-600">{item.quantity}</td>
+										<td class="px-4 py-3 text-right text-slate-600">{fmtPrice(item.rate)}</td>
+										<td class="px-4 py-3 text-right font-medium text-slate-800">{fmtPrice(item.total)}</td>
+									</tr>
+								{/each}
+							</tbody>
+						</table>
+
+						<!-- Grand total footer -->
+						<div class="border-t border-slate-200 bg-slate-50 px-4 py-3 flex items-center justify-between">
+							<span class="text-sm font-semibold text-slate-500 uppercase tracking-wider">Total Purchased</span>
+							<span class="text-xl font-bold text-slate-900">{fmtPrice(purchaseViewEntry.grand_total)}</span>
+						</div>
+					</div>
+				{/if}
+			</div>
+		</div>
+	</div>
+{/if}
+
+<!-- Delete purchase entry confirmation -->
+<ConfirmDialog
+	bind:open={
+		() => purchaseDeleteTarget !== null,
+		(v) => {
+			if (!v) purchaseDeleteTarget = null;
+		}
+	}
+	title="Delete Purchase Entry"
+	description={purchaseDeleteTarget
+		? `Permanently delete "${purchaseDeleteTarget.title || 'this entry'}" and all its items?`
+		: ''}
+	confirmLabel="Delete"
+	destructive
+	busy={purchaseDeleteBusy}
+	onconfirm={executePurchaseDelete}
+/>
+
 
 <!-- Add adjustment dialog -->
 <Dialog.Root bind:open={adjustOpen}>

@@ -50,6 +50,7 @@ from app.models.plan_feature_default import PlanFeatureDefault
 from app.models.project import Project
 from app.models.project_milestone import ProjectMilestone
 from app.models.project_service import ProjectService
+from app.models.purchase_entry import PurchaseEntry, PurchaseEntryItem
 from app.models.role import Role, RolePermission
 from app.models.service import Service
 from app.models.tenant import Tenant
@@ -90,6 +91,8 @@ __all__ = [
     "RolePermission",
     "Transaction",
     "PaymentAllocation",
+    "PurchaseEntry",
+    "PurchaseEntryItem",
     "ClientPasswordResetToken",
     "EmailVerificationToken",
     "NotificationPreference",

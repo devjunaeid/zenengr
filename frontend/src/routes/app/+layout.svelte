@@ -3,6 +3,7 @@
 	import { resolve } from '$app/paths';
 	import { navigating, page } from '$app/state';
 	import Icon from '@iconify/svelte';
+	import { Toaster } from 'svelte-sonner';
 	import viewDashboard from '@iconify-icons/mdi/view-dashboard';
 	import accountGroup from '@iconify-icons/mdi/account-group';
 	import accountMultiple from '@iconify-icons/mdi/account-multiple';
@@ -144,3 +145,10 @@
 		</main>
 	</div>
 </div>
+
+<Toaster
+	position="top-right"
+	richColors
+	closeButton
+	duration={3500}
+/>
