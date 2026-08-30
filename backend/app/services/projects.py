@@ -19,17 +19,19 @@ from typing import Any
 from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.models.client import Client
 from app.models.enums import (
     ActorType,
     MilestoneStatus,
+    ProjectMemberRole,
     ProjectServiceStatus,
     ProjectStatus,
 )
 from app.models.invoice import Invoice, InvoiceLineItem
 from app.models.milestone_step_template import MilestoneStepTemplate
-from app.models.project import Project
+from app.models.project import Project, ProjectMember
 from app.models.project_milestone import ProjectMilestone
 from app.models.project_service import ProjectService
 from app.models.service import Service
@@ -37,7 +39,6 @@ from app.repositories import clients as client_repo
 from app.repositories import projects as project_repo
 from app.repositories import services as service_repo
 from app.services import financials as financials_service
-from app.services import invoices
 from app.services import ledger as ledger_service
 from app.services.audit import log as audit_log
 from app.services.notifications import (
@@ -283,6 +284,15 @@ async def create_project(
     )
     project.auto_invoice = False
 
+    if owner_id is not None:
+        owner_member = ProjectMember(
+            project_id=project.id,
+            user_id=owner_id,
+            role=ProjectMemberRole.LEAD,
+            tenant_id=tenant_id,
+        )
+        session.add(owner_member)
+
     for svc in services:
         override = (service_prices or {}).get(svc.id)
         await _attach_service_internal(
@@ -373,6 +383,7 @@ async def list_projects(
     page_size: int = 20,
     status_filter: ProjectStatus | None = None,
     client_id: uuid.UUID | None = None,
+    q: str | None = None,
     sort: str | None = None,
 ) -> dict[str, Any]:
     """List projects for a tenant. Returns items with rollup counts."""
@@ -383,6 +394,7 @@ async def list_projects(
         page_size=page_size,
         status=status_filter,
         client_id=client_id,
+        q=q,
         sort=sort,
     )
 
@@ -444,6 +456,25 @@ async def update_project(
     filtered = {k: v for k, v in updates.items() if v is not None}
     if not filtered:
         return await _reload_with_relations(session, project)
+
+    if "owner_id" in updates and updates["owner_id"] is not None:
+        new_owner_id = updates["owner_id"]
+        stmt = select(ProjectMember).where(
+            ProjectMember.project_id == project.id,
+            ProjectMember.user_id == new_owner_id,
+        )
+        existing_m = (await session.execute(stmt)).scalar_one_or_none()
+        if existing_m is None:
+            session.add(
+                ProjectMember(
+                    project_id=project.id,
+                    user_id=new_owner_id,
+                    role=ProjectMemberRole.LEAD,
+                    tenant_id=tenant_id,
+                )
+            )
+        else:
+            existing_m.role = ProjectMemberRole.LEAD
 
     changed_keys: list[str] = []
     for key, val in filtered.items():
@@ -723,3 +754,123 @@ async def update_milestone(
             await safe_notify(notify_milestone_completed(session, milestone_id=milestone.id))
 
     return milestone
+
+
+def serialize_member(m: ProjectMember) -> dict[str, Any]:
+    user = getattr(m, "user", None)
+    return {
+        "id": m.id,
+        "project_id": m.project_id,
+        "user_id": m.user_id,
+        "role": m.role,
+        "full_name": user.full_name if user else None,
+        "email": user.email if user else None,
+        "created_at": m.created_at,
+    }
+
+
+async def list_project_members(
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    project_id: uuid.UUID,
+) -> list[dict[str, Any]]:
+    project = await get_project(session, tenant_id=tenant_id, project_id=project_id)
+    return [serialize_member(m) for m in project.members]
+
+
+async def add_project_member(
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    project_id: uuid.UUID,
+    user_id: uuid.UUID,
+    role: ProjectMemberRole,
+) -> dict[str, Any]:
+    await get_project(session, tenant_id=tenant_id, project_id=project_id)
+    if not await _get_admin_user(session, tenant_id, user_id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found in tenant"
+        )
+
+    stmt = select(ProjectMember).where(
+        ProjectMember.project_id == project_id,
+        ProjectMember.user_id == user_id,
+    )
+    existing = (await session.execute(stmt)).scalar_one_or_none()
+    if existing is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="User is already a member of this project",
+        )
+
+    member = ProjectMember(
+        project_id=project_id,
+        user_id=user_id,
+        role=role,
+        tenant_id=tenant_id,
+    )
+    session.add(member)
+    await session.commit()
+
+    stmt = (
+        select(ProjectMember)
+        .options(selectinload(ProjectMember.user))
+        .where(ProjectMember.id == member.id)
+    )
+    member = (await session.execute(stmt)).scalar_one()
+    return serialize_member(member)
+
+
+async def update_project_member(
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    project_id: uuid.UUID,
+    member_id: uuid.UUID,
+    role: ProjectMemberRole,
+) -> dict[str, Any]:
+    await get_project(session, tenant_id=tenant_id, project_id=project_id)
+    stmt = (
+        select(ProjectMember)
+        .options(selectinload(ProjectMember.user))
+        .where(
+            ProjectMember.id == member_id,
+            ProjectMember.project_id == project_id,
+            ProjectMember.tenant_id == tenant_id,
+        )
+    )
+    member = (await session.execute(stmt)).scalar_one_or_none()
+    if member is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Project member not found"
+        )
+
+    member.role = role
+    await session.commit()
+    await session.refresh(member)
+    return serialize_member(member)
+
+
+async def remove_project_member(
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    project_id: uuid.UUID,
+    member_id: uuid.UUID,
+) -> None:
+    await get_project(session, tenant_id=tenant_id, project_id=project_id)
+    stmt = select(ProjectMember).where(
+        ProjectMember.id == member_id,
+        ProjectMember.project_id == project_id,
+        ProjectMember.tenant_id == tenant_id,
+    )
+    member = (await session.execute(stmt)).scalar_one_or_none()
+    if member is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Project member not found"
+        )
+
+    await session.delete(member)
+    await session.commit()
+

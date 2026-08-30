@@ -9,16 +9,25 @@ import uuid
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import String, cast, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.enums import ProjectStatus
-from app.models.project import Project
+from app.models.project import Project, ProjectMember
 from app.models.project_milestone import ProjectMilestone
 from app.models.project_service import ProjectService
 
 # ── Project lookups ─────────────────────────────────────────────────────────
+
+
+async def get_project_by_id(
+    session: AsyncSession, project_id: uuid.UUID
+) -> Project | None:
+    """Fetch a project by PK (tenant un-isolated internal helper)."""
+    stmt = select(Project).where(Project.id == project_id)
+    result = await session.execute(stmt)
+    return result.scalar_one_or_none()
 
 
 async def get_project_for_tenant(
@@ -39,15 +48,17 @@ async def get_project_for_tenant_with_services(
     tenant_id: uuid.UUID,
     project_id: uuid.UUID,
 ) -> Project | None:
-    """Fetch a project with services (eager-loaded with their Service) + milestones.
+    """Fetch a project with services (eager-loaded with their Service) + milestones + members.
 
     Used by get/detail endpoints to build full response without N+1.
     """
     stmt = (
         select(Project)
         .options(
+            selectinload(Project.owner),
             selectinload(Project.project_services).selectinload(ProjectService.service),
             selectinload(Project.milestones),
+            selectinload(Project.members).selectinload(ProjectMember.user),
         )
         .where(Project.id == project_id, Project.tenant_id == tenant_id)
     )
@@ -63,26 +74,34 @@ async def list_projects_for_tenant(
     page_size: int = 20,
     status: ProjectStatus | None = None,
     client_id: uuid.UUID | None = None,
+    q: str | None = None,
     sort: str | None = None,
 ) -> tuple[list[Project], int]:
     """List projects for a tenant with filters + pagination. Eager-loads
-    project_services + milestones for rollup counts."""
+    project_services + milestones + members for rollup counts."""
     query = select(Project).options(
+        selectinload(Project.owner),
         selectinload(Project.project_services),
         selectinload(Project.milestones),
+        selectinload(Project.members).selectinload(ProjectMember.user),
     ).where(Project.tenant_id == tenant_id)
+
+    count_q = select(func.count(Project.id)).where(Project.tenant_id == tenant_id)
 
     if status is not None:
         query = query.where(Project.status == status)
-    if client_id is not None:
-        query = query.where(Project.client_id == client_id)
-
-    # Count
-    count_q = select(func.count(Project.id)).where(Project.tenant_id == tenant_id)
-    if status is not None:
         count_q = count_q.where(Project.status == status)
     if client_id is not None:
+        query = query.where(Project.client_id == client_id)
         count_q = count_q.where(Project.client_id == client_id)
+    if q and q.strip():
+        search_term = q.strip().lstrip("#")
+        search_filter = or_(
+            Project.name.ilike(f"%{search_term}%"),
+            cast(Project.id, String).ilike(f"%{search_term}%"),
+        )
+        query = query.where(search_filter)
+        count_q = count_q.where(search_filter)
 
     total_result = await session.execute(count_q)
     total: int = total_result.scalar_one()

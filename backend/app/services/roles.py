@@ -17,7 +17,6 @@ update/delete/reset/assign, all audited and cache-aware.
 from __future__ import annotations
 
 import os
-import time
 import uuid
 
 from fastapi import HTTPException, status
@@ -31,10 +30,11 @@ from app.models.enums import ActorType, AdminUserRole
 from app.models.role import Role, RolePermission
 from app.schemas.roles import RolePermissionInput
 from app.services.audit import log as audit_log
-from app.services.feature_flags import FEATURE_KEY_BY_RESOURCE, is_feature_enabled
+from app.services.feature_flags import FEATURE_KEY_BY_RESOURCE
 from app.services.permissions import (
     _TENANT_MATRIX,
     PERMISSION_CATALOG,
+    SYSTEM_PROJECT_ROLE_PERMISSIONS,
     clear_permission_cache,
     has_permission,
 )
@@ -226,22 +226,36 @@ async def attach_default_role(session: AsyncSession, user: AdminUser) -> None:
 # ── CRUD ──────────────────────────────────────────────────────────────────
 
 
-async def list_roles(session: AsyncSession, *, tenant_id: uuid.UUID) -> list[Role]:
+_SYSTEM_PROJECT_ROLE_IDS: dict[str, uuid.UUID] = {
+    "lead": uuid.UUID("55555555-5555-4555-8555-555555555555"),
+    "contributor": uuid.UUID("66666666-6666-4666-8666-666666666666"),
+    "finance": uuid.UUID("77777777-7777-4777-8777-777777777777"),
+    "viewer": uuid.UUID("88888888-8888-4888-8888-888888888888"),
+}
+
+
+async def list_roles(
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    role_type: str | None = None,
+) -> list[Role]:
     """List system built-in roles + this tenant's custom roles.
 
-    The platform-level super_admin system role is excluded: it is not
-    assignable to tenant users (assign_user_role rejects it), so tenant
-    admins should never see it. Permissions are eager-loaded for response
-    serialization.
+    The platform-level super_admin system role is excluded.
     """
+    filters = [
+        or_(Role.tenant_id.is_(None), Role.tenant_id == tenant_id),
+        ~and_(Role.tenant_id.is_(None), Role.name == AdminUserRole.SUPER_ADMIN.value),
+    ]
+    if role_type:
+        filters.append(Role.role_type == role_type)
+
     stmt = (
         select(Role)
-        .where(
-            or_(Role.tenant_id.is_(None), Role.tenant_id == tenant_id),
-            ~and_(Role.tenant_id.is_(None), Role.name == AdminUserRole.SUPER_ADMIN.value),
-        )
+        .where(*filters)
         .options(joinedload(Role.permissions))
-        .order_by(Role.tenant_id.is_not(None), Role.name)
+        .order_by(Role.role_type, Role.tenant_id.is_not(None), Role.name)
     )
     result = await session.execute(stmt)
     return list(result.unique().scalars().all())
@@ -253,6 +267,7 @@ async def create_role(
     tenant_id: uuid.UUID,
     name: str,
     description: str | None,
+    role_type: str = "user",
     permissions: list[RolePermissionInput],
     actor_id: uuid.UUID,
 ) -> Role:
@@ -263,6 +278,7 @@ async def create_role(
         tenant_id=tenant_id,
         name=name,
         description=description or "",
+        role_type=role_type,
         is_system=False,
     )
     session.add(role)
@@ -400,7 +416,11 @@ async def reset_role_defaults(
     if not role.is_system:
         raise RoleNotCustomError()
 
-    seed = SYSTEM_ROLE_PERMISSIONS[role.name]
+    if role.role_type == "project":
+        seed = SYSTEM_PROJECT_ROLE_PERMISSIONS.get(role.name, frozenset())
+    else:
+        seed = SYSTEM_ROLE_PERMISSIONS.get(role.name, frozenset())
+
     await _replace_permissions(
         session,
         role,
@@ -617,6 +637,55 @@ async def sync_system_roles_and_permissions(session: AsyncSession) -> dict[str, 
             roles_created += 1
 
         desired_perms = SYSTEM_ROLE_PERMISSIONS.get(role_name, frozenset())
+        existing_stmt = select(RolePermission).where(RolePermission.role_id == role.id)
+        existing_rows = (await session.execute(existing_stmt)).scalars().all()
+        existing_pairs = {(p.action, p.resource) for p in existing_rows}
+
+        for action, resource in desired_perms:
+            if (action, resource) not in existing_pairs:
+                session.add(
+                    RolePermission(
+                        id=uuid.uuid4(),
+                        role_id=role.id,
+                        action=action,
+                        resource=resource,
+                        granted=True,
+                    )
+                )
+                perms_created += 1
+
+    # Seed system project roles
+    project_role_descriptions: dict[str, str] = {
+        "lead": "Project lead with full management rights on the project",
+        "contributor": "Project contributor managing milestones and files",
+        "finance": "Project finance specialist managing invoices and purchases",
+        "viewer": "Read-only access to project details and modules",
+    }
+
+    for role_name, role_id in _SYSTEM_PROJECT_ROLE_IDS.items():
+        stmt = select(Role).where(
+            Role.is_system == True,  # noqa: E712
+            Role.tenant_id.is_(None),
+            Role.name == role_name,
+            Role.role_type == "project",
+        )
+        role = (await session.execute(stmt)).scalar_one_or_none()
+        if role is None:
+            role = Role(
+                id=role_id,
+                tenant_id=None,
+                name=role_name,
+                description=project_role_descriptions.get(
+                    role_name, f"System project role: {role_name}"
+                ),
+                role_type="project",
+                is_system=True,
+            )
+            session.add(role)
+            await session.flush()
+            roles_created += 1
+
+        desired_perms = SYSTEM_PROJECT_ROLE_PERMISSIONS.get(role_name, frozenset())
         existing_stmt = select(RolePermission).where(RolePermission.role_id == role.id)
         existing_rows = (await session.execute(existing_stmt)).scalars().all()
         existing_pairs = {(p.action, p.resource) for p in existing_rows}

@@ -9,7 +9,13 @@ from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field
 
-from app.models.enums import MilestoneStatus, PaymentMethod, ProjectServiceStatus, ProjectStatus
+from app.models.enums import (
+    MilestoneStatus,
+    PaymentMethod,
+    ProjectMemberRole,
+    ProjectServiceStatus,
+    ProjectStatus,
+)
 
 
 class ProjectPaymentCreateRequest(BaseModel):
@@ -17,6 +23,27 @@ class ProjectPaymentCreateRequest(BaseModel):
     method: PaymentMethod = PaymentMethod.BANK_TRANSFER
     entry_date: date | None = None
     reference_note: str = ""
+
+
+class ProjectMemberSummary(BaseModel):
+    model_config = {"from_attributes": True}
+
+    id: uuid.UUID
+    project_id: uuid.UUID
+    user_id: uuid.UUID
+    role: ProjectMemberRole
+    full_name: str | None = None
+    email: str | None = None
+    created_at: datetime
+
+
+class AddProjectMemberRequest(BaseModel):
+    user_id: uuid.UUID
+    role: ProjectMemberRole = ProjectMemberRole.CONTRIBUTOR
+
+
+class UpdateProjectMemberRequest(BaseModel):
+    role: ProjectMemberRole
 
 
 class ProjectCreateRequest(BaseModel):
@@ -55,6 +82,7 @@ class ProjectListItem(BaseModel):
     service_count: int = 0
     milestone_total: int = 0
     milestone_completed: int = 0
+    members: list[ProjectMemberSummary] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
 
@@ -114,6 +142,8 @@ class ProjectDetailResponse(BaseModel):
     updated_at: datetime
     services: list[ProjectServiceItem]
     milestones: list[ProjectMilestoneItem]
+    members: list[ProjectMemberSummary] = Field(default_factory=list)
+
 
     @computed_field
     @property

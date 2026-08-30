@@ -322,3 +322,63 @@ export async function viewProjectStatementPdf(fetchFn, token, projectId) {
 	window.open(url, '_blank');
 	setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
+
+/**
+ * @param {typeof fetch} fetchFn
+ * @param {string} token
+ * @param {string} projectId
+ */
+export function listProjectMembers(fetchFn, token, projectId) {
+	return apiFetch(fetchFn, `/tenant/projects/${encodeURIComponent(projectId)}/members`, { token });
+}
+
+/**
+ * @param {typeof fetch} fetchFn
+ * @param {string} token
+ * @param {string} projectId
+ * @param {{ user_id: string, role: string }} body
+ */
+export function addProjectMember(fetchFn, token, projectId, body) {
+	return apiFetch(fetchFn, `/tenant/projects/${encodeURIComponent(projectId)}/members`, {
+		token,
+		method: 'POST',
+		body
+	});
+}
+
+/**
+ * @param {typeof fetch} fetchFn
+ * @param {string} token
+ * @param {string} projectId
+ * @param {string} memberId
+ * @param {{ role: string }} body
+ */
+export function updateProjectMember(fetchFn, token, projectId, memberId, body) {
+	return apiFetch(
+		fetchFn,
+		`/tenant/projects/${encodeURIComponent(projectId)}/members/${encodeURIComponent(memberId)}`,
+		{
+			token,
+			method: 'PATCH',
+			body
+		}
+	);
+}
+
+/**
+ * @param {typeof fetch} fetchFn
+ * @param {string} token
+ * @param {string} projectId
+ * @param {string} memberId
+ */
+export function removeProjectMember(fetchFn, token, projectId, memberId) {
+	return apiFetch(
+		fetchFn,
+		`/tenant/projects/${encodeURIComponent(projectId)}/members/${encodeURIComponent(memberId)}`,
+		{
+			token,
+			method: 'DELETE'
+		}
+	);
+}
+

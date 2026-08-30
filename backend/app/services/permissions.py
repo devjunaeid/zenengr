@@ -122,6 +122,90 @@ PERMISSION_CATALOG: list[dict[str, str]] = [
     for action, resource in sorted(_PERMISSION_PAIRS)
 ]
 
+# ── Project-Scoped Permission Matrix & Catalog ────────────────────────────
+
+_PROJECT_ALL_PERMISSIONS: frozenset[PermissionEntry] = frozenset(
+    {
+        ("view", "project_overview"),
+        ("manage", "project_overview"),
+        ("view", "milestones"),
+        ("manage", "milestones"),
+        ("view", "services"),
+        ("manage", "services"),
+        ("view", "invoices"),
+        ("manage", "invoices"),
+        ("view", "purchases"),
+        ("manage", "purchases"),
+        ("view", "ledger"),
+        ("manage", "ledger"),
+        ("view", "files"),
+        ("manage", "files"),
+        ("view", "comments"),
+        ("post", "comments"),
+        ("edit", "comments"),
+        ("view", "team"),
+        ("manage", "team"),
+    }
+)
+
+SYSTEM_PROJECT_ROLE_PERMISSIONS: dict[str, frozenset[PermissionEntry]] = {
+    "lead": _PROJECT_ALL_PERMISSIONS,
+    "contributor": frozenset(
+        {
+            ("view", "project_overview"),
+            ("view", "milestones"),
+            ("manage", "milestones"),
+            ("view", "services"),
+            ("view", "files"),
+            ("manage", "files"),
+            ("view", "comments"),
+            ("post", "comments"),
+            ("edit", "comments"),
+            ("view", "team"),
+        }
+    ),
+    "finance": frozenset(
+        {
+            ("view", "project_overview"),
+            ("view", "invoices"),
+            ("manage", "invoices"),
+            ("view", "purchases"),
+            ("manage", "purchases"),
+            ("view", "ledger"),
+            ("manage", "ledger"),
+            ("view", "milestones"),
+            ("view", "services"),
+            ("view", "files"),
+            ("view", "comments"),
+            ("post", "comments"),
+            ("view", "team"),
+        }
+    ),
+    "viewer": frozenset(
+        {
+            ("view", "project_overview"),
+            ("view", "milestones"),
+            ("view", "services"),
+            ("view", "invoices"),
+            ("view", "purchases"),
+            ("view", "ledger"),
+            ("view", "files"),
+            ("view", "comments"),
+            ("view", "team"),
+        }
+    ),
+}
+
+PROJECT_PERMISSION_CATALOG: list[dict[str, str]] = [
+    {
+        "action": action,
+        "resource": resource,
+        "label": _humanize(f"{action} {resource}"),
+        "group": _humanize(resource),
+    }
+    for action, resource in sorted(_PROJECT_ALL_PERMISSIONS)
+]
+
 
 # ── DB-backed role permission cache (FEAT-016, TODO-162) ───────────────────
 

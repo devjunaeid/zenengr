@@ -39,6 +39,7 @@ class Role(TimestampMixin, Base):
     # tenant_id NULL => system built-in role (seeded by migration)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     description: Mapped[str] = mapped_column(String(255), default="", nullable=False)
+    role_type: Mapped[str] = mapped_column(String(32), default="user", nullable=False)
     is_system: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     permissions: Mapped[list[RolePermission]] = relationship(

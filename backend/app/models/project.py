@@ -12,12 +12,12 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Numeric, String, Uuid
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Index, Numeric, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 from app.models.base import TimestampMixin
-from app.models.enums import DiscountType, ProjectStatus
+from app.models.enums import DiscountType, ProjectMemberRole, ProjectStatus
 
 if TYPE_CHECKING:
     from app.models.admin_user import AdminUser
@@ -71,3 +71,33 @@ class Project(TimestampMixin, Base):
         cascade="all, delete-orphan",
         order_by="ProjectMilestone.sequence_order",
     )
+    members: Mapped[list[ProjectMember]] = relationship(
+        "ProjectMember",
+        back_populates="project",
+        cascade="all, delete-orphan",
+    )
+
+
+class ProjectMember(TimestampMixin, Base):
+    __tablename__ = "project_members"
+    __table_args__ = (
+        Index("uq_project_members_project_user", "project_id", "user_id", unique=True),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    project_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("projects.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("admin_users.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    role: Mapped[ProjectMemberRole] = mapped_column(
+        default=ProjectMemberRole.CONTRIBUTOR, nullable=False
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("tenants.id"), index=True, nullable=False
+    )
+
+    project: Mapped[Project] = relationship("Project", back_populates="members")
+    user: Mapped[AdminUser] = relationship("AdminUser")
+

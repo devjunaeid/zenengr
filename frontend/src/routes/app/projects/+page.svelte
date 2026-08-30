@@ -79,7 +79,7 @@
 			id="f-q"
 			type="search"
 			bind:value={q}
-			placeholder="Project name"
+			placeholder="Search name or ID..."
 			class="mt-1 block w-64 rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
 		/>
 	</div>
@@ -132,6 +132,11 @@
 						<th
 							scope="col"
 							class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
+							>Project ID</th
+						>
+						<th
+							scope="col"
+							class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
 							>Name</th
 						>
 						<th
@@ -164,18 +169,21 @@
 				<tbody class="divide-y divide-slate-200">
 					{#each data.projects.items as p (p.id)}
 						<tr class="hover:bg-slate-50">
+							<td class="px-4 py-3 text-sm font-medium whitespace-nowrap text-slate-900">
+								<span
+									title={p.id}
+									class="inline-flex items-center rounded border border-slate-200 bg-slate-100 px-2 py-0.5 font-mono text-xs font-bold text-slate-700 shadow-2xs"
+								>
+									{formatProjectCode(p.id)}
+								</span>
+							</td>
 							<td class="px-4 py-3 text-sm font-medium text-slate-900">
-								<div class="flex items-center gap-2">
-									<a
-										href={resolve('/app/projects/[id]', { id: p.id })}
-										class="text-indigo-600 hover:text-indigo-500 font-semibold"
-									>
-										{p.name}
-									</a>
-									<span class="font-mono text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">
-										{formatProjectCode(p.id)}
-									</span>
-								</div>
+								<a
+									href={resolve('/app/projects/[id]', { id: p.id })}
+									class="font-semibold text-indigo-600 hover:text-indigo-500"
+								>
+									{p.name}
+								</a>
 							</td>
 							<td class="px-4 py-3"><StatusBadge status={p.status} /></td>
 							<td class="px-4 py-3 text-right text-sm text-slate-700">{p.service_count}</td>

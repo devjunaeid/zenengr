@@ -82,6 +82,13 @@ class ProjectStatus(enum.StrEnum):
     CANCELLED = "cancelled"
 
 
+class ProjectMemberRole(enum.StrEnum):
+    LEAD = "lead"
+    CONTRIBUTOR = "contributor"
+    FINANCE = "finance"
+    VIEWER = "viewer"
+
+
 class ProjectServiceStatus(enum.StrEnum):
     ACTIVE = "active"
     CANCELLED = "cancelled"

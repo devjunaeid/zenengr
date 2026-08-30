@@ -4,6 +4,7 @@ import * as clientsApi from '$lib/api/clients.js';
 import * as filesApi from '$lib/api/files.js';
 import * as invoiceApi from '$lib/api/invoices.js';
 import * as projectApi from '$lib/api/projects.js';
+import * as rolesApi from '$lib/api/roles.js';
 import * as serviceApi from '$lib/api/services.js';
 import * as tenantApi from '$lib/api/tenant.js';
 import { auth } from '$lib/stores/auth.svelte.js';
@@ -13,7 +14,17 @@ export async function load({ fetch, params }) {
 	const token = auth.token;
 
 	try {
-		const [project, users, overview, ledger, draftInvoices, invoices, projectFiles, folderTree] = await Promise.all([
+		const [
+			project,
+			users,
+			overview,
+			ledger,
+			draftInvoices,
+			invoices,
+			projectFiles,
+			folderTree,
+			projectRoles
+		] = await Promise.all([
 			projectApi.getProject(fetch, token, params.id),
 			tenantApi
 				.listUsers(fetch, token, { page_size: 100, is_active: true })
@@ -29,7 +40,8 @@ export async function load({ fetch, params }) {
 			filesApi
 				.listFiles(fetch, token, { project_id: params.id, scope: 'project', page_size: 100 })
 				.catch(() => ({ items: [], total: 0 })),
-			filesApi.listFolders(fetch, token).catch(() => [])
+			filesApi.listFolders(fetch, token).catch(() => []),
+			rolesApi.getRoles(fetch, token).catch(() => [])
 		]);
 
 		const [client, detailResults] = await Promise.all([
@@ -38,11 +50,7 @@ export async function load({ fetch, params }) {
 				: null,
 			Promise.all(
 				Array.from(
-					new Set(
-						project.services
-							.filter((s) => s.status === 'active')
-							.map((s) => s.service_id)
-					)
+					new Set(project.services.filter((s) => s.status === 'active').map((s) => s.service_id))
 				).map((id) =>
 					serviceApi
 						.getService(fetch, token, id)
@@ -67,7 +75,8 @@ export async function load({ fetch, params }) {
 			draftInvoices,
 			invoices,
 			projectFiles: projectFiles.items ?? [],
-			folderTree
+			folderTree,
+			projectRoles: (projectRoles ?? []).filter((r) => r.role_type === 'project')
 		};
 	} catch (e) {
 		if (e instanceof ApiError && e.status === 404) {

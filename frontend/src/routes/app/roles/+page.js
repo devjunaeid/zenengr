@@ -7,9 +7,10 @@ export async function load({ fetch }) {
 	if (!auth.can('manage', 'roles')) redirect(307, '/app');
 
 	const token = auth.token;
-	const [roles, catalog] = await Promise.all([
+	const [roles, catalog, projectCatalog] = await Promise.all([
 		rolesApi.getRoles(fetch, token).catch(() => []),
-		rolesApi.getPermissionCatalog(fetch, token).catch(() => [])
+		rolesApi.getPermissionCatalog(fetch, token).catch(() => []),
+		rolesApi.getProjectPermissionCatalog(fetch, token).catch(() => [])
 	]);
-	return { roles, catalog };
+	return { roles, catalog, projectCatalog };
 }

@@ -352,6 +352,32 @@ class TestProjectCRUD:
         assert resp.json()["items"][0]["name"] == "Listed"
 
     @pytest.mark.asyncio
+    async def test_list_projects_search_by_q_and_id(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        ctx = await _bootstrap(db_session)
+        admin_headers = await _admin_auth_header(ctx["admin"])
+        create_resp = await client.post(
+            "/api/v1/tenant/projects/",
+            json={"name": "Alpha Project", "client_id": str(ctx["client"].id)},
+            headers=admin_headers,
+        )
+        pid = create_resp.json()["id"]
+        short_code = pid.replace("-", "")[:6].upper()
+
+        # Search by name
+        res_name = await client.get("/api/v1/tenant/projects/?q=Alpha", headers=admin_headers)
+        assert res_name.status_code == 200
+        assert res_name.json()["total"] == 1
+        assert res_name.json()["items"][0]["id"] == pid
+
+        # Search by short project code / partial ID
+        res_id = await client.get(f"/api/v1/tenant/projects/?q={short_code}", headers=admin_headers)
+        assert res_id.status_code == 200
+        assert res_id.json()["total"] == 1
+        assert res_id.json()["items"][0]["id"] == pid
+
+    @pytest.mark.asyncio
     async def test_get_detail_returns_services_and_milestones(
         self, client: AsyncClient, db_session: AsyncSession
     ):
@@ -1750,4 +1776,87 @@ class TestAutoInvoice:
         inv_data = gen_resp.json()
         assert inv_data["is_auto"] is True
         assert inv_data["status"] == "draft"
+
+
+class TestProjectMembersAPI:
+    @pytest.mark.asyncio
+    async def test_project_members_crud(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        ctx = await _bootstrap(db_session)
+        admin_headers = await _admin_auth_header(ctx["admin"])
+
+        # Create employee in same tenant
+        emp = await _create_admin(
+            db_session,
+            f"emp-{uuid.uuid4().hex[:8]}@example.com",
+            AdminUserRole.EMPLOYEE,
+            ctx["tenant"].id,
+        )
+
+        # Create project
+        pid = (
+            await client.post(
+                "/api/v1/tenant/projects/",
+                json={
+                    "name": "Members Project",
+                    "client_id": str(ctx["client"].id),
+                },
+                headers=admin_headers,
+            )
+        ).json()["id"]
+
+        # List members initially empty
+        resp = await client.get(f"/api/v1/tenant/projects/{pid}/members", headers=admin_headers)
+        assert resp.status_code == 200
+        assert resp.json() == []
+
+        # Add employee as contributor
+        add_resp = await client.post(
+            f"/api/v1/tenant/projects/{pid}/members",
+            json={"user_id": str(emp.id), "role": "contributor"},
+            headers=admin_headers,
+        )
+        assert add_resp.status_code == 201
+        m_data = add_resp.json()
+        assert m_data["user_id"] == str(emp.id)
+        assert m_data["role"] == "contributor"
+        member_id = m_data["id"]
+
+        # Conflict adding twice
+        dup_resp = await client.post(
+            f"/api/v1/tenant/projects/{pid}/members",
+            json={"user_id": str(emp.id), "role": "lead"},
+            headers=admin_headers,
+        )
+        assert dup_resp.status_code == 409
+
+        # Update role to lead
+        up_resp = await client.patch(
+            f"/api/v1/tenant/projects/{pid}/members/{member_id}",
+            json={"role": "lead"},
+            headers=admin_headers,
+        )
+        assert up_resp.status_code == 200
+        assert up_resp.json()["role"] == "lead"
+
+        # Check detail response includes members
+        detail_resp = await client.get(f"/api/v1/tenant/projects/{pid}", headers=admin_headers)
+        assert detail_resp.status_code == 200
+        members = detail_resp.json()["members"]
+        assert len(members) == 1
+        assert members[0]["user_id"] == str(emp.id)
+
+        # Remove member
+        del_resp = await client.delete(
+            f"/api/v1/tenant/projects/{pid}/members/{member_id}",
+            headers=admin_headers,
+        )
+        assert del_resp.status_code == 204
+
+        # List members empty again
+        resp_after = await client.get(f"/api/v1/tenant/projects/{pid}/members", headers=admin_headers)
+        assert resp_after.status_code == 200
+        assert resp_after.json() == []
+
 

@@ -12,11 +12,14 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.v1.invoices import _to_response as _to_invoice_response
 from app.core.dependencies import get_current_admin_user, require_permission
 from app.db.session import get_session
 from app.models.admin_user import AdminUser
-from app.models.enums import ProjectStatus
+from app.models.enums import ProjectMemberRole, ProjectStatus
+from app.models.tenant import Tenant
 from app.schemas.comments import CommentCreateRequest, CommentEditRequest, CommentResponse
+from app.schemas.invoices import InvoiceResponse
 from app.schemas.ledger import (
     AdjustmentCreateRequest,
     DiscountResponse,
@@ -26,6 +29,7 @@ from app.schemas.ledger import (
     SummaryResponse,
 )
 from app.schemas.projects import (
+    AddProjectMemberRequest,
     AttachServiceRequest,
     AttachServiceResponse,
     LinkedInvoiceItem,
@@ -35,16 +39,15 @@ from app.schemas.projects import (
     ProjectDetailResponse,
     ProjectListItem,
     ProjectListResponse,
+    ProjectMemberSummary,
     ProjectMilestoneItem,
     ProjectOverviewResponse,
     ProjectPaymentCreateRequest,
     ProjectServiceFinancialItem,
     ProjectServiceItem,
     ProjectUpdateRequest,
+    UpdateProjectMemberRequest,
 )
-from app.models.tenant import Tenant
-from app.schemas.invoices import InvoiceResponse
-from app.api.v1.invoices import _to_response as _to_invoice_response
 from app.services import comments as comment_service
 from app.services import invoices as invoice_service
 from app.services import ledger as ledger_service
@@ -113,6 +116,41 @@ def _build_milestone_items(project: Any) -> list[ProjectMilestoneItem]:
     return items
 
 
+def _build_member_items(project: Any) -> list[ProjectMemberSummary]:
+    items = []
+    seen_user_ids = set()
+    for m in getattr(project, "members", []) or []:
+        user = getattr(m, "user", None)
+        seen_user_ids.add(m.user_id)
+        items.append(
+            ProjectMemberSummary(
+                id=m.id,
+                project_id=m.project_id,
+                user_id=m.user_id,
+                role=m.role,
+                full_name=user.full_name if user else None,
+                email=user.email if user else None,
+                created_at=m.created_at,
+            )
+        )
+    owner_id = getattr(project, "owner_id", None)
+    if owner_id is not None and owner_id not in seen_user_ids:
+        owner = getattr(project, "owner", None)
+        items.insert(
+            0,
+            ProjectMemberSummary(
+                id=owner_id,
+                project_id=project.id,
+                user_id=owner_id,
+                role=ProjectMemberRole.LEAD,
+                full_name=owner.full_name if owner else None,
+                email=owner.email if owner else None,
+                created_at=project.created_at,
+            ),
+        )
+    return items
+
+
 def _to_detail(project: Any) -> ProjectDetailResponse:
     return ProjectDetailResponse(
         id=project.id,
@@ -126,6 +164,7 @@ def _to_detail(project: Any) -> ProjectDetailResponse:
         updated_at=project.updated_at,
         services=_build_service_items(project),
         milestones=_build_milestone_items(project),
+        members=_build_member_items(project),
     )
 
 
@@ -193,6 +232,7 @@ async def create_project_endpoint(
 async def list_projects_endpoint(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
+    q: str | None = Query(default=None),
     status_val: str | None = Query(default=None, alias="status"),
     client_id: str | None = Query(default=None),
     sort: str | None = Query(default=None),
@@ -232,6 +272,7 @@ async def list_projects_endpoint(
         page_size=page_size,
         status_filter=status_filter,
         client_id=parsed_client_id,
+        q=q,
         sort=sort,
     )
 
@@ -693,3 +734,84 @@ async def list_comments_endpoint(
     pid = _parse_uuid(project_id, kind="Project")
     comments = await comment_service.list_comments(session, tenant_id=tenant_id, project_id=pid)
     return [_to_comment_response(c) for c in comments]
+
+
+# ── Project Members ──────────────────────────────────────────────────────────
+
+
+@router.get(
+    "/{id}/members",
+    response_model=list[ProjectMemberSummary],
+    summary="List project team members",
+)
+async def list_project_members(
+    id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+    user: AdminUser = Depends(get_current_admin_user),
+) -> list[ProjectMemberSummary]:
+    members = await project_service.list_project_members(
+        session, tenant_id=user.tenant_id, project_id=id
+    )
+    return [ProjectMemberSummary(**m) for m in members]
+
+
+@router.post(
+    "/{id}/members",
+    response_model=ProjectMemberSummary,
+    status_code=status.HTTP_201_CREATED,
+    summary="Add a team member to project",
+)
+async def add_project_member(
+    id: uuid.UUID,
+    body: AddProjectMemberRequest,
+    session: AsyncSession = Depends(get_session),
+    user: AdminUser = Depends(require_permission("manage", "projects")),
+) -> ProjectMemberSummary:
+    member = await project_service.add_project_member(
+        session,
+        tenant_id=user.tenant_id,
+        project_id=id,
+        user_id=body.user_id,
+        role=body.role,
+    )
+    return ProjectMemberSummary(**member)
+
+
+@router.patch(
+    "/{id}/members/{member_id}",
+    response_model=ProjectMemberSummary,
+    summary="Update a project team member's role",
+)
+async def update_project_member(
+    id: uuid.UUID,
+    member_id: uuid.UUID,
+    body: UpdateProjectMemberRequest,
+    session: AsyncSession = Depends(get_session),
+    user: AdminUser = Depends(require_permission("manage", "projects")),
+) -> ProjectMemberSummary:
+    member = await project_service.update_project_member(
+        session,
+        tenant_id=user.tenant_id,
+        project_id=id,
+        member_id=member_id,
+        role=body.role,
+    )
+    return ProjectMemberSummary(**member)
+
+
+@router.delete(
+    "/{id}/members/{member_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Remove a team member from project",
+)
+async def remove_project_member(
+    id: uuid.UUID,
+    member_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+    user: AdminUser = Depends(require_permission("manage", "projects")),
+) -> Response:
+    await project_service.remove_project_member(
+        session, tenant_id=user.tenant_id, project_id=id, member_id=member_id
+    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+

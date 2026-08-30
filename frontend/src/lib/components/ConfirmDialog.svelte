@@ -25,7 +25,7 @@
 	} = $props();
 </script>
 
-<Dialog.Root bind:open>
+<Dialog.Root open={open} onOpenChange={(o) => (open = o)}>
 	<Dialog.Portal>
 		<Dialog.Overlay class="fixed inset-0 z-40 bg-black/50" />
 		<Dialog.Content

@@ -1,4 +1,5 @@
 <script>
+	import { untrack } from 'svelte';
 	import { invalidateAll } from '$app/navigation';
 	import { Dialog } from 'bits-ui';
 	import { resolve } from '$app/paths';
@@ -18,7 +19,14 @@
 	import ToggleSwitch from '$lib/components/ToggleSwitch.svelte';
 	import { auth } from '$lib/stores/auth.svelte.js';
 	import { formatAddress } from '$lib/utils/address.js';
-	import { formatDate, formatDateTime, fmtPrice, fmtBytes, humanize, formatProjectCode } from '$lib/utils/format.js';
+	import {
+		formatDate,
+		formatDateTime,
+		fmtPrice,
+		fmtBytes,
+		humanize,
+		formatProjectCode
+	} from '$lib/utils/format.js';
 	import * as filesApi from '$lib/api/files.js';
 	import FileCard from '$lib/components/FileCard.svelte';
 	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
@@ -124,7 +132,9 @@
 			if (uploadTargetChoice.startsWith('service:')) {
 				const svcId = uploadTargetChoice.replace('service:', '');
 				const svcName = data.serviceDetails[svcId]?.name || 'Service Deliverables';
-				const existing = projectFolderNodes.find((f) => f.name.toLowerCase() === svcName.toLowerCase());
+				const existing = projectFolderNodes.find(
+					(f) => f.name.toLowerCase() === svcName.toLowerCase()
+				);
 				if (existing) {
 					targetFolderId = existing.id;
 				} else {
@@ -243,7 +253,12 @@
 	async function downloadSingleInvoicePdf(inv) {
 		pdfBusyId = inv.id;
 		try {
-			await invoiceApi.downloadInvoicePdf(fetch, token, inv.id, `${inv.invoice_number || 'invoice'}.pdf`);
+			await invoiceApi.downloadInvoicePdf(
+				fetch,
+				token,
+				inv.id,
+				`${inv.invoice_number || 'invoice'}.pdf`
+			);
 		} catch (e) {
 			toast.error(e instanceof ApiError ? e.message : 'Could not download invoice PDF.');
 		} finally {
@@ -257,7 +272,75 @@
 	let canManageMilestones = $derived(auth.can('manage', 'milestones'));
 	let isEmployee = $derived(auth.user?.role === 'employee');
 
+	// ── Project Member Management ──────────────────────────────────────────────
+	let memberList = $state(untrack(() => data.project?.members ?? []));
+	let showAddMemberModal = $state(false);
+	let selectedUserId = $state('');
+	let selectedMemberRole = $state('contributor');
+	let addMemberBusy = $state(false);
+	let addMemberErr = $state('');
+	let memberRoleBusy = $state(null);
 
+	let availableProjectRoles = $derived.by(() => {
+		const list = data.projectRoles ?? [];
+		if (list.length > 0) return list;
+		return [
+			{ name: 'lead', description: 'Project Lead' },
+			{ name: 'contributor', description: 'Contributor' },
+			{ name: 'finance', description: 'Finance Specialist' },
+			{ name: 'viewer', description: 'Viewer' }
+		];
+	});
+
+	async function handleAddMember() {
+		if (!selectedUserId) return;
+		addMemberBusy = true;
+		addMemberErr = '';
+		try {
+			const member = await projectApi.addProjectMember(fetch, token, data.project.id, {
+				user_id: selectedUserId,
+				role: selectedMemberRole
+			});
+			memberList = [...memberList, member];
+			showAddMemberModal = false;
+			selectedUserId = '';
+			selectedMemberRole = 'contributor';
+			toast.success('Team member added to project.');
+		} catch (err) {
+			addMemberErr = err instanceof ApiError ? err.message : 'Failed to add team member.';
+		} finally {
+			addMemberBusy = false;
+		}
+	}
+
+	async function handleUpdateMemberRole(memberId, newRole) {
+		memberRoleBusy = memberId;
+		try {
+			const updated = await projectApi.updateProjectMember(
+				fetch,
+				token,
+				data.project.id,
+				memberId,
+				{ role: newRole }
+			);
+			memberList = memberList.map((m) => (m.id === memberId ? updated : m));
+			toast.success('Member role updated.');
+		} catch (err) {
+			toast.error(err instanceof ApiError ? err.message : 'Failed to update member role.');
+		} finally {
+			memberRoleBusy = null;
+		}
+	}
+
+	async function handleRemoveMember(memberId) {
+		try {
+			await projectApi.removeProjectMember(fetch, token, data.project.id, memberId);
+			memberList = memberList.filter((m) => m.id !== memberId);
+			toast.success('Member removed from project.');
+		} catch (err) {
+			toast.error(err instanceof ApiError ? err.message : 'Failed to remove member.');
+		}
+	}
 
 	let statusBusy = $state(false);
 
@@ -811,7 +894,13 @@
 		};
 		try {
 			if (purchaseEditTarget) {
-				await purchaseApi.updatePurchaseEntry(fetch, token, data.project.id, purchaseEditTarget.id, body);
+				await purchaseApi.updatePurchaseEntry(
+					fetch,
+					token,
+					data.project.id,
+					purchaseEditTarget.id,
+					body
+				);
 				toast.success('Purchase entry updated.');
 			} else {
 				await purchaseApi.createPurchaseEntry(fetch, token, data.project.id, body);
@@ -839,7 +928,12 @@
 		purchaseViewLoading = true;
 		purchaseViewErr = null;
 		try {
-			purchaseViewEntry = await purchaseApi.getPurchaseEntry(fetch, token, data.project.id, listItem.id);
+			purchaseViewEntry = await purchaseApi.getPurchaseEntry(
+				fetch,
+				token,
+				data.project.id,
+				listItem.id
+			);
 		} catch (e) {
 			purchaseViewErr = e instanceof ApiError ? e.message : 'Could not load entry.';
 		} finally {
@@ -934,7 +1028,8 @@
 		<button
 			type="button"
 			onclick={() => (activeTab = 'overview')}
-			class="flex items-center gap-2 border-b-2 py-3 px-2 text-sm font-medium {activeTab === 'overview'
+			class="flex items-center gap-2 border-b-2 px-2 py-3 text-sm font-medium {activeTab ===
+			'overview'
 				? 'border-indigo-600 text-indigo-600'
 				: 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700'}"
 		>
@@ -944,7 +1039,8 @@
 		<button
 			type="button"
 			onclick={() => (activeTab = 'services')}
-			class="flex items-center gap-2 border-b-2 py-3 px-2 text-sm font-medium {activeTab === 'services'
+			class="flex items-center gap-2 border-b-2 px-2 py-3 text-sm font-medium {activeTab ===
+			'services'
 				? 'border-indigo-600 text-indigo-600'
 				: 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700'}"
 		>
@@ -957,7 +1053,8 @@
 		<button
 			type="button"
 			onclick={() => (activeTab = 'ledger')}
-			class="flex items-center gap-2 border-b-2 py-3 px-2 text-sm font-medium {activeTab === 'ledger'
+			class="flex items-center gap-2 border-b-2 px-2 py-3 text-sm font-medium {activeTab ===
+			'ledger'
 				? 'border-indigo-600 text-indigo-600'
 				: 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700'}"
 		>
@@ -980,7 +1077,8 @@
 		<button
 			type="button"
 			onclick={() => (activeTab = 'invoices')}
-			class="flex items-center gap-2 border-b-2 py-3 px-2 text-sm font-medium {activeTab === 'invoices'
+			class="flex items-center gap-2 border-b-2 px-2 py-3 text-sm font-medium {activeTab ===
+			'invoices'
 				? 'border-indigo-600 text-indigo-600'
 				: 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700'}"
 		>
@@ -993,7 +1091,7 @@
 		<button
 			type="button"
 			onclick={() => (activeTab = 'files')}
-			class="flex items-center gap-2 border-b-2 py-3 px-2 text-sm font-medium {activeTab === 'files'
+			class="flex items-center gap-2 border-b-2 px-2 py-3 text-sm font-medium {activeTab === 'files'
 				? 'border-indigo-600 text-indigo-600'
 				: 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700'}"
 		>
@@ -1006,7 +1104,8 @@
 		<button
 			type="button"
 			onclick={() => (activeTab = 'comments')}
-			class="flex items-center gap-2 border-b-2 py-3 px-2 text-sm font-medium {activeTab === 'comments'
+			class="flex items-center gap-2 border-b-2 px-2 py-3 text-sm font-medium {activeTab ===
+			'comments'
 				? 'border-indigo-600 text-indigo-600'
 				: 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700'}"
 		>
@@ -1019,7 +1118,8 @@
 				activeTab = 'purchases';
 				if (!purchaseListLoaded) loadPurchaseEntries();
 			}}
-			class="flex items-center gap-2 border-b-2 py-3 px-2 text-sm font-medium {activeTab === 'purchases'
+			class="flex items-center gap-2 border-b-2 px-2 py-3 text-sm font-medium {activeTab ===
+			'purchases'
 				? 'border-indigo-600 text-indigo-600'
 				: 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700'}"
 			id="tab-purchases"
@@ -1032,903 +1132,1081 @@
 				</span>
 			{/if}
 		</button>
+		<button
+			type="button"
+			onclick={() => (activeTab = 'team')}
+			class="flex items-center gap-2 border-b-2 px-2 py-3 text-sm font-medium {activeTab === 'team'
+				? 'border-indigo-600 text-indigo-600'
+				: 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700'}"
+			id="tab-team"
+		>
+			<Icon icon={account} class="h-4 w-4" />
+			Team
+			{#if memberList.length > 0}
+				<span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
+					{memberList.length}
+				</span>
+			{/if}
+		</button>
 	</nav>
 </div>
 
 {#if activeTab === 'overview'}
-<!-- Overview Tab -->
-<div class="mt-6 space-y-6">
-	<!-- Client Information Card -->
-	<section class="rounded-xl border border-slate-200 bg-white p-6 shadow-2xs" aria-labelledby="client-info-h">
-		<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-4">
-			<div class="flex items-center gap-3">
-				<div class="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
-					<Icon icon={account} class="h-6 w-6" />
+	<!-- Overview Tab -->
+	<div class="mt-6 space-y-6">
+		<!-- Client Information Card -->
+		<section
+			class="rounded-xl border border-slate-200 bg-white p-6 shadow-2xs"
+			aria-labelledby="client-info-h"
+		>
+			<div
+				class="flex flex-col gap-3 border-b border-slate-100 pb-4 sm:flex-row sm:items-center sm:justify-between"
+			>
+				<div class="flex items-center gap-3">
+					<div
+						class="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600"
+					>
+						<Icon icon={account} class="h-6 w-6" />
+					</div>
+					<div>
+						<div class="flex items-center gap-2">
+							<h2 id="client-info-h" class="text-base font-semibold text-slate-900">
+								{data.client?.name ?? 'Client Information'}
+							</h2>
+							{#if data.client?.client_type}
+								<span
+									class="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 capitalize"
+								>
+									{data.client.client_type}
+								</span>
+							{/if}
+							{#if data.client?.status}
+								<StatusBadge status={data.client.status} />
+							{/if}
+						</div>
+						<p class="mt-0.5 text-xs text-slate-500">Primary client for this project</p>
+					</div>
+				</div>
+
+				{#if data.project.client_id}
+					<a
+						href={resolve('/app/clients/[id]', { id: data.project.client_id })}
+						class="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-600 transition-colors hover:text-indigo-700"
+					>
+						View Client Profile &rarr;
+					</a>
+				{/if}
+			</div>
+
+			<dl class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+				<div>
+					<dt
+						class="flex items-center gap-1.5 text-xs font-medium tracking-wider text-slate-500 uppercase"
+					>
+						<Icon icon={emailOutline} class="h-3.5 w-3.5 text-slate-400" />
+						Email
+					</dt>
+					<dd class="mt-1 text-sm text-slate-900">
+						{#if data.client?.email}
+							<a href={`mailto:${data.client.email}`} class="text-indigo-600 hover:underline">
+								{data.client.email}
+							</a>
+						{:else}
+							<span class="text-slate-400">&mdash;</span>
+						{/if}
+					</dd>
+				</div>
+
+				<div>
+					<dt
+						class="flex items-center gap-1.5 text-xs font-medium tracking-wider text-slate-500 uppercase"
+					>
+						<Icon icon={phoneOutline} class="h-3.5 w-3.5 text-slate-400" />
+						Phone
+					</dt>
+					<dd class="mt-1 text-sm text-slate-900">
+						{#if data.client?.phone}
+							<a href={`tel:${data.client.phone}`} class="text-slate-700 hover:underline">
+								{data.client.phone}
+							</a>
+						{:else}
+							<span class="text-slate-400">&mdash;</span>
+						{/if}
+					</dd>
+				</div>
+
+				<div>
+					<dt
+						class="flex items-center gap-1.5 text-xs font-medium tracking-wider text-slate-500 uppercase"
+					>
+						<Icon icon={mapMarkerOutline} class="h-3.5 w-3.5 text-slate-400" />
+						Billing Address
+					</dt>
+					<dd class="mt-1 text-sm text-slate-900">
+						{#if data.client?.billing_address && formatAddress(data.client.billing_address)}
+							<span>{formatAddress(data.client.billing_address)}</span>
+						{:else}
+							<span class="text-slate-400">&mdash;</span>
+						{/if}
+					</dd>
+				</div>
+
+				<div>
+					<dt class="text-xs font-medium tracking-wider text-slate-500 uppercase">Tags</dt>
+					<dd class="mt-1 flex flex-wrap gap-1">
+						{#if data.client?.tags && data.client.tags.length > 0}
+							{#each data.client.tags as tag (tag)}
+								<span class="rounded-md bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
+									{tag}
+								</span>
+							{/each}
+						{:else}
+							<span class="text-xs text-slate-400">&mdash;</span>
+						{/if}
+					</dd>
+				</div>
+			</dl>
+		</section>
+
+		<!-- Project Details & Milestones Card -->
+		<section
+			class="rounded-xl border border-slate-200 bg-white p-6 shadow-2xs"
+			aria-labelledby="project-details-h"
+		>
+			<h2 id="project-details-h" class="text-base font-semibold text-slate-900">Project Details</h2>
+			<dl class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+				<div>
+					<dt class="text-xs font-medium tracking-wider text-slate-500 uppercase">Start Date</dt>
+					<dd class="mt-1 text-sm font-medium text-slate-900">
+						{fmtDate(data.project.start_date)}
+					</dd>
 				</div>
 				<div>
-					<div class="flex items-center gap-2">
-						<h2 id="client-info-h" class="text-base font-semibold text-slate-900">
-							{data.client?.name ?? 'Client Information'}
-						</h2>
-						{#if data.client?.client_type}
-							<span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 capitalize">
-								{data.client.client_type}
-							</span>
+					<dt class="text-xs font-medium tracking-wider text-slate-500 uppercase">
+						Target Due Date
+					</dt>
+					<dd class="mt-1 text-sm font-medium text-slate-900">
+						{data.project.target_delivery_date ? fmtDate(data.project.target_delivery_date) : '—'}
+					</dd>
+				</div>
+				<div>
+					<dt class="text-xs font-medium tracking-wider text-slate-500 uppercase">Project Owner</dt>
+					<dd class="mt-1 text-sm font-medium text-slate-900">
+						{#if data.project.owner_id}
+							{data.users.find((u) => u.id === data.project.owner_id)?.full_name ?? '—'}
+						{:else}
+							<span class="text-slate-400">Unassigned</span>
 						{/if}
-						{#if data.client?.status}
-							<StatusBadge status={data.client.status} />
+					</dd>
+				</div>
+				<div>
+					<dt class="text-xs font-medium tracking-wider text-slate-500 uppercase">
+						Active Services
+					</dt>
+					<dd class="mt-1 text-sm font-medium text-slate-900">{data.project.services.length}</dd>
+				</div>
+			</dl>
+
+			<div class="mt-6 border-t border-slate-100 pt-5">
+				<div class="flex items-baseline justify-between">
+					<p class="text-xs font-semibold tracking-wider text-slate-600 uppercase">
+						Milestone Progress
+					</p>
+					<p class="text-xs font-medium text-slate-700">
+						{milestoneCompleted} of {milestoneTotal} completed
+						{#if milestoneTotal > 0}
+							<span class="font-bold text-indigo-600">({progressPct}%)</span>
 						{/if}
+					</p>
+				</div>
+				{#if milestoneTotal > 0}
+					<div
+						class="mt-2 h-2.5 w-full overflow-hidden rounded-full bg-slate-100"
+						role="progressbar"
+						aria-valuenow={milestoneCompleted}
+						aria-valuemin={0}
+						aria-valuemax={milestoneTotal}
+						aria-label={`Milestone progress for ${data.project.name}`}
+					>
+						<div
+							class="h-full rounded-full bg-indigo-600 transition-all duration-300"
+							style="width: {progressPct}%"
+						></div>
 					</div>
-					<p class="text-xs text-slate-500 mt-0.5">Primary client for this project</p>
-				</div>
+				{:else}
+					<p class="mt-2 text-xs text-slate-500">
+						No milestones attached to this project's services yet.
+					</p>
+				{/if}
 			</div>
+		</section>
 
-			{#if data.project.client_id}
-				<a
-					href={resolve('/app/clients/[id]', { id: data.project.client_id })}
-					class="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-700 transition-colors"
+		<!-- Financial Overview Card -->
+		<section
+			class="rounded-xl border border-slate-200 bg-white p-6 shadow-2xs"
+			aria-labelledby="fin-overview-h"
+		>
+			<div class="flex items-center justify-between border-b border-slate-100 pb-3">
+				<h2 id="fin-overview-h" class="text-base font-semibold text-slate-900">
+					Financial Snapshot
+				</h2>
+				<button
+					type="button"
+					onclick={() => (activeTab = 'invoices')}
+					class="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:text-indigo-700"
 				>
-					View Client Profile &rarr;
-				</a>
-			{/if}
-		</div>
-
-		<dl class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-			<div>
-				<dt class="flex items-center gap-1.5 text-xs font-medium text-slate-500 uppercase tracking-wider">
-					<Icon icon={emailOutline} class="h-3.5 w-3.5 text-slate-400" />
-					Email
-				</dt>
-				<dd class="mt-1 text-sm text-slate-900">
-					{#if data.client?.email}
-						<a href={`mailto:${data.client.email}`} class="text-indigo-600 hover:underline">
-							{data.client.email}
-						</a>
-					{:else}
-						<span class="text-slate-400">&mdash;</span>
-					{/if}
-				</dd>
+					Go to Invoices ({invoiceList.length}) &rarr;
+				</button>
 			</div>
 
-			<div>
-				<dt class="flex items-center gap-1.5 text-xs font-medium text-slate-500 uppercase tracking-wider">
-					<Icon icon={phoneOutline} class="h-3.5 w-3.5 text-slate-400" />
-					Phone
-				</dt>
-				<dd class="mt-1 text-sm text-slate-900">
-					{#if data.client?.phone}
-						<a href={`tel:${data.client.phone}`} class="text-slate-700 hover:underline">
-							{data.client.phone}
-						</a>
-					{:else}
-						<span class="text-slate-400">&mdash;</span>
-					{/if}
-				</dd>
-			</div>
-
-			<div>
-				<dt class="flex items-center gap-1.5 text-xs font-medium text-slate-500 uppercase tracking-wider">
-					<Icon icon={mapMarkerOutline} class="h-3.5 w-3.5 text-slate-400" />
-					Billing Address
-				</dt>
-				<dd class="mt-1 text-sm text-slate-900">
-					{#if data.client?.billing_address && formatAddress(data.client.billing_address)}
-						<span>{formatAddress(data.client.billing_address)}</span>
-					{:else}
-						<span class="text-slate-400">&mdash;</span>
-					{/if}
-				</dd>
-			</div>
-
-			<div>
-				<dt class="text-xs font-medium text-slate-500 uppercase tracking-wider">Tags</dt>
-				<dd class="mt-1 flex flex-wrap gap-1">
-					{#if data.client?.tags && data.client.tags.length > 0}
-						{#each data.client.tags as tag (tag)}
-							<span class="rounded-md bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
-								{tag}
-							</span>
-						{/each}
-					{:else}
-						<span class="text-xs text-slate-400">&mdash;</span>
-					{/if}
-				</dd>
-			</div>
-		</dl>
-	</section>
-
-	<!-- Project Details & Milestones Card -->
-	<section class="rounded-xl border border-slate-200 bg-white p-6 shadow-2xs" aria-labelledby="project-details-h">
-		<h2 id="project-details-h" class="text-base font-semibold text-slate-900">Project Details</h2>
-		<dl class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-			<div>
-				<dt class="text-xs font-medium tracking-wider text-slate-500 uppercase">Start Date</dt>
-				<dd class="mt-1 text-sm text-slate-900 font-medium">{fmtDate(data.project.start_date)}</dd>
-			</div>
-			<div>
-				<dt class="text-xs font-medium tracking-wider text-slate-500 uppercase">Target Due Date</dt>
-				<dd class="mt-1 text-sm text-slate-900 font-medium">
-					{data.project.target_delivery_date ? fmtDate(data.project.target_delivery_date) : '—'}
-				</dd>
-			</div>
-			<div>
-				<dt class="text-xs font-medium tracking-wider text-slate-500 uppercase">Project Owner</dt>
-				<dd class="mt-1 text-sm text-slate-900 font-medium">
-					{#if data.project.owner_id}
-						{data.users.find((u) => u.id === data.project.owner_id)?.full_name ?? '—'}
-					{:else}
-						<span class="text-slate-400">Unassigned</span>
-					{/if}
-				</dd>
-			</div>
-			<div>
-				<dt class="text-xs font-medium tracking-wider text-slate-500 uppercase">Active Services</dt>
-				<dd class="mt-1 text-sm text-slate-900 font-medium">{data.project.services.length}</dd>
-			</div>
-		</dl>
-
-		<div class="mt-6 border-t border-slate-100 pt-5">
-			<div class="flex items-baseline justify-between">
-				<p class="text-xs font-semibold tracking-wider text-slate-600 uppercase">Milestone Progress</p>
-				<p class="text-xs font-medium text-slate-700">
-					{milestoneCompleted} of {milestoneTotal} completed
-					{#if milestoneTotal > 0}
-						<span class="font-bold text-indigo-600">({progressPct}%)</span>
-					{/if}
-				</p>
-			</div>
-			{#if milestoneTotal > 0}
+			<div class="mt-4 grid gap-4 sm:grid-cols-3">
+				<div class="rounded-lg border border-slate-100 bg-slate-50 p-4">
+					<dt class="text-xs font-medium tracking-wider text-slate-500 uppercase">Project Total</dt>
+					<dd class="mt-1 text-xl font-bold text-slate-900">
+						{ledgerSummary
+							? fmtPrice(ledgerSummary.total)
+							: data.overview?.financials
+								? fmtPrice(data.overview.financials.total)
+								: '—'}
+					</dd>
+				</div>
+				<div class="rounded-lg border border-emerald-100 bg-emerald-50/60 p-4">
+					<dt class="text-xs font-medium tracking-wider text-emerald-700 uppercase">Total Paid</dt>
+					<dd class="mt-1 text-xl font-bold text-emerald-700">
+						{ledgerSummary
+							? fmtPrice(ledgerSummary.paid)
+							: data.overview?.financials
+								? fmtPrice(data.overview.financials.paid)
+								: '—'}
+					</dd>
+				</div>
 				<div
-					class="mt-2 h-2.5 w-full overflow-hidden rounded-full bg-slate-100"
-					role="progressbar"
-					aria-valuenow={milestoneCompleted}
-					aria-valuemin={0}
-					aria-valuemax={milestoneTotal}
-					aria-label={`Milestone progress for ${data.project.name}`}
+					class="rounded-lg border p-4 {Number(
+						ledgerSummary?.due ?? data.overview?.financials?.due
+					) > 0
+						? 'border-amber-200 bg-amber-50/60'
+						: 'border-slate-100 bg-slate-50'}"
 				>
-					<div class="h-full rounded-full bg-indigo-600 transition-all duration-300" style="width: {progressPct}%"></div>
+					<dt
+						class="text-xs font-medium tracking-wider {Number(
+							ledgerSummary?.due ?? data.overview?.financials?.due
+						) > 0
+							? 'text-amber-800'
+							: 'text-slate-500'} uppercase"
+					>
+						Outstanding Due
+					</dt>
+					<dd
+						class="mt-1 text-xl font-bold {Number(
+							ledgerSummary?.due ?? data.overview?.financials?.due
+						) > 0
+							? 'text-amber-800'
+							: 'text-emerald-700'}"
+					>
+						{ledgerSummary
+							? fmtPrice(ledgerSummary.due)
+							: data.overview?.financials
+								? fmtPrice(data.overview.financials.due)
+								: '—'}
+					</dd>
 				</div>
-			{:else}
-				<p class="mt-2 text-xs text-slate-500">No milestones attached to this project's services yet.</p>
+			</div>
+
+			{#if Number(ledgerSummary?.advance_balance ?? data.overview?.financials?.advance_balance) > 0}
+				<div
+					class="mt-3 flex items-center justify-between rounded-lg border border-indigo-100 bg-indigo-50 p-3 text-xs text-indigo-900"
+				>
+					<span>Advance Credit Available:</span>
+					<span class="text-sm font-bold text-indigo-700"
+						>{fmtPrice(
+							ledgerSummary?.advance_balance ?? data.overview?.financials?.advance_balance
+						)}</span
+					>
+				</div>
 			{/if}
+		</section>
+
+		<!-- Timestamps -->
+		<div class="flex flex-wrap items-center justify-between px-1 text-xs text-slate-400">
+			<p>Created {formatDateTime(data.project.created_at)}</p>
+			<p>Last updated {formatDateTime(data.project.updated_at)}</p>
 		</div>
-	</section>
-
-	<!-- Financial Overview Card -->
-	<section class="rounded-xl border border-slate-200 bg-white p-6 shadow-2xs" aria-labelledby="fin-overview-h">
-		<div class="flex items-center justify-between border-b border-slate-100 pb-3">
-			<h2 id="fin-overview-h" class="text-base font-semibold text-slate-900">Financial Snapshot</h2>
-			<button
-				type="button"
-				onclick={() => (activeTab = 'invoices')}
-				class="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:text-indigo-700"
-			>
-				Go to Invoices ({invoiceList.length}) &rarr;
-			</button>
-		</div>
-
-		<div class="mt-4 grid gap-4 sm:grid-cols-3">
-			<div class="rounded-lg bg-slate-50 p-4 border border-slate-100">
-				<dt class="text-xs font-medium tracking-wider text-slate-500 uppercase">Project Total</dt>
-				<dd class="mt-1 text-xl font-bold text-slate-900">
-					{ledgerSummary ? fmtPrice(ledgerSummary.total) : (data.overview?.financials ? fmtPrice(data.overview.financials.total) : '—')}
-				</dd>
-			</div>
-			<div class="rounded-lg bg-emerald-50/60 p-4 border border-emerald-100">
-				<dt class="text-xs font-medium tracking-wider text-emerald-700 uppercase">Total Paid</dt>
-				<dd class="mt-1 text-xl font-bold text-emerald-700">
-					{ledgerSummary ? fmtPrice(ledgerSummary.paid) : (data.overview?.financials ? fmtPrice(data.overview.financials.paid) : '—')}
-				</dd>
-			</div>
-			<div class="rounded-lg p-4 border {Number(ledgerSummary?.due ?? data.overview?.financials?.due) > 0 ? 'bg-amber-50/60 border-amber-200' : 'bg-slate-50 border-slate-100'}">
-				<dt class="text-xs font-medium tracking-wider {Number(ledgerSummary?.due ?? data.overview?.financials?.due) > 0 ? 'text-amber-800' : 'text-slate-500'} uppercase">Outstanding Due</dt>
-				<dd class="mt-1 text-xl font-bold {Number(ledgerSummary?.due ?? data.overview?.financials?.due) > 0 ? 'text-amber-800' : 'text-emerald-700'}">
-					{ledgerSummary ? fmtPrice(ledgerSummary.due) : (data.overview?.financials ? fmtPrice(data.overview.financials.due) : '—')}
-				</dd>
-			</div>
-		</div>
-
-		{#if Number(ledgerSummary?.advance_balance ?? data.overview?.financials?.advance_balance) > 0}
-			<div class="mt-3 rounded-lg bg-indigo-50 p-3 text-xs text-indigo-900 border border-indigo-100 flex items-center justify-between">
-				<span>Advance Credit Available:</span>
-				<span class="font-bold text-indigo-700 text-sm">{fmtPrice(ledgerSummary?.advance_balance ?? data.overview?.financials?.advance_balance)}</span>
-			</div>
-		{/if}
-	</section>
-
-	<!-- Timestamps -->
-	<div class="flex flex-wrap items-center justify-between text-xs text-slate-400 px-1">
-		<p>Created {formatDateTime(data.project.created_at)}</p>
-		<p>Last updated {formatDateTime(data.project.updated_at)}</p>
 	</div>
-</div>
 {/if}
 
 {#if activeTab === 'services'}
-<!-- Services -->
-<section
-	class="mt-6 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"
-	aria-labelledby="services-h"
->
-	<div class="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-		<div>
-			<h2 id="services-h" class="text-base font-semibold text-slate-900">Services</h2>
-			<p class="mt-0.5 text-sm text-slate-500">
-				{data.project.services.length}
-				{data.project.services.length === 1 ? 'service' : 'services'} attached
-			</p>
+	<!-- Services -->
+	<section
+		class="mt-6 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"
+		aria-labelledby="services-h"
+	>
+		<div class="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+			<div>
+				<h2 id="services-h" class="text-base font-semibold text-slate-900">Services</h2>
+				<p class="mt-0.5 text-sm text-slate-500">
+					{data.project.services.length}
+					{data.project.services.length === 1 ? 'service' : 'services'} attached
+				</p>
+			</div>
+			{#if canManage}
+				<button
+					type="button"
+					onclick={openAddModal}
+					class="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+				>
+					Add service
+				</button>
+			{/if}
 		</div>
-		{#if canManage}
-			<button
-				type="button"
-				onclick={openAddModal}
-				class="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
-			>
-				Add service
-			</button>
-		{/if}
-	</div>
 
-	{#if data.project.services.length === 0}
-		<p class="px-6 py-8 text-sm text-slate-500">No services attached yet.</p>
-	{:else}
-		<div class="overflow-x-auto">
-			<table class="min-w-full divide-y divide-slate-200">
-				<thead class="bg-slate-50">
-					<tr>
-						<th
-							scope="col"
-							class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
-							>Service</th
-						>
-						<th
-							scope="col"
-							class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
-							>Status</th
-						>
-						<th
-							scope="col"
-							class="px-4 py-3 text-right text-xs font-semibold tracking-wide text-slate-600 uppercase"
-							>Price</th
-						>
-						<th
-							scope="col"
-							class="px-4 py-3 text-right text-xs font-semibold tracking-wide text-slate-600 uppercase"
-							>Milestones</th
-						>
-					</tr>
-				</thead>
-				<tbody class="divide-y divide-slate-200">
-					{#each data.project.services as ps (ps.id)}
-						{@const isCancelled = ps.status === 'cancelled'}
-						<tr class={isCancelled ? 'bg-slate-50 text-slate-500' : 'hover:bg-slate-50'}>
-							<td class="px-4 py-3 text-sm font-medium text-slate-900">
-								<span class={isCancelled ? 'line-through' : ''}>{ps.service_name}</span>
-							</td>
-							<td class="px-4 py-3"><StatusBadge status={ps.status} /></td>
-							<td class="px-4 py-3 text-right text-sm whitespace-nowrap text-slate-700"
-								>{fmtPrice(ps.price_at_attachment)}</td
+		{#if data.project.services.length === 0}
+			<p class="px-6 py-8 text-sm text-slate-500">No services attached yet.</p>
+		{:else}
+			<div class="overflow-x-auto">
+				<table class="min-w-full divide-y divide-slate-200">
+					<thead class="bg-slate-50">
+						<tr>
+							<th
+								scope="col"
+								class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
+								>Service</th
 							>
-							<td class="px-4 py-3 text-right text-sm text-slate-700">
-								{data.project.milestones.filter((m) => m.project_service_id === ps.id).length}
-							</td>
+							<th
+								scope="col"
+								class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
+								>Status</th
+							>
+							<th
+								scope="col"
+								class="px-4 py-3 text-right text-xs font-semibold tracking-wide text-slate-600 uppercase"
+								>Price</th
+							>
+							<th
+								scope="col"
+								class="px-4 py-3 text-right text-xs font-semibold tracking-wide text-slate-600 uppercase"
+								>Milestones</th
+							>
 						</tr>
-					{/each}
-				</tbody>
-			</table>
-		</div>
-	{/if}
-</section>
+					</thead>
+					<tbody class="divide-y divide-slate-200">
+						{#each data.project.services as ps (ps.id)}
+							{@const isCancelled = ps.status === 'cancelled'}
+							<tr class={isCancelled ? 'bg-slate-50 text-slate-500' : 'hover:bg-slate-50'}>
+								<td class="px-4 py-3 text-sm font-medium text-slate-900">
+									<span class={isCancelled ? 'line-through' : ''}>{ps.service_name}</span>
+								</td>
+								<td class="px-4 py-3"><StatusBadge status={ps.status} /></td>
+								<td class="px-4 py-3 text-right text-sm whitespace-nowrap text-slate-700"
+									>{fmtPrice(ps.price_at_attachment)}</td
+								>
+								<td class="px-4 py-3 text-right text-sm text-slate-700">
+									{data.project.milestones.filter((m) => m.project_service_id === ps.id).length}
+								</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</div>
+		{/if}
+	</section>
 
-<!-- Milestones section -->
-<section
-	class="mt-6 rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
-	aria-labelledby="milestones-h"
->
-	<h2 id="milestones-h" class="text-base font-semibold text-slate-900">Milestones</h2>
-	{#if data.project.milestones.length === 0}
-		<p class="mt-4 text-sm text-slate-500">No milestones yet.</p>
-	{:else}
-		<div class="mt-4 space-y-6">
-			{#each milestonesByService as group (group.key)}
-				{@const isCancelled = group.projectService.status === 'cancelled'}
-				<div>
-					<div class="flex items-center gap-2">
-						<h3
-							class="text-sm font-semibold {isCancelled
-								? 'text-slate-500 line-through'
-								: 'text-slate-900'}"
-						>
-							{group.projectService.service_name}
-						</h3>
-						<StatusBadge status={group.projectService.status} />
-						<span class="text-xs text-slate-500">
-							· {group.items.length}
-							{group.items.length === 1 ? 'milestone' : 'milestones'}
-						</span>
-					</div>
-
-					<ul class="mt-3 divide-y divide-slate-200 rounded-md border border-slate-200">
-						{#each group.items as m (m.id)}
-							{@const mBusy = Boolean(milestoneBusy[m.id])}
-							<li
-								class="grid gap-2 px-4 py-3 sm:grid-cols-12 sm:items-center {isCancelled
-									? 'bg-slate-50 text-slate-500'
-									: ''}"
+	<!-- Milestones section -->
+	<section
+		class="mt-6 rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
+		aria-labelledby="milestones-h"
+	>
+		<h2 id="milestones-h" class="text-base font-semibold text-slate-900">Milestones</h2>
+		{#if data.project.milestones.length === 0}
+			<p class="mt-4 text-sm text-slate-500">No milestones yet.</p>
+		{:else}
+			<div class="mt-4 space-y-6">
+				{#each milestonesByService as group (group.key)}
+					{@const isCancelled = group.projectService.status === 'cancelled'}
+					<div>
+						<div class="flex items-center gap-2">
+							<h3
+								class="text-sm font-semibold {isCancelled
+									? 'text-slate-500 line-through'
+									: 'text-slate-900'}"
 							>
-								<div class="sm:col-span-5">
-									<div class="flex items-start gap-2">
-										<span
-											class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-xs font-semibold text-indigo-700"
-											aria-hidden="true"
-										>
-											{m.sequence_order}
-										</span>
-										<div class="min-w-0">
-											<p
-												class="text-sm font-medium {isCancelled
-													? 'line-through'
-													: 'text-slate-900'}"
+								{group.projectService.service_name}
+							</h3>
+							<StatusBadge status={group.projectService.status} />
+							<span class="text-xs text-slate-500">
+								· {group.items.length}
+								{group.items.length === 1 ? 'milestone' : 'milestones'}
+							</span>
+						</div>
+
+						<ul class="mt-3 divide-y divide-slate-200 rounded-md border border-slate-200">
+							{#each group.items as m (m.id)}
+								{@const mBusy = Boolean(milestoneBusy[m.id])}
+								<li
+									class="grid gap-2 px-4 py-3 sm:grid-cols-12 sm:items-center {isCancelled
+										? 'bg-slate-50 text-slate-500'
+										: ''}"
+								>
+									<div class="sm:col-span-5">
+										<div class="flex items-start gap-2">
+											<span
+												class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-xs font-semibold text-indigo-700"
+												aria-hidden="true"
 											>
-												{m.name}
-											</p>
-											{#if m.description}
-												<p class="mt-0.5 text-xs text-slate-500">{m.description}</p>
-											{/if}
+												{m.sequence_order}
+											</span>
+											<div class="min-w-0">
+												<p
+													class="text-sm font-medium {isCancelled
+														? 'line-through'
+														: 'text-slate-900'}"
+												>
+													{m.name}
+												</p>
+												{#if m.description}
+													<p class="mt-0.5 text-xs text-slate-500">{m.description}</p>
+												{/if}
+											</div>
 										</div>
 									</div>
-								</div>
-								<div class="sm:col-span-3">
-									<MilestoneStatusSelector
-										value={m.status}
-										busy={mBusy}
-										disabled={!canManageMilestones || isCancelled}
-										onchange={(next) => patchMilestone(m, { status: next })}
-										id={`m-status-${m.id}`}
-									/>
-								</div>
-								<div class="text-xs text-slate-600 sm:col-span-2">
-									<p>
-										<span class="block text-slate-500">Planned</span>
-										{fmtDate(m.planned_date)}
-									</p>
-									<p class="mt-1">
-										<span class="block text-slate-500">Actual</span>
-										{fmtDate(m.actual_date)}
-									</p>
-								</div>
-								<div class="sm:col-span-2">
-									<AssigneePicker
-										value={m.assignee_id}
-										users={data.users}
-										busy={mBusy}
-										disabled={!canManageMilestones || isCancelled}
-										onchange={(uid) => patchMilestone(m, { assignee_id: uid })}
-										id={`m-assignee-${m.id}`}
-									/>
-								</div>
-							</li>
-						{/each}
-					</ul>
-				</div>
-			{/each}
-		</div>
-	{/if}
-</section>
+									<div class="sm:col-span-3">
+										<MilestoneStatusSelector
+											value={m.status}
+											busy={mBusy}
+											disabled={!canManageMilestones || isCancelled}
+											onchange={(next) => patchMilestone(m, { status: next })}
+											id={`m-status-${m.id}`}
+										/>
+									</div>
+									<div class="text-xs text-slate-600 sm:col-span-2">
+										<p>
+											<span class="block text-slate-500">Planned</span>
+											{fmtDate(m.planned_date)}
+										</p>
+										<p class="mt-1">
+											<span class="block text-slate-500">Actual</span>
+											{fmtDate(m.actual_date)}
+										</p>
+									</div>
+									<div class="sm:col-span-2">
+										<AssigneePicker
+											value={m.assignee_id}
+											users={data.users}
+											busy={mBusy}
+											disabled={!canManageMilestones || isCancelled}
+											onchange={(uid) => patchMilestone(m, { assignee_id: uid })}
+											id={`m-assignee-${m.id}`}
+										/>
+									</div>
+								</li>
+							{/each}
+						</ul>
+					</div>
+				{/each}
+			</div>
+		{/if}
+	</section>
 {/if}
 
 {#if activeTab === 'ledger'}
-{#if canManage}
-	<div class="mt-6 flex flex-wrap items-center gap-3">
-		<button
-			type="button"
-			onclick={openPaymentDialog}
-			class="inline-flex items-center gap-2 rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-emerald-700 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-none"
-		>
-			<Icon icon={arrowDown} class="h-4 w-4" />
-			Record payment
-		</button>
-		<button
-			type="button"
-			onclick={openStatementPreview}
-			class="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
-		>
-			Preview statement
-		</button>
-		<button
-			type="button"
-			onclick={openGenerateDialog}
-			class="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
-		>
-			Generate invoice
-		</button>
-		<button
-			type="button"
-			onclick={openAdjustDialog}
-			class="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
-		>
-			Add adjustment
-		</button>
-		<button
-			type="button"
-			onclick={openDiscountDialog}
-			class="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
-		>
-			Edit discount
-		</button>
-		<!-- eslint-disable svelte/no-navigation-without-resolve -- query string appended to a resolved route -->
-		<a
-			href={resolve('/app/invoices/new') + '?project_id=' + data.project.id}
-			class="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
-		>
-			Custom invoice
-		</a>
-		<!-- eslint-enable svelte/no-navigation-without-resolve -->
-	</div>
-{/if}
-
-<!-- Ledger balance summary -->
-<section
-	class="mt-6 rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
-	aria-labelledby="ledger-balance-h"
->
-	<h2 id="ledger-balance-h" class="text-base font-semibold text-slate-900">
-		Project ledger (balance)
-	</h2>
-	{#if !ledgerData}
-		<p class="mt-4 text-sm text-slate-500">Ledger unavailable.</p>
-	{:else}
-		{@const disc = discountDisplay()}
-		{@const due = Number(ledgerSummary?.due) || 0}
-		{@const advanceBal = Number(ledgerSummary?.advance_balance) || 0}
-		<dl class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-			<div>
-				<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Subtotal</dt>
-				<dd class="mt-1 text-lg font-semibold text-slate-900">
-					{fmtPrice(ledgerSummary?.subtotal)}
-				</dd>
-			</div>
-			<div>
-				<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Discount</dt>
-				<dd class="mt-1 text-lg font-semibold text-slate-900">
-					{disc.display}
-					{#if disc.hint}
-						<span class="ml-1 text-xs font-normal text-slate-500">({disc.hint})</span>
-					{/if}
-				</dd>
-			</div>
-			<div>
-				<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Total</dt>
-				<dd class="mt-1 text-lg font-semibold text-slate-900">{fmtPrice(ledgerSummary?.total)}</dd>
-			</div>
-			<div>
-				<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Paid</dt>
-				<dd class="mt-1 text-lg font-semibold text-green-700">{fmtPrice(ledgerSummary?.paid)}</dd>
-			</div>
-			<div>
-				<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Due</dt>
-				<dd class="mt-1 text-lg font-bold {due > 0 ? 'text-red-600' : 'text-green-700'}">
-					{fmtPrice(ledgerSummary?.due)}
-				</dd>
-			</div>
-		</dl>
-		{#if advanceBal > 0}
-			<div class="mt-4 rounded-md border border-indigo-200 bg-indigo-50 p-3">
-				<p class="text-sm font-medium text-indigo-900">
-					Client Advance Credit: <span class="font-bold text-indigo-700">{fmtPrice(ledgerSummary?.advance_balance)}</span>
-				</p>
-				<p class="mt-0.5 text-xs text-indigo-700">
-					Payments received exceed current charges. Credit will automatically apply toward future charges.
-				</p>
-			</div>
-		{/if}
-	{/if}
-</section>
-
-<!-- Ledger -->
-<section
-	class="mt-6 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"
-	aria-labelledby="ledger-h"
->
-	<div
-		class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-6 py-4"
-	>
-		<div>
-			<h2 id="ledger-h" class="text-base font-semibold text-slate-900">Ledger timeline</h2>
-			<p class="mt-0.5 text-sm text-slate-500">
-				Balance-forward timeline of charges, payments and refunds.
-			</p>
+	{#if canManage}
+		<div class="mt-6 flex flex-wrap items-center gap-3">
+			<button
+				type="button"
+				onclick={openPaymentDialog}
+				class="inline-flex items-center gap-2 rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-emerald-700 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-none"
+			>
+				<Icon icon={arrowDown} class="h-4 w-4" />
+				Record payment
+			</button>
+			<button
+				type="button"
+				onclick={openStatementPreview}
+				class="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+			>
+				Preview statement
+			</button>
+			<button
+				type="button"
+				onclick={openGenerateDialog}
+				class="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+			>
+				Generate invoice
+			</button>
+			<button
+				type="button"
+				onclick={openAdjustDialog}
+				class="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+			>
+				Add adjustment
+			</button>
+			<button
+				type="button"
+				onclick={openDiscountDialog}
+				class="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+			>
+				Edit discount
+			</button>
+			<!-- eslint-disable svelte/no-navigation-without-resolve -- query string appended to a resolved route -->
+			<a
+				href={resolve('/app/invoices/new') + '?project_id=' + data.project.id}
+				class="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+			>
+				Custom invoice
+			</a>
+			<!-- eslint-enable svelte/no-navigation-without-resolve -->
 		</div>
-	</div>
-
-	{#if !ledgerData}
-		<p class="px-6 py-8 text-sm text-slate-500">Ledger unavailable.</p>
-	{:else if ledgerEntries.length === 0}
-		<p class="px-6 py-8 text-sm text-slate-500">No ledger entries yet.</p>
-	{:else}
-		<ul class="divide-y divide-slate-100">
-			{#each ledgerEntries as e (e.id)}
-				{@const meta = entryMeta(e)}
-				{@const price = entryPrice(e)}
-				<li class="flex items-center gap-3 px-6 py-3">
-					<span
-						class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full {meta.bg}"
-						aria-hidden="true"
-					>
-						<Icon icon={meta.icon} class="h-4 w-4 {meta.text}" />
-					</span>
-					<div class="min-w-0 flex-1">
-						<p class="truncate text-sm font-medium text-slate-900" title={entryLabel(e)}>
-							{entryLabel(e)}
-						</p>
-						<p class="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-500">
-							<span>{entrySubtext(e)}</span>
-							<span aria-hidden="true">·</span>
-							<span>{e.entry_date ? formatDate(e.entry_date) : formatDateTime(e.created_at)}</span>
-							{#if e.type === 'charge' && e.invoice_ref && e.invoice_number}
-								<a
-									href={resolve('/app/invoices/[id]', { id: e.invoice_ref })}
-									class="inline-flex items-center rounded-full bg-indigo-50 px-2 py-0.5 font-medium text-indigo-700 ring-1 ring-indigo-600/20 hover:bg-indigo-100"
-								>
-									Included in {e.invoice_number}
-								</a>
-							{/if}
-						</p>
-					</div>
-					<p class="shrink-0 text-sm font-semibold whitespace-nowrap {meta.text}">{price}</p>
-				</li>
-			{/each}
-		</ul>
 	{/if}
-</section>
+
+	<!-- Ledger balance summary -->
+	<section
+		class="mt-6 rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
+		aria-labelledby="ledger-balance-h"
+	>
+		<h2 id="ledger-balance-h" class="text-base font-semibold text-slate-900">
+			Project ledger (balance)
+		</h2>
+		{#if !ledgerData}
+			<p class="mt-4 text-sm text-slate-500">Ledger unavailable.</p>
+		{:else}
+			{@const disc = discountDisplay()}
+			{@const due = Number(ledgerSummary?.due) || 0}
+			{@const advanceBal = Number(ledgerSummary?.advance_balance) || 0}
+			<dl class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+				<div>
+					<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Subtotal</dt>
+					<dd class="mt-1 text-lg font-semibold text-slate-900">
+						{fmtPrice(ledgerSummary?.subtotal)}
+					</dd>
+				</div>
+				<div>
+					<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Discount</dt>
+					<dd class="mt-1 text-lg font-semibold text-slate-900">
+						{disc.display}
+						{#if disc.hint}
+							<span class="ml-1 text-xs font-normal text-slate-500">({disc.hint})</span>
+						{/if}
+					</dd>
+				</div>
+				<div>
+					<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Total</dt>
+					<dd class="mt-1 text-lg font-semibold text-slate-900">
+						{fmtPrice(ledgerSummary?.total)}
+					</dd>
+				</div>
+				<div>
+					<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Paid</dt>
+					<dd class="mt-1 text-lg font-semibold text-green-700">{fmtPrice(ledgerSummary?.paid)}</dd>
+				</div>
+				<div>
+					<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Due</dt>
+					<dd class="mt-1 text-lg font-bold {due > 0 ? 'text-red-600' : 'text-green-700'}">
+						{fmtPrice(ledgerSummary?.due)}
+					</dd>
+				</div>
+			</dl>
+			{#if advanceBal > 0}
+				<div class="mt-4 rounded-md border border-indigo-200 bg-indigo-50 p-3">
+					<p class="text-sm font-medium text-indigo-900">
+						Client Advance Credit: <span class="font-bold text-indigo-700"
+							>{fmtPrice(ledgerSummary?.advance_balance)}</span
+						>
+					</p>
+					<p class="mt-0.5 text-xs text-indigo-700">
+						Payments received exceed current charges. Credit will automatically apply toward future
+						charges.
+					</p>
+				</div>
+			{/if}
+		{/if}
+	</section>
+
+	<!-- Ledger -->
+	<section
+		class="mt-6 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"
+		aria-labelledby="ledger-h"
+	>
+		<div
+			class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-6 py-4"
+		>
+			<div>
+				<h2 id="ledger-h" class="text-base font-semibold text-slate-900">Ledger timeline</h2>
+				<p class="mt-0.5 text-sm text-slate-500">
+					Balance-forward timeline of charges, payments and refunds.
+				</p>
+			</div>
+		</div>
+
+		{#if !ledgerData}
+			<p class="px-6 py-8 text-sm text-slate-500">Ledger unavailable.</p>
+		{:else if ledgerEntries.length === 0}
+			<p class="px-6 py-8 text-sm text-slate-500">No ledger entries yet.</p>
+		{:else}
+			<ul class="divide-y divide-slate-100">
+				{#each ledgerEntries as e (e.id)}
+					{@const meta = entryMeta(e)}
+					{@const price = entryPrice(e)}
+					<li class="flex items-center gap-3 px-6 py-3">
+						<span
+							class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full {meta.bg}"
+							aria-hidden="true"
+						>
+							<Icon icon={meta.icon} class="h-4 w-4 {meta.text}" />
+						</span>
+						<div class="min-w-0 flex-1">
+							<p class="truncate text-sm font-medium text-slate-900" title={entryLabel(e)}>
+								{entryLabel(e)}
+							</p>
+							<p
+								class="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-500"
+							>
+								<span>{entrySubtext(e)}</span>
+								<span aria-hidden="true">·</span>
+								<span>{e.entry_date ? formatDate(e.entry_date) : formatDateTime(e.created_at)}</span
+								>
+								{#if e.type === 'charge' && e.invoice_ref && e.invoice_number}
+									<a
+										href={resolve('/app/invoices/[id]', { id: e.invoice_ref })}
+										class="inline-flex items-center rounded-full bg-indigo-50 px-2 py-0.5 font-medium text-indigo-700 ring-1 ring-indigo-600/20 hover:bg-indigo-100"
+									>
+										Included in {e.invoice_number}
+									</a>
+								{/if}
+							</p>
+						</div>
+						<p class="shrink-0 text-sm font-semibold whitespace-nowrap {meta.text}">{price}</p>
+					</li>
+				{/each}
+			</ul>
+		{/if}
+	</section>
 {/if}
 
 {#if activeTab === 'invoices'}
-<!-- Invoices -->
-<section
-	class="mt-6 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"
-	aria-labelledby="invoices-tab-h"
->
-	<div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-6 py-4">
-		<div>
-			<h2 id="invoices-tab-h" class="text-base font-semibold text-slate-900">Project Invoices</h2>
-			<p class="mt-0.5 text-sm text-slate-500">
-				{invoiceList.length} {invoiceList.length === 1 ? 'invoice' : 'invoices'} issued or drafted for this project
-			</p>
-		</div>
-		{#if canManage}
-			<div class="flex flex-wrap items-center gap-2">
-				<button
-					type="button"
-					onclick={openGenerateDialog}
-					class="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
-				>
-					Generate Statement Invoice
-				</button>
-				<!-- eslint-disable svelte/no-navigation-without-resolve -- query string appended to a resolved route -->
-				<a
-					href={`${resolve('/app/invoices/new')}?project_id=${data.project.id}`}
-					class="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
-				>
-					New Custom Invoice
-				</a>
-				<!-- eslint-enable svelte/no-navigation-without-resolve -->
+	<!-- Invoices -->
+	<section
+		class="mt-6 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"
+		aria-labelledby="invoices-tab-h"
+	>
+		<div
+			class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-6 py-4"
+		>
+			<div>
+				<h2 id="invoices-tab-h" class="text-base font-semibold text-slate-900">Project Invoices</h2>
+				<p class="mt-0.5 text-sm text-slate-500">
+					{invoiceList.length}
+					{invoiceList.length === 1 ? 'invoice' : 'invoices'} issued or drafted for this project
+				</p>
 			</div>
-		{/if}
-	</div>
-
-	{#if invoiceList.length === 0}
-		<div class="px-6 py-12 text-center">
-			<p class="text-sm text-slate-500">No invoices generated for this project yet.</p>
 			{#if canManage}
-				<div class="mt-4 flex flex-wrap justify-center gap-3">
+				<div class="flex flex-wrap items-center gap-2">
 					<button
 						type="button"
 						onclick={openGenerateDialog}
-						class="rounded-md bg-indigo-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+						class="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
 					>
-						Generate statement invoice
+						Generate Statement Invoice
 					</button>
-					<!-- eslint-disable svelte/no-navigation-without-resolve -->
+					<!-- eslint-disable svelte/no-navigation-without-resolve -- query string appended to a resolved route -->
 					<a
 						href={`${resolve('/app/invoices/new')}?project_id=${data.project.id}`}
-						class="rounded-md border border-slate-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+						class="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
 					>
-						Create custom invoice
+						New Custom Invoice
 					</a>
 					<!-- eslint-enable svelte/no-navigation-without-resolve -->
 				</div>
 			{/if}
 		</div>
-	{:else}
-		<div class="overflow-x-auto">
-			<table class="min-w-full divide-y divide-slate-200">
-				<thead class="bg-slate-50">
-					<tr>
-						<th scope="col" class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase">Invoice #</th>
-						<th scope="col" class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase">Status</th>
-						<th scope="col" class="px-4 py-3 text-right text-xs font-semibold tracking-wide text-slate-600 uppercase">Total</th>
-						<th scope="col" class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase">Issue date</th>
-						<th scope="col" class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase">Due date</th>
-						<th scope="col" class="px-4 py-3 text-right text-xs font-semibold tracking-wide text-slate-600 uppercase">Actions</th>
-					</tr>
-				</thead>
-				<tbody class="divide-y divide-slate-200">
-					{#each invoiceList as inv (inv.id)}
-						<tr class="hover:bg-slate-50">
-							<td class="px-4 py-3 text-sm font-medium text-slate-900">
-								<a
-									href={resolve('/app/invoices/[id]', { id: inv.id })}
-									class="font-semibold text-indigo-600 hover:text-indigo-500"
-								>
-									{inv.invoice_number ? inv.invoice_number : 'Draft'}
-								</a>
-							</td>
-							<td class="px-4 py-3"><StatusBadge status={inv.status} /></td>
-							<td class="px-4 py-3 text-right text-sm font-semibold whitespace-nowrap text-slate-900">{fmtPrice(inv.total)}</td>
-							<td class="px-4 py-3 text-sm whitespace-nowrap text-slate-600">{formatDate(inv.issue_date)}</td>
-							<td class="px-4 py-3 text-sm whitespace-nowrap text-slate-600">{formatDate(inv.due_date)}</td>
-							<td class="px-4 py-3 text-right">
-								<div class="flex items-center justify-end gap-3 text-sm">
+
+		{#if invoiceList.length === 0}
+			<div class="px-6 py-12 text-center">
+				<p class="text-sm text-slate-500">No invoices generated for this project yet.</p>
+				{#if canManage}
+					<div class="mt-4 flex flex-wrap justify-center gap-3">
+						<button
+							type="button"
+							onclick={openGenerateDialog}
+							class="rounded-md bg-indigo-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+						>
+							Generate statement invoice
+						</button>
+						<!-- eslint-disable svelte/no-navigation-without-resolve -->
+						<a
+							href={`${resolve('/app/invoices/new')}?project_id=${data.project.id}`}
+							class="rounded-md border border-slate-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+						>
+							Create custom invoice
+						</a>
+						<!-- eslint-enable svelte/no-navigation-without-resolve -->
+					</div>
+				{/if}
+			</div>
+		{:else}
+			<div class="overflow-x-auto">
+				<table class="min-w-full divide-y divide-slate-200">
+					<thead class="bg-slate-50">
+						<tr>
+							<th
+								scope="col"
+								class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
+								>Invoice #</th
+							>
+							<th
+								scope="col"
+								class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
+								>Status</th
+							>
+							<th
+								scope="col"
+								class="px-4 py-3 text-right text-xs font-semibold tracking-wide text-slate-600 uppercase"
+								>Total</th
+							>
+							<th
+								scope="col"
+								class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
+								>Issue date</th
+							>
+							<th
+								scope="col"
+								class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
+								>Due date</th
+							>
+							<th
+								scope="col"
+								class="px-4 py-3 text-right text-xs font-semibold tracking-wide text-slate-600 uppercase"
+								>Actions</th
+							>
+						</tr>
+					</thead>
+					<tbody class="divide-y divide-slate-200">
+						{#each invoiceList as inv (inv.id)}
+							<tr class="hover:bg-slate-50">
+								<td class="px-4 py-3 text-sm font-medium text-slate-900">
 									<a
 										href={resolve('/app/invoices/[id]', { id: inv.id })}
-										class="font-medium text-indigo-600 hover:text-indigo-500"
+										class="font-semibold text-indigo-600 hover:text-indigo-500"
 									>
-										View
+										{inv.invoice_number ? inv.invoice_number : 'Draft'}
 									</a>
-									{#if inv.status === 'draft' && canManage}
-										<button
-											type="button"
-											disabled={issueBusyId === inv.id}
-											onclick={() => issueProjectInvoice(inv)}
-											class="font-medium text-emerald-600 hover:text-emerald-500 disabled:opacity-50"
+								</td>
+								<td class="px-4 py-3"><StatusBadge status={inv.status} /></td>
+								<td
+									class="px-4 py-3 text-right text-sm font-semibold whitespace-nowrap text-slate-900"
+									>{fmtPrice(inv.total)}</td
+								>
+								<td class="px-4 py-3 text-sm whitespace-nowrap text-slate-600"
+									>{formatDate(inv.issue_date)}</td
+								>
+								<td class="px-4 py-3 text-sm whitespace-nowrap text-slate-600"
+									>{formatDate(inv.due_date)}</td
+								>
+								<td class="px-4 py-3 text-right">
+									<div class="flex items-center justify-end gap-3 text-sm">
+										<a
+											href={resolve('/app/invoices/[id]', { id: inv.id })}
+											class="font-medium text-indigo-600 hover:text-indigo-500"
 										>
-											{#if issueBusyId === inv.id}Issuing...{:else}Issue{/if}
-										</button>
-									{/if}
-									{#if inv.status !== 'draft'}
-										<button
-											type="button"
-											disabled={pdfBusyId === inv.id}
-											onclick={() => downloadSingleInvoicePdf(inv)}
-											class="font-medium text-slate-600 hover:text-slate-900 disabled:opacity-50"
-										>
-											{#if pdfBusyId === inv.id}Downloading...{:else}PDF{/if}
-										</button>
-									{/if}
-								</div>
-							</td>
-						</tr>
-					{/each}
-				</tbody>
-			</table>
-		</div>
-	{/if}
-</section>
+											View
+										</a>
+										{#if inv.status === 'draft' && canManage}
+											<button
+												type="button"
+												disabled={issueBusyId === inv.id}
+												onclick={() => issueProjectInvoice(inv)}
+												class="font-medium text-emerald-600 hover:text-emerald-500 disabled:opacity-50"
+											>
+												{#if issueBusyId === inv.id}Issuing...{:else}Issue{/if}
+											</button>
+										{/if}
+										{#if inv.status !== 'draft'}
+											<button
+												type="button"
+												disabled={pdfBusyId === inv.id}
+												onclick={() => downloadSingleInvoicePdf(inv)}
+												class="font-medium text-slate-600 hover:text-slate-900 disabled:opacity-50"
+											>
+												{#if pdfBusyId === inv.id}Downloading...{:else}PDF{/if}
+											</button>
+										{/if}
+									</div>
+								</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</div>
+		{/if}
+	</section>
 {/if}
 
 {#if activeTab === 'files'}
-<!-- Project Files -->
-<section class="mt-6 space-y-4" aria-labelledby="project-files-h">
-	<!-- Control Toolbar -->
-	<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-xl border border-slate-200 bg-white p-3.5 shadow-2xs">
-		<div class="flex flex-1 flex-col gap-3 sm:flex-row sm:items-center">
-			<!-- Search Box -->
-			<div class="relative flex-1 max-w-sm">
-				<div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
-					<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-						<path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-					</svg>
-				</div>
-				<input
-					type="text"
-					bind:value={fileSearchQuery}
-					placeholder="Search project files..."
-					class="block w-full rounded-lg border-slate-300 pl-9 pr-8 text-sm placeholder-slate-400 shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
-				/>
-				{#if fileSearchQuery}
-					<button
-						type="button"
-						onclick={() => (fileSearchQuery = '')}
-						class="absolute inset-y-0 right-0 flex items-center pr-2.5 text-slate-400 hover:text-slate-600"
-						aria-label="Clear search"
+	<!-- Project Files -->
+	<section class="mt-6 space-y-4" aria-labelledby="project-files-h">
+		<!-- Control Toolbar -->
+		<div
+			class="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-3.5 shadow-2xs sm:flex-row sm:items-center sm:justify-between"
+		>
+			<div class="flex flex-1 flex-col gap-3 sm:flex-row sm:items-center">
+				<!-- Search Box -->
+				<div class="relative max-w-sm flex-1">
+					<div
+						class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400"
 					>
-						<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-							<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+						<svg
+							class="h-4 w-4"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+							stroke-width="2"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+							/>
 						</svg>
-					</button>
+					</div>
+					<input
+						type="text"
+						bind:value={fileSearchQuery}
+						placeholder="Search project files..."
+						class="block w-full rounded-lg border-slate-300 pr-8 pl-9 text-sm placeholder-slate-400 shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
+					/>
+					{#if fileSearchQuery}
+						<button
+							type="button"
+							onclick={() => (fileSearchQuery = '')}
+							class="absolute inset-y-0 right-0 flex items-center pr-2.5 text-slate-400 hover:text-slate-600"
+							aria-label="Clear search"
+						>
+							<svg
+								class="h-4 w-4"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+								stroke-width="2"
+							>
+								<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+							</svg>
+						</button>
+					{/if}
+				</div>
+
+				<!-- Filter Selector -->
+				<div class="flex items-center gap-2">
+					<select
+						bind:value={fileServiceFilter}
+						class="rounded-lg border-slate-300 text-sm shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
+					>
+						<option value="all">All Files ({projectFileList.length})</option>
+						<option value="general">General Project Files</option>
+						{#if projectFolderNodes.length > 0}
+							<optgroup label="Folders & Services">
+								{#each projectFolderNodes as fn (fn.id)}
+									<option value={fn.id}>📁 {fn.name}</option>
+								{/each}
+							</optgroup>
+						{/if}
+					</select>
+				</div>
+			</div>
+
+			<div>
+				<button
+					type="button"
+					onclick={() => openUploadModal('general')}
+					class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-2xs transition-colors hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+				>
+					<Icon icon={upload} class="h-4 w-4" />
+					Upload File
+				</button>
+			</div>
+		</div>
+
+		<!-- Files Grid -->
+		{#if filteredProjectFiles.length === 0}
+			<div class="rounded-xl border border-slate-200 bg-white p-12 text-center shadow-2xs">
+				<div
+					class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-500"
+				>
+					<Icon icon={folderOutline} class="h-6 w-6" />
+				</div>
+				<h3 class="mt-3 text-sm font-semibold text-slate-900">No project files found</h3>
+				<p class="mt-1 text-xs text-slate-500">
+					{fileSearchQuery || fileServiceFilter !== 'all'
+						? 'No files match your current search criteria.'
+						: 'Upload design assets, deliverables, contracts, or specifications for this project.'}
+				</p>
+				{#if fileSearchQuery || fileServiceFilter !== 'all'}
+					<div class="mt-4">
+						<button
+							type="button"
+							onclick={() => {
+								fileSearchQuery = '';
+								fileServiceFilter = 'all';
+							}}
+							class="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-200"
+						>
+							Clear filters
+						</button>
+					</div>
 				{/if}
 			</div>
-
-			<!-- Filter Selector -->
-			<div class="flex items-center gap-2">
-				<select
-					bind:value={fileServiceFilter}
-					class="rounded-lg border-slate-300 text-sm shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
-				>
-					<option value="all">All Files ({projectFileList.length})</option>
-					<option value="general">General Project Files</option>
-					{#if projectFolderNodes.length > 0}
-						<optgroup label="Folders & Services">
-							{#each projectFolderNodes as fn (fn.id)}
-								<option value={fn.id}>📁 {fn.name}</option>
-							{/each}
-						</optgroup>
-					{/if}
-				</select>
+		{:else}
+			<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+				{#each filteredProjectFiles as f (f.id)}
+					<FileCard
+						file={f}
+						canAct={true}
+						{token}
+						onpreview={() => handleFilePreview(f)}
+						ondownload={() => handleFileDownload(f)}
+						onrename={() => openRenameModal(f)}
+						onmove={() => {}}
+						ondelete={() => (deleteFileTarget = f)}
+					/>
+				{/each}
 			</div>
-		</div>
-
-		<div>
-			<button
-				type="button"
-				onclick={() => openUploadModal('general')}
-				class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-2xs hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors"
-			>
-				<Icon icon={upload} class="h-4 w-4" />
-				Upload File
-			</button>
-		</div>
-	</div>
-
-	<!-- Files Grid -->
-	{#if filteredProjectFiles.length === 0}
-		<div class="rounded-xl border border-slate-200 bg-white p-12 text-center shadow-2xs">
-			<div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-500">
-				<Icon icon={folderOutline} class="h-6 w-6" />
-			</div>
-			<h3 class="mt-3 text-sm font-semibold text-slate-900">No project files found</h3>
-			<p class="mt-1 text-xs text-slate-500">
-				{fileSearchQuery || fileServiceFilter !== 'all'
-					? 'No files match your current search criteria.'
-					: 'Upload design assets, deliverables, contracts, or specifications for this project.'}
-			</p>
-			{#if fileSearchQuery || fileServiceFilter !== 'all'}
-				<div class="mt-4">
-					<button
-						type="button"
-						onclick={() => {
-							fileSearchQuery = '';
-							fileServiceFilter = 'all';
-						}}
-						class="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-200"
-					>
-						Clear filters
-					</button>
-				</div>
-			{/if}
-		</div>
-	{:else}
-		<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-			{#each filteredProjectFiles as f (f.id)}
-				<FileCard
-					file={f}
-					canAct={true}
-					{token}
-					onpreview={() => handleFilePreview(f)}
-					ondownload={() => handleFileDownload(f)}
-					onrename={() => openRenameModal(f)}
-					onmove={() => {}}
-					ondelete={() => (deleteFileTarget = f)}
-				/>
-			{/each}
-		</div>
-	{/if}
-</section>
+		{/if}
+	</section>
 {/if}
 
 {#if activeTab === 'comments'}
-<!-- Comments -->
-<section
-	class="mt-6 rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
-	aria-labelledby="comments-h"
->
-	<h2 id="comments-h" class="text-base font-semibold text-slate-900">Comments</h2>
-	<div class="mt-2">
-		<CommentThread projectId={data.project.id} {fetch} {token} realm="admin" staff={true} />
-	</div>
-</section>
+	<!-- Comments -->
+	<section
+		class="mt-6 rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
+		aria-labelledby="comments-h"
+	>
+		<h2 id="comments-h" class="text-base font-semibold text-slate-900">Comments</h2>
+		<div class="mt-2">
+			<CommentThread projectId={data.project.id} {fetch} {token} realm="admin" staff={true} />
+		</div>
+	</section>
 {/if}
 
 {#if activeTab === 'purchases'}
-<!-- ═══════════════════════════════ PURCHASES TAB ════════════════════════════ -->
-<section class="mt-6 space-y-5" aria-labelledby="purchases-h">
-
-	<!-- Header row -->
-	<div class="flex flex-wrap items-center justify-between gap-3">
-		<div>
-			<h2 id="purchases-h" class="text-lg font-semibold text-slate-900 flex items-center gap-2">
-				<Icon icon={cart} class="h-5 w-5 text-indigo-500" />
-				Project Purchases
-			</h2>
-			<p class="text-xs text-slate-500 mt-0.5">Record purchase costs for this project.</p>
-		</div>
-		{#if canManage}
-			<button
-				type="button"
-				onclick={openNewPurchaseModal}
-				class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 transition-colors focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
-				id="btn-new-purchase"
-			>
-				<Icon icon={plusCircle} class="h-4 w-4" />
-				New Entry
-			</button>
-		{/if}
-	</div>
-
-	{#if purchaseListErr}
-		<p role="alert" class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{purchaseListErr}</p>
-	{/if}
-
-	{#if purchaseListLoading}
-		<div class="flex items-center gap-2 py-8 justify-center text-slate-500">
-			<Spinner class="h-5 w-5 text-indigo-600" /> Loading purchases…
-		</div>
-	{:else if purchaseList.length === 0}
-		<div class="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 bg-white py-16 text-center">
-			<div class="flex h-14 w-14 items-center justify-center rounded-full bg-indigo-50 mb-4">
-				<Icon icon={cart} class="h-7 w-7 text-indigo-400" />
+	<!-- ═══════════════════════════════ PURCHASES TAB ════════════════════════════ -->
+	<section class="mt-6 space-y-5" aria-labelledby="purchases-h">
+		<!-- Header row -->
+		<div class="flex flex-wrap items-center justify-between gap-3">
+			<div>
+				<h2 id="purchases-h" class="flex items-center gap-2 text-lg font-semibold text-slate-900">
+					<Icon icon={cart} class="h-5 w-5 text-indigo-500" />
+					Project Purchases
+				</h2>
+				<p class="mt-0.5 text-xs text-slate-500">Record purchase costs for this project.</p>
 			</div>
-			<p class="text-sm font-medium text-slate-700">No purchase entries yet</p>
-			<p class="mt-1 text-xs text-slate-400">Click <strong>New Entry</strong> to record the first purchase.</p>
-		</div>
-	{:else}
-		<!-- Grand total summary bar -->
-		<div class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 flex items-center justify-between">
-			<span class="text-sm font-medium text-slate-500">Total Purchased (all entries)</span>
-			<span class="text-xl font-bold text-slate-900">{fmtPrice(purchaseGrandTotal)}</span>
+			{#if canManage}
+				<button
+					type="button"
+					onclick={openNewPurchaseModal}
+					class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+					id="btn-new-purchase"
+				>
+					<Icon icon={plusCircle} class="h-4 w-4" />
+					New Entry
+				</button>
+			{/if}
 		</div>
 
-		<!-- Entry cards -->
-		<div class="space-y-3">
-			{#each purchaseList as entry (entry.id)}
-				<div class="rounded-xl border border-slate-200 bg-white shadow-xs hover:shadow-sm transition-shadow">
-					<div class="flex flex-wrap items-start justify-between gap-3 p-4 border-b border-slate-100">
-						<div class="flex-1 min-w-0">
-							<p class="text-sm font-semibold text-slate-900 truncate">
-								{entry.title || 'Untitled Entry'}
-							</p>
-							<p class="text-xs text-slate-400 mt-0.5">
-								{#if entry.entry_date}{formatDate(entry.entry_date)} ·{/if}
-								{entry.item_count} {entry.item_count === 1 ? 'item' : 'items'}
-							</p>
-						</div>
-						<div class="flex items-center gap-3">
-							<span class="text-base font-bold text-indigo-700">{fmtPrice(entry.grand_total)}</span>
-							<button
-								type="button"
-								onclick={() => openPurchaseView(entry)}
-								class="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-700 transition-colors"
-								title="Invoice-style view"
-							>View</button>
-							{#if canManage}
+		{#if purchaseListErr}
+			<p
+				role="alert"
+				class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+			>
+				{purchaseListErr}
+			</p>
+		{/if}
+
+		{#if purchaseListLoading}
+			<div class="flex items-center justify-center gap-2 py-8 text-slate-500">
+				<Spinner class="h-5 w-5 text-indigo-600" /> Loading purchases…
+			</div>
+		{:else if purchaseList.length === 0}
+			<div
+				class="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 bg-white py-16 text-center"
+			>
+				<div class="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-indigo-50">
+					<Icon icon={cart} class="h-7 w-7 text-indigo-400" />
+				</div>
+				<p class="text-sm font-medium text-slate-700">No purchase entries yet</p>
+				<p class="mt-1 text-xs text-slate-400">
+					Click <strong>New Entry</strong> to record the first purchase.
+				</p>
+			</div>
+		{:else}
+			<!-- Grand total summary bar -->
+			<div
+				class="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-4 py-3"
+			>
+				<span class="text-sm font-medium text-slate-500">Total Purchased (all entries)</span>
+				<span class="text-xl font-bold text-slate-900">{fmtPrice(purchaseGrandTotal)}</span>
+			</div>
+
+			<!-- Entry cards -->
+			<div class="space-y-3">
+				{#each purchaseList as entry (entry.id)}
+					<div
+						class="rounded-xl border border-slate-200 bg-white shadow-xs transition-shadow hover:shadow-sm"
+					>
+						<div
+							class="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 p-4"
+						>
+							<div class="min-w-0 flex-1">
+								<p class="truncate text-sm font-semibold text-slate-900">
+									{entry.title || 'Untitled Entry'}
+								</p>
+								<p class="mt-0.5 text-xs text-slate-400">
+									{#if entry.entry_date}{formatDate(entry.entry_date)} ·{/if}
+									{entry.item_count}
+									{entry.item_count === 1 ? 'item' : 'items'}
+								</p>
+							</div>
+							<div class="flex items-center gap-3">
+								<span class="text-base font-bold text-indigo-700"
+									>{fmtPrice(entry.grand_total)}</span
+								>
 								<button
 									type="button"
-									onclick={async () => {
-										const full = await purchaseApi.getPurchaseEntry(fetch, token, data.project.id, entry.id);
-										openEditPurchaseModal(full);
-									}}
-									class="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100 transition-colors"
-								>Edit</button>
-								<button
-									type="button"
-									onclick={() => (purchaseDeleteTarget = entry)}
-									class="rounded-md border border-red-100 bg-red-50 px-2.5 py-1 text-xs font-medium text-red-600 hover:bg-red-100 transition-colors"
-								>Delete</button>
-							{/if}
+									onclick={() => openPurchaseView(entry)}
+									class="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600 transition-colors hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
+									title="Invoice-style view">View</button
+								>
+								{#if canManage}
+									<button
+										type="button"
+										onclick={async () => {
+											const full = await purchaseApi.getPurchaseEntry(
+												fetch,
+												token,
+												data.project.id,
+												entry.id
+											);
+											openEditPurchaseModal(full);
+										}}
+										class="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100"
+										>Edit</button
+									>
+									<button
+										type="button"
+										onclick={() => (purchaseDeleteTarget = entry)}
+										class="rounded-md border border-red-100 bg-red-50 px-2.5 py-1 text-xs font-medium text-red-600 transition-colors hover:bg-red-100"
+										>Delete</button
+									>
+								{/if}
+							</div>
 						</div>
 					</div>
-				</div>
-			{/each}
-		</div>
-	{/if}
-</section>
+				{/each}
+			</div>
+		{/if}
+	</section>
 {/if}
 
 <!-- ═══════════════ Purchase Entry — Add/Edit Modal ═══════════════════════ -->
 {#if purchaseModalOpen}
 	<div
-		class="fixed inset-0 z-50 flex items-start justify-center bg-slate-900/60 p-4 pt-12 backdrop-blur-xs overflow-y-auto"
+		class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/60 p-4 pt-12 backdrop-blur-xs"
 		role="dialog"
 		aria-modal="true"
 		aria-labelledby="purchase-modal-title"
@@ -1940,7 +2218,9 @@
 					<h2 id="purchase-modal-title" class="text-base font-semibold text-slate-900">
 						{purchaseEditTarget ? 'Edit Purchase Entry' : 'New Purchase Entry'}
 					</h2>
-					<p class="text-xs text-slate-400 mt-0.5">All items belong to this entry. Totals are computed automatically.</p>
+					<p class="mt-0.5 text-xs text-slate-400">
+						All items belong to this entry. Totals are computed automatically.
+					</p>
 				</div>
 				<button
 					type="button"
@@ -1948,15 +2228,24 @@
 					class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
 					aria-label="Close"
 				>
-					<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+					<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+						><path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M6 18L18 6M6 6l12 12"
+						/></svg
+					>
 				</button>
 			</div>
 
-			<div class="px-6 py-5 space-y-5">
+			<div class="space-y-5 px-6 py-5">
 				<!-- Header fields -->
 				<div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
 					<div class="sm:col-span-2">
-						<label for="pe-title" class="block text-xs font-medium text-slate-600 mb-1">Entry Title</label>
+						<label for="pe-title" class="mb-1 block text-xs font-medium text-slate-600"
+							>Entry Title</label
+						>
 						<input
 							id="pe-title"
 							type="text"
@@ -1966,7 +2255,9 @@
 						/>
 					</div>
 					<div>
-						<label for="pe-date" class="block text-xs font-medium text-slate-600 mb-1">Entry Date</label>
+						<label for="pe-date" class="mb-1 block text-xs font-medium text-slate-600"
+							>Entry Date</label
+						>
 						<input
 							id="pe-date"
 							type="date"
@@ -1977,37 +2268,47 @@
 				</div>
 
 				<div>
-					<label for="pe-notes" class="block text-xs font-medium text-slate-600 mb-1">Notes <span class="text-slate-400">(optional)</span></label>
+					<label for="pe-notes" class="mb-1 block text-xs font-medium text-slate-600"
+						>Notes <span class="text-slate-400">(optional)</span></label
+					>
 					<textarea
 						id="pe-notes"
 						bind:value={purchaseNotes}
 						rows="2"
 						placeholder="Additional notes…"
-						class="w-full rounded-lg border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 resize-none"
+						class="w-full resize-none rounded-lg border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
 					></textarea>
 				</div>
 
 				<!-- Line items table -->
 				<div>
-					<div class="flex items-center justify-between mb-2">
-						<span class="text-xs font-semibold text-slate-700 uppercase tracking-wider">Items</span>
+					<div class="mb-2 flex items-center justify-between">
+						<span class="text-xs font-semibold tracking-wider text-slate-700 uppercase">Items</span>
 					</div>
 					<div class="overflow-x-auto rounded-lg border border-slate-200">
 						<table class="w-full text-sm">
-							<thead class="bg-slate-50 border-b border-slate-200">
+							<thead class="border-b border-slate-200 bg-slate-50">
 								<tr>
-									<th class="px-3 py-2 text-left text-xs font-semibold text-slate-500 w-28">Date</th>
-									<th class="px-3 py-2 text-left text-xs font-semibold text-slate-500">Description</th>
-									<th class="px-3 py-2 text-right text-xs font-semibold text-slate-500 w-24">Qty</th>
-									<th class="px-3 py-2 text-right text-xs font-semibold text-slate-500 w-28">Rate</th>
-									<th class="px-3 py-2 text-right text-xs font-semibold text-slate-500 w-28">Total</th>
-									<th class="px-3 py-2 w-10"></th>
+									<th class="w-28 px-3 py-2 text-left text-xs font-semibold text-slate-500">Date</th
+									>
+									<th class="px-3 py-2 text-left text-xs font-semibold text-slate-500"
+										>Description</th
+									>
+									<th class="w-24 px-3 py-2 text-right text-xs font-semibold text-slate-500">Qty</th
+									>
+									<th class="w-28 px-3 py-2 text-right text-xs font-semibold text-slate-500"
+										>Rate</th
+									>
+									<th class="w-28 px-3 py-2 text-right text-xs font-semibold text-slate-500"
+										>Total</th
+									>
+									<th class="w-10 px-3 py-2"></th>
 								</tr>
 							</thead>
 							<tbody class="divide-y divide-slate-100">
 								{#each purchaseRows as row, i (i)}
 									{@const rt = purchaseRowTotal(row)}
-									<tr class="hover:bg-slate-50/60 transition-colors">
+									<tr class="transition-colors hover:bg-slate-50/60">
 										<td class="px-2 py-1.5">
 											<input
 												type="date"
@@ -2032,7 +2333,7 @@
 												min="0.01"
 												step="0.01"
 												bind:value={purchaseRows[i].quantity}
-												class="w-full rounded border-slate-200 text-xs text-right focus:border-indigo-400 focus:ring-indigo-400"
+												class="w-full rounded border-slate-200 text-right text-xs focus:border-indigo-400 focus:ring-indigo-400"
 											/>
 										</td>
 										<td class="px-2 py-1.5">
@@ -2043,11 +2344,15 @@
 												step="0.01"
 												bind:value={purchaseRows[i].rate}
 												placeholder="0.00"
-												class="w-full rounded border-slate-200 text-xs text-right focus:border-indigo-400 focus:ring-indigo-400"
+												class="w-full rounded border-slate-200 text-right text-xs focus:border-indigo-400 focus:ring-indigo-400"
 											/>
 										</td>
 										<td class="px-2 py-1.5 text-right">
-											<span class="text-xs font-semibold {rt !== null ? 'text-slate-800' : 'text-slate-300'}">
+											<span
+												class="text-xs font-semibold {rt !== null
+													? 'text-slate-800'
+													: 'text-slate-300'}"
+											>
 												{rt !== null ? fmtPrice(rt) : '—'}
 											</span>
 										</td>
@@ -2055,20 +2360,31 @@
 											<button
 												type="button"
 												onclick={() => removePurchaseRow(i)}
-												class="rounded p-1 text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+												class="rounded p-1 text-slate-300 transition-colors hover:bg-red-50 hover:text-red-500"
 												aria-label="Remove row"
 											>
-												<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+												<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+													><path
+														stroke-linecap="round"
+														stroke-linejoin="round"
+														stroke-width="2"
+														d="M6 18L18 6M6 6l12 12"
+													/></svg
+												>
 											</button>
 										</td>
 									</tr>
 								{/each}
 							</tbody>
 							<!-- Grand total footer -->
-							<tfoot class="bg-indigo-50 border-t-2 border-indigo-200">
+							<tfoot class="border-t-2 border-indigo-200 bg-indigo-50">
 								<tr>
-									<td colspan="4" class="px-3 py-2.5 text-right text-sm font-bold text-indigo-700">Grand Total</td>
-									<td class="px-3 py-2.5 text-right text-sm font-bold text-indigo-700">{fmtPrice(purchaseFormGrandTotal)}</td>
+									<td colspan="4" class="px-3 py-2.5 text-right text-sm font-bold text-indigo-700"
+										>Grand Total</td
+									>
+									<td class="px-3 py-2.5 text-right text-sm font-bold text-indigo-700"
+										>{fmtPrice(purchaseFormGrandTotal)}</td
+									>
 									<td></td>
 								</tr>
 							</tfoot>
@@ -2077,7 +2393,7 @@
 					<button
 						type="button"
 						onclick={addPurchaseRow}
-						class="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-indigo-600 hover:text-indigo-800 transition-colors"
+						class="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-indigo-600 transition-colors hover:text-indigo-800"
 						id="btn-add-row"
 					>
 						<Icon icon={plusCircle} class="h-4 w-4" /> Add Row
@@ -2085,7 +2401,12 @@
 				</div>
 
 				{#if purchaseModalErr}
-					<p role="alert" class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{purchaseModalErr}</p>
+					<p
+						role="alert"
+						class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+					>
+						{purchaseModalErr}
+					</p>
 				{/if}
 			</div>
 
@@ -2095,8 +2416,8 @@
 					type="button"
 					onclick={() => (purchaseModalOpen = false)}
 					class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-					disabled={purchaseModalBusy}
-				>Cancel</button>
+					disabled={purchaseModalBusy}>Cancel</button
+				>
 				<button
 					type="button"
 					onclick={savePurchaseEntry}
@@ -2115,7 +2436,7 @@
 <!-- ═══════════════ Purchase Entry — Invoice-Style View ═══════════════════ -->
 {#if purchaseViewEntry || purchaseViewLoading || purchaseViewErr}
 	<div
-		class="fixed inset-0 z-50 flex items-start justify-center bg-slate-900/60 p-4 pt-12 backdrop-blur-xs overflow-y-auto"
+		class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/60 p-4 pt-12 backdrop-blur-xs"
 		role="dialog"
 		aria-modal="true"
 		aria-labelledby="purchase-view-title"
@@ -2123,14 +2444,26 @@
 		<div class="w-full max-w-2xl rounded-2xl bg-white shadow-2xl">
 			<!-- View header -->
 			<div class="flex items-center justify-between border-b border-slate-100 px-6 py-4">
-				<h2 id="purchase-view-title" class="text-base font-semibold text-slate-900">Purchase Entry — Detail View</h2>
+				<h2 id="purchase-view-title" class="text-base font-semibold text-slate-900">
+					Purchase Entry — Detail View
+				</h2>
 				<button
 					type="button"
-					onclick={() => { purchaseViewEntry = null; purchaseViewErr = null; }}
+					onclick={() => {
+						purchaseViewEntry = null;
+						purchaseViewErr = null;
+					}}
 					class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
 					aria-label="Close"
 				>
-					<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+					<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+						><path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M6 18L18 6M6 6l12 12"
+						/></svg
+					>
 				</button>
 			</div>
 
@@ -2140,64 +2473,273 @@
 						<Spinner class="h-8 w-8 text-indigo-600" />
 					</div>
 				{:else if purchaseViewErr}
-					<p role="alert" class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{purchaseViewErr}</p>
+					<p
+						role="alert"
+						class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+					>
+						{purchaseViewErr}
+					</p>
 				{:else if purchaseViewEntry}
 					<!-- Invoice-style document -->
-					<div class="rounded-xl border border-slate-200 overflow-hidden">
+					<div class="overflow-hidden rounded-xl border border-slate-200">
 						<!-- Document header -->
 						<div class="border-b border-slate-200 bg-white px-6 py-5">
 							<div class="flex items-start justify-between gap-4">
 								<div>
-									<p class="text-xs uppercase tracking-widest text-slate-400 font-semibold">Purchase Entry</p>
-									<h3 class="mt-1 text-lg font-bold text-slate-900">{purchaseViewEntry.title || 'Untitled Entry'}</h3>
+									<p class="text-xs font-semibold tracking-widest text-slate-400 uppercase">
+										Purchase Entry
+									</p>
+									<h3 class="mt-1 text-lg font-bold text-slate-900">
+										{purchaseViewEntry.title || 'Untitled Entry'}
+									</h3>
 									<p class="mt-0.5 text-sm text-slate-500">{data.project.name}</p>
 								</div>
 								<div class="text-right">
 									{#if purchaseViewEntry.entry_date}
 										<p class="text-xs text-slate-400">Date</p>
-										<p class="text-sm font-semibold text-slate-700">{formatDate(purchaseViewEntry.entry_date)}</p>
+										<p class="text-sm font-semibold text-slate-700">
+											{formatDate(purchaseViewEntry.entry_date)}
+										</p>
 									{/if}
 								</div>
 							</div>
 							{#if purchaseViewEntry.notes}
-								<p class="mt-3 text-sm text-slate-500 border-t border-slate-100 pt-3">{purchaseViewEntry.notes}</p>
+								<p class="mt-3 border-t border-slate-100 pt-3 text-sm text-slate-500">
+									{purchaseViewEntry.notes}
+								</p>
 							{/if}
 						</div>
 
 						<!-- Line items table -->
 						<table class="w-full text-sm">
-							<thead class="bg-slate-50 border-b border-slate-200">
+							<thead class="border-b border-slate-200 bg-slate-50">
 								<tr>
-									<th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Date</th>
-									<th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Description</th>
-									<th class="px-4 py-2.5 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Qty</th>
-									<th class="px-4 py-2.5 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Rate</th>
-									<th class="px-4 py-2.5 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Total</th>
+									<th
+										class="px-4 py-2.5 text-left text-xs font-semibold tracking-wider text-slate-500 uppercase"
+										>Date</th
+									>
+									<th
+										class="px-4 py-2.5 text-left text-xs font-semibold tracking-wider text-slate-500 uppercase"
+										>Description</th
+									>
+									<th
+										class="px-4 py-2.5 text-right text-xs font-semibold tracking-wider text-slate-500 uppercase"
+										>Qty</th
+									>
+									<th
+										class="px-4 py-2.5 text-right text-xs font-semibold tracking-wider text-slate-500 uppercase"
+										>Rate</th
+									>
+									<th
+										class="px-4 py-2.5 text-right text-xs font-semibold tracking-wider text-slate-500 uppercase"
+										>Total</th
+									>
 								</tr>
 							</thead>
 							<tbody class="divide-y divide-slate-100 bg-white">
 								{#each purchaseViewEntry.items as item (item.id)}
 									<tr>
-										<td class="px-4 py-3 text-slate-500 text-xs whitespace-nowrap">{item.item_date ? formatDate(item.item_date) : '—'}</td>
+										<td class="px-4 py-3 text-xs whitespace-nowrap text-slate-500"
+											>{item.item_date ? formatDate(item.item_date) : '—'}</td
+										>
 										<td class="px-4 py-3 text-slate-800">{item.description}</td>
 										<td class="px-4 py-3 text-right text-slate-600">{item.quantity}</td>
 										<td class="px-4 py-3 text-right text-slate-600">{fmtPrice(item.rate)}</td>
-										<td class="px-4 py-3 text-right font-medium text-slate-800">{fmtPrice(item.total)}</td>
+										<td class="px-4 py-3 text-right font-medium text-slate-800"
+											>{fmtPrice(item.total)}</td
+										>
 									</tr>
 								{/each}
 							</tbody>
 						</table>
 
 						<!-- Grand total footer -->
-						<div class="border-t border-slate-200 bg-slate-50 px-4 py-3 flex items-center justify-between">
-							<span class="text-sm font-semibold text-slate-500 uppercase tracking-wider">Total Purchased</span>
-							<span class="text-xl font-bold text-slate-900">{fmtPrice(purchaseViewEntry.grand_total)}</span>
+						<div
+							class="flex items-center justify-between border-t border-slate-200 bg-slate-50 px-4 py-3"
+						>
+							<span class="text-sm font-semibold tracking-wider text-slate-500 uppercase"
+								>Total Purchased</span
+							>
+							<span class="text-xl font-bold text-slate-900"
+								>{fmtPrice(purchaseViewEntry.grand_total)}</span
+							>
 						</div>
 					</div>
 				{/if}
 			</div>
 		</div>
 	</div>
+{/if}
+
+{#if activeTab === 'team'}
+	<!-- ═══════════════════════════════ TEAM TAB ════════════════════════════ -->
+	<section class="mt-6 space-y-5" aria-labelledby="team-h">
+		<div class="flex flex-wrap items-center justify-between gap-3">
+			<div>
+				<h2 id="team-h" class="flex items-center gap-2 text-lg font-semibold text-slate-900">
+					<Icon icon={account} class="h-5 w-5 text-indigo-500" />
+					Project Team Members
+				</h2>
+				<p class="mt-0.5 text-xs text-slate-500">
+					Employees assigned to this project and their project roles.
+				</p>
+			</div>
+			{#if canManage}
+				<button
+					type="button"
+					onclick={() => {
+						showAddMemberModal = true;
+						addMemberErr = '';
+					}}
+					class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+					id="btn-add-team-member"
+				>
+					<Icon icon={plusCircle} class="h-4 w-4" />
+					Add Team Member
+				</button>
+			{/if}
+		</div>
+
+		<div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xs">
+			{#if memberList.length === 0}
+				<div class="p-8 text-center text-sm text-slate-500">
+					No team members currently assigned to this project.
+				</div>
+			{:else}
+				<table class="w-full text-left text-sm">
+					<thead
+						class="border-b border-slate-200 bg-slate-50 text-xs font-semibold tracking-wider text-slate-500 uppercase"
+					>
+						<tr>
+							<th class="px-4 py-3">Member</th>
+							<th class="px-4 py-3">Email</th>
+							<th class="px-4 py-3">Project Role</th>
+							<th class="px-4 py-3 text-right">Actions</th>
+						</tr>
+					</thead>
+					<tbody class="divide-y divide-slate-100 text-slate-700">
+						{#each memberList as m (m.id)}
+							<tr class="transition-colors hover:bg-slate-50/50">
+								<td class="px-4 py-3 font-medium text-slate-900">
+									{m.full_name || 'Staff User'}
+								</td>
+								<td class="px-4 py-3 text-slate-500">
+									{m.email || '—'}
+								</td>
+								<td class="px-4 py-3">
+									{#if canManage}
+										<select
+											value={m.role}
+											disabled={memberRoleBusy === m.id}
+											onchange={(e) => handleUpdateMemberRole(m.id, e.target.value)}
+											class="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-800 capitalize shadow-2xs focus:border-indigo-500 focus:outline-hidden"
+										>
+											{#each availableProjectRoles as pr (pr.name)}
+												<option value={pr.name}>{pr.name.replace('_', ' ')}</option>
+											{/each}
+										</select>
+									{:else}
+										<span
+											class="inline-flex items-center rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700 uppercase"
+										>
+											{m.role}
+										</span>
+									{/if}
+								</td>
+								<td class="px-4 py-3 text-right">
+									{#if canManage}
+										<button
+											type="button"
+											onclick={() => handleRemoveMember(m.id)}
+											class="text-xs font-medium text-rose-600 hover:text-rose-800 hover:underline"
+										>
+											Remove
+										</button>
+									{/if}
+								</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			{/if}
+		</div>
+	</section>
+{/if}
+
+{#if showAddMemberModal}
+	<Dialog.Root open={showAddMemberModal} onOpenChange={(o) => (showAddMemberModal = o)}>
+		<Dialog.Portal>
+			<Dialog.Overlay class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs" />
+			<Dialog.Content
+				class="fixed top-1/2 left-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border border-slate-200 bg-white p-6 shadow-xl"
+			>
+				<Dialog.Title class="text-base font-semibold text-slate-900">Add Team Member</Dialog.Title>
+				<Dialog.Description class="mt-1 text-xs text-slate-500">
+					Assign an employee to this project with a specific project role.
+				</Dialog.Description>
+
+				{#if addMemberErr}
+					<div class="mt-3 rounded-lg bg-rose-50 p-2.5 text-xs text-rose-700">{addMemberErr}</div>
+				{/if}
+
+				<div class="mt-4 space-y-4">
+					<div>
+						<label for="select-member-user" class="block text-xs font-medium text-slate-700"
+							>Select Employee</label
+						>
+						<select
+							id="select-member-user"
+							bind:value={selectedUserId}
+							class="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2 text-sm text-slate-800 shadow-2xs focus:border-indigo-500 focus:outline-hidden"
+						>
+							<option value="">-- Choose User --</option>
+							{#each data.users as u (u.id)}
+								{#if !memberList.some((m) => m.user_id === u.id)}
+									<option value={u.id}>{u.full_name} ({u.role})</option>
+								{/if}
+							{/each}
+						</select>
+					</div>
+
+					<div>
+						<label for="select-member-role" class="block text-xs font-medium text-slate-700"
+							>Project Role</label
+						>
+						<select
+							id="select-member-role"
+							bind:value={selectedMemberRole}
+							class="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2 text-sm text-slate-800 capitalize shadow-2xs focus:border-indigo-500 focus:outline-hidden"
+						>
+							{#each availableProjectRoles as pr (pr.name)}
+								<option value={pr.name}
+									>{pr.name.replace('_', ' ')} {pr.description ? `(${pr.description})` : ''}</option
+								>
+							{/each}
+						</select>
+					</div>
+				</div>
+
+				<div class="mt-6 flex justify-end gap-2">
+					<button
+						type="button"
+						onclick={() => (showAddMemberModal = false)}
+						class="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+					>
+						Cancel
+					</button>
+					<button
+						type="button"
+						disabled={!selectedUserId || addMemberBusy}
+						onclick={handleAddMember}
+						class="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500 disabled:opacity-50"
+					>
+						{#if addMemberBusy}<Spinner class="h-3.5 w-3.5 text-white" />{/if}
+						Add Member
+					</button>
+				</div>
+			</Dialog.Content>
+		</Dialog.Portal>
+	</Dialog.Root>
 {/if}
 
 <!-- Delete purchase entry confirmation -->
@@ -2217,7 +2759,6 @@
 	busy={purchaseDeleteBusy}
 	onconfirm={executePurchaseDelete}
 />
-
 
 <!-- Add adjustment dialog -->
 <Dialog.Root bind:open={adjustOpen}>
@@ -2595,25 +3136,40 @@
 	<Dialog.Portal>
 		<Dialog.Overlay class="fixed inset-0 z-40 bg-black/50" />
 		<Dialog.Content
-			class="fixed top-1/2 left-1/2 z-50 w-full max-w-3xl -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-6 shadow-xl focus:outline-none max-h-[90vh] overflow-y-auto"
+			class="fixed top-1/2 left-1/2 z-50 max-h-[90vh] w-full max-w-3xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg bg-white p-6 shadow-xl focus:outline-none"
 		>
 			<div class="flex items-center justify-between border-b border-slate-200 pb-3">
 				<div>
-					<Dialog.Title class="text-lg font-semibold text-slate-900">Project Financial Statement</Dialog.Title>
-					<Dialog.Description class="text-xs text-slate-500">Live chronological statement of account for {data.project.name}</Dialog.Description>
+					<Dialog.Title class="text-lg font-semibold text-slate-900"
+						>Project Financial Statement</Dialog.Title
+					>
+					<Dialog.Description class="text-xs text-slate-500"
+						>Live chronological statement of account for {data.project.name}</Dialog.Description
+					>
 				</div>
 				<Dialog.Close
 					aria-label="Close"
 					class="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
 				>
-					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-5 w-5" aria-hidden="true">
-						<path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"/>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						viewBox="0 0 20 20"
+						fill="currentColor"
+						class="h-5 w-5"
+						aria-hidden="true"
+					>
+						<path
+							d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"
+						/>
 					</svg>
 				</Dialog.Close>
 			</div>
 
 			{#if statementErr}
-				<p role="alert" class="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+				<p
+					role="alert"
+					class="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+				>
 					{statementErr}
 				</p>
 			{/if}
@@ -2626,7 +3182,9 @@
 				{@const summary = statementData.summary}
 				<div class="mt-4 space-y-4">
 					<!-- Summary grid -->
-					<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-50 p-3 rounded-md border border-slate-200">
+					<div
+						class="grid grid-cols-2 gap-3 rounded-md border border-slate-200 bg-slate-50 p-3 sm:grid-cols-4"
+					>
 						<div>
 							<span class="text-xs text-slate-500">Total Charges</span>
 							<p class="font-semibold text-slate-900">{fmtPrice(summary.total)}</p>
@@ -2637,20 +3195,22 @@
 						</div>
 						<div>
 							<span class="text-xs text-slate-500">Balance Due</span>
-							<p class="font-bold {Number(summary.due) > 0 ? 'text-red-600' : 'text-green-700'}">{fmtPrice(summary.due)}</p>
+							<p class="font-bold {Number(summary.due) > 0 ? 'text-red-600' : 'text-green-700'}">
+								{fmtPrice(summary.due)}
+							</p>
 						</div>
 						{#if Number(summary.advance_balance) > 0}
 							<div>
-								<span class="text-xs text-indigo-600 font-medium">Advance Credit</span>
+								<span class="text-xs font-medium text-indigo-600">Advance Credit</span>
 								<p class="font-bold text-indigo-700">{fmtPrice(summary.advance_balance)}</p>
 							</div>
 						{/if}
 					</div>
 
 					<!-- Entries table -->
-					<div class="border border-slate-200 rounded-md overflow-hidden">
+					<div class="overflow-hidden rounded-md border border-slate-200">
 						<table class="min-w-full divide-y divide-slate-200 text-sm">
-							<thead class="bg-slate-50 text-slate-700 font-medium">
+							<thead class="bg-slate-50 font-medium text-slate-700">
 								<tr>
 									<th scope="col" class="px-3 py-2 text-left">Date</th>
 									<th scope="col" class="px-3 py-2 text-left">Type</th>
@@ -2661,16 +3221,24 @@
 							<tbody class="divide-y divide-slate-100 bg-white">
 								{#if statementData.entries.length === 0}
 									<tr>
-										<td colspan="4" class="px-3 py-4 text-center text-slate-500">No transactions or services recorded yet.</td>
+										<td colspan="4" class="px-3 py-4 text-center text-slate-500"
+											>No transactions or services recorded yet.</td
+										>
 									</tr>
 								{:else}
 									{#each statementData.entries as entry (entry.id)}
 										{@const meta = entryMeta(entry)}
 										<tr>
-											<td class="px-3 py-2 text-slate-600 whitespace-nowrap">{entry.entry_date ? formatDate(entry.entry_date) : formatDateTime(entry.created_at)}</td>
-											<td class="px-3 py-2 capitalize font-medium {meta.text}">{entry.type}</td>
+											<td class="px-3 py-2 whitespace-nowrap text-slate-600"
+												>{entry.entry_date
+													? formatDate(entry.entry_date)
+													: formatDateTime(entry.created_at)}</td
+											>
+											<td class="px-3 py-2 font-medium capitalize {meta.text}">{entry.type}</td>
 											<td class="px-3 py-2 text-slate-900">{entryLabel(entry)}</td>
-											<td class="px-3 py-2 text-right font-semibold {meta.text}">{entryPrice(entry)}</td>
+											<td class="px-3 py-2 text-right font-semibold {meta.text}"
+												>{entryPrice(entry)}</td
+											>
 										</tr>
 									{/each}
 								{/if}
@@ -2679,7 +3247,9 @@
 					</div>
 
 					<!-- Actions -->
-					<div class="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-200">
+					<div
+						class="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-3"
+					>
 						<div class="flex gap-2">
 							<button
 								type="button"
@@ -2700,7 +3270,9 @@
 							</button>
 						</div>
 						<div class="flex gap-2">
-							<Dialog.Close class="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">
+							<Dialog.Close
+								class="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+							>
 								Close
 							</Dialog.Close>
 							{#if canManage}
@@ -2728,34 +3300,62 @@
 			class="fixed top-1/2 left-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-6 shadow-xl focus:outline-none"
 		>
 			<div class="flex items-center justify-between">
-				<Dialog.Title class="text-lg font-semibold text-slate-900">Generate Statement Invoice</Dialog.Title>
+				<Dialog.Title class="text-lg font-semibold text-slate-900"
+					>Generate Statement Invoice</Dialog.Title
+				>
 				<Dialog.Close
 					aria-label="Close"
 					class="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
 				>
-					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-5 w-5" aria-hidden="true">
-						<path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"/>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						viewBox="0 0 20 20"
+						fill="currentColor"
+						class="h-5 w-5"
+						aria-hidden="true"
+					>
+						<path
+							d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"
+						/>
 					</svg>
 				</Dialog.Close>
 			</div>
 
 			<Dialog.Description class="mt-2 text-sm text-slate-600">
-				This will freeze the current project financial state into an official issued invoice with the next sequential invoice number (<code class="text-indigo-600 font-semibold">INV-XXXX</code>).
+				This will freeze the current project financial state into an official issued invoice with
+				the next sequential invoice number (<code class="font-semibold text-indigo-600"
+					>INV-XXXX</code
+				>).
 			</Dialog.Description>
 
 			{#if generateErr}
-				<p role="alert" class="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+				<p
+					role="alert"
+					class="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+				>
 					{generateErr}
 				</p>
 			{/if}
 
 			{#if ledgerSummary}
-				<div class="mt-4 p-3 bg-slate-50 border border-slate-200 rounded-md text-sm space-y-1">
-					<div class="flex justify-between"><span class="text-slate-500">Project Charges:</span> <span class="font-semibold text-slate-900">{fmtPrice(ledgerSummary.total)}</span></div>
-					<div class="flex justify-between"><span class="text-slate-500">Total Payments:</span> <span class="font-semibold text-green-700">{fmtPrice(ledgerSummary.paid)}</span></div>
-					<div class="flex justify-between border-t border-slate-200 pt-1"><span class="text-slate-700 font-medium">Net Due:</span> <span class="font-bold text-slate-900">{fmtPrice(ledgerSummary.due)}</span></div>
+				<div class="mt-4 space-y-1 rounded-md border border-slate-200 bg-slate-50 p-3 text-sm">
+					<div class="flex justify-between">
+						<span class="text-slate-500">Project Charges:</span>
+						<span class="font-semibold text-slate-900">{fmtPrice(ledgerSummary.total)}</span>
+					</div>
+					<div class="flex justify-between">
+						<span class="text-slate-500">Total Payments:</span>
+						<span class="font-semibold text-green-700">{fmtPrice(ledgerSummary.paid)}</span>
+					</div>
+					<div class="flex justify-between border-t border-slate-200 pt-1">
+						<span class="font-medium text-slate-700">Net Due:</span>
+						<span class="font-bold text-slate-900">{fmtPrice(ledgerSummary.due)}</span>
+					</div>
 					{#if Number(ledgerSummary.advance_balance) > 0}
-						<div class="flex justify-between text-indigo-700"><span class="font-medium">Advance Credit:</span> <span class="font-bold">{fmtPrice(ledgerSummary.advance_balance)}</span></div>
+						<div class="flex justify-between text-indigo-700">
+							<span class="font-medium">Advance Credit:</span>
+							<span class="font-bold">{fmtPrice(ledgerSummary.advance_balance)}</span>
+						</div>
 					{/if}
 				</div>
 			{/if}
@@ -2789,23 +3389,37 @@
 			class="fixed top-1/2 left-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-6 shadow-xl focus:outline-none"
 		>
 			<div class="flex items-center justify-between">
-				<Dialog.Title class="text-lg font-semibold text-slate-900">Record Project Payment</Dialog.Title>
+				<Dialog.Title class="text-lg font-semibold text-slate-900"
+					>Record Project Payment</Dialog.Title
+				>
 				<Dialog.Close
 					aria-label="Close"
 					class="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
 				>
-					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-5 w-5" aria-hidden="true">
-						<path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"/>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						viewBox="0 0 20 20"
+						fill="currentColor"
+						class="h-5 w-5"
+						aria-hidden="true"
+					>
+						<path
+							d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"
+						/>
 					</svg>
 				</Dialog.Close>
 			</div>
 
 			<Dialog.Description class="mt-2 text-sm text-slate-600">
-				Record a payment or transaction received directly for this project. It will synchronize across the live ledger and balance-forward statement.
+				Record a payment or transaction received directly for this project. It will synchronize
+				across the live ledger and balance-forward statement.
 			</Dialog.Description>
 
 			{#if paymentErr}
-				<p role="alert" class="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+				<p
+					role="alert"
+					class="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+				>
 					{paymentErr}
 				</p>
 			{/if}
@@ -2818,7 +3432,9 @@
 				}}
 			>
 				<div>
-					<label for="pay-amount" class="block text-sm font-medium text-slate-700">Amount received</label>
+					<label for="pay-amount" class="block text-sm font-medium text-slate-700"
+						>Amount received</label
+					>
 					<div class="relative mt-1 rounded-md shadow-sm">
 						<div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
 							<span class="text-slate-500 sm:text-sm">$</span>
@@ -2838,7 +3454,9 @@
 
 				<div class="grid grid-cols-2 gap-4">
 					<div>
-						<label for="pay-method" class="block text-sm font-medium text-slate-700">Payment method</label>
+						<label for="pay-method" class="block text-sm font-medium text-slate-700"
+							>Payment method</label
+						>
 						<select
 							id="pay-method"
 							bind:value={paymentMethod}
@@ -2851,7 +3469,9 @@
 						</select>
 					</div>
 					<div>
-						<label for="pay-date" class="block text-sm font-medium text-slate-700">Payment date</label>
+						<label for="pay-date" class="block text-sm font-medium text-slate-700"
+							>Payment date</label
+						>
 						<input
 							id="pay-date"
 							type="date"
@@ -2863,7 +3483,9 @@
 				</div>
 
 				<div>
-					<label for="pay-note" class="block text-sm font-medium text-slate-700">Reference / Note (optional)</label>
+					<label for="pay-note" class="block text-sm font-medium text-slate-700"
+						>Reference / Note (optional)</label
+					>
 					<input
 						id="pay-note"
 						type="text"
@@ -2910,7 +3532,12 @@
 					class="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
 				>
 					<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M6 18L18 6M6 6l12 12"
+						/>
 					</svg>
 				</button>
 			</div>
@@ -2922,7 +3549,10 @@
 			<div class="mt-4 space-y-4">
 				<!-- File Destination / Service Folder -->
 				<div>
-					<label for="upload-target-modal" class="block text-xs font-semibold uppercase tracking-wider text-slate-700">
+					<label
+						for="upload-target-modal"
+						class="block text-xs font-semibold tracking-wider text-slate-700 uppercase"
+					>
 						Attach To
 					</label>
 					<select
@@ -2955,7 +3585,10 @@
 
 				<!-- File Picker -->
 				<div>
-					<label for="file-upload-input" class="block text-xs font-semibold uppercase tracking-wider text-slate-700">
+					<label
+						for="file-upload-input"
+						class="block text-xs font-semibold tracking-wider text-slate-700 uppercase"
+					>
 						Select File(s)
 					</label>
 					<input
@@ -3005,7 +3638,12 @@
 					class="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
 				>
 					<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M6 18L18 6M6 6l12 12"
+						/>
 					</svg>
 				</button>
 			</div>
@@ -3022,7 +3660,10 @@
 				}}
 			>
 				<div>
-					<label for="new-file-name" class="block text-xs font-semibold uppercase tracking-wider text-slate-700">
+					<label
+						for="new-file-name"
+						class="block text-xs font-semibold tracking-wider text-slate-700 uppercase"
+					>
 						File Name
 					</label>
 					<input
@@ -3067,7 +3708,9 @@
 			<div class="flex items-center justify-between border-b border-slate-200 px-6 py-4">
 				<div>
 					<h2 class="text-base font-semibold text-slate-900">{previewTarget.name}</h2>
-					<p class="text-xs text-slate-500">{fmtBytes(previewTarget.size_bytes)} • {previewTarget.content_type}</p>
+					<p class="text-xs text-slate-500">
+						{fmtBytes(previewTarget.size_bytes)} • {previewTarget.content_type}
+					</p>
 				</div>
 				<div class="flex items-center gap-2">
 					<button
@@ -3083,22 +3726,37 @@
 						class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
 					>
 						<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M6 18L18 6M6 6l12 12"
+							/>
 						</svg>
 					</button>
 				</div>
 			</div>
 
-			<div class="flex flex-1 items-center justify-center overflow-auto p-6 bg-slate-50">
+			<div class="flex flex-1 items-center justify-center overflow-auto bg-slate-50 p-6">
 				{#if previewLoading}
 					<Spinner class="h-8 w-8 text-indigo-600" />
 				{:else if previewUrl && previewTarget.content_type.startsWith('image/')}
-					<img src={previewUrl} alt={previewTarget.name} class="max-h-[70vh] rounded-lg object-contain shadow-sm" />
+					<img
+						src={previewUrl}
+						alt={previewTarget.name}
+						class="max-h-[70vh] rounded-lg object-contain shadow-sm"
+					/>
 				{:else if previewUrl && previewTarget.content_type === 'application/pdf'}
-					<iframe src={previewUrl} title={previewTarget.name} class="h-[70vh] w-full rounded-lg border border-slate-200"></iframe>
+					<iframe
+						src={previewUrl}
+						title={previewTarget.name}
+						class="h-[70vh] w-full rounded-lg border border-slate-200"
+					></iframe>
 				{:else}
-					<div class="text-center py-12">
-						<p class="text-sm font-medium text-slate-900">Preview not available for this file type</p>
+					<div class="py-12 text-center">
+						<p class="text-sm font-medium text-slate-900">
+							Preview not available for this file type
+						</p>
 						<p class="mt-1 text-xs text-slate-500">Download the file to view its full content.</p>
 						<button
 							type="button"
@@ -3123,10 +3781,11 @@
 		}
 	}
 	title="Delete File"
-	description={deleteFileTarget ? `Permanently delete "${deleteFileTarget.name}" from this project?` : ''}
+	description={deleteFileTarget
+		? `Permanently delete "${deleteFileTarget.name}" from this project?`
+		: ''}
 	confirmLabel="Delete"
 	destructive
 	busy={deleteFileBusy}
 	onconfirm={executeFileDelete}
 />
-

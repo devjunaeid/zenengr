@@ -56,6 +56,7 @@ def _to_role_response(role: Any) -> RoleResponse:
         id=role.id,
         name=role.name,
         description=role.description,
+        role_type=getattr(role, "role_type", "user"),
         is_system=role.is_system,
         tenant_id=role.tenant_id,
         permissions=permissions,
@@ -64,12 +65,13 @@ def _to_role_response(role: Any) -> RoleResponse:
 
 @router.get("/", response_model=list[RoleResponse])
 async def list_roles_endpoint(
+    role_type: str | None = None,
     session: AsyncSession = Depends(get_session),
     user: AdminUser = Depends(get_current_admin_user),
 ) -> list[RoleResponse]:
     """List system roles + this tenant's custom roles. All staff can read."""
     tenant_id = _get_tenant_id(user)
-    roles = await role_service.list_roles(session, tenant_id=tenant_id)
+    roles = await role_service.list_roles(session, tenant_id=tenant_id, role_type=role_type)
     return [_to_role_response(r) for r in roles]
 
 
@@ -86,6 +88,16 @@ async def get_permission_catalog_endpoint(
     tenant_id = _get_tenant_id(user)
     items = await role_service.get_permission_catalog_for_tenant(session, tenant_id=tenant_id)
     return [PermissionCatalogItem(**item) for item in items]
+
+
+@router.get("/project-permissions", response_model=list[PermissionCatalogItem])
+async def get_project_permission_catalog_endpoint(
+    user: AdminUser = Depends(get_current_admin_user),
+) -> list[PermissionCatalogItem]:
+    """Return the project-scoped action/resource catalog (label + group)."""
+    from app.services.permissions import PROJECT_PERMISSION_CATALOG
+
+    return [PermissionCatalogItem(**item) for item in PROJECT_PERMISSION_CATALOG]
 
 
 @router.post(
@@ -105,6 +117,7 @@ async def create_role_endpoint(
         tenant_id=tenant_id,
         name=body.name,
         description=body.description,
+        role_type=body.role_type,
         permissions=body.permissions,
         actor_id=user.id,
     )

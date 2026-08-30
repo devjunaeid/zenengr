@@ -50,6 +50,15 @@ export function getPermissionCatalog(fetchFn, token) {
 /**
  * @param {typeof fetch} fetchFn
  * @param {string} token
+ * @returns {Promise<PermissionCatalogEntry[]>}
+ */
+export function getProjectPermissionCatalog(fetchFn, token) {
+	return apiFetch(fetchFn, '/tenant/roles/project-permissions', { token });
+}
+
+/**
+ * @param {typeof fetch} fetchFn
+ * @param {string} token
  * @param {{ name: string, description?: string|null, permissions: RolePermission[] }} body
  * @returns {Promise<TenantRole>}
  */

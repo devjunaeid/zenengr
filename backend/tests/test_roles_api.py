@@ -1041,3 +1041,43 @@ class TestEffectivePermissionsInAuthResponse:
         data = resp.json()
         assert data["user"]["role_id"] == str(ctx["role"].id)
         assert len(data["user"]["permissions"]) == len(PERMISSION_CATALOG)
+
+
+class TestProjectRolesAPI:
+    @pytest.mark.asyncio
+    async def test_project_roles_management(self, client: AsyncClient, db_session: AsyncSession):
+        ctx = await _bootstrap_admin(db_session)
+        headers = await _auth_header(ctx["user"])
+
+        # Fetch project permissions catalog
+        cat_resp = await client.get("/api/v1/tenant/roles/project-permissions", headers=headers)
+        assert cat_resp.status_code == 200
+        cat = cat_resp.json()
+        assert len(cat) > 0
+        assert any(item["resource"] == "milestones" for item in cat)
+
+        # Create custom project role
+        create_resp = await client.post(
+            "/api/v1/tenant/roles/",
+            json={
+                "name": "Quality Auditor",
+                "description": "Audits project deliverables",
+                "role_type": "project",
+                "permissions": [
+                    {"action": "view", "resource": "milestones", "granted": True},
+                    {"action": "view", "resource": "files", "granted": True},
+                ],
+            },
+            headers=headers,
+        )
+        assert create_resp.status_code == 201
+        created = create_resp.json()
+        assert created["name"] == "Quality Auditor"
+        assert created["role_type"] == "project"
+
+        # List project roles
+        list_resp = await client.get("/api/v1/tenant/roles/?role_type=project", headers=headers)
+        assert list_resp.status_code == 200
+        project_roles = list_resp.json()
+        assert any(r["name"] == "Quality Auditor" for r in project_roles)
+

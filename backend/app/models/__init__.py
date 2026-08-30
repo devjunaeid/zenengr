@@ -28,6 +28,7 @@ from app.models.enums import (
     NotificationEventType,
     PaymentMethod,
     PermissionLevel,
+    ProjectMemberRole,
     ProjectServiceStatus,
     ProjectStatus,
     SmtpSecurityMode,
@@ -47,7 +48,7 @@ from app.models.notification_preference import NotificationPreference
 from app.models.password_reset_token import PasswordResetToken
 from app.models.plan import Plan
 from app.models.plan_feature_default import PlanFeatureDefault
-from app.models.project import Project
+from app.models.project import Project, ProjectMember
 from app.models.project_milestone import ProjectMilestone
 from app.models.project_service import ProjectService
 from app.models.purchase_entry import PurchaseEntry, PurchaseEntryItem
