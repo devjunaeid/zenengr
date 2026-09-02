@@ -53,7 +53,7 @@
 
 		<!-- Segmented Navigation Pill Bar -->
 		<nav
-			class="mt-5 flex gap-1.5 overflow-x-auto rounded-xl border border-slate-200 bg-slate-100/70 p-1.5 shadow-2xs scrollbar-none"
+			class="mt-5 flex scrollbar-none gap-1.5 overflow-x-auto rounded-xl border border-slate-200 bg-slate-100/70 p-1.5 shadow-2xs"
 			aria-label="Settings navigation"
 		>
 			{#each visibleTabs as tab (tab.href)}

@@ -11,7 +11,8 @@
 </script>
 
 <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-{count} {className}">
-	{#each Array(count) as _, i}
+	<!-- eslint-disable-next-line no-unused-vars -- skeleton placeholder loop; item value unused -->
+	{#each Array(count) as _, i (i)}
 		<div
 			class="relative overflow-hidden rounded-xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900"
 		>

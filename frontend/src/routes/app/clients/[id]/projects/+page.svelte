@@ -82,7 +82,7 @@
 			{/if}
 		</EmptyState>
 	{:else}
-		<div class="overflow-x-auto">
+		<div class="relative overflow-x-auto">
 			<table class="min-w-full divide-y divide-slate-200">
 				<thead class="bg-slate-50">
 					<tr>
@@ -129,7 +129,7 @@
 								{#if p.milestone_total > 0}
 									<div class="flex items-center gap-2">
 										<div
-											class="h-1.5 w-24 rounded-full bg-slate-100"
+											class="h-1.5 w-24 max-w-full rounded-full bg-slate-100"
 											role="progressbar"
 											aria-valuenow={p.milestone_completed}
 											aria-valuemin={0}

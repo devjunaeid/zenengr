@@ -306,7 +306,8 @@
 					class="h-4 w-4 text-slate-500"
 				>
 					<polyline points="6 9 6 2 18 2 18 9"></polyline>
-					<path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+					<path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"
+					></path>
 					<rect x="6" y="14" width="12" height="8"></rect>
 				</svg>
 				Print Invoice
@@ -461,8 +462,8 @@
 				Correcting a voided invoice
 			</h2>
 			<p class="mt-1 text-sm text-amber-800">
-				This invoice was voided. Corrections are made with a new invoice — financial history is never
-				edited.
+				This invoice was voided. Corrections are made with a new invoice — financial history is
+				never edited.
 			</p>
 			<div class="mt-3">
 				<!-- eslint-disable svelte/no-navigation-without-resolve -- query string appended to a resolved route -->
@@ -481,22 +482,27 @@
 </div>
 
 <!-- Printable Visual Invoice Document -->
-<article id="printable-invoice" class="mt-6 rounded-2xl border border-slate-200 bg-white p-8 sm:p-12 shadow-sm print:mt-0 print:border-none print:shadow-none print:p-0 print:m-0">
+<article
+	id="printable-invoice"
+	class="mt-6 rounded-2xl border border-slate-200 bg-white p-8 shadow-sm sm:p-12 print:m-0 print:mt-0 print:border-none print:p-0 print:shadow-none"
+>
 	<!-- Header / Brand -->
-	<div class="flex flex-col sm:flex-row justify-between items-start gap-6 border-b border-slate-200 pb-8">
+	<div
+		class="flex flex-col items-start justify-between gap-6 border-b border-slate-200 pb-8 sm:flex-row"
+	>
 		<div class="flex items-center gap-4">
 			{#if logoUrl}
 				<img
 					src={assetUrl(logoUrl)}
 					alt={businessName}
-					class="h-12 w-auto max-w-[180px] object-contain rounded"
+					class="h-12 w-auto max-w-[180px] rounded object-contain"
 				/>
 			{/if}
 			<div>
-				<h2 class="text-2xl font-black text-slate-900 tracking-tight">
+				<h2 class="text-2xl font-black tracking-tight text-slate-900">
 					{businessName}
 				</h2>
-				<p class="text-xs text-slate-500 mt-0.5">Official Client Statement</p>
+				<p class="mt-0.5 text-xs text-slate-500">Official Client Statement</p>
 			</div>
 		</div>
 
@@ -505,36 +511,38 @@
 				<span class="text-base font-bold text-slate-900">{number}</span>
 				<StatusBadge status={data.invoice.status} />
 			</div>
-			<p class="text-xs text-slate-500 mt-1">
-				Project: <span class="font-semibold text-slate-800">{data.invoice.project_id ? 'Project Invoice' : 'General Invoice'}</span>
+			<p class="mt-1 text-xs text-slate-500">
+				Project: <span class="font-semibold text-slate-800"
+					>{data.invoice.project_id ? 'Project Invoice' : 'General Invoice'}</span
+				>
 			</p>
 		</div>
 	</div>
 
 	<!-- Billing Info & Dates Grid -->
-	<div class="grid grid-cols-1 sm:grid-cols-2 gap-8 py-8 border-b border-slate-200 text-xs">
+	<div class="grid grid-cols-1 gap-8 border-b border-slate-200 py-8 text-xs sm:grid-cols-2">
 		<div>
-			<h3 class="font-bold uppercase tracking-wider text-slate-400 text-[10px]">Billed To</h3>
+			<h3 class="text-[10px] font-bold tracking-wider text-slate-400 uppercase">Billed To</h3>
 			<p class="mt-2 text-sm font-bold text-slate-900">
 				{data.invoice.client_id ? 'Client Account' : 'General Client'}
 			</p>
 		</div>
 
-		<div class="sm:text-right space-y-1.5">
+		<div class="space-y-1.5 sm:text-right">
 			<div>
 				<span class="text-slate-500">Issue Date:</span>
-				<span class="font-semibold text-slate-900 ml-2">{formatDate(data.invoice.issue_date)}</span>
+				<span class="ml-2 font-semibold text-slate-900">{formatDate(data.invoice.issue_date)}</span>
 			</div>
 			<div>
 				<span class="text-slate-500">Due Date:</span>
-				<span class="font-semibold text-slate-900 ml-2">{formatDate(data.invoice.due_date)}</span>
+				<span class="ml-2 font-semibold text-slate-900">{formatDate(data.invoice.due_date)}</span>
 			</div>
 			{#if data.invoice.project_id}
 				<div>
 					<span class="text-slate-500">Project:</span>
 					<a
 						href={resolve('/app/projects/[id]', { id: data.invoice.project_id })}
-						class="font-semibold text-indigo-600 hover:text-indigo-700 ml-2 print:text-slate-900"
+						class="ml-2 font-semibold text-indigo-600 hover:text-indigo-700 print:text-slate-900"
 					>
 						View Project
 					</a>
@@ -544,10 +552,10 @@
 	</div>
 
 	<!-- Line Items Table -->
-	<div class="py-6 overflow-x-auto">
+	<div class="relative overflow-x-auto py-6">
 		<table class="min-w-full divide-y divide-slate-200 text-xs">
 			<thead>
-				<tr class="text-slate-500 font-bold uppercase tracking-wider text-[10px]">
+				<tr class="text-[10px] font-bold tracking-wider text-slate-500 uppercase">
 					<th scope="col" class="py-2.5 text-left">Description</th>
 					<th scope="col" class="py-2.5 text-right">Qty</th>
 					<th scope="col" class="py-2.5 text-right">Unit Price</th>
@@ -557,19 +565,19 @@
 			<tbody class="divide-y divide-slate-100">
 				{#each data.invoice.line_items as li (li.id)}
 					<tr>
-						<td class="py-3 text-slate-900 font-medium">
+						<td class="py-3 font-medium text-slate-900">
 							{li.description}
 							{#if li.project_service_id}
 								<span class="block text-[11px] text-slate-500">from attached service</span>
 							{/if}
 						</td>
-						<td class="py-3 text-right text-slate-700 font-mono">
+						<td class="py-3 text-right font-mono text-slate-700">
 							{li.quantity}
 						</td>
-						<td class="py-3 text-right text-slate-700 font-mono">
+						<td class="py-3 text-right font-mono text-slate-700">
 							{fmtPrice(li.unit_price)}
 						</td>
-						<td class="py-3 text-right text-slate-900 font-bold font-mono">
+						<td class="py-3 text-right font-mono font-bold text-slate-900">
 							{fmtPrice(li.amount)}
 						</td>
 					</tr>
@@ -579,33 +587,41 @@
 	</div>
 
 	<!-- Financial Summary Breakdown (Full Width) -->
-	<div class="border-t border-slate-200 pt-6 space-y-4">
+	<div class="space-y-4 border-t border-slate-200 pt-6">
 		<div class="w-full space-y-2 text-xs">
-			<div class="flex justify-between items-center text-slate-600">
+			<div class="flex items-center justify-between text-slate-600">
 				<span class="font-medium">Subtotal</span>
 				<span class="font-mono font-medium">{fmtPrice(data.invoice.subtotal)}</span>
 			</div>
 			{#if Number(data.invoice.tax_total) > 0}
-				<div class="flex justify-between items-center text-slate-600">
+				<div class="flex items-center justify-between text-slate-600">
 					<span class="font-medium">Tax</span>
 					<span class="font-mono font-medium">{fmtPrice(data.invoice.tax_total)}</span>
 				</div>
 			{/if}
-			<div class="flex justify-between items-center text-sm font-bold text-slate-900 border-t border-slate-200 pt-2 pb-1">
+			<div
+				class="flex items-center justify-between border-t border-slate-200 pt-2 pb-1 text-sm font-bold text-slate-900"
+			>
 				<span>Total</span>
 				<span class="font-mono">{fmtPrice(data.invoice.total)}</span>
 			</div>
 
 			<!-- Itemized Payment Transaction Breakdown (Full Width) -->
 			{#if data.transactions && data.transactions.length > 0}
-				<div class="pt-2 border-t border-slate-100 space-y-2">
+				<div class="space-y-2 border-t border-slate-100 pt-2">
 					{#each data.transactions as tx (tx.id)}
 						{@const isDebit = tx.direction === 'debit'}
-						<div class="flex justify-between items-center text-xs {isDebit ? 'text-emerald-700' : 'text-red-600'}">
-							<span class="font-medium pr-4">
-								{formatDate(tx.recorded_at)} · {isDebit ? 'Payment' : 'Refund'} ({humanize(tx.method)})
+						<div
+							class="flex items-center justify-between text-xs {isDebit
+								? 'text-emerald-700'
+								: 'text-red-600'}"
+						>
+							<span class="pr-4 font-medium">
+								{formatDate(tx.recorded_at)} · {isDebit ? 'Payment' : 'Refund'} ({humanize(
+									tx.method
+								)})
 								{#if tx.reference_note}
-									<span class="text-slate-500 font-normal">({tx.reference_note})</span>
+									<span class="font-normal text-slate-500">({tx.reference_note})</span>
 								{/if}
 							</span>
 							<span class="font-mono font-semibold whitespace-nowrap">
@@ -615,18 +631,22 @@
 					{/each}
 				</div>
 			{:else if totalPaid > 0}
-				<div class="flex justify-between items-center text-emerald-600 font-medium pt-1 text-xs">
+				<div class="flex items-center justify-between pt-1 text-xs font-medium text-emerald-600">
 					<span>Amount Paid</span>
 					<span class="font-mono">−{fmtPrice(totalPaid)}</span>
 				</div>
 			{/if}
 
-			<div class="flex justify-between items-center text-sm font-bold {balanceDue > 0 ? 'text-amber-600' : 'text-slate-900'} border-t border-dashed border-slate-200 pt-2">
+			<div
+				class="flex items-center justify-between text-sm font-bold {balanceDue > 0
+					? 'text-amber-600'
+					: 'text-slate-900'} border-t border-dashed border-slate-200 pt-2"
+			>
 				<span>Balance Due</span>
 				<span class="font-mono">{fmtPrice(balanceDue)}</span>
 			</div>
 			{#if advanceCredit > 0}
-				<div class="flex justify-between items-center text-xs font-semibold text-emerald-700 pt-1">
+				<div class="flex items-center justify-between pt-1 text-xs font-semibold text-emerald-700">
 					<span>Advance Credit / Overpayment</span>
 					<span class="font-mono">+{fmtPrice(advanceCredit)}</span>
 				</div>
@@ -634,8 +654,10 @@
 		</div>
 
 		{#if data.invoice.notes}
-			<div class="pt-4 border-t border-slate-100 text-xs text-slate-600">
-				<h4 class="font-bold text-slate-900 uppercase text-[10px] tracking-wider mb-1">Notes & Terms</h4>
+			<div class="border-t border-slate-100 pt-4 text-xs text-slate-600">
+				<h4 class="mb-1 text-[10px] font-bold tracking-wider text-slate-900 uppercase">
+					Notes & Terms
+				</h4>
 				<p class="whitespace-pre-wrap">{data.invoice.notes}</p>
 			</div>
 		{/if}
@@ -643,573 +665,579 @@
 </article>
 
 <div class="print:hidden">
-<section
-	class="mt-8 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"
-	aria-labelledby="transactions-h"
->
-	<div class="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-		<div>
-			<h2 id="transactions-h" class="text-base font-semibold text-slate-900">Transactions</h2>
-			<p class="mt-0.5 text-sm text-slate-500">
-				{data.transactions.length}
-				{data.transactions.length === 1 ? 'payment' : 'payments'} recorded
-			</p>
-		</div>
-		{#if data.invoice.status === 'issued' || data.invoice.status === 'partially_paid' || (data.invoice.is_auto && data.invoice.status === 'draft')}
-			<div class="flex flex-wrap items-center gap-2">
-				{#if data.invoice.is_auto && data.invoice.status === 'draft'}
-					<p class="text-xs text-slate-500">
-						Statement invoice — payments can be recorded without issuing.
-					</p>
-				{/if}
-				<button
-					type="button"
-					onclick={openPay}
-					class="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
-				>
-					Record payment
-				</button>
-			</div>
-		{/if}
-	</div>
-	<dl class="grid gap-4 border-b border-slate-200 bg-slate-50 px-6 py-4 sm:grid-cols-2">
-		<div>
-			<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Total paid</dt>
-			<dd class="mt-1 text-sm font-semibold text-slate-900">{fmtPrice(totalPaid)}</dd>
-		</div>
-		<div>
-			<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Balance due</dt>
-			<dd class="mt-1 text-sm font-semibold text-slate-900">{fmtPrice(balanceDue)}</dd>
-		</div>
-	</dl>
-	{#if data.transactions.length === 0}
-		<p class="px-6 py-8 text-sm text-slate-500">No payments recorded yet.</p>
-	{:else}
-		<div class="overflow-x-auto">
-			<table class="min-w-full divide-y divide-slate-200">
-				<thead class="bg-slate-50">
-					<tr>
-						<th
-							scope="col"
-							class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
-							>Type</th
-						>
-						<th
-							scope="col"
-							class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
-							>Amount</th
-						>
-						<th
-							scope="col"
-							class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
-							>Method</th
-						>
-						<th
-							scope="col"
-							class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
-							>Reference</th
-						>
-						<th
-							scope="col"
-							class="px-4 py-3 text-right text-xs font-semibold tracking-wide text-slate-600 uppercase"
-							>Date</th
-						>
-					</tr>
-				</thead>
-				<tbody class="divide-y divide-slate-200">
-					{#each data.transactions as t (t.id)}
-						<tr class="hover:bg-slate-50">
-							<td class="px-4 py-3">
-								{#if t.direction === 'credit'}
-									<span
-										class="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800 ring-1 ring-red-600/20 ring-inset"
-									>
-										Refund
-									</span>
-								{:else}
-									<span
-										class="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800 ring-1 ring-green-600/20 ring-inset"
-									>
-										Payment
-									</span>
-								{/if}
-							</td>
-							<td class="px-4 py-3 text-sm font-medium whitespace-nowrap text-slate-900"
-								>{t.direction === 'credit' ? `−${fmtPrice(t.amount)}` : fmtPrice(t.amount)}</td
-							>
-							<td class="px-4 py-3 text-sm whitespace-nowrap text-slate-700"
-								>{humanize(t.method)}</td
-							>
-							<td class="px-4 py-3 text-sm text-slate-700">{t.reference_note || '—'}</td>
-							<td class="px-4 py-3 text-right text-sm whitespace-nowrap text-slate-700"
-								>{formatDateTime(t.recorded_at)}</td
-							>
-						</tr>
-						{#if data.invoice.project_id == null && t.allocations.length > 0}
-							<tr class="bg-slate-50/50">
-								<td colspan="5" class="px-4 py-2">
-									<details class="group">
-										<summary
-											class="flex cursor-pointer list-none items-center gap-1 text-xs text-slate-500 hover:text-indigo-600 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
-										>
-											<svg
-												xmlns="http://www.w3.org/2000/svg"
-												viewBox="0 0 20 20"
-												fill="currentColor"
-												class="h-3.5 w-3.5 transition-transform group-open:rotate-90"
-												aria-hidden="true"
-											>
-												<path
-													fill-rule="evenodd"
-													d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z"
-													clip-rule="evenodd"
-												/>
-											</svg>
-											Allocated to {t.allocations.length}
-											{t.allocations.length === 1 ? 'item' : 'items'}
-										</summary>
-										<ul
-											class="mt-2 space-y-1 rounded-md border border-slate-200 bg-white p-3 text-sm"
-										>
-											{#each t.allocations as a (a.id)}
-												<li class="flex items-center justify-between gap-3">
-													<span class="text-slate-700">{descriptionOf(a.line_item_id)}</span>
-													<span class="whitespace-nowrap text-slate-900">{fmtPrice(a.amount)}</span>
-												</li>
-											{/each}
-										</ul>
-									</details>
-								</td>
-							</tr>
-						{/if}
-					{/each}
-				</tbody>
-			</table>
-		</div>
-	{/if}
-</section>
-
-<ConfirmDialog
-	bind:open={issueOpen}
-	title="Issue invoice"
-	description={`Mark invoice ${number} as issued? It can no longer be edited.`}
-	confirmLabel="Issue invoice"
-	busy={issueBusy}
-	onconfirm={runIssue}
-/>
-
-<ConfirmDialog
-	bind:open={deleteOpen}
-	title="Delete invoice"
-	description={`Permanently delete draft invoice ${number}? This cannot be undone.`}
-	confirmLabel="Delete"
-	destructive
-	busy={deleteBusy}
-	onconfirm={runDelete}
-/>
-
-<ConfirmDialog
-	bind:open={voidOpen}
-	title="Void invoice"
-	description={`Void invoice ${number}? It stays on record with total $0.00 and can no longer be collected.`}
-	confirmLabel="Void"
-	destructive
-	busy={voidBusy}
-	onconfirm={runVoid}
-/>
-
-<!-- Record payment dialog (bits-ui Dialog) -->
-<Dialog.Root bind:open={payOpen}>
-	<Dialog.Portal>
-		<Dialog.Overlay class="fixed inset-0 z-40 bg-black/50" />
-		<Dialog.Content
-			class="fixed top-1/2 left-1/2 z-50 w-full max-w-2xl -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-6 shadow-xl focus:outline-none"
+	<section
+		class="mt-8 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"
+		aria-labelledby="transactions-h"
+	>
+		<div
+			class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-6 py-4"
 		>
-			<div class="flex items-center justify-between">
-				<Dialog.Title class="text-lg font-semibold text-slate-900">Record payment</Dialog.Title>
-				<Dialog.Close
-					type="button"
-					aria-label="Close"
-					class="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
-				>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						viewBox="0 0 20 20"
-						fill="currentColor"
-						class="h-5 w-5"
-						aria-hidden="true"
-					>
-						<path
-							d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"
-						/>
-					</svg>
-				</Dialog.Close>
-			</div>
-			<Dialog.Description class="mt-2 text-sm text-slate-600">
-				Record a payment against invoice {number}.
-			</Dialog.Description>
-
-			{#if payErr}
-				<p
-					role="alert"
-					class="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
-				>
-					{payErr}
+			<div>
+				<h2 id="transactions-h" class="text-base font-semibold text-slate-900">Transactions</h2>
+				<p class="mt-0.5 text-sm text-slate-500">
+					{data.transactions.length}
+					{data.transactions.length === 1 ? 'payment' : 'payments'} recorded
 				</p>
-			{/if}
-
-			<form
-				class="mt-4 space-y-4"
-				onsubmit={(e) => {
-					e.preventDefault();
-					submitPay();
-				}}
-			>
-				<div class="grid gap-4 sm:grid-cols-2">
-					<div>
-						<label for="pay-amount" class="block text-sm font-medium text-slate-700">Amount</label>
-						<input
-							id="pay-amount"
-							type="number"
-							min="0.01"
-							step="0.01"
-							required
-							bind:value={payAmount}
-							class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-						/>
-					</div>
-					<div>
-						<label for="pay-method" class="block text-sm font-medium text-slate-700">Method</label>
-						<select
-							id="pay-method"
-							bind:value={payMethod}
-							class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-						>
-							{#each methodOptions as m (m)}
-								<option value={m}>{humanize(m)}</option>
-							{/each}
-						</select>
-					</div>
-				</div>
-
-				<div>
-					<label for="pay-ref" class="block text-sm font-medium text-slate-700"
-						>Reference note</label
-					>
-					<input
-						id="pay-ref"
-						type="text"
-						bind:value={payRef}
-						placeholder="Check number, transfer reference, …"
-						class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-					/>
-				</div>
-
-				<div>
-					<label for="pay-date" class="block text-sm font-medium text-slate-700">Date</label>
-					<input
-						id="pay-date"
-						type="datetime-local"
-						bind:value={payRecordedAt}
-						class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-					/>
-					<p class="mt-1 text-xs text-slate-500">Leave empty to use the current time.</p>
-				</div>
-
-				{#if lineItems.length > 1 && data.invoice.project_id == null}
-					<fieldset>
-						<legend class="text-sm font-medium text-slate-700">Allocation</legend>
-						<div class="mt-2 flex gap-4">
-							<label class="flex items-center gap-2 text-sm text-slate-700">
-								<input
-									type="radio"
-									name="alloc-mode"
-									value="auto"
-									bind:group={allocMode}
-									class="text-indigo-600 focus:ring-indigo-500"
-								/>
-								Auto
-							</label>
-							<label class="flex items-center gap-2 text-sm text-slate-700">
-								<input
-									type="radio"
-									name="alloc-mode"
-									value="manual"
-									bind:group={allocMode}
-									class="text-indigo-600 focus:ring-indigo-500"
-								/>
-								Manual
-							</label>
-						</div>
-						{#if allocMode === 'manual'}
-							<div class="mt-3 overflow-hidden rounded-md border border-slate-200">
-								<table class="min-w-full divide-y divide-slate-200">
-									<thead class="bg-slate-50">
-										<tr>
-											<th
-												scope="col"
-												class="px-4 py-2 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
-												>Line item</th
-											>
-											<th
-												scope="col"
-												class="px-4 py-2 text-right text-xs font-semibold tracking-wide text-slate-600 uppercase"
-												>Owed</th
-											>
-											<th
-												scope="col"
-												class="px-4 py-2 text-right text-xs font-semibold tracking-wide text-slate-600 uppercase"
-												>Amount</th
-											>
-										</tr>
-									</thead>
-									<tbody class="divide-y divide-slate-200">
-										{#each lineItems as li (li.id)}
-											<tr>
-												<td class="px-4 py-2 text-sm text-slate-900">{li.description}</td>
-												<td class="px-4 py-2 text-right text-sm whitespace-nowrap text-slate-700"
-													>{fmtPrice(li.amount)}</td
-												>
-												<td class="px-4 py-2 text-right">
-													<input
-														type="number"
-														min="0"
-														step="0.01"
-														placeholder="0.00"
-														value={allocValues[li.id] ?? ''}
-														oninput={(e) =>
-															(allocValues[li.id] = e.currentTarget.value)}
-														class="w-32 rounded-md border-slate-300 text-right text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-													/>
-												</td>
-											</tr>
-										{/each}
-									</tbody>
-								</table>
-							</div>
-						{/if}
-					</fieldset>
-				{/if}
-
-				<div class="mt-6 flex justify-end gap-3">
-					<Dialog.Close
-						type="button"
-						class="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
-					>
-						Cancel
-					</Dialog.Close>
+			</div>
+			{#if data.invoice.status === 'issued' || data.invoice.status === 'partially_paid' || (data.invoice.is_auto && data.invoice.status === 'draft')}
+				<div class="flex flex-wrap items-center gap-2">
+					{#if data.invoice.is_auto && data.invoice.status === 'draft'}
+						<p class="text-xs text-slate-500">
+							Statement invoice — payments can be recorded without issuing.
+						</p>
+					{/if}
 					<button
-						type="submit"
-						disabled={payBusy}
-						aria-busy={payBusy}
-						class="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+						type="button"
+						onclick={openPay}
+						class="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
 					>
-						{#if payBusy}<Spinner class="h-4 w-4 text-white" />{/if}
 						Record payment
 					</button>
 				</div>
-			</form>
-		</Dialog.Content>
-	</Dialog.Portal>
-</Dialog.Root>
-
-<!-- Apply advance dialog -->
-<Dialog.Root bind:open={applyOpen}>
-	<Dialog.Portal>
-		<Dialog.Overlay class="fixed inset-0 z-40 bg-black/50" />
-		<Dialog.Content
-			class="fixed top-1/2 left-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-6 shadow-xl focus:outline-none"
-		>
-			<div class="flex items-center justify-between">
-				<Dialog.Title class="text-lg font-semibold text-slate-900">Apply advance</Dialog.Title>
-				<Dialog.Close
-					type="button"
-					aria-label="Close"
-					class="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
-				>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						viewBox="0 0 20 20"
-						fill="currentColor"
-						class="h-5 w-5"
-						aria-hidden="true"
-					>
-						<path
-							d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"
-						/>
-					</svg>
-				</Dialog.Close>
-			</div>
-			<Dialog.Description class="mt-2 text-sm text-slate-600">
-				Apply the client's advance balance to invoice {number}.
-			</Dialog.Description>
-
-			{#if applyErr}
-				<p
-					role="alert"
-					class="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
-				>
-					{applyErr}
-				</p>
 			{/if}
+		</div>
+		<dl class="grid gap-4 border-b border-slate-200 bg-slate-50 px-6 py-4 sm:grid-cols-2">
+			<div>
+				<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Total paid</dt>
+				<dd class="mt-1 text-sm font-semibold text-slate-900">{fmtPrice(totalPaid)}</dd>
+			</div>
+			<div>
+				<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Balance due</dt>
+				<dd class="mt-1 text-sm font-semibold text-slate-900">{fmtPrice(balanceDue)}</dd>
+			</div>
+		</dl>
+		{#if data.transactions.length === 0}
+			<p class="px-6 py-8 text-sm text-slate-500">No payments recorded yet.</p>
+		{:else}
+			<div class="relative overflow-x-auto">
+				<table class="min-w-full divide-y divide-slate-200">
+					<thead class="bg-slate-50">
+						<tr>
+							<th
+								scope="col"
+								class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
+								>Type</th
+							>
+							<th
+								scope="col"
+								class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
+								>Amount</th
+							>
+							<th
+								scope="col"
+								class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
+								>Method</th
+							>
+							<th
+								scope="col"
+								class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
+								>Reference</th
+							>
+							<th
+								scope="col"
+								class="px-4 py-3 text-right text-xs font-semibold tracking-wide text-slate-600 uppercase"
+								>Date</th
+							>
+						</tr>
+					</thead>
+					<tbody class="divide-y divide-slate-200">
+						{#each data.transactions as t (t.id)}
+							<tr class="hover:bg-slate-50">
+								<td class="px-4 py-3">
+									{#if t.direction === 'credit'}
+										<span
+											class="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800 ring-1 ring-red-600/20 ring-inset"
+										>
+											Refund
+										</span>
+									{:else}
+										<span
+											class="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800 ring-1 ring-green-600/20 ring-inset"
+										>
+											Payment
+										</span>
+									{/if}
+								</td>
+								<td class="px-4 py-3 text-sm font-medium whitespace-nowrap text-slate-900"
+									>{t.direction === 'credit' ? `−${fmtPrice(t.amount)}` : fmtPrice(t.amount)}</td
+								>
+								<td class="px-4 py-3 text-sm whitespace-nowrap text-slate-700"
+									>{humanize(t.method)}</td
+								>
+								<td class="px-4 py-3 text-sm text-slate-700">{t.reference_note || '—'}</td>
+								<td class="px-4 py-3 text-right text-sm whitespace-nowrap text-slate-700"
+									>{formatDateTime(t.recorded_at)}</td
+								>
+							</tr>
+							{#if data.invoice.project_id == null && t.allocations.length > 0}
+								<tr class="bg-slate-50/50">
+									<td colspan="5" class="px-4 py-2">
+										<details class="group">
+											<summary
+												class="flex cursor-pointer list-none items-center gap-1 text-xs text-slate-500 hover:text-indigo-600 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+											>
+												<svg
+													xmlns="http://www.w3.org/2000/svg"
+													viewBox="0 0 20 20"
+													fill="currentColor"
+													class="h-3.5 w-3.5 transition-transform group-open:rotate-90"
+													aria-hidden="true"
+												>
+													<path
+														fill-rule="evenodd"
+														d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z"
+														clip-rule="evenodd"
+													/>
+												</svg>
+												Allocated to {t.allocations.length}
+												{t.allocations.length === 1 ? 'item' : 'items'}
+											</summary>
+											<ul
+												class="mt-2 space-y-1 rounded-md border border-slate-200 bg-white p-3 text-sm"
+											>
+												{#each t.allocations as a (a.id)}
+													<li class="flex items-center justify-between gap-3">
+														<span class="text-slate-700">{descriptionOf(a.line_item_id)}</span>
+														<span class="whitespace-nowrap text-slate-900"
+															>{fmtPrice(a.amount)}</span
+														>
+													</li>
+												{/each}
+											</ul>
+										</details>
+									</td>
+								</tr>
+							{/if}
+						{/each}
+					</tbody>
+				</table>
+			</div>
+		{/if}
+	</section>
 
-			<form
-				class="mt-4 space-y-4"
-				onsubmit={(e) => {
-					e.preventDefault();
-					runApplyAdvance();
-				}}
+	<ConfirmDialog
+		bind:open={issueOpen}
+		title="Issue invoice"
+		description={`Mark invoice ${number} as issued? It can no longer be edited.`}
+		confirmLabel="Issue invoice"
+		busy={issueBusy}
+		onconfirm={runIssue}
+	/>
+
+	<ConfirmDialog
+		bind:open={deleteOpen}
+		title="Delete invoice"
+		description={`Permanently delete draft invoice ${number}? This cannot be undone.`}
+		confirmLabel="Delete"
+		destructive
+		busy={deleteBusy}
+		onconfirm={runDelete}
+	/>
+
+	<ConfirmDialog
+		bind:open={voidOpen}
+		title="Void invoice"
+		description={`Void invoice ${number}? It stays on record with total $0.00 and can no longer be collected.`}
+		confirmLabel="Void"
+		destructive
+		busy={voidBusy}
+		onconfirm={runVoid}
+	/>
+
+	<!-- Record payment dialog (bits-ui Dialog) -->
+	<Dialog.Root bind:open={payOpen}>
+		<Dialog.Portal>
+			<Dialog.Overlay class="fixed inset-0 z-40 bg-black/50" />
+			<Dialog.Content
+				class="fixed top-1/2 left-1/2 z-50 w-[calc(100%-2rem)] max-w-2xl -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-4 shadow-xl focus:outline-none sm:p-6"
 			>
-				<div>
-					<label for="apply-amount" class="block text-sm font-medium text-slate-700">Amount</label>
-					<input
-						id="apply-amount"
-						type="number"
-						min="0.01"
-						step="0.01"
-						bind:value={applyAmount}
-						placeholder="Full available balance"
-						class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-					/>
-					<p class="mt-1 text-xs text-slate-500">
-						Leave empty to apply the full available advance balance.
-					</p>
-				</div>
-
-				<div class="mt-6 flex justify-end gap-3">
+				<div class="flex items-center justify-between">
+					<Dialog.Title class="text-lg font-semibold text-slate-900">Record payment</Dialog.Title>
 					<Dialog.Close
 						type="button"
-						class="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+						aria-label="Close"
+						class="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
 					>
-						Cancel
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							viewBox="0 0 20 20"
+							fill="currentColor"
+							class="h-5 w-5"
+							aria-hidden="true"
+						>
+							<path
+								d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"
+							/>
+						</svg>
 					</Dialog.Close>
-					<button
-						type="submit"
-						disabled={applyBusy}
-						aria-busy={applyBusy}
-						class="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
-					>
-						{#if applyBusy}<Spinner class="h-4 w-4 text-white" />{/if}
-						Apply advance
-					</button>
 				</div>
-			</form>
-		</Dialog.Content>
-	</Dialog.Portal>
-</Dialog.Root>
+				<Dialog.Description class="mt-2 text-sm text-slate-600">
+					Record a payment against invoice {number}.
+				</Dialog.Description>
 
-<!-- Refund dialog -->
-<Dialog.Root bind:open={refundOpen}>
-	<Dialog.Portal>
-		<Dialog.Overlay class="fixed inset-0 z-40 bg-black/50" />
-		<Dialog.Content
-			class="fixed top-1/2 left-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-6 shadow-xl focus:outline-none"
-		>
-			<div class="flex items-center justify-between">
-				<Dialog.Title class="text-lg font-semibold text-slate-900">Refund</Dialog.Title>
-				<Dialog.Close
-					type="button"
-					aria-label="Close"
-					class="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
-				>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						viewBox="0 0 20 20"
-						fill="currentColor"
-						class="h-5 w-5"
-						aria-hidden="true"
+				{#if payErr}
+					<p
+						role="alert"
+						class="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
 					>
-						<path
-							d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"
-						/>
-					</svg>
-				</Dialog.Close>
-			</div>
-			<Dialog.Description class="mt-2 text-sm text-slate-600">
-				Record a refund against invoice {number}. This reduces the paid amount on record.
-			</Dialog.Description>
+						{payErr}
+					</p>
+				{/if}
 
-			{#if refundErr}
-				<p
-					role="alert"
-					class="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+				<form
+					class="mt-4 space-y-4"
+					onsubmit={(e) => {
+						e.preventDefault();
+						submitPay();
+					}}
 				>
-					{refundErr}
-				</p>
-			{/if}
+					<div class="grid gap-4 sm:grid-cols-2">
+						<div>
+							<label for="pay-amount" class="block text-sm font-medium text-slate-700">Amount</label
+							>
+							<input
+								id="pay-amount"
+								type="number"
+								min="0.01"
+								step="0.01"
+								required
+								bind:value={payAmount}
+								class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+							/>
+						</div>
+						<div>
+							<label for="pay-method" class="block text-sm font-medium text-slate-700">Method</label
+							>
+							<select
+								id="pay-method"
+								bind:value={payMethod}
+								class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+							>
+								{#each methodOptions as m (m)}
+									<option value={m}>{humanize(m)}</option>
+								{/each}
+							</select>
+						</div>
+					</div>
 
-			<form
-				class="mt-4 space-y-4"
-				onsubmit={(e) => {
-					e.preventDefault();
-					runRefund();
-				}}
-			>
-				<div class="grid gap-4 sm:grid-cols-2">
 					<div>
-						<label for="refund-amount" class="block text-sm font-medium text-slate-700"
-							>Amount</label
+						<label for="pay-ref" class="block text-sm font-medium text-slate-700"
+							>Reference note</label
 						>
 						<input
-							id="refund-amount"
+							id="pay-ref"
+							type="text"
+							bind:value={payRef}
+							placeholder="Check number, transfer reference, …"
+							class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+						/>
+					</div>
+
+					<div>
+						<label for="pay-date" class="block text-sm font-medium text-slate-700">Date</label>
+						<input
+							id="pay-date"
+							type="datetime-local"
+							bind:value={payRecordedAt}
+							class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+						/>
+						<p class="mt-1 text-xs text-slate-500">Leave empty to use the current time.</p>
+					</div>
+
+					{#if lineItems.length > 1 && data.invoice.project_id == null}
+						<fieldset>
+							<legend class="text-sm font-medium text-slate-700">Allocation</legend>
+							<div class="mt-2 flex gap-4">
+								<label class="flex items-center gap-2 text-sm text-slate-700">
+									<input
+										type="radio"
+										name="alloc-mode"
+										value="auto"
+										bind:group={allocMode}
+										class="text-indigo-600 focus:ring-indigo-500"
+									/>
+									Auto
+								</label>
+								<label class="flex items-center gap-2 text-sm text-slate-700">
+									<input
+										type="radio"
+										name="alloc-mode"
+										value="manual"
+										bind:group={allocMode}
+										class="text-indigo-600 focus:ring-indigo-500"
+									/>
+									Manual
+								</label>
+							</div>
+							{#if allocMode === 'manual'}
+								<div class="relative overflow-x-auto rounded-md border border-slate-200">
+									<table class="min-w-full divide-y divide-slate-200">
+										<thead class="bg-slate-50">
+											<tr>
+												<th
+													scope="col"
+													class="px-4 py-2 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
+													>Line item</th
+												>
+												<th
+													scope="col"
+													class="px-4 py-2 text-right text-xs font-semibold tracking-wide text-slate-600 uppercase"
+													>Owed</th
+												>
+												<th
+													scope="col"
+													class="px-4 py-2 text-right text-xs font-semibold tracking-wide text-slate-600 uppercase"
+													>Amount</th
+												>
+											</tr>
+										</thead>
+										<tbody class="divide-y divide-slate-200">
+											{#each lineItems as li (li.id)}
+												<tr>
+													<td class="px-4 py-2 text-sm text-slate-900">{li.description}</td>
+													<td class="px-4 py-2 text-right text-sm whitespace-nowrap text-slate-700"
+														>{fmtPrice(li.amount)}</td
+													>
+													<td class="px-4 py-2 text-right">
+														<input
+															type="number"
+															min="0"
+															step="0.01"
+															placeholder="0.00"
+															value={allocValues[li.id] ?? ''}
+															oninput={(e) => (allocValues[li.id] = e.currentTarget.value)}
+															class="w-32 max-w-full rounded-md border-slate-300 text-right text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+														/>
+													</td>
+												</tr>
+											{/each}
+										</tbody>
+									</table>
+								</div>
+							{/if}
+						</fieldset>
+					{/if}
+
+					<div class="mt-6 flex justify-end gap-3">
+						<Dialog.Close
+							type="button"
+							class="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+						>
+							Cancel
+						</Dialog.Close>
+						<button
+							type="submit"
+							disabled={payBusy}
+							aria-busy={payBusy}
+							class="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+						>
+							{#if payBusy}<Spinner class="h-4 w-4 text-white" />{/if}
+							Record payment
+						</button>
+					</div>
+				</form>
+			</Dialog.Content>
+		</Dialog.Portal>
+	</Dialog.Root>
+
+	<!-- Apply advance dialog -->
+	<Dialog.Root bind:open={applyOpen}>
+		<Dialog.Portal>
+			<Dialog.Overlay class="fixed inset-0 z-40 bg-black/50" />
+			<Dialog.Content
+				class="fixed top-1/2 left-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-4 shadow-xl focus:outline-none sm:p-6"
+			>
+				<div class="flex items-center justify-between">
+					<Dialog.Title class="text-lg font-semibold text-slate-900">Apply advance</Dialog.Title>
+					<Dialog.Close
+						type="button"
+						aria-label="Close"
+						class="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							viewBox="0 0 20 20"
+							fill="currentColor"
+							class="h-5 w-5"
+							aria-hidden="true"
+						>
+							<path
+								d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"
+							/>
+						</svg>
+					</Dialog.Close>
+				</div>
+				<Dialog.Description class="mt-2 text-sm text-slate-600">
+					Apply the client's advance balance to invoice {number}.
+				</Dialog.Description>
+
+				{#if applyErr}
+					<p
+						role="alert"
+						class="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+					>
+						{applyErr}
+					</p>
+				{/if}
+
+				<form
+					class="mt-4 space-y-4"
+					onsubmit={(e) => {
+						e.preventDefault();
+						runApplyAdvance();
+					}}
+				>
+					<div>
+						<label for="apply-amount" class="block text-sm font-medium text-slate-700">Amount</label
+						>
+						<input
+							id="apply-amount"
 							type="number"
 							min="0.01"
 							step="0.01"
-							required
-							bind:value={refundAmount}
+							bind:value={applyAmount}
+							placeholder="Full available balance"
+							class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+						/>
+						<p class="mt-1 text-xs text-slate-500">
+							Leave empty to apply the full available advance balance.
+						</p>
+					</div>
+
+					<div class="mt-6 flex justify-end gap-3">
+						<Dialog.Close
+							type="button"
+							class="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+						>
+							Cancel
+						</Dialog.Close>
+						<button
+							type="submit"
+							disabled={applyBusy}
+							aria-busy={applyBusy}
+							class="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+						>
+							{#if applyBusy}<Spinner class="h-4 w-4 text-white" />{/if}
+							Apply advance
+						</button>
+					</div>
+				</form>
+			</Dialog.Content>
+		</Dialog.Portal>
+	</Dialog.Root>
+
+	<!-- Refund dialog -->
+	<Dialog.Root bind:open={refundOpen}>
+		<Dialog.Portal>
+			<Dialog.Overlay class="fixed inset-0 z-40 bg-black/50" />
+			<Dialog.Content
+				class="fixed top-1/2 left-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-4 shadow-xl focus:outline-none sm:p-6"
+			>
+				<div class="flex items-center justify-between">
+					<Dialog.Title class="text-lg font-semibold text-slate-900">Refund</Dialog.Title>
+					<Dialog.Close
+						type="button"
+						aria-label="Close"
+						class="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							viewBox="0 0 20 20"
+							fill="currentColor"
+							class="h-5 w-5"
+							aria-hidden="true"
+						>
+							<path
+								d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"
+							/>
+						</svg>
+					</Dialog.Close>
+				</div>
+				<Dialog.Description class="mt-2 text-sm text-slate-600">
+					Record a refund against invoice {number}. This reduces the paid amount on record.
+				</Dialog.Description>
+
+				{#if refundErr}
+					<p
+						role="alert"
+						class="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+					>
+						{refundErr}
+					</p>
+				{/if}
+
+				<form
+					class="mt-4 space-y-4"
+					onsubmit={(e) => {
+						e.preventDefault();
+						runRefund();
+					}}
+				>
+					<div class="grid gap-4 sm:grid-cols-2">
+						<div>
+							<label for="refund-amount" class="block text-sm font-medium text-slate-700"
+								>Amount</label
+							>
+							<input
+								id="refund-amount"
+								type="number"
+								min="0.01"
+								step="0.01"
+								required
+								bind:value={refundAmount}
+								class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+							/>
+						</div>
+						<div>
+							<label for="refund-method" class="block text-sm font-medium text-slate-700"
+								>Method</label
+							>
+							<select
+								id="refund-method"
+								bind:value={refundMethod}
+								class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+							>
+								{#each methodOptions as m (m)}
+									<option value={m}>{humanize(m)}</option>
+								{/each}
+							</select>
+						</div>
+					</div>
+
+					<div>
+						<label for="refund-ref" class="block text-sm font-medium text-slate-700"
+							>Reference note</label
+						>
+						<input
+							id="refund-ref"
+							type="text"
+							bind:value={refundRef}
+							placeholder="Refund reason, transfer reference, …"
 							class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
 						/>
 					</div>
-					<div>
-						<label for="refund-method" class="block text-sm font-medium text-slate-700"
-							>Method</label
+
+					<div class="mt-6 flex justify-end gap-3">
+						<Dialog.Close
+							type="button"
+							class="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
 						>
-						<select
-							id="refund-method"
-							bind:value={refundMethod}
-							class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+							Cancel
+						</Dialog.Close>
+						<button
+							type="submit"
+							disabled={refundBusy}
+							aria-busy={refundBusy}
+							class="inline-flex items-center gap-2 rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
 						>
-							{#each methodOptions as m (m)}
-								<option value={m}>{humanize(m)}</option>
-							{/each}
-						</select>
+							{#if refundBusy}<Spinner class="h-4 w-4 text-white" />{/if}
+							Record refund
+						</button>
 					</div>
-				</div>
-
-				<div>
-					<label for="refund-ref" class="block text-sm font-medium text-slate-700"
-						>Reference note</label
-					>
-					<input
-						id="refund-ref"
-						type="text"
-						bind:value={refundRef}
-						placeholder="Refund reason, transfer reference, …"
-						class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-					/>
-				</div>
-
-				<div class="mt-6 flex justify-end gap-3">
-					<Dialog.Close
-						type="button"
-						class="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
-					>
-						Cancel
-					</Dialog.Close>
-					<button
-						type="submit"
-						disabled={refundBusy}
-						aria-busy={refundBusy}
-						class="inline-flex items-center gap-2 rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
-					>
-						{#if refundBusy}<Spinner class="h-4 w-4 text-white" />{/if}
-						Record refund
-					</button>
-				</div>
-			</form>
-		</Dialog.Content>
-	</Dialog.Portal>
-</Dialog.Root>
+				</form>
+			</Dialog.Content>
+		</Dialog.Portal>
+	</Dialog.Root>
 </div>
 
 <style>

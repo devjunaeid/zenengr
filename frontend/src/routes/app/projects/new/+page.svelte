@@ -242,7 +242,7 @@
 		class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm"
 		aria-labelledby="services-h"
 	>
-		<div class="flex items-center justify-between">
+		<div class="flex flex-wrap items-center justify-between gap-3">
 			<h2 id="services-h" class="text-base font-semibold text-slate-900">Services *</h2>
 			<span class="text-sm text-slate-500">
 				Selected: <span class="font-medium text-slate-700">{selectedServiceCount}</span>
@@ -378,7 +378,7 @@
 		{/if}
 	</section>
 
-	<div class="flex items-center gap-3 pt-2">
+	<div class="flex flex-wrap items-center gap-3 pt-2">
 		<button
 			type="submit"
 			disabled={busy}

@@ -142,7 +142,7 @@
 				}
 			}
 		}}
-		class="flex w-full items-center justify-between rounded-lg border border-slate-300 bg-white px-3 py-2 text-left text-sm shadow-2xs focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:opacity-60"
+		class="flex w-full items-center justify-between rounded-lg border border-slate-300 bg-white px-3 py-2 text-left text-sm shadow-2xs focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none disabled:cursor-not-allowed disabled:bg-slate-50 disabled:opacity-60"
 	>
 		<span class="truncate font-medium text-slate-800">
 			{selectedItem.label}
@@ -162,23 +162,23 @@
 
 	{#if open}
 		<div
-			class="absolute z-50 mt-1 max-h-72 w-full min-w-[320px] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl"
+			class="absolute z-50 mt-1 max-h-72 w-full min-w-[min(20rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl"
 		>
 			<!-- Search Box -->
-			<div class="border-b border-slate-100 p-2 bg-slate-50">
+			<div class="border-b border-slate-100 bg-slate-50 p-2">
 				<div class="relative">
 					<input
 						bind:this={inputRef}
 						type="text"
 						bind:value={search}
 						placeholder="Search city, country, or UTC..."
-						class="w-full rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+						class="w-full rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
 					/>
 					{#if search}
 						<button
 							type="button"
 							onclick={() => (search = '')}
-							class="absolute right-2 top-1.5 text-xs text-slate-400 hover:text-slate-600"
+							class="absolute top-1.5 right-2 text-xs text-slate-400 hover:text-slate-600"
 						>
 							×
 						</button>
@@ -190,7 +190,7 @@
 			<ul
 				role="listbox"
 				tabindex="-1"
-				class="max-h-56 overflow-y-auto divide-y divide-slate-50 p-1 text-xs"
+				class="max-h-56 divide-y divide-slate-50 overflow-y-auto p-1 text-xs"
 			>
 				{#if filteredTimezones.length === 0}
 					<li class="p-3 text-center text-slate-400">No timezones found</li>
@@ -202,14 +202,14 @@
 								role="option"
 								aria-selected={tz.id === value}
 								onclick={() => selectTimezone(tz.id)}
-								class="flex w-full items-center justify-between rounded-md px-2.5 py-2 text-left hover:bg-indigo-50/70 hover:text-indigo-900 transition-colors {tz.id ===
+								class="flex w-full items-center justify-between rounded-md px-2.5 py-2 text-left transition-colors hover:bg-indigo-50/70 hover:text-indigo-900 {tz.id ===
 								value
 									? 'bg-indigo-50 font-semibold text-indigo-700'
 									: 'text-slate-700'}"
 							>
 								<span class="truncate">{tz.label}</span>
 								{#if tz.id === value}
-									<span class="text-indigo-600 font-bold ml-2">✓</span>
+									<span class="ml-2 font-bold text-indigo-600">✓</span>
 								{/if}
 							</button>
 						</li>

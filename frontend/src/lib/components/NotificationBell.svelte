@@ -150,7 +150,7 @@
 
 	{#if open}
 		<div
-			class="absolute right-0 z-50 mt-2 w-80 overflow-hidden rounded-lg bg-slate-100 shadow-lg ring-1 ring-slate-200"
+			class="absolute right-0 z-50 mt-2 w-80 max-w-[calc(100vw-2rem)] overflow-hidden rounded-lg bg-slate-100 shadow-lg ring-1 ring-slate-200"
 			role="region"
 			aria-label="Notifications"
 		>

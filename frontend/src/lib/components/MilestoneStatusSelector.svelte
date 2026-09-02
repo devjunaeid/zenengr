@@ -58,7 +58,7 @@
 	}
 </script>
 
-<span class="inline-flex items-center gap-2" data-status={value}>
+<span class="inline-flex max-w-full flex-wrap items-center gap-2" data-status={value}>
 	<span
 		class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset {current.select}"
 		aria-hidden="true"
@@ -73,7 +73,7 @@
 		disabled={isDisabled}
 		aria-busy={busy}
 		onchange={handleChange}
-		class="rounded-md border-slate-300 text-xs shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
+		class="max-w-full min-w-0 rounded-md border-slate-300 text-xs shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
 	>
 		{#each options as opt (opt.key)}
 			<option value={opt.key}>{opt.label}</option>

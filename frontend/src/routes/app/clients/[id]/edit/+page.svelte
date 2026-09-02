@@ -222,7 +222,7 @@
 		<p class="mt-1 text-xs text-slate-500">Press Enter or comma to add a tag.</p>
 	</div>
 
-	<div class="flex items-center gap-3 pt-2">
+	<div class="flex flex-wrap items-center gap-3 pt-2">
 		<button
 			type="submit"
 			disabled={busy}

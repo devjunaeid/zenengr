@@ -76,13 +76,13 @@
 </script>
 
 {#if safeEntries.length === 0}
-	<p class="px-6 py-8 text-sm text-slate-500">No activity yet.</p>
+	<p class="px-4 py-8 text-sm text-slate-500 sm:px-6">No activity yet.</p>
 {:else}
 	<div class="divide-y divide-slate-100">
 		{#each groups as group, gIdx (`${group.day}-${gIdx}`)}
 			<section aria-label={dayLabel(group.day)}>
 				<h3
-					class="sticky top-0 z-10 border-b border-slate-200 bg-slate-50/95 px-6 py-2 text-xs font-semibold tracking-wide text-slate-500 uppercase backdrop-blur"
+					class="sticky top-0 z-10 border-b border-slate-200 bg-slate-50/95 px-4 py-2 text-xs font-semibold tracking-wide text-slate-500 uppercase backdrop-blur sm:px-6"
 				>
 					{dayLabel(group.day)}
 				</h3>
@@ -90,7 +90,7 @@
 					{#each group.items as entry, eIdx (`${entry?.id ?? 'item'}-${eIdx}`)}
 						{@const rows = detailRows(entry)}
 						{@const entity = entityInfo(entry)}
-						<li class="flex gap-3 px-6 py-3 hover:bg-slate-50">
+						<li class="flex gap-3 px-4 py-3 hover:bg-slate-50 sm:px-6">
 							<span
 								class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500"
 							>

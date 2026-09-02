@@ -41,7 +41,7 @@
 
 <svelte:head><title>Invoices — ZenEngr</title></svelte:head>
 
-<div class="flex items-center justify-between">
+<div class="flex flex-wrap items-center justify-between gap-3">
 	<div>
 		<h1 class="text-2xl font-semibold text-slate-900">Invoices</h1>
 		<p class="mt-1 text-sm text-slate-500">
@@ -76,12 +76,12 @@
 			{/each}
 		</select>
 	</div>
-	<div>
+	<div class="min-w-0 flex-1 sm:flex-none">
 		<label for="f-project" class="block text-xs font-medium text-slate-600">Project</label>
 		<select
 			id="f-project"
 			bind:value={projectId}
-			class="mt-1 block w-64 rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+			class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:w-64"
 		>
 			<option value="">All projects</option>
 			{#each data.projects as p (p.id)}
@@ -117,7 +117,7 @@
 			</EmptyState>
 		{/if}
 	{:else}
-		<div class="overflow-x-auto">
+		<div class="relative overflow-x-auto">
 			<table class="min-w-full divide-y divide-slate-200">
 				<thead class="bg-slate-50">
 					<tr>

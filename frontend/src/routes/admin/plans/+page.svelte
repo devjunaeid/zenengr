@@ -310,7 +310,7 @@
 {/if}
 
 <div class="mt-6 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-	<div class="overflow-x-auto">
+	<div class="relative overflow-x-auto">
 		<table class="min-w-full divide-y divide-slate-200">
 			<thead class="bg-slate-50">
 				<tr>
@@ -410,7 +410,7 @@
 	<Dialog.Portal>
 		<Dialog.Overlay class="fixed inset-0 z-40 bg-black/50" />
 		<Dialog.Content
-			class="fixed top-1/2 left-1/2 z-50 max-h-[85vh] w-full max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg bg-white p-6 shadow-xl focus:outline-none"
+			class="fixed top-1/2 left-1/2 z-50 max-h-[85vh] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg bg-white p-4 shadow-xl focus:outline-none sm:p-6"
 		>
 			<Dialog.Title class="text-lg font-semibold text-slate-900">
 				Default flags{flagPlan ? ` — ${flagPlan.name}` : ''}

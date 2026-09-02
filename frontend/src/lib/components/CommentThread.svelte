@@ -251,7 +251,7 @@
 						aria-label="Edit comment"
 						class="mt-2 w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
 					></textarea>
-					<div class="mt-2 flex items-center gap-2">
+					<div class="mt-2 flex flex-wrap items-center gap-2">
 						<button
 							type="button"
 							disabled={editBusy || !editContent.trim()}
@@ -302,7 +302,7 @@
 						</span>
 					</div>
 				{:else}
-					<p class="mt-1 text-sm whitespace-pre-wrap text-slate-700">{c.content}</p>
+					<p class="mt-1 text-sm break-words whitespace-pre-wrap text-slate-700">{c.content}</p>
 				{/if}
 			</li>
 		{/each}

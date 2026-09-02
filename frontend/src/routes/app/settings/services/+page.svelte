@@ -3,7 +3,6 @@
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import EmptyState from '$lib/components/EmptyState.svelte';
 	import Pagination from '$lib/components/Pagination.svelte';
 	import StatusBadge from '$lib/components/StatusBadge.svelte';
 	import { auth } from '$lib/stores/auth.svelte.js';
@@ -50,8 +49,10 @@
 	<section class="overflow-hidden rounded-xl border border-slate-200 bg-white p-5 shadow-2xs">
 		<div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 			<div>
-				<h2 class="text-base font-bold text-slate-900">Service Catalog &amp; Milestone Templates</h2>
-				<p class="text-xs text-slate-500 mt-0.5">
+				<h2 class="text-base font-bold text-slate-900">
+					Service Catalog &amp; Milestone Templates
+				</h2>
+				<p class="mt-0.5 text-xs text-slate-500">
 					Predefined service packages with reusable milestone sequences used when creating projects.
 				</p>
 			</div>
@@ -59,7 +60,7 @@
 			{#if canManage}
 				<a
 					href={resolve('/app/settings/services/new')}
-					class="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-2 text-xs font-semibold text-white shadow-2xs hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none transition-colors"
+					class="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-2 text-xs font-semibold text-white shadow-2xs transition-colors hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
 				>
 					<Icon icon={plus} class="h-4 w-4" />
 					Add New Service
@@ -75,14 +76,14 @@
 				applyFilters();
 			}}
 		>
-			<div class="relative flex-1 min-w-[220px]">
-				<Icon icon={magnify} class="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+			<div class="relative min-w-[220px] flex-1">
+				<Icon icon={magnify} class="absolute top-2.5 left-3 h-4 w-4 text-slate-400" />
 				<input
 					id="f-q"
 					type="search"
 					bind:value={q}
 					placeholder="Search services by name or description..."
-					class="w-full rounded-lg border border-slate-200 bg-slate-50/50 py-2 pl-9 pr-3 text-xs text-slate-800 placeholder-slate-400 shadow-2xs focus:border-indigo-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+					class="w-full rounded-lg border border-slate-200 bg-slate-50/50 py-2 pr-3 pl-9 text-xs text-slate-800 placeholder-slate-400 shadow-2xs focus:border-indigo-500 focus:bg-white focus:ring-1 focus:ring-indigo-500 focus:outline-none"
 				/>
 			</div>
 
@@ -90,7 +91,7 @@
 				<select
 					id="f-status"
 					bind:value={isActive}
-					class="rounded-lg border border-slate-200 bg-slate-50/50 py-2 px-3 text-xs text-slate-700 shadow-2xs focus:border-indigo-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+					class="rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs text-slate-700 shadow-2xs focus:border-indigo-500 focus:bg-white focus:ring-1 focus:ring-indigo-500 focus:outline-none"
 				>
 					<option value="">All Statuses</option>
 					<option value="active">Active Only</option>
@@ -100,7 +101,7 @@
 
 			<button
 				type="submit"
-				class="rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition-colors"
+				class="rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-2xs transition-colors hover:bg-slate-50"
 			>
 				Filter
 			</button>
@@ -114,19 +115,20 @@
 				<div class="p-12 text-center">
 					<Icon icon={shapeOutline} class="mx-auto h-8 w-8 text-slate-300" />
 					<p class="mt-2 text-xs font-semibold text-slate-700">No services match your filters</p>
-					<p class="text-xs text-slate-400 mt-1">Try resetting your search query.</p>
+					<p class="mt-1 text-xs text-slate-400">Try resetting your search query.</p>
 				</div>
 			{:else}
 				<div class="p-12 text-center">
 					<Icon icon={shapeOutline} class="mx-auto h-10 w-10 text-slate-300" />
 					<h3 class="mt-3 text-sm font-bold text-slate-900">No services created yet</h3>
-					<p class="mt-1 text-xs text-slate-500 max-w-sm mx-auto">
-						Create your first service template to start attaching services and standard milestone steps to client projects.
+					<p class="mx-auto mt-1 max-w-sm text-xs text-slate-500">
+						Create your first service template to start attaching services and standard milestone
+						steps to client projects.
 					</p>
 					{#if canManage}
 						<a
 							href={resolve('/app/settings/services/new')}
-							class="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-2xs hover:bg-indigo-700 transition-colors"
+							class="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-2xs transition-colors hover:bg-indigo-700"
 						>
 							<Icon icon={plus} class="h-4 w-4" />
 							Create First Service
@@ -135,7 +137,7 @@
 				</div>
 			{/if}
 		{:else}
-			<div class="overflow-x-auto">
+			<div class="relative overflow-x-auto">
 				<table class="min-w-full divide-y divide-slate-200">
 					<thead class="bg-slate-50">
 						<tr>
@@ -179,7 +181,7 @@
 					</thead>
 					<tbody class="divide-y divide-slate-200 bg-white">
 						{#each data.services.items as s (s.id)}
-							<tr class="hover:bg-slate-50/50 transition-colors">
+							<tr class="transition-colors hover:bg-slate-50/50">
 								<td class="px-6 py-4">
 									<a
 										href={resolve('/app/settings/services/[id]', { id: s.id })}
@@ -195,18 +197,21 @@
 										<span class="text-slate-400 italic">No description</span>
 									{/if}
 								</td>
-								<td class="px-6 py-4 text-right whitespace-nowrap text-xs font-bold text-slate-900">
+								<td class="px-6 py-4 text-right text-xs font-bold whitespace-nowrap text-slate-900">
 									{fmtPrice(s.default_price)}
 								</td>
 								<td class="px-6 py-4 text-center">
-									<span class="inline-flex rounded-md bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700">
-										{s.step_count} {s.step_count === 1 ? 'step' : 'steps'}
+									<span
+										class="inline-flex rounded-md bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700"
+									>
+										{s.step_count}
+										{s.step_count === 1 ? 'step' : 'steps'}
 									</span>
 								</td>
 								<td class="px-6 py-4 text-center">
 									<StatusBadge status={s.is_active ? 'active' : 'inactive'} />
 								</td>
-								<td class="px-6 py-4 text-right whitespace-nowrap text-xs text-slate-500">
+								<td class="px-6 py-4 text-right text-xs whitespace-nowrap text-slate-500">
 									{formatDate(s.created_at)}
 								</td>
 							</tr>

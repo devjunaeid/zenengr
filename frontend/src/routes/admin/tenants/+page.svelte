@@ -53,7 +53,7 @@
 
 <svelte:head><title>Tenants — Super Admin</title></svelte:head>
 
-<div class="flex items-center justify-between">
+<div class="flex flex-wrap items-center justify-between gap-3">
 	<div>
 		<h1 class="text-2xl font-semibold text-slate-900">Tenants</h1>
 		<p class="mt-1 text-sm text-slate-500">{data.tenants.total} total</p>
@@ -73,14 +73,14 @@
 		applyFilters();
 	}}
 >
-	<div>
+	<div class="min-w-0 flex-1">
 		<label for="q" class="block text-xs font-medium text-slate-600">Search</label>
 		<input
 			id="q"
 			type="search"
 			bind:value={q}
 			placeholder="Name or slug"
-			class="mt-1 block w-64 rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+			class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:w-64"
 		/>
 	</div>
 	<div>
@@ -88,7 +88,7 @@
 		<select
 			id="status"
 			bind:value={status}
-			class="mt-1 block rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+			class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:w-auto"
 		>
 			<option value="">All statuses</option>
 			{#each statuses as s (s)}
@@ -111,11 +111,11 @@
 			description="No results match your search. Try different filters."
 		/>
 	{:else}
-		<div class="overflow-x-auto">
+		<div class="relative overflow-x-auto">
 			<table class="min-w-full divide-y divide-slate-200">
 				<thead class="bg-slate-50">
 					<tr>
-						<th scope="col" class="px-4 py-3 text-left">
+						<th scope="col" class="px-3 py-3 text-left sm:px-4">
 							<button
 								type="button"
 								onclick={() => toggleSort('business_name')}
@@ -145,7 +145,7 @@
 							class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
 							>Users</th
 						>
-						<th scope="col" class="px-4 py-3 text-left">
+						<th scope="col" class="px-3 py-3 text-left sm:px-4">
 							<button
 								type="button"
 								onclick={() => toggleSort('created_at')}
@@ -160,7 +160,7 @@
 				<tbody class="divide-y divide-slate-200">
 					{#each data.tenants.items as tenant (tenant.id)}
 						<tr class="hover:bg-slate-50">
-							<td class="px-4 py-3 text-sm font-medium">
+							<td class="px-3 py-3 text-sm font-medium sm:px-4">
 								<a
 									href={resolve('/admin/tenants/[id]', { id: tenant.id })}
 									class="text-indigo-600 hover:text-indigo-500"
@@ -168,11 +168,13 @@
 									{tenant.business_name}
 								</a>
 							</td>
-							<td class="px-4 py-3 font-mono text-sm text-slate-600">{tenant.slug}</td>
-							<td class="px-4 py-3"><StatusBadge status={tenant.status} /></td>
-							<td class="px-4 py-3 text-sm text-slate-600">{tenant.plan_name}</td>
-							<td class="px-4 py-3 text-sm text-slate-600">{tenant.active_user_count}</td>
-							<td class="px-4 py-3 text-sm text-slate-600">{formatDate(tenant.created_at)}</td>
+							<td class="px-3 py-3 font-mono text-sm text-slate-600 sm:px-4">{tenant.slug}</td>
+							<td class="px-3 py-3 sm:px-4"><StatusBadge status={tenant.status} /></td>
+							<td class="px-3 py-3 text-sm text-slate-600 sm:px-4">{tenant.plan_name}</td>
+							<td class="px-3 py-3 text-sm text-slate-600 sm:px-4">{tenant.active_user_count}</td>
+							<td class="px-3 py-3 text-sm text-slate-600 sm:px-4"
+								>{formatDate(tenant.created_at)}</td
+							>
 						</tr>
 					{/each}
 				</tbody>

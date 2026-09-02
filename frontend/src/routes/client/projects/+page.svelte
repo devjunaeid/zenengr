@@ -55,7 +55,8 @@
 		<div>
 			<h1 class="text-xl font-bold text-slate-900">Projects</h1>
 			<p class="mt-0.5 text-xs text-slate-500">
-				{data.projects.total} {data.projects.total === 1 ? 'project' : 'projects'} assigned to your account
+				{data.projects.total}
+				{data.projects.total === 1 ? 'project' : 'projects'} assigned to your account
 			</p>
 		</div>
 	</div>
@@ -69,25 +70,25 @@
 				applyFilters();
 			}}
 		>
-			<div class="relative flex-1 max-w-md">
+			<div class="relative min-w-0 flex-1 sm:max-w-md">
 				<Icon
 					icon={magnify}
-					class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400"
+					class="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-slate-400"
 				/>
 				<input
 					type="text"
 					bind:value={search}
 					placeholder="Search projects by name..."
-					class="w-full rounded-lg border-slate-300 pl-9 pr-4 py-1.5 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
+					class="w-full rounded-lg border-slate-300 py-1.5 pr-4 pl-9 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
 				/>
 			</div>
 
-			<div class="flex items-center gap-2.5">
+			<div class="flex flex-wrap items-center gap-2.5">
 				<select
 					id="f-status"
 					bind:value={status}
 					onchange={applyFilters}
-					class="rounded-lg border-slate-300 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 py-1.5 pl-3 pr-8"
+					class="w-full rounded-lg border-slate-300 py-1.5 pr-8 pl-3 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 sm:w-auto"
 				>
 					<option value="">All Statuses</option>
 					{#each statusOptions.filter(Boolean) as opt (opt)}
@@ -96,7 +97,7 @@
 				</select>
 				<button
 					type="submit"
-					class="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-2xs hover:bg-indigo-700 transition-colors"
+					class="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-2xs transition-colors hover:bg-indigo-700"
 				>
 					Search
 				</button>
@@ -108,7 +109,7 @@
 	{#if data.projects.items.length === 0}
 		<div class="rounded-xl border border-slate-200 bg-white p-8 shadow-2xs">
 			{#if hasFilter}
-				<div class="text-center py-6">
+				<div class="py-6 text-center">
 					<p class="text-xs text-slate-500">No projects match your search query or filter.</p>
 					<button
 						type="button"
@@ -130,30 +131,36 @@
 			{/if}
 		</div>
 	{:else}
-		<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+		<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
 			{#each data.projects.items as proj (proj.id)}
 				{@const pct = progressPct(proj)}
 				<a
 					href={resolve('/client/projects/[id]', { id: proj.id })}
-					class="group flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-5 shadow-2xs hover:border-indigo-300 hover:shadow-sm transition-all"
+					class="group flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-5 shadow-2xs transition-all hover:border-indigo-300 hover:shadow-sm"
 				>
 					<div>
 						<div class="flex items-start justify-between gap-3">
-							<div class="flex items-center gap-2.5">
-								<div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+							<div class="flex min-w-0 items-center gap-2.5">
+								<div
+									class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600"
+								>
 									<Icon icon={folderMultiple} class="h-5 w-5" />
 								</div>
-								<div>
+								<div class="min-w-0">
 									<div class="flex items-center gap-2">
-										<h2 class="text-sm font-bold text-slate-900 group-hover:text-indigo-600 transition-colors line-clamp-1">
+										<h2
+											class="line-clamp-1 min-w-0 text-sm font-bold text-slate-900 transition-colors group-hover:text-indigo-600"
+										>
 											{proj.name}
 										</h2>
-										<span class="font-mono text-[10px] font-semibold text-slate-500 px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200">
+										<span
+											class="shrink-0 rounded border border-slate-200 bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-slate-500"
+										>
 											{formatProjectCode(proj.id)}
 										</span>
 									</div>
 									{#if proj.start_date}
-										<p class="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
+										<p class="mt-0.5 flex items-center gap-1 text-[11px] text-slate-500">
 											<Icon icon={calendarRange} class="h-3 w-3 text-slate-400" />
 											Started {formatDate(proj.start_date)}
 										</p>
@@ -164,8 +171,8 @@
 						</div>
 
 						<!-- Progress Section -->
-						<div class="mt-4 pt-3 border-t border-slate-100">
-							<div class="flex justify-between text-[11px] font-semibold">
+						<div class="mt-4 border-t border-slate-100 pt-3">
+							<div class="flex justify-between gap-2 text-[11px] font-semibold">
 								<span class="text-slate-500">
 									{#if proj.milestone_total > 0}
 										{proj.milestone_completed} of {proj.milestone_total} milestones completed
@@ -175,7 +182,7 @@
 								</span>
 								<span class="text-slate-900">{pct}%</span>
 							</div>
-							<div class="mt-1.5 h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
+							<div class="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
 								<div
 									class="h-full rounded-full bg-gradient-to-r from-indigo-500 to-indigo-600 transition-all duration-300"
 									style="width: {pct}%"
@@ -184,9 +191,14 @@
 						</div>
 					</div>
 
-					<div class="mt-4 flex items-center justify-end text-xs font-semibold text-indigo-600 group-hover:text-indigo-700">
+					<div
+						class="mt-4 flex items-center justify-end text-xs font-semibold text-indigo-600 group-hover:text-indigo-700"
+					>
 						<span>View Details</span>
-						<Icon icon={arrowRight} class="h-3.5 w-3.5 ml-1 group-hover:translate-x-0.5 transition-transform" />
+						<Icon
+							icon={arrowRight}
+							class="ml-1 h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5"
+						/>
 					</div>
 				</a>
 			{/each}

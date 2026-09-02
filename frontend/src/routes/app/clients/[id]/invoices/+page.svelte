@@ -156,7 +156,7 @@
 			</EmptyState>
 		{/if}
 	{:else}
-		<div class="overflow-x-auto">
+		<div class="relative overflow-x-auto">
 			<table class="min-w-full divide-y divide-slate-200">
 				<thead class="bg-slate-50">
 					<tr>

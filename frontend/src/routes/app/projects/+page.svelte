@@ -48,7 +48,7 @@
 
 <svelte:head><title>Projects — ZenEngr</title></svelte:head>
 
-<div class="flex items-center justify-between">
+<div class="flex flex-wrap items-center justify-between gap-3">
 	<div>
 		<h1 class="text-2xl font-semibold text-slate-900">Projects</h1>
 		<p class="mt-1 text-sm text-slate-500">
@@ -73,14 +73,14 @@
 		applyFilters();
 	}}
 >
-	<div>
+	<div class="min-w-0 flex-1 sm:flex-none">
 		<label for="f-q" class="block text-xs font-medium text-slate-600">Search</label>
 		<input
 			id="f-q"
 			type="search"
 			bind:value={q}
 			placeholder="Search name or ID..."
-			class="mt-1 block w-64 rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+			class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:w-64"
 		/>
 	</div>
 	<div>
@@ -125,7 +125,7 @@
 			</EmptyState>
 		{/if}
 	{:else}
-		<div class="overflow-x-auto">
+		<div class="relative overflow-x-auto">
 			<table class="min-w-full divide-y divide-slate-200">
 				<thead class="bg-slate-50">
 					<tr>
@@ -191,7 +191,7 @@
 								{#if p.milestone_total > 0}
 									<div class="flex items-center gap-2">
 										<div
-											class="h-1.5 w-24 rounded-full bg-slate-100"
+											class="h-1.5 w-24 max-w-full rounded-full bg-slate-100"
 											role="progressbar"
 											aria-valuenow={p.milestone_completed}
 											aria-valuemin={0}

@@ -16,8 +16,8 @@
 	{#if showHeader}
 		<!-- Header Toolbar Placeholder -->
 		<div class="flex flex-wrap items-center justify-between gap-4">
-			<div class="flex items-center gap-3">
-				<Skeleton class="h-9 w-64 rounded-lg" />
+			<div class="flex flex-wrap items-center gap-3">
+				<Skeleton class="h-9 w-full rounded-lg sm:w-64" />
 				<Skeleton class="h-9 w-32 rounded-lg" />
 			</div>
 			<div class="flex items-center gap-2">
@@ -28,22 +28,31 @@
 	{/if}
 
 	<!-- Table Card Container -->
-	<div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs dark:border-slate-800 dark:bg-slate-900">
-		<div class="overflow-x-auto">
+	<div
+		class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs dark:border-slate-800 dark:bg-slate-900"
+	>
+		<div class="relative overflow-x-auto">
 			<table class="w-full text-left text-sm">
-				<thead class="border-b border-slate-100 bg-slate-50/75 dark:border-slate-800/60 dark:bg-slate-800/30">
+				<thead
+					class="border-b border-slate-100 bg-slate-50/75 dark:border-slate-800/60 dark:bg-slate-800/30"
+				>
 					<tr>
-						{#each Array(columns) as _, i}
+						<!-- eslint-disable-next-line no-unused-vars -- skeleton placeholder loop; item unused -->
+						{#each Array(columns) as _, i (i)}
 							<th class="px-6 py-3.5">
-								<Skeleton class="h-4 {i === 0 ? 'w-28' : i === columns - 1 ? 'w-16 ml-auto' : 'w-20'}" />
+								<Skeleton
+									class="h-4 {i === 0 ? 'w-28' : i === columns - 1 ? 'ml-auto w-16' : 'w-20'}"
+								/>
 							</th>
 						{/each}
 					</tr>
 				</thead>
 				<tbody class="divide-y divide-slate-100 dark:divide-slate-800/50">
-					{#each Array(rows) as _, rowIndex}
+					<!-- eslint-disable-next-line no-unused-vars -- skeleton placeholder loop; item unused -->
+					{#each Array(rows) as _, rowIndex (rowIndex)}
 						<tr class="transition-colors">
-							{#each Array(columns) as _, colIndex}
+							<!-- eslint-disable-next-line no-unused-vars -- skeleton placeholder loop; item unused -->
+							{#each Array(columns) as _, colIndex (colIndex)}
 								<td class="px-6 py-4">
 									{#if colIndex === 0}
 										<!-- Primary cell: Avatar + Name / Title -->

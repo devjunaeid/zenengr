@@ -2,7 +2,7 @@
 
 > This file holds framework-agnostic defaults. No design system exists yet — refine these tokens
 > and add page-by-page notes _before_ frontend implementation of any PRD-driven feature
-> (per `Agent.md` workflow).
+> (per `AGENTS.md` workflow).
 
 ## Design system
 

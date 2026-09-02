@@ -32,7 +32,7 @@
 	disabled={isDisabled || !hasUsers}
 	aria-busy={busy}
 	onchange={handleChange}
-	class="block w-full min-w-40 rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:opacity-60"
+	class="block w-full max-w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:opacity-60"
 >
 	<option value="">— Unassigned —</option>
 	{#if hasUsers}

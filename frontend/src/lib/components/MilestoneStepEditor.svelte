@@ -117,7 +117,7 @@
 							</div>
 						{/if}
 					</div>
-					<div class="flex-1 space-y-2">
+					<div class="min-w-0 flex-1 space-y-2">
 						<div class="grid gap-2 sm:grid-cols-3">
 							<div class="sm:col-span-2">
 								<label for={`step-name-${step._key}`} class="sr-only">Step name</label>

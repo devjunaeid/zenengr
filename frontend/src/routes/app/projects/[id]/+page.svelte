@@ -966,7 +966,7 @@
 <svelte:head><title>{data.project.name} — ZenEngr</title></svelte:head>
 
 <nav aria-label="Breadcrumb" class="text-sm text-slate-500">
-	<ol class="flex items-center gap-1">
+	<ol class="flex flex-wrap items-center gap-1">
 		<li>
 			<a href={resolve('/app/projects')} class="hover:text-indigo-600">Projects</a>
 		</li>
@@ -1024,11 +1024,11 @@
 {/if}
 
 <div class="mt-6 border-b border-slate-200">
-	<nav class="-mb-px flex flex-wrap space-x-2 sm:space-x-8" aria-label="Project tabs">
+	<nav class="-mb-px flex gap-2 overflow-x-auto sm:gap-8" aria-label="Project tabs">
 		<button
 			type="button"
 			onclick={() => (activeTab = 'overview')}
-			class="flex items-center gap-2 border-b-2 px-2 py-3 text-sm font-medium {activeTab ===
+			class="flex shrink-0 items-center gap-2 border-b-2 px-2 py-3 text-sm font-medium whitespace-nowrap {activeTab ===
 			'overview'
 				? 'border-indigo-600 text-indigo-600'
 				: 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700'}"
@@ -1039,7 +1039,7 @@
 		<button
 			type="button"
 			onclick={() => (activeTab = 'services')}
-			class="flex items-center gap-2 border-b-2 px-2 py-3 text-sm font-medium {activeTab ===
+			class="flex shrink-0 items-center gap-2 border-b-2 px-2 py-3 text-sm font-medium whitespace-nowrap {activeTab ===
 			'services'
 				? 'border-indigo-600 text-indigo-600'
 				: 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700'}"
@@ -1053,7 +1053,7 @@
 		<button
 			type="button"
 			onclick={() => (activeTab = 'ledger')}
-			class="flex items-center gap-2 border-b-2 px-2 py-3 text-sm font-medium {activeTab ===
+			class="flex shrink-0 items-center gap-2 border-b-2 px-2 py-3 text-sm font-medium whitespace-nowrap {activeTab ===
 			'ledger'
 				? 'border-indigo-600 text-indigo-600'
 				: 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700'}"
@@ -1077,7 +1077,7 @@
 		<button
 			type="button"
 			onclick={() => (activeTab = 'invoices')}
-			class="flex items-center gap-2 border-b-2 px-2 py-3 text-sm font-medium {activeTab ===
+			class="flex shrink-0 items-center gap-2 border-b-2 px-2 py-3 text-sm font-medium whitespace-nowrap {activeTab ===
 			'invoices'
 				? 'border-indigo-600 text-indigo-600'
 				: 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700'}"
@@ -1091,7 +1091,8 @@
 		<button
 			type="button"
 			onclick={() => (activeTab = 'files')}
-			class="flex items-center gap-2 border-b-2 px-2 py-3 text-sm font-medium {activeTab === 'files'
+			class="flex shrink-0 items-center gap-2 border-b-2 px-2 py-3 text-sm font-medium whitespace-nowrap {activeTab ===
+			'files'
 				? 'border-indigo-600 text-indigo-600'
 				: 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700'}"
 		>
@@ -1104,7 +1105,7 @@
 		<button
 			type="button"
 			onclick={() => (activeTab = 'comments')}
-			class="flex items-center gap-2 border-b-2 px-2 py-3 text-sm font-medium {activeTab ===
+			class="flex shrink-0 items-center gap-2 border-b-2 px-2 py-3 text-sm font-medium whitespace-nowrap {activeTab ===
 			'comments'
 				? 'border-indigo-600 text-indigo-600'
 				: 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700'}"
@@ -1118,7 +1119,7 @@
 				activeTab = 'purchases';
 				if (!purchaseListLoaded) loadPurchaseEntries();
 			}}
-			class="flex items-center gap-2 border-b-2 px-2 py-3 text-sm font-medium {activeTab ===
+			class="flex shrink-0 items-center gap-2 border-b-2 px-2 py-3 text-sm font-medium whitespace-nowrap {activeTab ===
 			'purchases'
 				? 'border-indigo-600 text-indigo-600'
 				: 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700'}"
@@ -1135,7 +1136,8 @@
 		<button
 			type="button"
 			onclick={() => (activeTab = 'team')}
-			class="flex items-center gap-2 border-b-2 px-2 py-3 text-sm font-medium {activeTab === 'team'
+			class="flex shrink-0 items-center gap-2 border-b-2 px-2 py-3 text-sm font-medium whitespace-nowrap {activeTab ===
+			'team'
 				? 'border-indigo-600 text-indigo-600'
 				: 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700'}"
 			id="tab-team"
@@ -1462,7 +1464,7 @@
 		{#if data.project.services.length === 0}
 			<p class="px-6 py-8 text-sm text-slate-500">No services attached yet.</p>
 		{:else}
-			<div class="overflow-x-auto">
+			<div class="relative overflow-x-auto">
 				<table class="min-w-full divide-y divide-slate-200">
 					<thead class="bg-slate-50">
 						<tr>
@@ -1538,68 +1540,70 @@
 							</span>
 						</div>
 
-						<ul class="mt-3 divide-y divide-slate-200 rounded-md border border-slate-200">
-							{#each group.items as m (m.id)}
-								{@const mBusy = Boolean(milestoneBusy[m.id])}
-								<li
-									class="grid gap-2 px-4 py-3 sm:grid-cols-12 sm:items-center {isCancelled
-										? 'bg-slate-50 text-slate-500'
-										: ''}"
-								>
-									<div class="sm:col-span-5">
-										<div class="flex items-start gap-2">
-											<span
-												class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-xs font-semibold text-indigo-700"
-												aria-hidden="true"
-											>
-												{m.sequence_order}
-											</span>
-											<div class="min-w-0">
-												<p
-													class="text-sm font-medium {isCancelled
-														? 'line-through'
-														: 'text-slate-900'}"
+						<div class="relative overflow-x-auto">
+							<ul class="mt-3 divide-y divide-slate-200 rounded-md border border-slate-200">
+								{#each group.items as m (m.id)}
+									{@const mBusy = Boolean(milestoneBusy[m.id])}
+									<li
+										class="grid gap-2 px-4 py-3 sm:grid-cols-12 sm:items-center {isCancelled
+											? 'bg-slate-50 text-slate-500'
+											: ''}"
+									>
+										<div class="sm:col-span-5">
+											<div class="flex items-start gap-2">
+												<span
+													class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-xs font-semibold text-indigo-700"
+													aria-hidden="true"
 												>
-													{m.name}
-												</p>
-												{#if m.description}
-													<p class="mt-0.5 text-xs text-slate-500">{m.description}</p>
-												{/if}
+													{m.sequence_order}
+												</span>
+												<div class="min-w-0">
+													<p
+														class="text-sm font-medium {isCancelled
+															? 'line-through'
+															: 'text-slate-900'}"
+													>
+														{m.name}
+													</p>
+													{#if m.description}
+														<p class="mt-0.5 text-xs text-slate-500">{m.description}</p>
+													{/if}
+												</div>
 											</div>
 										</div>
-									</div>
-									<div class="sm:col-span-3">
-										<MilestoneStatusSelector
-											value={m.status}
-											busy={mBusy}
-											disabled={!canManageMilestones || isCancelled}
-											onchange={(next) => patchMilestone(m, { status: next })}
-											id={`m-status-${m.id}`}
-										/>
-									</div>
-									<div class="text-xs text-slate-600 sm:col-span-2">
-										<p>
-											<span class="block text-slate-500">Planned</span>
-											{fmtDate(m.planned_date)}
-										</p>
-										<p class="mt-1">
-											<span class="block text-slate-500">Actual</span>
-											{fmtDate(m.actual_date)}
-										</p>
-									</div>
-									<div class="sm:col-span-2">
-										<AssigneePicker
-											value={m.assignee_id}
-											users={data.users}
-											busy={mBusy}
-											disabled={!canManageMilestones || isCancelled}
-											onchange={(uid) => patchMilestone(m, { assignee_id: uid })}
-											id={`m-assignee-${m.id}`}
-										/>
-									</div>
-								</li>
-							{/each}
-						</ul>
+										<div class="sm:col-span-3">
+											<MilestoneStatusSelector
+												value={m.status}
+												busy={mBusy}
+												disabled={!canManageMilestones || isCancelled}
+												onchange={(next) => patchMilestone(m, { status: next })}
+												id={`m-status-${m.id}`}
+											/>
+										</div>
+										<div class="text-xs text-slate-600 sm:col-span-2">
+											<p>
+												<span class="block text-slate-500">Planned</span>
+												{fmtDate(m.planned_date)}
+											</p>
+											<p class="mt-1">
+												<span class="block text-slate-500">Actual</span>
+												{fmtDate(m.actual_date)}
+											</p>
+										</div>
+										<div class="sm:col-span-2">
+											<AssigneePicker
+												value={m.assignee_id}
+												users={data.users}
+												busy={mBusy}
+												disabled={!canManageMilestones || isCancelled}
+												onchange={(uid) => patchMilestone(m, { assignee_id: uid })}
+												id={`m-assignee-${m.id}`}
+											/>
+										</div>
+									</li>
+								{/each}
+							</ul>
+						</div>
 					</div>
 				{/each}
 			</div>
@@ -1842,7 +1846,7 @@
 				{/if}
 			</div>
 		{:else}
-			<div class="overflow-x-auto">
+			<div class="relative overflow-x-auto">
 				<table class="min-w-full divide-y divide-slate-200">
 					<thead class="bg-slate-50">
 						<tr>
@@ -1946,9 +1950,9 @@
 		<div
 			class="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-3.5 shadow-2xs sm:flex-row sm:items-center sm:justify-between"
 		>
-			<div class="flex flex-1 flex-col gap-3 sm:flex-row sm:items-center">
+			<div class="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-center">
 				<!-- Search Box -->
-				<div class="relative max-w-sm flex-1">
+				<div class="relative max-w-sm min-w-0 flex-1">
 					<div
 						class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400"
 					>
@@ -1996,7 +2000,7 @@
 				<div class="flex items-center gap-2">
 					<select
 						bind:value={fileServiceFilter}
-						class="rounded-lg border-slate-300 text-sm shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
+						class="max-w-full rounded-lg border-slate-300 text-sm shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
 					>
 						<option value="all">All Files ({projectFileList.length})</option>
 						<option value="general">General Project Files</option>
@@ -2078,7 +2082,7 @@
 		aria-labelledby="comments-h"
 	>
 		<h2 id="comments-h" class="text-base font-semibold text-slate-900">Comments</h2>
-		<div class="mt-2">
+		<div class="mt-2 min-w-0 overflow-x-auto">
 			<CommentThread projectId={data.project.id} {fetch} {token} realm="admin" staff={true} />
 		</div>
 	</section>
@@ -2285,7 +2289,7 @@
 					<div class="mb-2 flex items-center justify-between">
 						<span class="text-xs font-semibold tracking-wider text-slate-700 uppercase">Items</span>
 					</div>
-					<div class="overflow-x-auto rounded-lg border border-slate-200">
+					<div class="relative overflow-x-auto rounded-lg border border-slate-200">
 						<table class="w-full text-sm">
 							<thead class="border-b border-slate-200 bg-slate-50">
 								<tr>
@@ -2511,47 +2515,49 @@
 						</div>
 
 						<!-- Line items table -->
-						<table class="w-full text-sm">
-							<thead class="border-b border-slate-200 bg-slate-50">
-								<tr>
-									<th
-										class="px-4 py-2.5 text-left text-xs font-semibold tracking-wider text-slate-500 uppercase"
-										>Date</th
-									>
-									<th
-										class="px-4 py-2.5 text-left text-xs font-semibold tracking-wider text-slate-500 uppercase"
-										>Description</th
-									>
-									<th
-										class="px-4 py-2.5 text-right text-xs font-semibold tracking-wider text-slate-500 uppercase"
-										>Qty</th
-									>
-									<th
-										class="px-4 py-2.5 text-right text-xs font-semibold tracking-wider text-slate-500 uppercase"
-										>Rate</th
-									>
-									<th
-										class="px-4 py-2.5 text-right text-xs font-semibold tracking-wider text-slate-500 uppercase"
-										>Total</th
-									>
-								</tr>
-							</thead>
-							<tbody class="divide-y divide-slate-100 bg-white">
-								{#each purchaseViewEntry.items as item (item.id)}
+						<div class="relative overflow-x-auto">
+							<table class="w-full text-sm">
+								<thead class="border-b border-slate-200 bg-slate-50">
 									<tr>
-										<td class="px-4 py-3 text-xs whitespace-nowrap text-slate-500"
-											>{item.item_date ? formatDate(item.item_date) : '—'}</td
+										<th
+											class="px-4 py-2.5 text-left text-xs font-semibold tracking-wider text-slate-500 uppercase"
+											>Date</th
 										>
-										<td class="px-4 py-3 text-slate-800">{item.description}</td>
-										<td class="px-4 py-3 text-right text-slate-600">{item.quantity}</td>
-										<td class="px-4 py-3 text-right text-slate-600">{fmtPrice(item.rate)}</td>
-										<td class="px-4 py-3 text-right font-medium text-slate-800"
-											>{fmtPrice(item.total)}</td
+										<th
+											class="px-4 py-2.5 text-left text-xs font-semibold tracking-wider text-slate-500 uppercase"
+											>Description</th
+										>
+										<th
+											class="px-4 py-2.5 text-right text-xs font-semibold tracking-wider text-slate-500 uppercase"
+											>Qty</th
+										>
+										<th
+											class="px-4 py-2.5 text-right text-xs font-semibold tracking-wider text-slate-500 uppercase"
+											>Rate</th
+										>
+										<th
+											class="px-4 py-2.5 text-right text-xs font-semibold tracking-wider text-slate-500 uppercase"
+											>Total</th
 										>
 									</tr>
-								{/each}
-							</tbody>
-						</table>
+								</thead>
+								<tbody class="divide-y divide-slate-100 bg-white">
+									{#each purchaseViewEntry.items as item (item.id)}
+										<tr>
+											<td class="px-4 py-3 text-xs whitespace-nowrap text-slate-500"
+												>{item.item_date ? formatDate(item.item_date) : '—'}</td
+											>
+											<td class="px-4 py-3 text-slate-800">{item.description}</td>
+											<td class="px-4 py-3 text-right text-slate-600">{item.quantity}</td>
+											<td class="px-4 py-3 text-right text-slate-600">{fmtPrice(item.rate)}</td>
+											<td class="px-4 py-3 text-right font-medium text-slate-800"
+												>{fmtPrice(item.total)}</td
+											>
+										</tr>
+									{/each}
+								</tbody>
+							</table>
+						</div>
 
 						<!-- Grand total footer -->
 						<div
@@ -2606,61 +2612,63 @@
 					No team members currently assigned to this project.
 				</div>
 			{:else}
-				<table class="w-full text-left text-sm">
-					<thead
-						class="border-b border-slate-200 bg-slate-50 text-xs font-semibold tracking-wider text-slate-500 uppercase"
-					>
-						<tr>
-							<th class="px-4 py-3">Member</th>
-							<th class="px-4 py-3">Email</th>
-							<th class="px-4 py-3">Project Role</th>
-							<th class="px-4 py-3 text-right">Actions</th>
-						</tr>
-					</thead>
-					<tbody class="divide-y divide-slate-100 text-slate-700">
-						{#each memberList as m (m.id)}
-							<tr class="transition-colors hover:bg-slate-50/50">
-								<td class="px-4 py-3 font-medium text-slate-900">
-									{m.full_name || 'Staff User'}
-								</td>
-								<td class="px-4 py-3 text-slate-500">
-									{m.email || '—'}
-								</td>
-								<td class="px-4 py-3">
-									{#if canManage}
-										<select
-											value={m.role}
-											disabled={memberRoleBusy === m.id}
-											onchange={(e) => handleUpdateMemberRole(m.id, e.target.value)}
-											class="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-800 capitalize shadow-2xs focus:border-indigo-500 focus:outline-hidden"
-										>
-											{#each availableProjectRoles as pr (pr.name)}
-												<option value={pr.name}>{pr.name.replace('_', ' ')}</option>
-											{/each}
-										</select>
-									{:else}
-										<span
-											class="inline-flex items-center rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700 uppercase"
-										>
-											{m.role}
-										</span>
-									{/if}
-								</td>
-								<td class="px-4 py-3 text-right">
-									{#if canManage}
-										<button
-											type="button"
-											onclick={() => handleRemoveMember(m.id)}
-											class="text-xs font-medium text-rose-600 hover:text-rose-800 hover:underline"
-										>
-											Remove
-										</button>
-									{/if}
-								</td>
+				<div class="relative overflow-x-auto">
+					<table class="w-full text-left text-sm">
+						<thead
+							class="border-b border-slate-200 bg-slate-50 text-xs font-semibold tracking-wider text-slate-500 uppercase"
+						>
+							<tr>
+								<th class="px-4 py-3">Member</th>
+								<th class="px-4 py-3">Email</th>
+								<th class="px-4 py-3">Project Role</th>
+								<th class="px-4 py-3 text-right">Actions</th>
 							</tr>
-						{/each}
-					</tbody>
-				</table>
+						</thead>
+						<tbody class="divide-y divide-slate-100 text-slate-700">
+							{#each memberList as m (m.id)}
+								<tr class="transition-colors hover:bg-slate-50/50">
+									<td class="px-4 py-3 font-medium text-slate-900">
+										{m.full_name || 'Staff User'}
+									</td>
+									<td class="px-4 py-3 text-slate-500">
+										{m.email || '—'}
+									</td>
+									<td class="px-4 py-3">
+										{#if canManage}
+											<select
+												value={m.role}
+												disabled={memberRoleBusy === m.id}
+												onchange={(e) => handleUpdateMemberRole(m.id, e.target.value)}
+												class="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-800 capitalize shadow-2xs focus:border-indigo-500 focus:outline-hidden"
+											>
+												{#each availableProjectRoles as pr (pr.name)}
+													<option value={pr.name}>{pr.name.replace('_', ' ')}</option>
+												{/each}
+											</select>
+										{:else}
+											<span
+												class="inline-flex items-center rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700 uppercase"
+											>
+												{m.role}
+											</span>
+										{/if}
+									</td>
+									<td class="px-4 py-3 text-right">
+										{#if canManage}
+											<button
+												type="button"
+												onclick={() => handleRemoveMember(m.id)}
+												class="text-xs font-medium text-rose-600 hover:text-rose-800 hover:underline"
+											>
+												Remove
+											</button>
+										{/if}
+									</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
+				</div>
 			{/if}
 		</div>
 	</section>
@@ -2671,7 +2679,7 @@
 		<Dialog.Portal>
 			<Dialog.Overlay class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs" />
 			<Dialog.Content
-				class="fixed top-1/2 left-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border border-slate-200 bg-white p-6 shadow-xl"
+				class="fixed top-1/2 left-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border border-slate-200 bg-white p-4 shadow-xl sm:p-6"
 			>
 				<Dialog.Title class="text-base font-semibold text-slate-900">Add Team Member</Dialog.Title>
 				<Dialog.Description class="mt-1 text-xs text-slate-500">
@@ -2765,7 +2773,7 @@
 	<Dialog.Portal>
 		<Dialog.Overlay class="fixed inset-0 z-40 bg-black/50" />
 		<Dialog.Content
-			class="fixed top-1/2 left-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-6 shadow-xl focus:outline-none"
+			class="fixed top-1/2 left-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-4 shadow-xl focus:outline-none sm:p-6"
 		>
 			<div class="flex items-center justify-between">
 				<Dialog.Title class="text-lg font-semibold text-slate-900">Add adjustment</Dialog.Title>
@@ -2856,7 +2864,7 @@
 	<Dialog.Portal>
 		<Dialog.Overlay class="fixed inset-0 z-40 bg-black/50" />
 		<Dialog.Content
-			class="fixed top-1/2 left-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-6 shadow-xl focus:outline-none"
+			class="fixed top-1/2 left-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-4 shadow-xl focus:outline-none sm:p-6"
 		>
 			<div class="flex items-center justify-between">
 				<Dialog.Title class="text-lg font-semibold text-slate-900">Edit discount</Dialog.Title>
@@ -2954,7 +2962,7 @@
 	<Dialog.Portal>
 		<Dialog.Overlay class="fixed inset-0 z-40 bg-black/50" />
 		<Dialog.Content
-			class="fixed top-1/2 left-1/2 z-50 w-full max-w-2xl -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-6 shadow-xl focus:outline-none"
+			class="fixed top-1/2 left-1/2 z-50 w-[calc(100%-2rem)] max-w-2xl -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-4 shadow-xl focus:outline-none sm:p-6"
 		>
 			<div class="flex items-center justify-between">
 				<Dialog.Title class="text-lg font-semibold text-slate-900">Add service</Dialog.Title>
@@ -3136,7 +3144,7 @@
 	<Dialog.Portal>
 		<Dialog.Overlay class="fixed inset-0 z-40 bg-black/50" />
 		<Dialog.Content
-			class="fixed top-1/2 left-1/2 z-50 max-h-[90vh] w-full max-w-3xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg bg-white p-6 shadow-xl focus:outline-none"
+			class="fixed top-1/2 left-1/2 z-50 max-h-[90vh] w-[calc(100%-2rem)] max-w-3xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg bg-white p-4 shadow-xl focus:outline-none sm:p-6"
 		>
 			<div class="flex items-center justify-between border-b border-slate-200 pb-3">
 				<div>
@@ -3183,7 +3191,7 @@
 				<div class="mt-4 space-y-4">
 					<!-- Summary grid -->
 					<div
-						class="grid grid-cols-2 gap-3 rounded-md border border-slate-200 bg-slate-50 p-3 sm:grid-cols-4"
+						class="grid grid-cols-1 gap-3 rounded-md border border-slate-200 bg-slate-50 p-3 sm:grid-cols-4"
 					>
 						<div>
 							<span class="text-xs text-slate-500">Total Charges</span>
@@ -3208,7 +3216,7 @@
 					</div>
 
 					<!-- Entries table -->
-					<div class="overflow-hidden rounded-md border border-slate-200">
+					<div class="relative overflow-x-auto rounded-md border border-slate-200">
 						<table class="min-w-full divide-y divide-slate-200 text-sm">
 							<thead class="bg-slate-50 font-medium text-slate-700">
 								<tr>
@@ -3297,7 +3305,7 @@
 	<Dialog.Portal>
 		<Dialog.Overlay class="fixed inset-0 z-40 bg-black/50" />
 		<Dialog.Content
-			class="fixed top-1/2 left-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-6 shadow-xl focus:outline-none"
+			class="fixed top-1/2 left-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-4 shadow-xl focus:outline-none sm:p-6"
 		>
 			<div class="flex items-center justify-between">
 				<Dialog.Title class="text-lg font-semibold text-slate-900"
@@ -3386,7 +3394,7 @@
 	<Dialog.Portal>
 		<Dialog.Overlay class="fixed inset-0 z-40 bg-black/50" />
 		<Dialog.Content
-			class="fixed top-1/2 left-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-6 shadow-xl focus:outline-none"
+			class="fixed top-1/2 left-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-4 shadow-xl focus:outline-none sm:p-6"
 		>
 			<div class="flex items-center justify-between">
 				<Dialog.Title class="text-lg font-semibold text-slate-900"
@@ -3452,7 +3460,7 @@
 					</div>
 				</div>
 
-				<div class="grid grid-cols-2 gap-4">
+				<div class="grid gap-4 sm:grid-cols-2">
 					<div>
 						<label for="pay-method" class="block text-sm font-medium text-slate-700"
 							>Payment method</label

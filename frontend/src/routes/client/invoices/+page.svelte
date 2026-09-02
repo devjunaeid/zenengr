@@ -68,7 +68,8 @@
 		<div>
 			<h1 class="text-xl font-bold text-slate-900">Invoices</h1>
 			<p class="mt-0.5 text-xs text-slate-500">
-				{data.invoices.total} {data.invoices.total === 1 ? 'invoice' : 'invoices'} available
+				{data.invoices.total}
+				{data.invoices.total === 1 ? 'invoice' : 'invoices'} available
 			</p>
 		</div>
 
@@ -84,7 +85,7 @@
 				id="f-status"
 				bind:value={status}
 				onchange={applyFilters}
-				class="block rounded-lg border-slate-300 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 py-1.5 pl-3 pr-8"
+				class="block w-full rounded-lg border-slate-300 py-1.5 pr-8 pl-3 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 sm:w-auto"
 			>
 				<option value="">All Statuses</option>
 				{#each statusOptions.filter(Boolean) as opt (opt)}
@@ -95,7 +96,10 @@
 	</div>
 
 	{#if pdfErr}
-		<div role="alert" class="rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-800 shadow-2xs">
+		<div
+			role="alert"
+			class="rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-800 shadow-2xs"
+		>
 			{pdfErr}
 		</div>
 	{/if}
@@ -104,9 +108,7 @@
 	<div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xs">
 		{#if data.invoices.items.length === 0}
 			{#if hasFilter}
-				<p class="px-6 py-8 text-center text-xs text-slate-500">
-					No invoices match your filter.
-				</p>
+				<p class="px-6 py-8 text-center text-xs text-slate-500">No invoices match your filter.</p>
 			{:else}
 				<EmptyState
 					title="No invoices yet"
@@ -114,59 +116,79 @@
 				/>
 			{/if}
 		{:else}
-			<div class="overflow-x-auto">
+			<div class="relative overflow-x-auto">
 				<table class="min-w-full divide-y divide-slate-200 text-xs">
 					<thead class="bg-slate-50/80">
 						<tr>
-							<th scope="col" class="px-4 py-3 text-left font-bold uppercase tracking-wider text-slate-600">
+							<th
+								scope="col"
+								class="px-3 py-3 text-left font-bold tracking-wider text-slate-600 uppercase sm:px-4"
+							>
 								Invoice Number
 							</th>
-							<th scope="col" class="px-4 py-3 text-left font-bold uppercase tracking-wider text-slate-600">
+							<th
+								scope="col"
+								class="px-3 py-3 text-left font-bold tracking-wider text-slate-600 uppercase sm:px-4"
+							>
 								Project
 							</th>
-							<th scope="col" class="px-4 py-3 text-left font-bold uppercase tracking-wider text-slate-600">
+							<th
+								scope="col"
+								class="px-3 py-3 text-left font-bold tracking-wider text-slate-600 uppercase sm:px-4"
+							>
 								Status
 							</th>
-							<th scope="col" class="px-4 py-3 text-right font-bold uppercase tracking-wider text-slate-600">
+							<th
+								scope="col"
+								class="px-3 py-3 text-right font-bold tracking-wider text-slate-600 uppercase sm:px-4"
+							>
 								Total
 							</th>
-							<th scope="col" class="px-4 py-3 text-left font-bold uppercase tracking-wider text-slate-600">
+							<th
+								scope="col"
+								class="px-3 py-3 text-left font-bold tracking-wider text-slate-600 uppercase sm:px-4"
+							>
 								Due Date
 							</th>
-							<th scope="col" class="px-4 py-3 text-right font-bold uppercase tracking-wider text-slate-600">
+							<th
+								scope="col"
+								class="px-3 py-3 text-right font-bold tracking-wider text-slate-600 uppercase sm:px-4"
+							>
 								Actions
 							</th>
 						</tr>
 					</thead>
 					<tbody class="divide-y divide-slate-100">
 						{#each data.invoices.items as inv (inv.id)}
-							<tr class="hover:bg-slate-50/70 transition-colors">
-								<td class="px-4 py-3.5 font-bold text-slate-900">
+							<tr class="transition-colors hover:bg-slate-50/70">
+								<td class="px-3 py-3.5 font-bold text-slate-900 sm:px-4">
 									<a
 										href={resolve('/client/invoices/[id]', { id: inv.id })}
-										class="text-indigo-600 hover:text-indigo-800 transition-colors flex items-center gap-1.5"
+										class="flex items-center gap-1.5 text-indigo-600 transition-colors hover:text-indigo-800"
 									>
-										<Icon icon={fileDocumentOutline} class="h-4 w-4 text-slate-400" />
+										<Icon icon={fileDocumentOutline} class="h-4 w-4 shrink-0 text-slate-400" />
 										{inv.invoice_number ?? 'Draft'}
 									</a>
 								</td>
-								<td class="px-4 py-3.5 text-slate-700 font-medium">
+								<td class="px-3 py-3.5 font-medium text-slate-700 sm:px-4">
 									{inv.project_name || '—'}
 								</td>
-								<td class="px-4 py-3.5">
+								<td class="px-3 py-3.5 sm:px-4">
 									<StatusBadge status={inv.status} />
 								</td>
-								<td class="px-4 py-3.5 text-right font-bold text-slate-900 whitespace-nowrap">
+								<td
+									class="px-3 py-3.5 text-right font-bold whitespace-nowrap text-slate-900 sm:px-4"
+								>
 									{fmtPrice(inv.total)}
 								</td>
-								<td class="px-4 py-3.5 text-slate-600 whitespace-nowrap">
+								<td class="px-3 py-3.5 whitespace-nowrap text-slate-600 sm:px-4">
 									{formatDate(inv.due_date)}
 								</td>
-								<td class="px-4 py-3.5 text-right whitespace-nowrap">
+								<td class="px-3 py-3.5 text-right whitespace-nowrap sm:px-4">
 									<div class="inline-flex items-center gap-1.5">
 										<a
 											href={resolve('/client/invoices/[id]', { id: inv.id })}
-											class="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition-colors"
+											class="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 shadow-2xs transition-colors hover:bg-slate-50"
 										>
 											<Icon icon={printerOutline} class="h-3.5 w-3.5 text-slate-500" />
 											View / Print
@@ -175,7 +197,7 @@
 											type="button"
 											onclick={() => downloadPdf(inv)}
 											disabled={downloadingId === inv.id}
-											class="inline-flex items-center gap-1 rounded-md bg-indigo-50 px-2.5 py-1 text-[11px] font-semibold text-indigo-700 hover:bg-indigo-100 transition-colors disabled:opacity-50"
+											class="inline-flex items-center gap-1 rounded-md bg-indigo-50 px-2.5 py-1 text-[11px] font-semibold text-indigo-700 transition-colors hover:bg-indigo-100 disabled:opacity-50"
 										>
 											{#if downloadingId === inv.id}
 												<Spinner class="h-3.5 w-3.5 text-indigo-600" />

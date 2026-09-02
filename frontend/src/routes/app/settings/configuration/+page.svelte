@@ -98,21 +98,24 @@
 		{
 			id: 'invoices',
 			title: 'Invoice Numbering & Prefix',
-			description: 'Customize sequential numbering conventions and company prefix for generated client invoices.',
+			description:
+				'Customize sequential numbering conventions and company prefix for generated client invoices.',
 			icon: receiptText,
 			keys: ['invoice_prefix', 'invoice_number_format']
 		},
 		{
 			id: 'regional',
 			title: 'Regional & Date / Time Formats',
-			description: 'Configure standard timezone, date displays, and clock formats across all projects and portals.',
+			description:
+				'Configure standard timezone, date displays, and clock formats across all projects and portals.',
 			icon: earth,
 			keys: ['timezone', 'date_format', 'time_format']
 		},
 		{
 			id: 'financial',
 			title: 'Currency & Accounting',
-			description: 'Default 3-letter currency code applied to pricing, statements, and financial ledgers.',
+			description:
+				'Default 3-letter currency code applied to pricing, statements, and financial ledgers.',
 			icon: currencyUsd,
 			keys: ['currency']
 		},
@@ -128,15 +131,18 @@
 	const SETTING_LABELS = {
 		invoice_prefix: {
 			label: 'Invoice Prefix / Initial',
-			description: 'Custom prefix or company initial used on all generated invoices (e.g. INV, ZEN, BILL).'
+			description:
+				'Custom prefix or company initial used on all generated invoices (e.g. INV, ZEN, BILL).'
 		},
 		invoice_number_format: {
 			label: 'Invoice Number Format',
-			description: 'Sequential numbering pattern with automatic year, prefix, and series formatting.'
+			description:
+				'Sequential numbering pattern with automatic year, prefix, and series formatting.'
 		},
 		timezone: {
 			label: 'Timezone',
-			description: 'Primary IANA timezone used for timestamps, milestone deadlines, and activity logs.'
+			description:
+				'Primary IANA timezone used for timestamps, milestone deadlines, and activity logs.'
 		},
 		date_format: {
 			label: 'Date Format',
@@ -186,8 +192,12 @@
 
 <div class="space-y-6">
 	{#if settingsErr}
-		<div role="alert" class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800 shadow-2xs">
-			<span class="font-semibold">Error:</span> {settingsErr}
+		<div
+			role="alert"
+			class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800 shadow-2xs"
+		>
+			<span class="font-semibold">Error:</span>
+			{settingsErr}
 		</div>
 	{/if}
 
@@ -198,7 +208,9 @@
 				<!-- Section Header -->
 				<div class="border-b border-slate-100 bg-slate-50/60 px-6 py-4">
 					<div class="flex items-center gap-2.5">
-						<div class="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
+						<div
+							class="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600"
+						>
 							<Icon icon={section.icon} class="h-4 w-4" />
 						</div>
 						<div>
@@ -212,32 +224,36 @@
 				<div class="divide-y divide-slate-100">
 					{#each sectionSettings as s (s.key)}
 						{@const meta = SETTING_LABELS[s.key] || { label: s.key, description: '' }}
-						<div class="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between hover:bg-slate-50/30 transition-colors">
+						<div
+							class="flex flex-col gap-4 p-6 transition-colors hover:bg-slate-50/30 sm:flex-row sm:items-center sm:justify-between"
+						>
 							<!-- Label & Info -->
 							<div class="max-w-md">
 								<div class="flex items-center gap-2">
 									<label for="set-{s.key}" class="text-sm font-semibold text-slate-900">
 										{meta.label}
 									</label>
-									<code class="text-[11px] font-mono text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
+									<code
+										class="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[11px] text-slate-400"
+									>
 										{s.key}
 									</code>
 								</div>
 								{#if meta.description}
-									<p class="mt-1 text-xs text-slate-500 leading-relaxed">
+									<p class="mt-1 text-xs leading-relaxed text-slate-500">
 										{meta.description}
 									</p>
 								{/if}
 							</div>
 
 							<!-- Input & Save Action -->
-							<div class="flex items-center gap-3 shrink-0">
+							<div class="flex flex-wrap items-center gap-3">
 								{#if s.editable && isAdmin}
 									{#if s.key === 'date_format'}
 										<select
 											id="set-{s.key}"
 											bind:value={drafts[s.key]}
-											class="block w-64 rounded-lg border-slate-300 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 font-medium text-slate-800 py-2"
+											class="block w-full rounded-lg border-slate-300 py-2 text-xs font-medium text-slate-800 shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 sm:w-64"
 										>
 											{#each DATE_FORMATS as fmt (fmt)}
 												<option value={fmt}>
@@ -249,7 +265,7 @@
 										<select
 											id="set-{s.key}"
 											bind:value={drafts[s.key]}
-											class="block w-56 rounded-lg border-slate-300 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 font-medium text-slate-800 py-2"
+											class="block w-full rounded-lg border-slate-300 py-2 text-xs font-medium text-slate-800 shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 sm:w-56"
 										>
 											<option value="24h">24h — 14:30 (24-hour)</option>
 											<option value="12h">12h — 2:30 PM (12-hour)</option>
@@ -258,7 +274,7 @@
 										<select
 											id="set-{s.key}"
 											bind:value={drafts[s.key]}
-											class="block w-72 rounded-lg border-slate-300 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 font-medium text-slate-800 py-2"
+											class="block w-full rounded-lg border-slate-300 py-2 text-xs font-medium text-slate-800 shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 sm:w-72"
 										>
 											{#if !INVOICE_NUMBER_FORMAT_OPTIONS.some((o) => o.value === drafts[s.key]) && drafts[s.key]}
 												<option value={drafts[s.key]}>
@@ -279,11 +295,11 @@
 												maxlength="10"
 												bind:value={drafts[s.key]}
 												placeholder="INV"
-												class="block w-28 uppercase font-mono font-bold rounded-lg border-slate-300 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 py-2"
+												class="block w-28 rounded-lg border-slate-300 py-2 font-mono text-xs font-bold uppercase shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
 											/>
 										</div>
 									{:else if s.key === 'timezone'}
-										<div class="w-64">
+										<div class="w-full sm:w-64">
 											<TimezoneSelect id="set-{s.key}" bind:value={drafts[s.key]} />
 										</div>
 									{:else if s.key === 'currency'}
@@ -293,7 +309,7 @@
 											maxlength="3"
 											bind:value={drafts[s.key]}
 											placeholder="USD"
-											class="block w-28 uppercase font-mono font-bold rounded-lg border-slate-300 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 py-2"
+											class="block w-28 rounded-lg border-slate-300 py-2 font-mono text-xs font-bold uppercase shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
 										/>
 									{:else}
 										<input
@@ -301,14 +317,17 @@
 											type="text"
 											bind:value={drafts[s.key]}
 											placeholder={s.value === null ? '••••••' : ''}
-											class="block w-36 rounded-lg border-slate-300 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 py-2"
+											class="block w-36 rounded-lg border-slate-300 py-2 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
 										/>
 									{/if}
 
 									<!-- Save Button -->
 									<div class="flex items-center gap-2">
 										{#if savedKeys[s.key]}
-											<span role="status" class="inline-flex items-center text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md animate-fade-in">
+											<span
+												role="status"
+												class="animate-fade-in inline-flex items-center rounded-md bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-600"
+											>
 												✓ {savedKeys[s.key]}
 											</span>
 										{/if}
@@ -317,14 +336,16 @@
 											disabled={savingKey === s.key}
 											aria-busy={savingKey === s.key}
 											onclick={() => saveSetting(s.key)}
-											class="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white shadow-2xs hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60 transition-colors"
+											class="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white shadow-2xs transition-colors hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
 										>
 											{#if savingKey === s.key}<Spinner class="h-3 w-3 text-white" />{/if}
 											Save
 										</button>
 									</div>
 								{:else}
-									<span class="inline-flex rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700">
+									<span
+										class="inline-flex rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700"
+									>
 										{s.value ?? '••••••'}
 									</span>
 								{/if}

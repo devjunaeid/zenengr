@@ -16,7 +16,7 @@
 
 {#if total > 0}
 	<nav
-		class="flex items-center justify-between border-t border-slate-200 px-4 py-3"
+		class="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 px-4 py-3"
 		aria-label="Pagination"
 	>
 		<p class="text-sm text-slate-600">

@@ -8,7 +8,6 @@
 	import CommentThread from '$lib/components/CommentThread.svelte';
 	import StatusBadge from '$lib/components/StatusBadge.svelte';
 	import CopyBadge from '$lib/components/CopyBadge.svelte';
-	import EmptyState from '$lib/components/EmptyState.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
 	import { portalAuth } from '$lib/stores/portalAuth.svelte.js';
 	import { fmtBytes, formatDate, fmtPrice, humanize } from '$lib/utils/format.js';
@@ -66,9 +65,12 @@
 		if (statementPdfBusy) return;
 		statementPdfBusy = true;
 		try {
-			const res = await fetch(`/api/v1/client/projects/${encodeURIComponent(data.project.id)}/statement/pdf`, {
-				headers: { Authorization: `Bearer ${token}` }
-			});
+			const res = await fetch(
+				`/api/v1/client/projects/${encodeURIComponent(data.project.id)}/statement/pdf`,
+				{
+					headers: { Authorization: `Bearer ${token}` }
+				}
+			);
 			if (!res.ok) throw new Error('Could not download statement PDF');
 			const blob = await res.blob();
 			const url = URL.createObjectURL(blob);
@@ -122,9 +124,19 @@
 
 	const TABS = [
 		{ id: 'overview', label: 'Overview & Milestones', icon: viewDashboard },
-		{ id: 'services', label: 'Services & Scope', icon: formatListChecks, count: () => data.project.services.length },
+		{
+			id: 'services',
+			label: 'Services & Scope',
+			icon: formatListChecks,
+			count: () => data.project.services.length
+		},
 		{ id: 'financials', label: 'Statement & Financials', icon: cashMultiple },
-		{ id: 'invoices', label: 'Invoices', icon: receiptText, count: () => data.project.linked_invoices?.length || 0 },
+		{
+			id: 'invoices',
+			label: 'Invoices',
+			icon: receiptText,
+			count: () => data.project.linked_invoices?.length || 0
+		},
 		{ id: 'files', label: 'Files & Assets', icon: folderMultiple, count: () => data.files.total }
 	];
 </script>
@@ -136,7 +148,7 @@
 	<nav aria-label="Breadcrumb" class="text-xs font-semibold text-slate-500">
 		<ol class="flex items-center gap-1.5">
 			<li>
-				<a href={resolve('/client/projects')} class="hover:text-indigo-600 flex items-center gap-1">
+				<a href={resolve('/client/projects')} class="flex items-center gap-1 hover:text-indigo-600">
 					<Icon icon={arrowLeft} class="h-3.5 w-3.5" />
 					Projects
 				</a>
@@ -157,21 +169,27 @@
 				</div>
 				{#if data.project.start_date}
 					<p class="mt-1 text-xs text-slate-500">
-						Project started on <span class="font-semibold text-slate-700">{formatDate(data.project.start_date)}</span>
+						Project started on <span class="font-semibold text-slate-700"
+							>{formatDate(data.project.start_date)}</span
+						>
 					</p>
 				{/if}
 			</div>
 
 			<!-- Quick Financial Summary Badges -->
 			{#if ledgerSummary}
-				<div class="flex items-center gap-3">
+				<div class="flex flex-wrap items-center gap-3">
 					<div class="rounded-xl border border-slate-100 bg-slate-50/80 px-3.5 py-2 text-right">
-						<span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total</span>
+						<span class="text-[10px] font-bold tracking-wider text-slate-400 uppercase">Total</span>
 						<p class="text-sm font-bold text-slate-900">{fmtPrice(ledgerSummary.total)}</p>
 					</div>
 					<div class="rounded-xl border border-slate-100 bg-slate-50/80 px-3.5 py-2 text-right">
-						<span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Due</span>
-						<p class="text-sm font-bold {Number(ledgerSummary.due) > 0 ? 'text-amber-600' : 'text-slate-900'}">
+						<span class="text-[10px] font-bold tracking-wider text-slate-400 uppercase">Due</span>
+						<p
+							class="text-sm font-bold {Number(ledgerSummary.due) > 0
+								? 'text-amber-600'
+								: 'text-slate-900'}"
+						>
 							{fmtPrice(ledgerSummary.due)}
 						</p>
 					</div>
@@ -180,21 +198,28 @@
 		</div>
 
 		<!-- Smart Navigation Pill Tabs -->
-		<div class="mt-6 flex flex-wrap gap-1.5 border-t border-slate-100 pt-4">
+		<div class="mt-6 flex gap-1.5 overflow-x-auto border-t border-slate-100 pt-4">
 			{#each TABS as tab (tab.id)}
 				{@const count = tab.count ? tab.count() : null}
 				{@const active = activeTab === tab.id}
 				<button
 					type="button"
 					onclick={() => setTab(tab.id)}
-					class="inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold transition-all {active
+					class="inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all {active
 						? 'bg-indigo-600 text-white shadow-2xs'
 						: 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900'}"
 				>
-					<Icon icon={tab.icon} class="h-4 w-4 shrink-0 {active ? 'text-white' : 'text-slate-400'}" />
+					<Icon
+						icon={tab.icon}
+						class="h-4 w-4 shrink-0 {active ? 'text-white' : 'text-slate-400'}"
+					/>
 					{tab.label}
 					{#if count !== null && count > 0}
-						<span class="ml-0.5 rounded-full px-1.5 py-0.2 text-[10px] font-bold {active ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'}">
+						<span
+							class="py-0.2 ml-0.5 rounded-full px-1.5 text-[10px] font-bold {active
+								? 'bg-white/20 text-white'
+								: 'bg-slate-200 text-slate-700'}"
+						>
 							{count}
 						</span>
 					{/if}
@@ -204,7 +229,10 @@
 	</section>
 
 	{#if downloadErr}
-		<div role="alert" class="rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-800 shadow-2xs">
+		<div
+			role="alert"
+			class="rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-800 shadow-2xs"
+		>
 			{downloadErr}
 		</div>
 	{/if}
@@ -214,12 +242,14 @@
 		<div class="space-y-6">
 			<!-- Milestone Progress Track -->
 			<section class="rounded-xl border border-slate-200 bg-white p-6 shadow-2xs">
-				<div class="flex items-center justify-between pb-4 border-b border-slate-100">
-					<div>
+				<div
+					class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4"
+				>
+					<div class="min-w-0">
 						<h2 class="text-sm font-bold text-slate-900">Milestones & Timeline</h2>
-						<p class="text-xs text-slate-500 mt-0.5">Track deliverables and schedule progress</p>
+						<p class="mt-0.5 text-xs text-slate-500">Track deliverables and schedule progress</p>
 					</div>
-					<div class="text-right">
+					<div class="shrink-0 text-right">
 						<span class="text-xs font-bold text-slate-900">
 							{data.project.milestone_completion_pct}% Complete
 						</span>
@@ -233,7 +263,9 @@
 				{:else}
 					<div class="mt-6 space-y-4">
 						{#each data.project.milestones as m (m.id)}
-							<div class="flex items-start gap-3.5 p-3 rounded-xl border border-slate-100 bg-slate-50/50">
+							<div
+								class="flex items-start gap-3.5 rounded-xl border border-slate-100 bg-slate-50/50 p-3"
+							>
 								<div class="mt-0.5">
 									{#if m.status === 'completed'}
 										<Icon icon={checkCircle} class="h-5 w-5 text-emerald-600" />
@@ -243,7 +275,7 @@
 										<Icon icon={alertCircleOutline} class="h-5 w-5 text-slate-400" />
 									{/if}
 								</div>
-								<div class="flex-1 min-w-0">
+								<div class="min-w-0 flex-1">
 									<div class="flex items-center justify-between gap-2">
 										<h3 class="text-xs font-bold text-slate-900">{m.name}</h3>
 										<StatusBadge status={m.status} />
@@ -265,17 +297,17 @@
 
 			<!-- Communication Thread -->
 			<section class="rounded-xl border border-slate-200 bg-white p-6 shadow-2xs">
-				<h2 class="text-sm font-bold text-slate-900 mb-4">Project Comments & Updates</h2>
-				<CommentThread projectId={data.project.id} fetch={fetch} token={token} realm="client" staff={false} />
+				<h2 class="mb-4 text-sm font-bold text-slate-900">Project Comments & Updates</h2>
+				<CommentThread projectId={data.project.id} {fetch} {token} realm="client" staff={false} />
 			</section>
 		</div>
 
-	<!-- Tab 2: Services & Scope -->
+		<!-- Tab 2: Services & Scope -->
 	{:else if activeTab === 'services'}
-		<section class="rounded-xl border border-slate-200 bg-white shadow-2xs overflow-hidden">
+		<section class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xs">
 			<div class="border-b border-slate-100 p-5">
 				<h2 class="text-sm font-bold text-slate-900">Project Services & Scope</h2>
-				<p class="text-xs text-slate-500 mt-0.5">Active services and contract deliverables</p>
+				<p class="mt-0.5 text-xs text-slate-500">Active services and contract deliverables</p>
 			</div>
 
 			{#if data.project.services.length === 0}
@@ -285,15 +317,17 @@
 			{:else}
 				<div class="divide-y divide-slate-100">
 					{#each data.project.services as s (s.id)}
-						<div class="flex items-center justify-between p-4.5 hover:bg-slate-50/50 transition-colors">
-							<div>
+						<div
+							class="flex flex-wrap items-center justify-between gap-3 p-4.5 transition-colors hover:bg-slate-50/50"
+						>
+							<div class="min-w-0">
 								<h3 class="text-xs font-bold text-slate-900">{s.service_name}</h3>
 								<div class="mt-1">
 									<StatusBadge status={s.status} />
 								</div>
 							</div>
 							{#if s.price_at_attachment}
-								<span class="text-xs font-bold text-slate-900 font-mono">
+								<span class="shrink-0 font-mono text-xs font-bold whitespace-nowrap text-slate-900">
 									{fmtPrice(s.price_at_attachment)}
 								</span>
 							{/if}
@@ -303,22 +337,26 @@
 			{/if}
 		</section>
 
-	<!-- Tab 3: Statement & Financials -->
+		<!-- Tab 3: Statement & Financials -->
 	{:else if activeTab === 'financials'}
 		<div class="space-y-6">
 			<!-- Statement Summary Banner -->
 			{#if ledgerSummary}
 				<section class="rounded-xl border border-slate-200 bg-white p-6 shadow-2xs">
-					<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-6 border-b border-slate-100">
+					<div
+						class="flex flex-col gap-4 border-b border-slate-100 pb-6 sm:flex-row sm:items-center sm:justify-between"
+					>
 						<div>
 							<h2 class="text-sm font-bold text-slate-900">Project Financial Statement</h2>
-							<p class="text-xs text-slate-500 mt-0.5">Real-time ledger summary of charges and payments</p>
+							<p class="mt-0.5 text-xs text-slate-500">
+								Real-time ledger summary of charges and payments
+							</p>
 						</div>
 						<button
 							type="button"
 							onclick={downloadStatementPdf}
 							disabled={statementPdfBusy}
-							class="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-2 text-xs font-semibold text-white shadow-2xs hover:bg-indigo-700 transition-colors disabled:opacity-60"
+							class="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-2 text-xs font-semibold text-white shadow-2xs transition-colors hover:bg-indigo-700 disabled:opacity-60"
 						>
 							{#if statementPdfBusy}
 								<Spinner class="h-3.5 w-3.5 text-white" />
@@ -329,22 +367,38 @@
 						</button>
 					</div>
 
-					<div class="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-3">
+					<div class="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
 						<div class="rounded-xl border border-slate-100 bg-slate-50/70 p-3.5">
-							<span class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Subtotal</span>
-							<p class="mt-1 text-base font-bold text-slate-900">{fmtPrice(ledgerSummary.subtotal)}</p>
+							<span class="text-[10px] font-bold tracking-wider text-slate-500 uppercase"
+								>Subtotal</span
+							>
+							<p class="mt-1 text-base font-bold text-slate-900">
+								{fmtPrice(ledgerSummary.subtotal)}
+							</p>
 						</div>
 						<div class="rounded-xl border border-slate-100 bg-slate-50/70 p-3.5">
-							<span class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Total Billed</span>
+							<span class="text-[10px] font-bold tracking-wider text-slate-500 uppercase"
+								>Total Billed</span
+							>
 							<p class="mt-1 text-base font-bold text-slate-900">{fmtPrice(ledgerSummary.total)}</p>
 						</div>
 						<div class="rounded-xl border border-slate-100 bg-slate-50/70 p-3.5">
-							<span class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Total Paid</span>
-							<p class="mt-1 text-base font-bold text-emerald-600">{fmtPrice(ledgerSummary.paid)}</p>
+							<span class="text-[10px] font-bold tracking-wider text-slate-500 uppercase"
+								>Total Paid</span
+							>
+							<p class="mt-1 text-base font-bold text-emerald-600">
+								{fmtPrice(ledgerSummary.paid)}
+							</p>
 						</div>
 						<div class="rounded-xl border border-slate-100 bg-slate-50/70 p-3.5">
-							<span class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Balance Due</span>
-							<p class="mt-1 text-base font-bold {Number(ledgerSummary.due) > 0 ? 'text-amber-600' : 'text-slate-900'}">
+							<span class="text-[10px] font-bold tracking-wider text-slate-500 uppercase"
+								>Balance Due</span
+							>
+							<p
+								class="mt-1 text-base font-bold {Number(ledgerSummary.due) > 0
+									? 'text-amber-600'
+									: 'text-slate-900'}"
+							>
 								{fmtPrice(ledgerSummary.due)}
 							</p>
 						</div>
@@ -354,21 +408,27 @@
 
 			<!-- Detailed Ledger Stream -->
 			<section class="rounded-xl border border-slate-200 bg-white p-6 shadow-2xs">
-				<h3 class="text-sm font-bold text-slate-900 mb-4">Transaction History & Charges</h3>
+				<h3 class="mb-4 text-sm font-bold text-slate-900">Transaction History & Charges</h3>
 				{#if ledgerEntries.length === 0}
 					<div class="py-8 text-center">
-						<p class="text-xs text-slate-500">No ledger transactions recorded for this project yet.</p>
+						<p class="text-xs text-slate-500">
+							No ledger transactions recorded for this project yet.
+						</p>
 					</div>
 				{:else}
 					<div class="divide-y divide-slate-100">
 						{#each ledgerEntries as e (e.id)}
 							{@const meta = entryMeta(e)}
-							<div class="flex items-center justify-between py-3.5 hover:bg-slate-50/60 transition-colors">
-								<div class="flex items-center gap-3">
-									<div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border {meta.bg}">
+							<div
+								class="flex min-w-0 items-center justify-between py-3.5 transition-colors hover:bg-slate-50/60"
+							>
+								<div class="flex min-w-0 items-center gap-3">
+									<div
+										class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border {meta.bg}"
+									>
 										<Icon icon={meta.icon} class="h-4 w-4 {meta.text}" />
 									</div>
-									<div>
+									<div class="min-w-0">
 										<p class="text-xs font-bold text-slate-900">
 											{e.description || humanize(e.type)}
 										</p>
@@ -380,7 +440,7 @@
 										</p>
 									</div>
 								</div>
-								<span class="text-xs font-bold font-mono {meta.text}">
+								<span class="shrink-0 font-mono text-xs font-bold whitespace-nowrap {meta.text}">
 									{entryPrice(e)}
 								</span>
 							</div>
@@ -390,12 +450,12 @@
 			</section>
 		</div>
 
-	<!-- Tab 4: Invoices -->
+		<!-- Tab 4: Invoices -->
 	{:else if activeTab === 'invoices'}
-		<section class="rounded-xl border border-slate-200 bg-white shadow-2xs overflow-hidden">
+		<section class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xs">
 			<div class="border-b border-slate-100 p-5">
 				<h2 class="text-sm font-bold text-slate-900">Project Invoices</h2>
-				<p class="text-xs text-slate-500 mt-0.5">All issued bills and payment requests</p>
+				<p class="mt-0.5 text-xs text-slate-500">All issued bills and payment requests</p>
 			</div>
 
 			{#if !data.project.linked_invoices || data.project.linked_invoices.length === 0}
@@ -405,26 +465,28 @@
 			{:else}
 				<div class="divide-y divide-slate-100">
 					{#each data.project.linked_invoices as inv (inv.id)}
-						<div class="flex items-center justify-between p-4.5 hover:bg-slate-50/50 transition-colors">
-							<div>
+						<div
+							class="flex flex-wrap items-center justify-between gap-3 p-4.5 transition-colors hover:bg-slate-50/50"
+						>
+							<div class="min-w-0">
 								<a
 									href={resolve('/client/invoices/[id]', { id: inv.id })}
-									class="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1.5"
+									class="flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-800"
 								>
-									<Icon icon={fileDocumentOutline} class="h-4 w-4 text-slate-400" />
+									<Icon icon={fileDocumentOutline} class="h-4 w-4 shrink-0 text-slate-400" />
 									{inv.invoice_number ?? 'Invoice'}
 								</a>
 								<div class="mt-1">
 									<StatusBadge status={inv.status} />
 								</div>
 							</div>
-							<div class="flex items-center gap-4">
-								<span class="text-xs font-bold text-slate-900 font-mono">
+							<div class="flex shrink-0 flex-wrap items-center gap-2.5">
+								<span class="font-mono text-xs font-bold whitespace-nowrap text-slate-900">
 									{fmtPrice(inv.total)}
 								</span>
 								<a
 									href={resolve('/client/invoices/[id]', { id: inv.id })}
-									class="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition-colors"
+									class="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 shadow-2xs transition-colors hover:bg-slate-50"
 								>
 									<Icon icon={printerOutline} class="h-3.5 w-3.5 text-slate-500" />
 									View / Print
@@ -436,12 +498,12 @@
 			{/if}
 		</section>
 
-	<!-- Tab 5: Files & Assets -->
+		<!-- Tab 5: Files & Assets -->
 	{:else if activeTab === 'files'}
-		<section class="rounded-xl border border-slate-200 bg-white shadow-2xs overflow-hidden">
+		<section class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xs">
 			<div class="border-b border-slate-100 p-5">
 				<h2 class="text-sm font-bold text-slate-900">Project Files & Documents</h2>
-				<p class="text-xs text-slate-500 mt-0.5">Shared assets and project deliverables</p>
+				<p class="mt-0.5 text-xs text-slate-500">Shared assets and project deliverables</p>
 			</div>
 
 			{#if data.files.items.length === 0}
@@ -451,14 +513,18 @@
 			{:else}
 				<div class="divide-y divide-slate-100">
 					{#each data.files.items as f (f.id)}
-						<div class="flex items-center justify-between p-4.5 hover:bg-slate-50/50 transition-colors">
-							<div class="flex items-center gap-3">
-								<div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
+						<div
+							class="flex flex-wrap items-center justify-between gap-3 p-4.5 transition-colors hover:bg-slate-50/50"
+						>
+							<div class="flex min-w-0 items-center gap-3">
+								<div
+									class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600"
+								>
 									<Icon icon={fileDocumentOutline} class="h-4 w-4" />
 								</div>
-								<div>
-									<p class="text-xs font-bold text-slate-900">{f.name}</p>
-									<p class="text-[11px] text-slate-500">
+								<div class="min-w-0">
+									<p class="truncate text-xs font-bold text-slate-900">{f.name}</p>
+									<p class="text-[11px] whitespace-nowrap text-slate-500">
 										{fmtBytes(f.size_bytes)} · Uploaded {formatDate(f.created_at)}
 									</p>
 								</div>
@@ -466,7 +532,7 @@
 							<button
 								type="button"
 								onclick={() => runDownload(f)}
-								class="inline-flex items-center gap-1 rounded-md bg-indigo-50 px-2.5 py-1 text-[11px] font-semibold text-indigo-700 hover:bg-indigo-100 transition-colors"
+								class="inline-flex shrink-0 items-center gap-1 rounded-md bg-indigo-50 px-2.5 py-1 text-[11px] font-semibold text-indigo-700 transition-colors hover:bg-indigo-100"
 							>
 								<Icon icon={downloadOutline} class="h-3.5 w-3.5" />
 								Download

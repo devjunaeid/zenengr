@@ -131,7 +131,7 @@
 		</select>
 	</div>
 
-	<div class="flex items-center gap-3 pt-2">
+	<div class="flex flex-wrap items-center gap-3 pt-2">
 		<button
 			type="submit"
 			disabled={busy}

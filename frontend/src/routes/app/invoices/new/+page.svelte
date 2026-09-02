@@ -279,7 +279,7 @@
 		class="rounded-xl border border-slate-200 bg-white p-5 shadow-2xs"
 		aria-labelledby="line-items-h"
 	>
-		<div class="flex items-center justify-between">
+		<div class="flex flex-wrap items-center justify-between gap-3">
 			<div>
 				<h2 id="line-items-h" class="text-sm font-bold text-slate-900">Line Items *</h2>
 				<p class="mt-0.5 text-xs text-slate-500">
@@ -289,7 +289,7 @@
 			<button
 				type="button"
 				onclick={addRow}
-				class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 hover:text-slate-900 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+				class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-2xs transition-colors hover:bg-slate-50 hover:text-slate-900 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
 			>
 				<Icon icon={plus} class="h-3.5 w-3.5" />
 				Add Item
@@ -319,30 +319,38 @@
 		<div class="mt-4 space-y-2.5">
 			{#each rows as row (row.key)}
 				{@const amount = row.quantity * (Number(row.unit_price) || 0)}
-				<div class="rounded-xl border border-slate-200 bg-slate-50/70 p-3 transition-colors hover:border-slate-300">
-					<div class="flex flex-wrap lg:flex-nowrap items-end gap-2.5">
+				<div
+					class="rounded-xl border border-slate-200 bg-slate-50/70 p-3 transition-colors hover:border-slate-300"
+				>
+					<div class="flex flex-wrap items-end gap-2.5 lg:flex-nowrap">
 						<!-- Date -->
-						<div class="w-full sm:w-32 shrink-0">
-							<label for={`li-date-${row.key}`} class="block text-[11px] font-semibold text-slate-600 mb-1">
+						<div class="w-full shrink-0 sm:w-32">
+							<label
+								for={`li-date-${row.key}`}
+								class="mb-1 block text-[11px] font-semibold text-slate-600"
+							>
 								Date
 							</label>
 							<input
 								id={`li-date-${row.key}`}
 								type="date"
 								bind:value={row.entry_date}
-								class="block w-full rounded-lg border-slate-300 py-1.5 px-2.5 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
+								class="block w-full rounded-lg border-slate-300 px-2.5 py-1.5 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
 							/>
 						</div>
 
 						<!-- Type -->
-						<div class="w-full sm:w-28 shrink-0">
-							<label for={`li-kind-${row.key}`} class="block text-[11px] font-semibold text-slate-600 mb-1">
+						<div class="w-full shrink-0 sm:w-28">
+							<label
+								for={`li-kind-${row.key}`}
+								class="mb-1 block text-[11px] font-semibold text-slate-600"
+							>
 								Type
 							</label>
 							<select
 								id={`li-kind-${row.key}`}
 								bind:value={row.kind}
-								class="block w-full rounded-lg border-slate-300 py-1.5 px-2.5 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
+								class="block w-full rounded-lg border-slate-300 px-2.5 py-1.5 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
 							>
 								{#if projectId}
 									<option value="service">Service</option>
@@ -353,15 +361,18 @@
 
 						<!-- Service Select or Description Input -->
 						{#if row.kind === 'service'}
-							<div class="flex-1 min-w-[180px]">
-								<label for={`li-service-${row.key}`} class="block text-[11px] font-semibold text-slate-600 mb-1">
+							<div class="min-w-[180px] flex-1">
+								<label
+									for={`li-service-${row.key}`}
+									class="mb-1 block text-[11px] font-semibold text-slate-600"
+								>
 									Project Service *
 								</label>
 								<select
 									id={`li-service-${row.key}`}
 									value={row.project_service_id}
 									onchange={(e) => onRowServiceChange(row, e.currentTarget.value)}
-									class="block w-full rounded-lg border-slate-300 py-1.5 px-2.5 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
+									class="block w-full rounded-lg border-slate-300 px-2.5 py-1.5 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
 								>
 									<option value="" disabled>Select a service</option>
 									{#each projectServices as ps (ps.id)}
@@ -373,14 +384,19 @@
 								</select>
 							</div>
 							<div class="w-28 shrink-0">
-								<span class="block text-[11px] font-semibold text-slate-600 mb-1">Unit Price</span>
-								<div class="rounded-lg border border-slate-200 bg-white py-1.5 px-2.5 text-xs font-mono text-slate-700 h-[34px] flex items-center">
+								<span class="mb-1 block text-[11px] font-semibold text-slate-600">Unit Price</span>
+								<div
+									class="flex h-[34px] items-center rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 font-mono text-xs text-slate-700"
+								>
 									{row.unit_price === '' ? '—' : fmtPrice(row.unit_price)}
 								</div>
 							</div>
 						{:else}
-							<div class="flex-1 min-w-[180px]">
-								<label for={`li-desc-${row.key}`} class="block text-[11px] font-semibold text-slate-600 mb-1">
+							<div class="min-w-[180px] flex-1">
+								<label
+									for={`li-desc-${row.key}`}
+									class="mb-1 block text-[11px] font-semibold text-slate-600"
+								>
 									Description *
 								</label>
 								<input
@@ -388,11 +404,14 @@
 									type="text"
 									bind:value={row.description}
 									placeholder="e.g. Consulting, Design, Development"
-									class="block w-full rounded-lg border-slate-300 py-1.5 px-2.5 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
+									class="block w-full rounded-lg border-slate-300 px-2.5 py-1.5 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
 								/>
 							</div>
 							<div class="w-28 shrink-0">
-								<label for={`li-price-${row.key}`} class="block text-[11px] font-semibold text-slate-600 mb-1">
+								<label
+									for={`li-price-${row.key}`}
+									class="mb-1 block text-[11px] font-semibold text-slate-600"
+								>
 									Unit Price *
 								</label>
 								<input
@@ -402,14 +421,17 @@
 									step="0.01"
 									bind:value={row.unit_price}
 									placeholder="0.00"
-									class="block w-full rounded-lg border-slate-300 py-1.5 px-2.5 text-xs font-mono shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
+									class="block w-full rounded-lg border-slate-300 px-2.5 py-1.5 font-mono text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
 								/>
 							</div>
 						{/if}
 
 						<!-- Quantity -->
 						<div class="w-16 shrink-0">
-							<label for={`li-qty-${row.key}`} class="block text-[11px] font-semibold text-slate-600 mb-1">
+							<label
+								for={`li-qty-${row.key}`}
+								class="mb-1 block text-[11px] font-semibold text-slate-600"
+							>
 								Qty
 							</label>
 							<input
@@ -418,14 +440,18 @@
 								min="1"
 								step="1"
 								bind:value={row.quantity}
-								class="block w-full rounded-lg border-slate-300 py-1.5 px-2 text-xs font-mono text-center shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
+								class="block w-full rounded-lg border-slate-300 px-2 py-1.5 text-center font-mono text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
 							/>
 						</div>
 
 						<!-- Amount -->
 						<div class="w-28 shrink-0">
-							<span class="block text-[11px] font-semibold text-slate-600 mb-1 text-right">Amount</span>
-							<div class="rounded-lg border border-slate-200 bg-white py-1.5 px-2.5 text-xs font-mono font-bold text-slate-900 text-right h-[34px] flex items-center justify-end">
+							<span class="mb-1 block text-right text-[11px] font-semibold text-slate-600"
+								>Amount</span
+							>
+							<div
+								class="flex h-[34px] items-center justify-end rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-right font-mono text-xs font-bold text-slate-900"
+							>
 								{fmtPrice(amount)}
 							</div>
 						</div>
@@ -437,7 +463,7 @@
 								onclick={() => removeRow(row.key)}
 								aria-label="Remove line item"
 								title="Remove item"
-								class="inline-flex h-[34px] w-[34px] items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-400 hover:border-red-200 hover:bg-red-50 hover:text-red-600 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 shadow-2xs"
+								class="inline-flex h-[34px] w-[34px] items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-400 shadow-2xs transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none"
 							>
 								<Icon icon={trashCanOutline} class="h-4 w-4" />
 							</button>
@@ -482,7 +508,7 @@
 		</dl>
 	</section>
 
-	<div class="flex items-center gap-3 pt-2">
+	<div class="flex flex-wrap items-center gap-3 pt-2">
 		<button
 			type="submit"
 			disabled={busy}

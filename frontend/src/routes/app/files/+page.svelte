@@ -600,13 +600,13 @@
 <div class="min-w-0">
 	<div class="flex flex-wrap items-end justify-between gap-3">
 		<div class="flex flex-wrap items-end gap-3">
-			<div>
+			<div class="min-w-0 flex-1 sm:flex-none">
 				<label for="f-folder" class="block text-xs font-medium text-slate-600">Folder</label>
 				<select
 					id="f-folder"
 					value={activeFolderValue}
 					onchange={(e) => selectFolderValue(e.currentTarget.value)}
-					class="mt-1 block w-64 rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+					class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:w-64"
 				>
 					<optgroup label="My files">
 						<option value="user:">My files</option>
@@ -646,6 +646,7 @@
 		</div>
 		<form
 			role="search"
+			class="w-full sm:w-auto"
 			onsubmit={(e) => {
 				e.preventDefault();
 				clearTimeout(qTimer);
@@ -660,7 +661,7 @@
 				bind:value={q}
 				bind:this={searchInput}
 				oninput={onQInput}
-				class="block w-64 rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+				class="block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:w-64"
 			/>
 		</form>
 	</div>
@@ -784,7 +785,7 @@
 	<Dialog.Portal>
 		<Dialog.Overlay class="fixed inset-0 z-40 bg-black/50" />
 		<Dialog.Content
-			class="fixed top-1/2 left-1/2 z-50 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-6 shadow-xl focus:outline-none"
+			class="fixed top-1/2 left-1/2 z-50 w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-4 shadow-xl focus:outline-none sm:p-6"
 		>
 			<div class="flex items-center justify-between">
 				<Dialog.Title class="text-lg font-semibold text-slate-900">Upload file</Dialog.Title>
@@ -831,8 +832,7 @@
 					<input
 						id="up-file"
 						type="file"
-						onchange={(e) =>
-							(uploadFileSel = e.currentTarget.files?.[0] ?? null)}
+						onchange={(e) => (uploadFileSel = e.currentTarget.files?.[0] ?? null)}
 						class="mt-1 block w-full text-sm text-slate-700 file:mr-3 file:rounded-md file:border-0 file:bg-indigo-50 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-indigo-700 hover:file:bg-indigo-100"
 					/>
 				</div>
@@ -940,7 +940,7 @@
 	<Dialog.Portal>
 		<Dialog.Overlay class="fixed inset-0 z-40 bg-black/50" />
 		<Dialog.Content
-			class="fixed top-1/2 left-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-6 shadow-xl focus:outline-none"
+			class="fixed top-1/2 left-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-4 shadow-xl focus:outline-none sm:p-6"
 		>
 			<Dialog.Title class="text-lg font-semibold text-slate-900">New folder</Dialog.Title>
 			<Dialog.Description class="mt-2 text-sm text-slate-600">
@@ -1020,7 +1020,7 @@
 	<Dialog.Portal>
 		<Dialog.Overlay class="fixed inset-0 z-40 bg-black/50" />
 		<Dialog.Content
-			class="fixed top-1/2 left-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-6 shadow-xl focus:outline-none"
+			class="fixed top-1/2 left-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-4 shadow-xl focus:outline-none sm:p-6"
 		>
 			<Dialog.Title class="text-lg font-semibold text-slate-900">Rename file</Dialog.Title>
 
@@ -1078,7 +1078,7 @@
 	<Dialog.Portal>
 		<Dialog.Overlay class="fixed inset-0 z-40 bg-black/50" />
 		<Dialog.Content
-			class="fixed top-1/2 left-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-6 shadow-xl focus:outline-none"
+			class="fixed top-1/2 left-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-4 shadow-xl focus:outline-none sm:p-6"
 		>
 			<Dialog.Title class="text-lg font-semibold text-slate-900">Rename folder</Dialog.Title>
 
@@ -1136,7 +1136,7 @@
 	<Dialog.Portal>
 		<Dialog.Overlay class="fixed inset-0 z-40 bg-black/50" />
 		<Dialog.Content
-			class="fixed top-1/2 left-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-6 shadow-xl focus:outline-none"
+			class="fixed top-1/2 left-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-4 shadow-xl focus:outline-none sm:p-6"
 		>
 			<Dialog.Title class="text-lg font-semibold text-slate-900">Move file</Dialog.Title>
 			<Dialog.Description class="mt-2 text-sm text-slate-600">
@@ -1229,7 +1229,7 @@
 	<Dialog.Portal>
 		<Dialog.Overlay class="fixed inset-0 z-40 bg-black/50" />
 		<Dialog.Content
-			class="fixed top-1/2 left-1/2 z-50 w-full max-w-2xl -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-6 shadow-xl focus:outline-none"
+			class="fixed top-1/2 left-1/2 z-50 w-[calc(100%-2rem)] max-w-2xl -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-4 shadow-xl focus:outline-none sm:p-6"
 		>
 			<div class="flex items-center justify-between gap-4">
 				<Dialog.Title class="truncate text-lg font-semibold text-slate-900">

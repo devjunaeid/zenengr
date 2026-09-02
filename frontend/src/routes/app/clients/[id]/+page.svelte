@@ -23,18 +23,15 @@
 	import { formatDateTime, fmtPrice, humanize } from '$lib/utils/format.js';
 	import officeBuilding from '@iconify-icons/mdi/office-building';
 	import accountGroup from '@iconify-icons/mdi/account-group';
-	import bookOpenOutline from '@iconify-icons/mdi/book-open-outline';
 	import noteTextOutline from '@iconify-icons/mdi/note-text-outline';
 	import history from '@iconify-icons/mdi/history';
 	import cashMultiple from '@iconify-icons/mdi/cash-multiple';
 	import pencilOutline from '@iconify-icons/mdi/pencil-outline';
 	import archiveOutline from '@iconify-icons/mdi/archive-outline';
 	import archiveArrowUpOutline from '@iconify-icons/mdi/archive-arrow-up-outline';
-	import lockReset from '@iconify-icons/mdi/lock-reset';
 	import accountCancelOutline from '@iconify-icons/mdi/account-cancel-outline';
 	import accountCheckOutline from '@iconify-icons/mdi/account-check-outline';
 	import keyOutline from '@iconify-icons/mdi/key-outline';
-	import plus from '@iconify-icons/mdi/plus';
 	import close from '@iconify-icons/mdi/close';
 	import emailOutline from '@iconify-icons/mdi/email-outline';
 	import phoneOutline from '@iconify-icons/mdi/phone-outline';
@@ -192,10 +189,25 @@
 
 	const TABS = [
 		{ id: 'overview', label: 'Company Profile', icon: officeBuilding },
-		{ id: 'contacts', label: 'Contacts & Portal', icon: accountGroup, countBadge: () => data.client.client_users.length },
+		{
+			id: 'contacts',
+			label: 'Contacts & Portal',
+			icon: accountGroup,
+			countBadge: () => data.client.client_users.length
+		},
 		{ id: 'financials', label: 'Financials & Ledger', icon: cashMultiple },
-		{ id: 'notes', label: 'Internal Notes', icon: noteTextOutline, countBadge: () => data.notes.total },
-		{ id: 'activity', label: 'Activity Trail', icon: history, countBadge: () => data.activity.total }
+		{
+			id: 'notes',
+			label: 'Internal Notes',
+			icon: noteTextOutline,
+			countBadge: () => data.notes.total
+		},
+		{
+			id: 'activity',
+			label: 'Activity Trail',
+			icon: history,
+			countBadge: () => data.activity.total
+		}
 	];
 </script>
 
@@ -206,14 +218,18 @@
 	<section class="overflow-hidden rounded-xl border border-slate-200 bg-white p-5 shadow-2xs">
 		<div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 			<div class="flex items-center gap-4">
-				<div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-700 text-white font-bold text-base shadow-sm">
+				<div
+					class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-700 text-base font-bold text-white shadow-sm"
+				>
 					{data.client.name.slice(0, 2).toUpperCase()}
 				</div>
-				<div>
+				<div class="min-w-0">
 					<div class="flex flex-wrap items-center gap-2.5">
-						<h1 class="text-lg font-bold text-slate-900">{data.client.name}</h1>
+						<h1 class="text-lg font-bold break-words text-slate-900">{data.client.name}</h1>
 						<StatusBadge status={data.client.status} />
-						<span class="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+						<span
+							class="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600"
+						>
 							{humanize(data.client.client_type)}
 						</span>
 					</div>
@@ -245,7 +261,7 @@
 				<div class="flex flex-wrap items-center gap-2">
 					<a
 						href={resolve('/app/clients/[id]/edit', { id: data.client.id })}
-						class="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none transition-colors"
+						class="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-2xs transition-colors hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
 					>
 						<Icon icon={pencilOutline} class="h-3.5 w-3.5 text-slate-500" />
 						Edit Profile
@@ -254,7 +270,7 @@
 						<button
 							type="button"
 							onclick={() => (archiveAction = 'archive')}
-							class="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50/50 px-3.5 py-2 text-xs font-semibold text-red-700 shadow-2xs hover:bg-red-100/60 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none transition-colors"
+							class="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50/50 px-3.5 py-2 text-xs font-semibold text-red-700 shadow-2xs transition-colors hover:bg-red-100/60 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none"
 						>
 							<Icon icon={archiveOutline} class="h-3.5 w-3.5" />
 							Archive
@@ -263,7 +279,7 @@
 						<button
 							type="button"
 							onclick={() => (archiveAction = 'unarchive')}
-							class="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50/50 px-3.5 py-2 text-xs font-semibold text-emerald-700 shadow-2xs hover:bg-emerald-100/60 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-none transition-colors"
+							class="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50/50 px-3.5 py-2 text-xs font-semibold text-emerald-700 shadow-2xs transition-colors hover:bg-emerald-100/60 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-none"
 						>
 							<Icon icon={archiveArrowUpOutline} class="h-3.5 w-3.5" />
 							Unarchive
@@ -274,28 +290,52 @@
 		</div>
 
 		<!-- Quick Metric KPI Pills Bar (Synced with Project Statements & Ledger) -->
-		<div class="mt-5 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 border-t border-slate-100 pt-4">
+		<div
+			class="mt-5 grid grid-cols-2 gap-3 border-t border-slate-100 pt-4 sm:grid-cols-3 lg:grid-cols-5"
+		>
 			<div class="rounded-xl border border-slate-100 bg-slate-50/60 p-3">
-				<p class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Active Projects</p>
-				<p class="mt-1 text-base font-bold text-slate-900">{fmtNumber(data.client.active_projects)}</p>
+				<p class="text-[11px] font-semibold tracking-wider text-slate-500 uppercase">
+					Active Projects
+				</p>
+				<p class="mt-1 text-base font-bold text-slate-900">
+					{fmtNumber(data.client.active_projects)}
+				</p>
 			</div>
 			<div class="rounded-xl border border-slate-100 bg-slate-50/60 p-3">
-				<p class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Total Invoiced</p>
-				<p class="mt-1 text-base font-bold text-slate-900">{fmtPrice(data.client.total_invoiced)}</p>
+				<p class="text-[11px] font-semibold tracking-wider text-slate-500 uppercase">
+					Total Invoiced
+				</p>
+				<p class="mt-1 text-base font-bold text-slate-900">
+					{fmtPrice(data.client.total_invoiced)}
+				</p>
 			</div>
 			<div class="rounded-xl border border-slate-100 bg-slate-50/60 p-3">
-				<p class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Total Paid</p>
-				<p class="mt-1 text-base font-bold text-emerald-600">{fmtPrice(data.client.total_paid || 0)}</p>
+				<p class="text-[11px] font-semibold tracking-wider text-slate-500 uppercase">Total Paid</p>
+				<p class="mt-1 text-base font-bold text-emerald-600">
+					{fmtPrice(data.client.total_paid || 0)}
+				</p>
 			</div>
 			<div class="rounded-xl border border-slate-100 bg-slate-50/60 p-3">
-				<p class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Outstanding Due</p>
-				<p class="mt-1 text-base font-bold {Number(data.client.total_outstanding) > 0 ? 'text-amber-600' : 'text-slate-900'}">
+				<p class="text-[11px] font-semibold tracking-wider text-slate-500 uppercase">
+					Outstanding Due
+				</p>
+				<p
+					class="mt-1 text-base font-bold {Number(data.client.total_outstanding) > 0
+						? 'text-amber-600'
+						: 'text-slate-900'}"
+				>
 					{fmtPrice(data.client.total_outstanding)}
 				</p>
 			</div>
 			<div class="rounded-xl border border-slate-100 bg-slate-50/60 p-3">
-				<p class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Advance Balance</p>
-				<p class="mt-1 text-base font-bold {Number(data.ledger?.advance_balance || 0) > 0 ? 'text-indigo-600' : 'text-slate-900'}">
+				<p class="text-[11px] font-semibold tracking-wider text-slate-500 uppercase">
+					Advance Balance
+				</p>
+				<p
+					class="mt-1 text-base font-bold {Number(data.ledger?.advance_balance || 0) > 0
+						? 'text-indigo-600'
+						: 'text-slate-900'}"
+				>
 					{fmtPrice(data.ledger?.advance_balance || 0)}
 				</p>
 			</div>
@@ -304,35 +344,49 @@
 
 	<!-- Alert Messages -->
 	{#if isEmployee}
-		<div role="status" class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs font-semibold text-amber-800 shadow-2xs">
+		<div
+			role="status"
+			class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs font-semibold text-amber-800 shadow-2xs"
+		>
 			View only — contact an administrator to modify client records or access credentials.
 		</div>
 	{/if}
 	{#if actionErr}
-		<div role="alert" class="rounded-xl border border-red-200 bg-red-50 p-4 text-xs font-semibold text-red-800 shadow-2xs">
+		<div
+			role="alert"
+			class="rounded-xl border border-red-200 bg-red-50 p-4 text-xs font-semibold text-red-800 shadow-2xs"
+		>
 			{actionErr}
 		</div>
 	{/if}
 	{#if userMsg}
-		<div role="status" class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-xs font-semibold text-emerald-800 shadow-2xs">
+		<div
+			role="status"
+			class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-xs font-semibold text-emerald-800 shadow-2xs"
+		>
 			{userMsg}
 		</div>
 	{/if}
 	{#if userErr}
-		<div role="alert" class="rounded-xl border border-red-200 bg-red-50 p-4 text-xs font-semibold text-red-800 shadow-2xs">
+		<div
+			role="alert"
+			class="rounded-xl border border-red-200 bg-red-50 p-4 text-xs font-semibold text-red-800 shadow-2xs"
+		>
 			{userErr}
 		</div>
 	{/if}
 
 	<!-- Segmented Pill Tabs Navigation Bar -->
-	<div class="flex items-center gap-1.5 overflow-x-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-2xs">
+	<div
+		class="flex items-center gap-1.5 overflow-x-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-2xs"
+	>
 		{#each TABS as tab (tab.id)}
 			{@const active = activeTab === tab.id}
 			{@const count = tab.countBadge ? tab.countBadge() : null}
 			<button
 				type="button"
 				onclick={() => setTab(tab.id)}
-				class="flex items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all {active
+				class="flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all {active
 					? 'bg-indigo-600 text-white shadow-2xs'
 					: 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}"
 			>
@@ -340,7 +394,7 @@
 				<span>{tab.label}</span>
 				{#if count != null}
 					<span
-						class="rounded-full px-1.5 py-0.2 text-[10px] font-bold {active
+						class="py-0.2 rounded-full px-1.5 text-[10px] font-bold {active
 							? 'bg-indigo-700/80 text-white'
 							: 'bg-slate-100 text-slate-600'}"
 					>
@@ -357,43 +411,63 @@
 			<!-- Profile Card -->
 			<section class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xs">
 				<div class="border-b border-slate-100 bg-slate-50/50 px-5 py-3.5">
-					<h2 class="text-xs font-bold uppercase tracking-wider text-slate-600">Company Information</h2>
+					<h2 class="text-xs font-bold tracking-wider text-slate-600 uppercase">
+						Company Information
+					</h2>
 				</div>
-				<div class="p-5 space-y-4">
+				<div class="space-y-4 p-5">
 					<div class="grid grid-cols-2 gap-4">
 						<div>
-							<dt class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Client Name</dt>
+							<dt class="text-[11px] font-semibold tracking-wider text-slate-400 uppercase">
+								Client Name
+							</dt>
 							<dd class="mt-1 text-xs font-bold text-slate-800">{data.client.name}</dd>
 						</div>
 						<div>
-							<dt class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Type</dt>
-							<dd class="mt-1 text-xs font-bold text-slate-800">{humanize(data.client.client_type)}</dd>
+							<dt class="text-[11px] font-semibold tracking-wider text-slate-400 uppercase">
+								Type
+							</dt>
+							<dd class="mt-1 text-xs font-bold text-slate-800">
+								{humanize(data.client.client_type)}
+							</dd>
 						</div>
 						<div>
-							<dt class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Primary Email</dt>
+							<dt class="text-[11px] font-semibold tracking-wider text-slate-400 uppercase">
+								Primary Email
+							</dt>
 							<dd class="mt-1 text-xs text-slate-700">{data.client.email || '—'}</dd>
 						</div>
 						<div>
-							<dt class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Phone</dt>
+							<dt class="text-[11px] font-semibold tracking-wider text-slate-400 uppercase">
+								Phone
+							</dt>
 							<dd class="mt-1 text-xs text-slate-700">{data.client.phone || '—'}</dd>
 						</div>
 						<div>
-							<dt class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Tax ID / VAT</dt>
+							<dt class="text-[11px] font-semibold tracking-wider text-slate-400 uppercase">
+								Tax ID / VAT
+							</dt>
 							<dd class="mt-1 font-mono text-xs text-slate-700">{data.client.tax_id || '—'}</dd>
 						</div>
 						<div>
-							<dt class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Status</dt>
+							<dt class="text-[11px] font-semibold tracking-wider text-slate-400 uppercase">
+								Status
+							</dt>
 							<dd class="mt-1"><StatusBadge status={data.client.status} /></dd>
 						</div>
 					</div>
 
 					<div class="border-t border-slate-100 pt-3">
-						<dt class="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Tags &amp; Labels</dt>
+						<dt class="mb-1.5 text-[11px] font-semibold tracking-wider text-slate-400 uppercase">
+							Tags &amp; Labels
+						</dt>
 						<dd>
 							{#if data.client.tags && data.client.tags.length}
 								<div class="flex flex-wrap gap-1.5">
 									{#each data.client.tags as t (t)}
-										<span class="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
+										<span
+											class="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700"
+										>
 											<Icon icon={tagOutline} class="h-3 w-3 text-slate-400" />
 											{t}
 										</span>
@@ -405,14 +479,20 @@
 						</dd>
 					</div>
 
-					<div class="border-t border-slate-100 pt-3 grid grid-cols-2 gap-4 text-[11px] text-slate-400">
+					<div
+						class="grid grid-cols-2 gap-4 border-t border-slate-100 pt-3 text-[11px] text-slate-400"
+					>
 						<div>
 							<span>Created: </span>
-							<span class="text-slate-600 font-medium">{formatDateTime(data.client.created_at)}</span>
+							<span class="font-medium text-slate-600"
+								>{formatDateTime(data.client.created_at)}</span
+							>
 						</div>
 						<div>
 							<span>Last Updated: </span>
-							<span class="text-slate-600 font-medium">{formatDateTime(data.client.updated_at)}</span>
+							<span class="font-medium text-slate-600"
+								>{formatDateTime(data.client.updated_at)}</span
+							>
 						</div>
 					</div>
 				</div>
@@ -421,19 +501,25 @@
 			<!-- Address & Billing Card -->
 			<section class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xs">
 				<div class="border-b border-slate-100 bg-slate-50/50 px-5 py-3.5">
-					<h2 class="text-xs font-bold uppercase tracking-wider text-slate-600">Billing Address &amp; Location</h2>
+					<h2 class="text-xs font-bold tracking-wider text-slate-600 uppercase">
+						Billing Address &amp; Location
+					</h2>
 				</div>
 				<div class="p-5">
 					{#if formatAddress(data.client.billing_address)}
-						<div class="flex items-start gap-3 rounded-xl border border-slate-100 bg-slate-50/50 p-4">
-							<Icon icon={mapMarkerOutline} class="h-5 w-5 text-indigo-600 shrink-0 mt-0.5" />
-							<address class="text-xs text-slate-700 leading-relaxed not-italic whitespace-pre-line">
+						<div
+							class="flex items-start gap-3 rounded-xl border border-slate-100 bg-slate-50/50 p-4"
+						>
+							<Icon icon={mapMarkerOutline} class="mt-0.5 h-5 w-5 shrink-0 text-indigo-600" />
+							<address
+								class="text-xs leading-relaxed whitespace-pre-line text-slate-700 not-italic"
+							>
 								{formatAddress(data.client.billing_address)}
 							</address>
 						</div>
 					{:else}
 						<div class="p-8 text-center text-xs text-slate-400">
-							<Icon icon={mapMarkerOutline} class="mx-auto h-8 w-8 text-slate-300 mb-2" />
+							<Icon icon={mapMarkerOutline} class="mx-auto mb-2 h-8 w-8 text-slate-300" />
 							No billing address recorded for this client.
 						</div>
 					{/if}
@@ -445,43 +531,64 @@
 	<!-- Tab 2: Contacts & Portal Users -->
 	{#if activeTab === 'contacts'}
 		<section class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xs">
-			<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 bg-slate-50/50 px-5 py-3.5">
+			<div
+				class="flex flex-col gap-2 border-b border-slate-100 bg-slate-50/50 px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between"
+			>
 				<div>
-					<h2 class="text-xs font-bold uppercase tracking-wider text-slate-700">Client Portal Users &amp; Contacts</h2>
-					<p class="text-[11px] text-slate-400 mt-0.5">Authorised representatives with access to the client portal.</p>
+					<h2 class="text-xs font-bold tracking-wider text-slate-700 uppercase">
+						Client Portal Users &amp; Contacts
+					</h2>
+					<p class="mt-0.5 text-[11px] text-slate-400">
+						Authorised representatives with access to the client portal.
+					</p>
 				</div>
-				<span class="inline-flex items-center rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
-					{data.client.client_users.length} {data.client.client_users.length === 1 ? 'user' : 'users'}
+				<span
+					class="inline-flex items-center rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600"
+				>
+					{data.client.client_users.length}
+					{data.client.client_users.length === 1 ? 'user' : 'users'}
 				</span>
 			</div>
 
 			{#if data.client.client_users.length === 0}
 				<div class="p-12 text-center text-xs text-slate-400">
-					<Icon icon={accountGroup} class="mx-auto h-8 w-8 text-slate-300 mb-2" />
+					<Icon icon={accountGroup} class="mx-auto mb-2 h-8 w-8 text-slate-300" />
 					<p class="font-bold text-slate-800">No client portal users added yet</p>
-					<p class="mt-1">Add client contacts from the Edit Client page to grant them portal access.</p>
+					<p class="mt-1">
+						Add client contacts from the Edit Client page to grant them portal access.
+					</p>
 				</div>
 			{:else}
 				<div class="divide-y divide-slate-100">
 					{#each data.client.client_users as u (u.id)}
-						<div class="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between hover:bg-slate-50/60 transition-colors">
+						<div
+							class="flex flex-col gap-3 p-5 transition-colors hover:bg-slate-50/60 sm:flex-row sm:items-center sm:justify-between"
+						>
 							<div class="flex items-center gap-3.5">
-								<div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 font-bold text-indigo-700 text-xs">
+								<div
+									class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-xs font-bold text-indigo-700"
+								>
 									{(u.full_name || u.email).slice(0, 2).toUpperCase()}
 								</div>
 								<div>
 									<div class="flex items-center gap-2">
 										<p class="text-xs font-bold text-slate-900">{u.full_name || u.email}</p>
 										{#if u.is_primary_billing_contact}
-											<span class="rounded-md bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-700 ring-1 ring-inset ring-indigo-600/20">
+											<span
+												class="rounded-md bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-700 ring-1 ring-indigo-600/20 ring-inset"
+											>
 												Primary Billing
 											</span>
 										{/if}
-										<span class="rounded-md px-2 py-0.5 text-[10px] font-bold {u.is_active ? 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20' : 'bg-slate-100 text-slate-600'}">
+										<span
+											class="rounded-md px-2 py-0.5 text-[10px] font-bold {u.is_active
+												? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/20 ring-inset'
+												: 'bg-slate-100 text-slate-600'}"
+										>
 											{u.is_active ? 'Active' : 'Deactivated'}
 										</span>
 									</div>
-									<p class="text-xs text-slate-500 mt-0.5">{u.email}</p>
+									<p class="mt-0.5 text-xs text-slate-500">{u.email}</p>
 								</div>
 							</div>
 
@@ -496,7 +603,7 @@
 											confirmPassword = '';
 											passwordUser = u;
 										}}
-										class="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none transition-colors"
+										class="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-2xs transition-colors hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
 									>
 										<Icon icon={keyOutline} class="h-3.5 w-3.5 text-slate-500" />
 										Change Password
@@ -508,7 +615,7 @@
 												userErr = null;
 												revokeTarget = u;
 											}}
-											class="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50/40 px-3 py-1.5 text-xs font-semibold text-red-700 shadow-2xs hover:bg-red-100/60 transition-colors"
+											class="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50/40 px-3 py-1.5 text-xs font-semibold text-red-700 shadow-2xs transition-colors hover:bg-red-100/60"
 										>
 											<Icon icon={accountCancelOutline} class="h-3.5 w-3.5" />
 											Revoke Access
@@ -517,7 +624,7 @@
 										<button
 											type="button"
 											onclick={() => restoreAccess(u)}
-											class="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50/40 px-3 py-1.5 text-xs font-semibold text-emerald-700 shadow-2xs hover:bg-emerald-100/60 transition-colors"
+											class="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50/40 px-3 py-1.5 text-xs font-semibold text-emerald-700 shadow-2xs transition-colors hover:bg-emerald-100/60"
 										>
 											<Icon icon={accountCheckOutline} class="h-3.5 w-3.5" />
 											Restore Access
@@ -535,14 +642,24 @@
 	<!-- Tab 3: Financials & Ledger -->
 	{#if activeTab === 'financials'}
 		<section class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xs">
-			<div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/50 px-5 py-3.5">
+			<div
+				class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/50 px-5 py-3.5"
+			>
 				<div>
-					<h2 class="text-xs font-bold uppercase tracking-wider text-slate-700">Client Statement Ledger</h2>
-					<p class="text-[11px] text-slate-400 mt-0.5">Chronological record of invoices, advances, and applied payments.</p>
+					<h2 class="text-xs font-bold tracking-wider text-slate-700 uppercase">
+						Client Statement Ledger
+					</h2>
+					<p class="mt-0.5 text-[11px] text-slate-400">
+						Chronological record of invoices, advances, and applied payments.
+					</p>
 				</div>
 				{#if data.ledger}
-					<div class="rounded-lg bg-indigo-50/70 border border-indigo-100 px-3 py-1.5 text-xs font-semibold text-indigo-900">
-						Advance Balance: <span class="font-bold text-indigo-700">{fmtPrice(data.ledger.advance_balance)}</span>
+					<div
+						class="rounded-lg border border-indigo-100 bg-indigo-50/70 px-3 py-1.5 text-xs font-semibold text-indigo-900"
+					>
+						Advance Balance: <span class="font-bold text-indigo-700"
+							>{fmtPrice(data.ledger.advance_balance)}</span
+						>
 					</div>
 				{/if}
 			</div>
@@ -551,7 +668,7 @@
 				<LedgerTable entries={data.ledger.entries} />
 			{:else}
 				<div class="p-12 text-center text-xs text-slate-400">
-					<Icon icon={cashMultiple} class="mx-auto h-8 w-8 text-slate-300 mb-2" />
+					<Icon icon={cashMultiple} class="mx-auto mb-2 h-8 w-8 text-slate-300" />
 					No transactions or ledger records recorded for this client yet.
 				</div>
 			{/if}
@@ -562,14 +679,21 @@
 	{#if activeTab === 'notes'}
 		<section class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xs">
 			<div class="border-b border-slate-100 bg-slate-50/50 px-5 py-3.5">
-				<h2 class="text-xs font-bold uppercase tracking-wider text-slate-700">Team Internal Notes</h2>
-				<p class="text-[11px] text-slate-400 mt-0.5">Private notes shared with your internal team (not visible to client).</p>
+				<h2 class="text-xs font-bold tracking-wider text-slate-700 uppercase">
+					Team Internal Notes
+				</h2>
+				<p class="mt-0.5 text-[11px] text-slate-400">
+					Private notes shared with your internal team (not visible to client).
+				</p>
 			</div>
 
-			<div class="p-5 space-y-5">
+			<div class="space-y-5 p-5">
 				{#if canManage}
 					{#if noteErr}
-						<div role="alert" class="rounded-lg border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-800">
+						<div
+							role="alert"
+							class="rounded-lg border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-800"
+						>
 							{noteErr}
 						</div>
 					{/if}
@@ -585,14 +709,14 @@
 							bind:value={noteBody}
 							rows="3"
 							placeholder="Add an internal note or observation..."
-							class="block w-full rounded-xl border border-slate-300 bg-slate-50/40 p-3 text-xs shadow-2xs focus:border-indigo-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+							class="block w-full rounded-xl border border-slate-300 bg-slate-50/40 p-3 text-xs shadow-2xs focus:border-indigo-500 focus:bg-white focus:ring-1 focus:ring-indigo-500 focus:outline-none"
 						></textarea>
 						<div class="flex justify-end">
 							<button
 								type="submit"
 								disabled={noteBusy || !noteBody.trim()}
 								aria-busy={noteBusy}
-								class="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-2 text-xs font-semibold text-white shadow-2xs hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:opacity-60 transition-colors"
+								class="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-2 text-xs font-semibold text-white shadow-2xs transition-colors hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:opacity-60"
 							>
 								{#if noteBusy}<Spinner class="h-3.5 w-3.5 text-white" />{/if}
 								Add Note
@@ -602,17 +726,20 @@
 				{/if}
 
 				{#if data.notes.items.length === 0}
-					<div class="rounded-xl border border-slate-100 bg-slate-50/50 p-8 text-center text-xs text-slate-400">
-						<Icon icon={noteTextOutline} class="mx-auto h-8 w-8 text-slate-300 mb-2" />
+					<div
+						class="rounded-xl border border-slate-100 bg-slate-50/50 p-8 text-center text-xs text-slate-400"
+					>
+						<Icon icon={noteTextOutline} class="mx-auto mb-2 h-8 w-8 text-slate-300" />
 						No internal notes created yet.
 					</div>
 				{:else}
 					<ul class="divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white">
 						{#each data.notes.items as n (n.id)}
-							<li class="p-4 hover:bg-slate-50/60 transition-colors">
-								<p class="text-xs whitespace-pre-wrap text-slate-800 leading-relaxed">{n.body}</p>
+							<li class="p-4 transition-colors hover:bg-slate-50/60">
+								<p class="text-xs leading-relaxed whitespace-pre-wrap text-slate-800">{n.body}</p>
 								<div class="mt-2 flex items-center gap-2 text-[11px] text-slate-400">
-									<span class="font-semibold text-slate-600">{n.author_name ?? 'Staff Member'}</span>
+									<span class="font-semibold text-slate-600">{n.author_name ?? 'Staff Member'}</span
+									>
 									<span>·</span>
 									<span>{formatDateTime(n.created_at)}</span>
 								</div>
@@ -634,21 +761,27 @@
 	{#if activeTab === 'activity'}
 		<section class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xs">
 			<div class="border-b border-slate-100 bg-slate-50/50 px-5 py-3.5">
-				<h2 class="text-xs font-bold uppercase tracking-wider text-slate-700">Client Activity &amp; Audit Trail</h2>
-				<p class="text-[11px] text-slate-400 mt-0.5">Immutable activity stream of client events and updates.</p>
+				<h2 class="text-xs font-bold tracking-wider text-slate-700 uppercase">
+					Client Activity &amp; Audit Trail
+				</h2>
+				<p class="mt-0.5 text-[11px] text-slate-400">
+					Immutable activity stream of client events and updates.
+				</p>
 			</div>
 
 			{#if data.activity.items.length === 0}
 				<div class="p-12 text-center text-xs text-slate-400">
-					<Icon icon={history} class="mx-auto h-8 w-8 text-slate-300 mb-2" />
+					<Icon icon={history} class="mx-auto mb-2 h-8 w-8 text-slate-300" />
 					No activity recorded for this client yet.
 				</div>
 			{:else}
 				<div class="divide-y divide-slate-100">
 					{#each data.activity.items as a (a.id)}
 						{@const rows = formatClientActivityDetails(a.details)}
-						<div class="flex gap-3.5 p-4 hover:bg-slate-50/60 transition-colors">
-							<span class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
+						<div class="flex gap-3.5 p-4 transition-colors hover:bg-slate-50/60">
+							<span
+								class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-500"
+							>
 								<Icon icon={groupIcon(auditGroup(a.action))} class="h-4 w-4 text-indigo-600" />
 							</span>
 							<div class="min-w-0 flex-1">
@@ -656,7 +789,9 @@
 									<span class="text-xs font-bold text-slate-900">{auditActionLabel(a.action)}</span>
 									<span class="text-[11px] text-slate-400">{formatDateTime(a.created_at)}</span>
 								</div>
-								<div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-slate-500">
+								<div
+									class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-slate-500"
+								>
 									<span class="rounded-md bg-slate-100 px-1.5 py-0.5 font-semibold text-slate-600">
 										{a.actor_name || (a.actor_type ? humanize(a.actor_type) : 'System')}
 									</span>
@@ -664,14 +799,18 @@
 								</div>
 								{#if rows.length > 0}
 									<details class="mt-1.5">
-										<summary class="cursor-pointer text-[11px] font-semibold text-indigo-600 select-none hover:text-indigo-700">
+										<summary
+											class="cursor-pointer text-[11px] font-semibold text-indigo-600 select-none hover:text-indigo-700"
+										>
 											Event Details
 										</summary>
 										<dl class="mt-2 space-y-1 rounded-lg border border-slate-100 bg-slate-50 p-2.5">
 											{#each rows as row, idx (`${row.label}-${idx}`)}
 												<div class="flex gap-2 text-[11px]">
 													<dt class="w-28 shrink-0 font-medium text-slate-400">{row.label}</dt>
-													<dd class="min-w-0 break-words font-medium text-slate-700">{row.value}</dd>
+													<dd class="min-w-0 font-medium break-words text-slate-700">
+														{row.value}
+													</dd>
 												</div>
 											{/each}
 										</dl>
@@ -681,7 +820,7 @@
 						</div>
 					{/each}
 				</div>
-				<div class="p-4 border-t border-slate-100">
+				<div class="border-t border-slate-100 p-4">
 					<Pagination
 						page={data.activity.page}
 						pageSize={data.activity.page_size}
@@ -725,19 +864,23 @@
 	}
 >
 	<Dialog.Portal>
-		<Dialog.Overlay class="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-xs animate-fade-in" />
+		<Dialog.Overlay class="animate-fade-in fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-xs" />
 		<Dialog.Content
-			class="fixed top-1/2 left-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl bg-white p-6 shadow-2xl border border-slate-100 focus:outline-none animate-in"
+			class="animate-in fixed top-1/2 left-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border border-slate-100 bg-white p-4 shadow-2xl focus:outline-none sm:p-6"
 		>
 			<div class="flex items-center justify-between border-b border-slate-100 pb-4">
 				<div class="flex items-center gap-2.5">
-					<div class="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
+					<div
+						class="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600"
+					>
 						<Icon icon={keyOutline} class="h-5 w-5" />
 					</div>
 					<div>
-						<Dialog.Title class="text-sm font-bold text-slate-900">Change Portal Password</Dialog.Title>
+						<Dialog.Title class="text-sm font-bold text-slate-900"
+							>Change Portal Password</Dialog.Title
+						>
 						{#if passwordUser}
-							<Dialog.Description class="text-xs text-slate-500 mt-0.5">
+							<Dialog.Description class="mt-0.5 text-xs text-slate-500">
 								Set a new password for {passwordUser.email}.
 							</Dialog.Description>
 						{/if}
@@ -746,14 +889,17 @@
 				<Dialog.Close
 					type="button"
 					aria-label="Close"
-					class="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+					class="rounded-lg p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
 				>
 					<Icon icon={close} class="h-5 w-5" />
 				</Dialog.Close>
 			</div>
 
 			{#if userErr}
-				<div role="alert" class="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-800">
+				<div
+					role="alert"
+					class="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-800"
+				>
 					{userErr}
 				</div>
 			{/if}
@@ -766,7 +912,10 @@
 				}}
 			>
 				<div>
-					<label for="pw-new" class="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1">
+					<label
+						for="pw-new"
+						class="mb-1 block text-xs font-semibold tracking-wider text-slate-600 uppercase"
+					>
 						New Password *
 					</label>
 					<input
@@ -777,11 +926,14 @@
 						minlength="10"
 						autocomplete="new-password"
 						placeholder="Minimum 10 characters"
-						class="block w-full rounded-lg border border-slate-300 bg-white py-2 px-3 text-xs shadow-2xs focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+						class="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs shadow-2xs focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
 					/>
 				</div>
 				<div>
-					<label for="pw-confirm" class="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1">
+					<label
+						for="pw-confirm"
+						class="mb-1 block text-xs font-semibold tracking-wider text-slate-600 uppercase"
+					>
 						Confirm Password *
 					</label>
 					<input
@@ -792,22 +944,22 @@
 						minlength="10"
 						autocomplete="new-password"
 						placeholder="Re-enter password"
-						class="block w-full rounded-lg border border-slate-300 bg-white py-2 px-3 text-xs shadow-2xs focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+						class="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs shadow-2xs focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
 					/>
 				</div>
 
 				{#if newPassword && confirmPassword && newPassword !== confirmPassword}
-					<p role="alert" class="text-xs text-red-600 font-medium">Passwords do not match.</p>
+					<p role="alert" class="text-xs font-medium text-red-600">Passwords do not match.</p>
 				{/if}
 
-				<div class="mt-6 flex justify-end gap-2.5 pt-3 border-t border-slate-100">
+				<div class="mt-6 flex justify-end gap-2.5 border-t border-slate-100 pt-3">
 					<Dialog.Close
 						type="button"
 						onclick={() => {
 							userErr = null;
 							passwordUser = null;
 						}}
-						class="rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition-colors"
+						class="rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-2xs transition-colors hover:bg-slate-50"
 					>
 						Cancel
 					</Dialog.Close>
@@ -815,7 +967,7 @@
 						type="submit"
 						disabled={passwordBusy || !newPassword || newPassword !== confirmPassword}
 						aria-busy={passwordBusy}
-						class="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-2xs hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:opacity-60 transition-colors"
+						class="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-2xs transition-colors hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:opacity-60"
 					>
 						{#if passwordBusy}<Spinner class="h-3.5 w-3.5 text-white" />{/if}
 						Update Password

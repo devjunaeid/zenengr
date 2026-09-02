@@ -52,7 +52,7 @@
 
 <svelte:head><title>Clients — ZenEngr</title></svelte:head>
 
-<div class="flex items-center justify-between">
+<div class="flex flex-wrap items-center justify-between gap-3">
 	<div>
 		<h1 class="text-2xl font-semibold text-slate-900">Clients</h1>
 		<p class="mt-1 text-sm text-slate-500">
@@ -77,34 +77,34 @@
 		applyFilters();
 	}}
 >
-	<div>
+	<div class="min-w-0 flex-1 sm:flex-none">
 		<label for="f-q" class="block text-xs font-medium text-slate-600">Search</label>
 		<input
 			id="f-q"
 			type="search"
 			bind:value={q}
 			placeholder="Name or email"
-			class="mt-1 block w-64 rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+			class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:w-64"
 		/>
 	</div>
-	<div>
+	<div class="min-w-0 flex-1 sm:flex-none">
 		<label for="f-status" class="block text-xs font-medium text-slate-600">Status</label>
 		<select
 			id="f-status"
 			bind:value={status}
-			class="mt-1 block rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+			class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:w-auto"
 		>
 			<option value="">All</option>
 			<option value="active">Active</option>
 			<option value="archived">Archived</option>
 		</select>
 	</div>
-	<div>
+	<div class="min-w-0 flex-1 sm:flex-none">
 		<label for="f-tag" class="block text-xs font-medium text-slate-600">Tag</label>
 		<select
 			id="f-tag"
 			bind:value={tag}
-			class="mt-1 block rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+			class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:w-auto"
 		>
 			<option value="">All tags</option>
 			{#each data.tags as t (t)}
@@ -139,7 +139,7 @@
 			</EmptyState>
 		{/if}
 	{:else}
-		<div class="overflow-x-auto">
+		<div class="relative overflow-x-auto">
 			<table class="min-w-full divide-y divide-slate-200">
 				<thead class="bg-slate-50">
 					<tr>
