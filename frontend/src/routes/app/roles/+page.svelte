@@ -5,6 +5,7 @@
 	import { ApiError } from '$lib/api/client.js';
 	import * as rolesApi from '$lib/api/roles.js';
 	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
+	import ScrollableTabs from '$lib/components/ScrollableTabs.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
 	import { auth } from '$lib/stores/auth.svelte.js';
 	import Icon from '@iconify/svelte';
@@ -323,41 +324,47 @@
 
 <div class="space-y-6">
 	<!-- Role Scope Tabs (User Roles vs Project Roles) -->
-	<div class="border-b border-slate-200">
-		<nav class="-mb-px flex gap-6 overflow-x-auto" aria-label="Role Scope Tabs">
-			<button
-				type="button"
-				onclick={() => (activeRoleTab = 'user')}
-				class="flex shrink-0 items-center gap-2 border-b-2 px-1 py-3 text-sm font-semibold whitespace-nowrap transition-colors {activeRoleTab ===
-				'user'
-					? 'border-indigo-600 text-indigo-600'
-					: 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700'}"
-				id="tab-user-roles"
+	<ScrollableTabs label="Role Scope Tabs">
+		<button
+			type="button"
+			onclick={() => (activeRoleTab = 'user')}
+			class="flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-colors {activeRoleTab ===
+			'user'
+				? 'bg-indigo-600 text-white shadow-2xs'
+				: 'text-slate-600 hover:bg-slate-50'}"
+			id="tab-user-roles"
+		>
+			<Icon icon={shieldAccount} class="h-4 w-4" />
+			User Roles
+			<span
+				class="rounded-full px-2 py-0.5 text-[11px] {activeRoleTab === 'user'
+					? 'bg-indigo-700/60 text-white'
+					: 'bg-slate-100 text-slate-600'}"
 			>
-				<Icon icon={shieldAccount} class="h-4 w-4" />
-				User Roles
-				<span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
-					{userRoles.length}
-				</span>
-			</button>
+				{userRoles.length}
+			</span>
+		</button>
 
-			<button
-				type="button"
-				onclick={() => (activeRoleTab = 'project')}
-				class="flex shrink-0 items-center gap-2 border-b-2 px-1 py-3 text-sm font-semibold whitespace-nowrap transition-colors {activeRoleTab ===
-				'project'
-					? 'border-indigo-600 text-indigo-600'
-					: 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700'}"
-				id="tab-project-roles"
+		<button
+			type="button"
+			onclick={() => (activeRoleTab = 'project')}
+			class="flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-colors {activeRoleTab ===
+			'project'
+				? 'bg-indigo-600 text-white shadow-2xs'
+				: 'text-slate-600 hover:bg-slate-50'}"
+			id="tab-project-roles"
+		>
+			<Icon icon={folderOpen} class="h-4 w-4" />
+			Project Roles
+			<span
+				class="rounded-full px-2 py-0.5 text-[11px] {activeRoleTab === 'project'
+					? 'bg-indigo-700/60 text-white'
+					: 'bg-slate-100 text-slate-600'}"
 			>
-				<Icon icon={folderOpen} class="h-4 w-4" />
-				Project Roles
-				<span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
-					{projectRoles.length}
-				</span>
-			</button>
-		</nav>
-	</div>
+				{projectRoles.length}
+			</span>
+		</button>
+	</ScrollableTabs>
 
 	<!-- Contextual Scope Header Card (Rendered under tabs) -->
 	<section class="overflow-hidden rounded-xl border border-slate-200 bg-white p-5 shadow-2xs">
@@ -447,7 +454,26 @@
 				{/if}
 			</div>
 
-			<ul class="divide-y divide-slate-100">
+			<!-- Mobile Quick Role Selector (< lg) -->
+			<div class="border-b border-slate-100 bg-slate-50/70 p-3 lg:hidden">
+				<label for="m-role-select" class="mb-1 block text-xs font-semibold text-slate-600">
+					Select Role:
+				</label>
+				<select
+					id="m-role-select"
+					value={selectedId}
+					onchange={(e) => (selectedId = e.currentTarget.value)}
+					class="block w-full rounded-lg border-slate-300 py-1.5 text-xs font-semibold text-slate-800 shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
+				>
+					{#each visibleRoles as r (r.id)}
+						<option value={r.id}>
+							{r.name} {r.name === 'admin' ? '(Full Access)' : ''}
+						</option>
+					{/each}
+				</select>
+			</div>
+
+			<ul class="divide-y divide-slate-100 max-h-64 overflow-y-auto lg:max-h-none">
 				{#each visibleRoles as r (r.id)}
 					{@const active = r.id === selectedId}
 					<li>

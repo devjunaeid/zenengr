@@ -158,17 +158,19 @@
 					label: humanize(pref.event_type),
 					description: ''
 				}}
-				<div class="flex items-center justify-between p-5 transition-colors hover:bg-slate-50/40">
-					<div class="max-w-lg">
+				<div class="flex items-center justify-between gap-4 p-4 sm:p-5 transition-colors hover:bg-slate-50/40">
+					<div class="min-w-0 flex-1">
 						<p class="text-sm font-semibold text-slate-900">{meta.label}</p>
-						<p class="mt-0.5 text-xs text-slate-500">{meta.description}</p>
+						<p class="mt-0.5 text-xs text-slate-500 leading-relaxed">{meta.description}</p>
 					</div>
-					<ToggleSwitch
-						checked={pref.enabled}
-						disabled={savingPref === toggleKey('inapp', pref)}
-						label={`In-app: ${meta.label}`}
-						onchange={(enabled) => togglePref('inapp', pref.event_type, enabled)}
-					/>
+					<div class="shrink-0">
+						<ToggleSwitch
+							checked={pref.enabled}
+							disabled={savingPref === toggleKey('inapp', pref)}
+							label={`In-app: ${meta.label}`}
+							onchange={(enabled) => togglePref('inapp', pref.event_type, enabled)}
+						/>
+					</div>
 				</div>
 			{/each}
 		</div>
@@ -205,17 +207,19 @@
 					label: humanize(pref.event_type),
 					description: ''
 				}}
-				<div class="flex items-center justify-between p-5 transition-colors hover:bg-slate-50/40">
-					<div class="max-w-lg">
+				<div class="flex items-center justify-between gap-4 p-4 sm:p-5 transition-colors hover:bg-slate-50/40">
+					<div class="min-w-0 flex-1">
 						<p class="text-sm font-semibold text-slate-900">{meta.label}</p>
-						<p class="mt-0.5 text-xs text-slate-500">{meta.description}</p>
+						<p class="mt-0.5 text-xs text-slate-500 leading-relaxed">{meta.description}</p>
 					</div>
-					<ToggleSwitch
-						checked={pref.enabled}
-						disabled={savingPref === toggleKey('email', pref)}
-						label={`Email: ${meta.label}`}
-						onchange={(enabled) => togglePref('email', pref.event_type, enabled)}
-					/>
+					<div class="shrink-0">
+						<ToggleSwitch
+							checked={pref.enabled}
+							disabled={savingPref === toggleKey('email', pref)}
+							label={`Email: ${meta.label}`}
+							onchange={(enabled) => togglePref('email', pref.event_type, enabled)}
+						/>
+					</div>
 				</div>
 			{/each}
 		</div>

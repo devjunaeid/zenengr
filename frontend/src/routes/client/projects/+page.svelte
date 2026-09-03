@@ -83,12 +83,12 @@
 				/>
 			</div>
 
-			<div class="flex flex-wrap items-center gap-2.5">
+			<div class="flex items-center gap-2.5 w-full sm:w-auto">
 				<select
 					id="f-status"
 					bind:value={status}
 					onchange={applyFilters}
-					class="w-full rounded-lg border-slate-300 py-1.5 pr-8 pl-3 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 sm:w-auto"
+					class="w-full flex-1 sm:flex-none rounded-lg border-slate-300 py-1.5 pr-8 pl-3 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 sm:w-auto"
 				>
 					<option value="">All Statuses</option>
 					{#each statusOptions.filter(Boolean) as opt (opt)}
@@ -97,7 +97,7 @@
 				</select>
 				<button
 					type="submit"
-					class="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-2xs transition-colors hover:bg-indigo-700"
+					class="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-2xs transition-colors hover:bg-indigo-700"
 				>
 					Search
 				</button>

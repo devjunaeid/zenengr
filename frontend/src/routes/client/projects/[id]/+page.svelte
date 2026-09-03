@@ -8,6 +8,7 @@
 	import CommentThread from '$lib/components/CommentThread.svelte';
 	import StatusBadge from '$lib/components/StatusBadge.svelte';
 	import CopyBadge from '$lib/components/CopyBadge.svelte';
+	import ScrollableTabs from '$lib/components/ScrollableTabs.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
 	import { portalAuth } from '$lib/stores/portalAuth.svelte.js';
 	import { fmtBytes, formatDate, fmtPrice, humanize } from '$lib/utils/format.js';
@@ -198,33 +199,35 @@
 		</div>
 
 		<!-- Smart Navigation Pill Tabs -->
-		<div class="mt-6 flex gap-1.5 overflow-x-auto border-t border-slate-100 pt-4">
-			{#each TABS as tab (tab.id)}
-				{@const count = tab.count ? tab.count() : null}
-				{@const active = activeTab === tab.id}
-				<button
-					type="button"
-					onclick={() => setTab(tab.id)}
-					class="inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all {active
-						? 'bg-indigo-600 text-white shadow-2xs'
-						: 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900'}"
-				>
-					<Icon
-						icon={tab.icon}
-						class="h-4 w-4 shrink-0 {active ? 'text-white' : 'text-slate-400'}"
-					/>
-					{tab.label}
-					{#if count !== null && count > 0}
-						<span
-							class="py-0.2 ml-0.5 rounded-full px-1.5 text-[10px] font-bold {active
-								? 'bg-white/20 text-white'
-								: 'bg-slate-200 text-slate-700'}"
-						>
-							{count}
-						</span>
-					{/if}
-				</button>
-			{/each}
+		<div class="mt-6 border-t border-slate-100 pt-4">
+			<ScrollableTabs ariaLabel="Project sections">
+				{#each TABS as tab (tab.id)}
+					{@const count = tab.count ? tab.count() : null}
+					{@const active = activeTab === tab.id}
+					<button
+						type="button"
+						onclick={() => setTab(tab.id)}
+						class="inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all {active
+							? 'bg-indigo-600 text-white shadow-2xs'
+							: 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}"
+					>
+						<Icon
+							icon={tab.icon}
+							class="h-4 w-4 shrink-0 {active ? 'text-white' : 'text-slate-400'}"
+						/>
+						<span>{tab.label}</span>
+						{#if count !== null && count > 0}
+							<span
+								class="rounded-full px-1.5 py-0.2 text-[10px] font-bold {active
+									? 'bg-indigo-700/80 text-white'
+									: 'bg-slate-100 text-slate-600'}"
+							>
+								{count}
+							</span>
+						{/if}
+					</button>
+				{/each}
+			</ScrollableTabs>
 		</div>
 	</section>
 

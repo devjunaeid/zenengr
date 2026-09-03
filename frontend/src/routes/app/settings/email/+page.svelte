@@ -326,27 +326,25 @@
 				</div>
 
 				<div
-					class="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-5"
+					class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-t border-slate-100 pt-5"
 				>
-					<div class="flex items-center gap-2">
-						<button
-							type="button"
-							disabled={testing}
-							aria-busy={testing}
-							onclick={sendTest}
-							class="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-2xs transition-colors hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:opacity-60"
-						>
-							{#if testing}<Spinner class="h-3 w-3" />{/if}
-							<Icon icon={sendOutline} class="h-3.5 w-3.5 text-slate-500" />
-							Send Test Email
-						</button>
-					</div>
+					<button
+						type="button"
+						disabled={testing}
+						aria-busy={testing}
+						onclick={sendTest}
+						class="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 sm:py-2 text-xs font-semibold text-slate-700 shadow-2xs transition-colors hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:opacity-60"
+					>
+						{#if testing}<Spinner class="h-3 w-3" />{/if}
+						<Icon icon={sendOutline} class="h-3.5 w-3.5 text-slate-500" />
+						Send Test Email
+					</button>
 
 					<button
 						type="submit"
 						disabled={saving}
 						aria-busy={saving}
-						class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-5 py-2 text-xs font-semibold text-white shadow-2xs transition-colors hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:opacity-60"
+						class="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-5 py-2.5 sm:py-2 text-xs font-semibold text-white shadow-2xs transition-colors hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:opacity-60"
 					>
 						{#if saving}<Spinner class="h-3.5 w-3.5 text-white" />{/if}
 						Save SMTP Configuration

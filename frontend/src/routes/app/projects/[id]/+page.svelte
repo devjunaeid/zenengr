@@ -15,8 +15,8 @@
 	import MilestoneStatusSelector from '$lib/components/MilestoneStatusSelector.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
 	import StatusBadge from '$lib/components/StatusBadge.svelte';
+	import ScrollableTabs from '$lib/components/ScrollableTabs.svelte';
 	import CopyBadge from '$lib/components/CopyBadge.svelte';
-	import ToggleSwitch from '$lib/components/ToggleSwitch.svelte';
 	import { auth } from '$lib/stores/auth.svelte.js';
 	import { formatAddress } from '$lib/utils/address.js';
 	import {
@@ -24,8 +24,7 @@
 		formatDateTime,
 		fmtPrice,
 		fmtBytes,
-		humanize,
-		formatProjectCode
+		humanize
 	} from '$lib/utils/format.js';
 	import * as filesApi from '$lib/api/files.js';
 	import FileCard from '$lib/components/FileCard.svelte';
@@ -38,7 +37,6 @@
 	import arrowDown from '@iconify-icons/mdi/arrow-down';
 	import arrowUp from '@iconify-icons/mdi/arrow-up';
 	import comment from '@iconify-icons/mdi/comment';
-	import domain from '@iconify-icons/mdi/domain';
 	import emailOutline from '@iconify-icons/mdi/email-outline';
 	import fileMultiple from '@iconify-icons/mdi/file-multiple';
 	import folderOutline from '@iconify-icons/mdi/folder-outline';
@@ -62,7 +60,6 @@
 	let fileSearchQuery = $state('');
 	let fileServiceFilter = $state('all');
 	let showFileUploadModal = $state(false);
-	let uploadTargetFolderId = $state('');
 	let uploadBusy = $state(false);
 	/** @type {string|null} */
 	let uploadErr = $state(null);
@@ -111,7 +108,6 @@
 	);
 
 	let uploadTargetChoice = $state('general');
-	let isDraggingDropzone = $state(false);
 
 	/** @param {string} [target] */
 	function openUploadModal(target = 'general') {
@@ -170,7 +166,6 @@
 			uploadErr = err instanceof ApiError ? err.message : 'Upload failed.';
 		} finally {
 			uploadBusy = false;
-			isDraggingDropzone = false;
 		}
 	}
 
@@ -1023,52 +1018,54 @@
 	</p>
 {/if}
 
-<div class="mt-6 border-b border-slate-200">
-	<nav class="-mb-px flex gap-2 overflow-x-auto sm:gap-8" aria-label="Project tabs">
+<div class="mt-6">
+	<ScrollableTabs ariaLabel="Project tabs">
 		<button
 			type="button"
 			onclick={() => (activeTab = 'overview')}
-			class="flex shrink-0 items-center gap-2 border-b-2 px-2 py-3 text-sm font-medium whitespace-nowrap {activeTab ===
+			class="inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all {activeTab ===
 			'overview'
-				? 'border-indigo-600 text-indigo-600'
-				: 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700'}"
+				? 'bg-indigo-600 text-white shadow-2xs'
+				: 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}"
 		>
-			<Icon icon={viewDashboard} class="h-4 w-4" />
-			Overview
+			<Icon icon={viewDashboard} class="h-4 w-4 shrink-0 {activeTab === 'overview' ? 'text-white' : 'text-slate-400'}" />
+			<span>Overview</span>
 		</button>
 		<button
 			type="button"
 			onclick={() => (activeTab = 'services')}
-			class="flex shrink-0 items-center gap-2 border-b-2 px-2 py-3 text-sm font-medium whitespace-nowrap {activeTab ===
+			class="inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all {activeTab ===
 			'services'
-				? 'border-indigo-600 text-indigo-600'
-				: 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700'}"
+				? 'bg-indigo-600 text-white shadow-2xs'
+				: 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}"
 		>
-			<Icon icon={apps} class="h-4 w-4" />
-			Services & Milestones
-			<span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
+			<Icon icon={apps} class="h-4 w-4 shrink-0 {activeTab === 'services' ? 'text-white' : 'text-slate-400'}" />
+			<span>Services & Milestones</span>
+			<span class="rounded-full px-1.5 py-0.2 text-[10px] font-bold {activeTab === 'services' ? 'bg-indigo-700/80 text-white' : 'bg-slate-100 text-slate-600'}">
 				{serviceCount}
 			</span>
 		</button>
 		<button
 			type="button"
 			onclick={() => (activeTab = 'ledger')}
-			class="flex shrink-0 items-center gap-2 border-b-2 px-2 py-3 text-sm font-medium whitespace-nowrap {activeTab ===
+			class="inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all {activeTab ===
 			'ledger'
-				? 'border-indigo-600 text-indigo-600'
-				: 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700'}"
+				? 'bg-indigo-600 text-white shadow-2xs'
+				: 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}"
 		>
-			<Icon icon={receiptText} class="h-4 w-4" />
-			Ledger & Financials
+			<Icon icon={receiptText} class="h-4 w-4 shrink-0 {activeTab === 'ledger' ? 'text-white' : 'text-slate-400'}" />
+			<span>Ledger & Financials</span>
 			{#if ledgerSummary}
 				{@const adv = Number(ledgerSummary.advance_balance) || 0}
 				{@const due = Number(ledgerSummary.due) || 0}
 				<span
-					class="rounded-full px-2 py-0.5 text-xs font-semibold {adv > 0
-						? 'bg-emerald-100 text-emerald-800'
-						: due > 0
-							? 'bg-amber-100 text-amber-800'
-							: 'bg-slate-100 text-slate-600'}"
+					class="rounded-full px-1.5 py-0.2 text-[10px] font-bold {activeTab === 'ledger'
+						? 'bg-indigo-700/80 text-white'
+						: adv > 0
+							? 'bg-emerald-100 text-emerald-800'
+							: due > 0
+								? 'bg-amber-100 text-amber-800'
+								: 'bg-slate-100 text-slate-600'}"
 				>
 					{adv > 0 ? `+${fmtPrice(ledgerSummary.advance_balance)}` : fmtPrice(ledgerSummary.due)}
 				</span>
@@ -1077,41 +1074,41 @@
 		<button
 			type="button"
 			onclick={() => (activeTab = 'invoices')}
-			class="flex shrink-0 items-center gap-2 border-b-2 px-2 py-3 text-sm font-medium whitespace-nowrap {activeTab ===
+			class="inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all {activeTab ===
 			'invoices'
-				? 'border-indigo-600 text-indigo-600'
-				: 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700'}"
+				? 'bg-indigo-600 text-white shadow-2xs'
+				: 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}"
 		>
-			<Icon icon={fileMultiple} class="h-4 w-4" />
-			Invoices
-			<span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
+			<Icon icon={fileMultiple} class="h-4 w-4 shrink-0 {activeTab === 'invoices' ? 'text-white' : 'text-slate-400'}" />
+			<span>Invoices</span>
+			<span class="rounded-full px-1.5 py-0.2 text-[10px] font-bold {activeTab === 'invoices' ? 'bg-indigo-700/80 text-white' : 'bg-slate-100 text-slate-600'}">
 				{invoiceList.length}
 			</span>
 		</button>
 		<button
 			type="button"
 			onclick={() => (activeTab = 'files')}
-			class="flex shrink-0 items-center gap-2 border-b-2 px-2 py-3 text-sm font-medium whitespace-nowrap {activeTab ===
+			class="inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all {activeTab ===
 			'files'
-				? 'border-indigo-600 text-indigo-600'
-				: 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700'}"
+				? 'bg-indigo-600 text-white shadow-2xs'
+				: 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}"
 		>
-			<Icon icon={folderOutline} class="h-4 w-4" />
-			Files
-			<span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
+			<Icon icon={folderOutline} class="h-4 w-4 shrink-0 {activeTab === 'files' ? 'text-white' : 'text-slate-400'}" />
+			<span>Files</span>
+			<span class="rounded-full px-1.5 py-0.2 text-[10px] font-bold {activeTab === 'files' ? 'bg-indigo-700/80 text-white' : 'bg-slate-100 text-slate-600'}">
 				{projectFileList.length}
 			</span>
 		</button>
 		<button
 			type="button"
 			onclick={() => (activeTab = 'comments')}
-			class="flex shrink-0 items-center gap-2 border-b-2 px-2 py-3 text-sm font-medium whitespace-nowrap {activeTab ===
+			class="inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all {activeTab ===
 			'comments'
-				? 'border-indigo-600 text-indigo-600'
-				: 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700'}"
+				? 'bg-indigo-600 text-white shadow-2xs'
+				: 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}"
 		>
-			<Icon icon={comment} class="h-4 w-4" />
-			Comments
+			<Icon icon={comment} class="h-4 w-4 shrink-0 {activeTab === 'comments' ? 'text-white' : 'text-slate-400'}" />
+			<span>Comments</span>
 		</button>
 		<button
 			type="button"
@@ -1119,16 +1116,16 @@
 				activeTab = 'purchases';
 				if (!purchaseListLoaded) loadPurchaseEntries();
 			}}
-			class="flex shrink-0 items-center gap-2 border-b-2 px-2 py-3 text-sm font-medium whitespace-nowrap {activeTab ===
+			class="inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all {activeTab ===
 			'purchases'
-				? 'border-indigo-600 text-indigo-600'
-				: 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700'}"
+				? 'bg-indigo-600 text-white shadow-2xs'
+				: 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}"
 			id="tab-purchases"
 		>
-			<Icon icon={cartOutline} class="h-4 w-4" />
-			Purchases
+			<Icon icon={cartOutline} class="h-4 w-4 shrink-0 {activeTab === 'purchases' ? 'text-white' : 'text-slate-400'}" />
+			<span>Purchases</span>
 			{#if purchaseList.length > 0}
-				<span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
+				<span class="rounded-full px-1.5 py-0.2 text-[10px] font-bold {activeTab === 'purchases' ? 'bg-indigo-700/80 text-white' : 'bg-slate-100 text-slate-600'}">
 					{purchaseList.length}
 				</span>
 			{/if}
@@ -1136,21 +1133,21 @@
 		<button
 			type="button"
 			onclick={() => (activeTab = 'team')}
-			class="flex shrink-0 items-center gap-2 border-b-2 px-2 py-3 text-sm font-medium whitespace-nowrap {activeTab ===
+			class="inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all {activeTab ===
 			'team'
-				? 'border-indigo-600 text-indigo-600'
-				: 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700'}"
+				? 'bg-indigo-600 text-white shadow-2xs'
+				: 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}"
 			id="tab-team"
 		>
-			<Icon icon={account} class="h-4 w-4" />
-			Team
+			<Icon icon={account} class="h-4 w-4 shrink-0 {activeTab === 'team' ? 'text-white' : 'text-slate-400'}" />
+			<span>Team</span>
 			{#if memberList.length > 0}
-				<span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
+				<span class="rounded-full px-1.5 py-0.2 text-[10px] font-bold {activeTab === 'team' ? 'bg-indigo-700/80 text-white' : 'bg-slate-100 text-slate-600'}">
 					{memberList.length}
 				</span>
 			{/if}
 		</button>
-	</nav>
+	</ScrollableTabs>
 </div>
 
 {#if activeTab === 'overview'}
@@ -1464,7 +1461,36 @@
 		{#if data.project.services.length === 0}
 			<p class="px-6 py-8 text-sm text-slate-500">No services attached yet.</p>
 		{:else}
-			<div class="relative overflow-x-auto">
+			<!-- Mobile cards (< md): clearly separated distinct cards -->
+			<div class="space-y-3 p-3 bg-slate-50/60 md:hidden">
+				{#each data.project.services as ps (ps.id)}
+					{@const isCancelled = ps.status === 'cancelled'}
+					<div class="rounded-xl border border-slate-200/90 bg-white p-4 shadow-2xs space-y-3 transition-shadow hover:shadow-xs {isCancelled ? 'opacity-60 bg-slate-50' : ''}">
+						<div class="flex items-start justify-between gap-3">
+							<span class="text-sm font-bold text-slate-900 {isCancelled ? 'line-through' : ''}">
+								{ps.service_name}
+							</span>
+							<StatusBadge status={ps.status} />
+						</div>
+
+						<div class="grid grid-cols-2 gap-2 rounded-lg bg-slate-50 p-2.5 text-xs">
+							<div>
+								<span class="text-slate-400">Price:</span>
+								<span class="ml-1 font-bold text-slate-900">{fmtPrice(ps.price_at_attachment)}</span>
+							</div>
+							<div>
+								<span class="text-slate-400">Milestones:</span>
+								<span class="ml-1 font-semibold text-slate-700">
+									{data.project.milestones.filter((m) => m.project_service_id === ps.id).length}
+								</span>
+							</div>
+						</div>
+					</div>
+				{/each}
+			</div>
+
+			<!-- Desktop table (>= md) -->
+			<div class="relative hidden overflow-x-auto md:block">
 				<table class="min-w-full divide-y divide-slate-200">
 					<thead class="bg-slate-50">
 						<tr>
@@ -1846,7 +1872,60 @@
 				{/if}
 			</div>
 		{:else}
-			<div class="relative overflow-x-auto">
+			<!-- Mobile cards (< md): clearly separated distinct cards -->
+			<div class="space-y-3 p-3 bg-slate-50/60 md:hidden">
+				{#each invoiceList as inv (inv.id)}
+					<div class="rounded-xl border border-slate-200/90 bg-white p-4 shadow-2xs space-y-3 transition-shadow hover:shadow-xs">
+						<div class="flex items-start justify-between gap-3">
+							<a
+								href={resolve('/app/invoices/[id]', { id: inv.id })}
+								class="font-mono text-sm font-bold text-indigo-600 hover:text-indigo-500"
+							>
+								{inv.invoice_number ? inv.invoice_number : 'Draft Invoice'}
+							</a>
+							<StatusBadge status={inv.status} />
+						</div>
+
+						<div class="flex items-center justify-between rounded-lg bg-slate-50 p-2.5">
+							<span class="text-xs text-slate-500">Total Amount</span>
+							<span class="text-sm font-bold text-slate-900">{fmtPrice(inv.total)}</span>
+						</div>
+
+						<div class="grid grid-cols-2 gap-2 text-xs text-slate-500">
+							<div>
+								<span class="text-slate-400">Issued:</span>
+								<span class="ml-1 text-slate-700">{formatDate(inv.issue_date)}</span>
+							</div>
+							<div>
+								<span class="text-slate-400">Due:</span>
+								<span class="ml-1 text-slate-700">{formatDate(inv.due_date)}</span>
+							</div>
+						</div>
+
+						<div class="flex items-center justify-end gap-2 pt-1">
+							<a
+								href={resolve('/app/invoices/[id]', { id: inv.id })}
+								class="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50"
+							>
+								View
+							</a>
+							{#if inv.status === 'draft' && canManage}
+								<button
+									type="button"
+									disabled={issueBusyId === inv.id}
+									onclick={() => issueProjectInvoice(inv)}
+									class="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white shadow-2xs hover:bg-indigo-700 disabled:opacity-50"
+								>
+									{#if issueBusyId === inv.id}Issuing...{:else}Issue{/if}
+								</button>
+							{/if}
+						</div>
+					</div>
+				{/each}
+			</div>
+
+			<!-- Desktop table (>= md) -->
+			<div class="relative hidden overflow-x-auto md:block">
 				<table class="min-w-full divide-y divide-slate-200">
 					<thead class="bg-slate-50">
 						<tr>
@@ -2612,7 +2691,55 @@
 					No team members currently assigned to this project.
 				</div>
 			{:else}
-				<div class="relative overflow-x-auto">
+				<!-- Mobile cards (< md): clearly separated distinct cards -->
+				<div class="space-y-3 p-3 bg-slate-50/60 md:hidden">
+					{#each memberList as m (m.id)}
+						<div class="rounded-xl border border-slate-200/90 bg-white p-4 shadow-2xs space-y-3 transition-shadow hover:shadow-xs">
+							<div class="flex items-start justify-between gap-3">
+								<div class="min-w-0">
+									<p class="text-sm font-semibold text-slate-900">{m.full_name || 'Staff User'}</p>
+									<p class="text-xs text-slate-500">{m.email || '—'}</p>
+								</div>
+								{#if !canManage}
+									<span class="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700 uppercase">
+										{m.role}
+									</span>
+								{/if}
+							</div>
+
+							{#if canManage}
+								<div class="flex items-center justify-between gap-2 rounded-lg bg-slate-50 p-2.5 text-xs">
+									<span class="text-slate-500 font-medium">Project Role:</span>
+									<select
+										value={m.role}
+										disabled={memberRoleBusy === m.id}
+										onchange={(e) => handleUpdateMemberRole(m.id, e.target.value)}
+										class="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-800 capitalize shadow-2xs focus:border-indigo-500 focus:outline-hidden"
+									>
+										{#each availableProjectRoles as pr (pr.name)}
+											<option value={pr.name}>{pr.name.replace('_', ' ')}</option>
+										{/each}
+									</select>
+								</div>
+							{/if}
+
+							{#if canManage}
+								<div class="flex justify-end pt-1">
+									<button
+										type="button"
+										onclick={() => handleRemoveMember(m.id)}
+										class="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs font-semibold text-rose-700 shadow-2xs hover:bg-rose-100"
+									>
+										Remove
+									</button>
+								</div>
+							{/if}
+						</div>
+					{/each}
+				</div>
+
+				<!-- Desktop table (>= md) -->
+				<div class="relative hidden overflow-x-auto md:block">
 					<table class="w-full text-left text-sm">
 						<thead
 							class="border-b border-slate-200 bg-slate-50 text-xs font-semibold tracking-wider text-slate-500 uppercase"

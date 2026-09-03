@@ -9,6 +9,7 @@
 	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
 	import LedgerTable from '$lib/components/LedgerTable.svelte';
 	import Pagination from '$lib/components/Pagination.svelte';
+	import ScrollableTabs from '$lib/components/ScrollableTabs.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
 	import StatusBadge from '$lib/components/StatusBadge.svelte';
 	import {
@@ -377,16 +378,14 @@
 	{/if}
 
 	<!-- Segmented Pill Tabs Navigation Bar -->
-	<div
-		class="flex items-center gap-1.5 overflow-x-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-2xs"
-	>
+	<ScrollableTabs ariaLabel="Client sections">
 		{#each TABS as tab (tab.id)}
 			{@const active = activeTab === tab.id}
 			{@const count = tab.countBadge ? tab.countBadge() : null}
 			<button
 				type="button"
 				onclick={() => setTab(tab.id)}
-				class="flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all {active
+				class="inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all {active
 					? 'bg-indigo-600 text-white shadow-2xs'
 					: 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}"
 			>
@@ -394,7 +393,7 @@
 				<span>{tab.label}</span>
 				{#if count != null}
 					<span
-						class="py-0.2 rounded-full px-1.5 text-[10px] font-bold {active
+						class="rounded-full px-1.5 py-0.2 text-[10px] font-bold {active
 							? 'bg-indigo-700/80 text-white'
 							: 'bg-slate-100 text-slate-600'}"
 					>
@@ -403,7 +402,7 @@
 				{/if}
 			</button>
 		{/each}
-	</div>
+	</ScrollableTabs>
 
 	<!-- Tab 1: Overview & Profile -->
 	{#if activeTab === 'overview'}

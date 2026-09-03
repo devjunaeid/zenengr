@@ -2,8 +2,9 @@
 	import { invalidateAll } from '$app/navigation';
 	import { untrack } from 'svelte';
 	import * as accountApi from '$lib/api/account.js';
-	import { ApiError } from '$lib/api/client.js';
+	import { ApiError, assetUrl } from '$lib/api/client.js';
 	import Spinner from '$lib/components/Spinner.svelte';
+	import ScrollableTabs from '$lib/components/ScrollableTabs.svelte';
 	import TimezoneSelect from '$lib/components/TimezoneSelect.svelte';
 	import { auth } from '$lib/stores/auth.svelte.js';
 	import { formatDate } from '$lib/utils/format.js';
@@ -11,6 +12,9 @@
 	import accountCircle from '@iconify-icons/mdi/account-circle';
 	import lockOutline from '@iconify-icons/mdi/lock-outline';
 	import shieldCheck from '@iconify-icons/mdi/shield-check';
+	import camera from '@iconify-icons/mdi/camera';
+	import upload from '@iconify-icons/mdi/upload';
+	import trashCanOutline from '@iconify-icons/mdi/trash-can-outline';
 
 	let { data } = $props();
 	const token = auth.token;
@@ -59,6 +63,59 @@
 			saveError = e instanceof ApiError ? e.message : 'Unable to save profile. Please try again.';
 		} finally {
 			saving = false;
+		}
+	}
+
+	let avatarFileInput = $state(/** @type {HTMLInputElement|null} */ (null));
+	let uploadingAvatar = $state(false);
+	let avatarError = $state(/** @type {string|null} */ (null));
+	let avatarSuccess = $state(/** @type {string|null} */ (null));
+	let imageLoadFailed = $state(false);
+
+	async function handleAvatarSelect(e) {
+		const files = e.target?.files;
+		if (!files || files.length === 0) return;
+		const file = files[0];
+		if (file.size > 5 * 1024 * 1024) {
+			avatarError = 'Image must be smaller than 5MB.';
+			return;
+		}
+		uploadingAvatar = true;
+		avatarError = null;
+		avatarSuccess = null;
+		try {
+			const res = await accountApi.uploadAvatar(fetch, token, file, { realm: 'admin' });
+			avatarUrl = res.avatar_url;
+			imageLoadFailed = false;
+			if (auth.user) auth.user.avatar_url = res.avatar_url;
+			await invalidateAll();
+			avatarSuccess = 'Profile picture updated successfully.';
+			setTimeout(() => (avatarSuccess = null), 4000);
+		} catch (err) {
+			avatarError = err instanceof ApiError ? err.message : 'Upload failed. Please try again.';
+		} finally {
+			uploadingAvatar = false;
+			if (avatarFileInput) avatarFileInput.value = '';
+		}
+	}
+
+	async function removeAvatar() {
+		if (uploadingAvatar) return;
+		uploadingAvatar = true;
+		avatarError = null;
+		avatarSuccess = null;
+		try {
+			await accountApi.deleteAvatar(fetch, token, { realm: 'admin' });
+			avatarUrl = '';
+			imageLoadFailed = false;
+			if (auth.user) auth.user.avatar_url = null;
+			await invalidateAll();
+			avatarSuccess = 'Profile picture removed.';
+			setTimeout(() => (avatarSuccess = null), 4000);
+		} catch (err) {
+			avatarError = err instanceof ApiError ? err.message : 'Failed to remove picture.';
+		} finally {
+			uploadingAvatar = false;
 		}
 	}
 
@@ -122,15 +179,36 @@
 	<section class="overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 shadow-2xs">
 		<div class="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
 			<div class="flex items-center gap-4">
-				<!-- Avatar / Initials -->
-				<div
-					class="relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-600 text-xl font-bold text-white shadow-sm ring-4 ring-slate-50"
-				>
-					{#if avatarUrl}
-						<img src={avatarUrl} alt={fullName} class="h-full w-full object-cover" />
-					{:else}
-						{getInitials(fullName)}
-					{/if}
+				<!-- Avatar / Initials with quick upload trigger -->
+				<div class="relative group">
+					<div
+						class="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-600 text-xl font-bold text-white shadow-sm ring-4 ring-slate-50"
+					>
+						{#if avatarUrl && !imageLoadFailed}
+							<img
+								src={assetUrl(avatarUrl)}
+								alt=""
+								class="h-full w-full object-cover"
+								onerror={() => (imageLoadFailed = true)}
+							/>
+						{:else}
+							{getInitials(fullName)}
+						{/if}
+					</div>
+					<button
+						type="button"
+						onclick={() => avatarFileInput?.click()}
+						disabled={uploadingAvatar}
+						aria-label="Change profile picture"
+						title="Change profile picture"
+						class="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-sm transition-colors hover:bg-slate-50 hover:text-indigo-600 focus-visible:ring-2 focus-visible:ring-indigo-500"
+					>
+						{#if uploadingAvatar}
+							<Spinner class="h-3 w-3 text-indigo-600" />
+						{:else}
+							<Icon icon={camera} class="h-3.5 w-3.5" />
+						{/if}
+					</button>
 				</div>
 
 				<!-- Name & Badges -->
@@ -158,33 +236,32 @@
 		</div>
 
 		<!-- Segmented Section Tabs -->
-		<nav
-			class="mt-6 flex gap-1.5 overflow-x-auto border-t border-slate-100 pt-4"
-			aria-label="Profile navigation"
-		>
-			<button
-				type="button"
-				onclick={() => (activeSection = 'details')}
-				class="inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-colors {activeSection ===
-				'details'
-					? 'bg-indigo-600 text-white shadow-2xs'
-					: 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}"
-			>
-				<Icon icon={accountCircle} class="h-4 w-4" />
-				Account Details
-			</button>
-			<button
-				type="button"
-				onclick={() => (activeSection = 'security')}
-				class="inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-colors {activeSection ===
-				'security'
-					? 'bg-indigo-600 text-white shadow-2xs'
-					: 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}"
-			>
-				<Icon icon={lockOutline} class="h-4 w-4" />
-				Password &amp; Security
-			</button>
-		</nav>
+		<div class="mt-6 border-t border-slate-100 pt-4">
+			<ScrollableTabs ariaLabel="Profile navigation">
+				<button
+					type="button"
+					onclick={() => (activeSection = 'details')}
+					class="inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all {activeSection ===
+					'details'
+						? 'bg-indigo-600 text-white shadow-2xs'
+						: 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}"
+				>
+					<Icon icon={accountCircle} class="h-4 w-4 shrink-0 {activeSection === 'details' ? 'text-white' : 'text-slate-400'}" />
+					<span>Account Details</span>
+				</button>
+				<button
+					type="button"
+					onclick={() => (activeSection = 'security')}
+					class="inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all {activeSection ===
+					'security'
+						? 'bg-indigo-600 text-white shadow-2xs'
+						: 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}"
+				>
+					<Icon icon={lockOutline} class="h-4 w-4 shrink-0 {activeSection === 'security' ? 'text-white' : 'text-slate-400'}" />
+					<span>Password &amp; Security</span>
+				</button>
+			</ScrollableTabs>
+		</div>
 	</section>
 
 	{#if activeSection === 'details'}
@@ -233,6 +310,76 @@
 						{saveError}
 					</div>
 				{/if}
+
+				<!-- Profile Picture Management Card -->
+				<div class="mb-6 rounded-xl border border-slate-200/90 bg-slate-50/60 p-4 sm:p-5">
+					<div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+						<div class="flex items-center gap-4">
+							<div
+								class="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-600 text-lg font-bold text-white shadow-sm ring-2 ring-white"
+							>
+								{#if avatarUrl && !imageLoadFailed}
+									<img
+										src={assetUrl(avatarUrl)}
+										alt=""
+										class="h-full w-full object-cover"
+										onerror={() => (imageLoadFailed = true)}
+									/>
+								{:else}
+									{getInitials(fullName)}
+								{/if}
+							</div>
+							<div>
+								<h3 class="text-xs font-bold tracking-wide text-slate-700 uppercase">Profile Photo</h3>
+								<p class="mt-0.5 text-xs text-slate-500">
+									Upload a PNG, JPEG, WebP, or GIF (max 5MB).
+								</p>
+								{#if avatarSuccess}
+									<p class="mt-1 text-xs font-semibold text-emerald-600">✓ {avatarSuccess}</p>
+								{/if}
+								{#if avatarError}
+									<p class="mt-1 text-xs font-semibold text-red-600">✗ {avatarError}</p>
+								{/if}
+							</div>
+						</div>
+
+						<div class="flex flex-wrap items-center gap-2">
+							<input
+								type="file"
+								accept="image/png,image/jpeg,image/webp,image/gif"
+								bind:this={avatarFileInput}
+								onchange={handleAvatarSelect}
+								class="hidden"
+								id="avatar-file-input"
+							/>
+							<button
+								type="button"
+								onclick={() => avatarFileInput?.click()}
+								disabled={uploadingAvatar}
+								class="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-2xs transition-colors hover:bg-slate-50 disabled:opacity-60"
+							>
+								{#if uploadingAvatar}
+									<Spinner class="h-3.5 w-3.5 text-indigo-600" />
+									Uploading...
+								{:else}
+									<Icon icon={upload} class="h-3.5 w-3.5 text-slate-500" />
+									Upload New Picture
+								{/if}
+							</button>
+							{#if avatarUrl}
+								<button
+									type="button"
+									onclick={removeAvatar}
+									disabled={uploadingAvatar}
+									class="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 shadow-2xs transition-colors hover:bg-rose-100 disabled:opacity-60"
+								>
+									<Icon icon={trashCanOutline} class="h-3.5 w-3.5" />
+									Remove
+								</button>
+							{/if}
+						</div>
+					</div>
+				</div>
 
 				<form
 					class="space-y-5"
@@ -318,22 +465,6 @@
 								bind:value={language}
 								placeholder="en"
 								class="mt-1.5 block w-full rounded-lg border-slate-300 px-3 py-2.5 text-xs uppercase shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
-							/>
-						</div>
-
-						<div>
-							<label
-								for="p-avatar"
-								class="block text-xs font-semibold tracking-wider text-slate-700 uppercase"
-							>
-								Avatar Picture URL
-							</label>
-							<input
-								id="p-avatar"
-								type="url"
-								bind:value={avatarUrl}
-								placeholder="https://example.com/avatar.jpg"
-								class="mt-1.5 block w-full rounded-lg border-slate-300 px-3 py-2.5 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
 							/>
 						</div>
 					</div>

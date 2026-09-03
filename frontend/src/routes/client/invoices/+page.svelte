@@ -116,103 +116,162 @@
 				/>
 			{/if}
 		{:else}
-			<div class="relative overflow-x-auto">
-				<table class="min-w-full divide-y divide-slate-200 text-xs">
-					<thead class="bg-slate-50/80">
-						<tr>
-							<th
-								scope="col"
-								class="px-3 py-3 text-left font-bold tracking-wider text-slate-600 uppercase sm:px-4"
+		<!-- Mobile cards (< md): clearly separated distinct cards -->
+		<div class="space-y-3 p-3 bg-slate-50/60 md:hidden">
+			{#each data.invoices.items as inv (inv.id)}
+				<div class="rounded-xl border border-slate-200/90 bg-white p-4 shadow-2xs space-y-3 transition-shadow hover:shadow-xs">
+					<div class="flex items-start justify-between gap-3">
+						<div class="min-w-0">
+							<a
+								href={resolve('/client/invoices/[id]', { id: inv.id })}
+								class="flex items-center gap-1.5 text-sm font-bold text-indigo-600 transition-colors hover:text-indigo-800"
 							>
-								Invoice Number
-							</th>
-							<th
-								scope="col"
-								class="px-3 py-3 text-left font-bold tracking-wider text-slate-600 uppercase sm:px-4"
+								<Icon icon={fileDocumentOutline} class="h-4 w-4 shrink-0 text-slate-400" />
+								{inv.invoice_number ?? 'Draft Invoice'}
+							</a>
+							<p class="mt-0.5 text-xs text-slate-600">
+								{inv.project_name || 'General Project'}
+							</p>
+						</div>
+						<StatusBadge status={inv.status} />
+					</div>
+
+					<div class="flex items-center justify-between rounded-lg bg-slate-50 p-2.5">
+						<span class="text-xs text-slate-500">Amount Due</span>
+						<span class="text-sm font-bold text-slate-900">{fmtPrice(inv.total)}</span>
+					</div>
+
+					{#if inv.due_date}
+						<div class="text-xs text-slate-500">
+							<span>Due date:</span>
+							<span class="ml-1 font-medium text-slate-700">{formatDate(inv.due_date)}</span>
+						</div>
+					{/if}
+
+					<div class="flex items-center gap-2 pt-1">
+						<a
+							href={resolve('/client/invoices/[id]', { id: inv.id })}
+							class="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white py-2 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50"
+						>
+							<Icon icon={printerOutline} class="h-3.5 w-3.5 text-slate-500" />
+							View / Print
+						</a>
+						<button
+							type="button"
+							onclick={() => downloadPdf(inv)}
+							disabled={downloadingId === inv.id}
+							class="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg bg-indigo-50 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 disabled:opacity-50"
+						>
+							{#if downloadingId === inv.id}
+								<Spinner class="h-3.5 w-3.5 text-indigo-600" />
+							{:else}
+								<Icon icon={downloadOutline} class="h-3.5 w-3.5 text-indigo-600" />
+							{/if}
+							Download PDF
+						</button>
+					</div>
+				</div>
+			{/each}
+		</div>
+
+		<!-- Desktop table (>= md) -->
+		<div class="relative hidden overflow-x-auto md:block">
+			<table class="min-w-full divide-y divide-slate-200 text-xs">
+				<thead class="bg-slate-50/80">
+					<tr>
+						<th
+							scope="col"
+							class="px-3 py-3 text-left font-bold tracking-wider text-slate-600 uppercase sm:px-4"
+						>
+							Invoice Number
+						</th>
+						<th
+							scope="col"
+							class="px-3 py-3 text-left font-bold tracking-wider text-slate-600 uppercase sm:px-4"
+						>
+							Project
+						</th>
+						<th
+							scope="col"
+							class="px-3 py-3 text-left font-bold tracking-wider text-slate-600 uppercase sm:px-4"
+						>
+							Status
+						</th>
+						<th
+							scope="col"
+							class="px-3 py-3 text-right font-bold tracking-wider text-slate-600 uppercase sm:px-4"
+						>
+							Total
+						</th>
+						<th
+							scope="col"
+							class="px-3 py-3 text-left font-bold tracking-wider text-slate-600 uppercase sm:px-4"
+						>
+							Due Date
+						</th>
+						<th
+							scope="col"
+							class="px-3 py-3 text-right font-bold tracking-wider text-slate-600 uppercase sm:px-4"
+						>
+							Actions
+						</th>
+					</tr>
+				</thead>
+				<tbody class="divide-y divide-slate-100">
+					{#each data.invoices.items as inv (inv.id)}
+						<tr class="transition-colors hover:bg-slate-50/70">
+							<td class="px-3 py-3.5 font-bold text-slate-900 sm:px-4">
+								<a
+									href={resolve('/client/invoices/[id]', { id: inv.id })}
+									class="flex items-center gap-1.5 text-indigo-600 transition-colors hover:text-indigo-800"
+								>
+									<Icon icon={fileDocumentOutline} class="h-4 w-4 shrink-0 text-slate-400" />
+									{inv.invoice_number ?? 'Draft'}
+								</a>
+							</td>
+							<td class="px-3 py-3.5 font-medium text-slate-700 sm:px-4">
+								{inv.project_name || '—'}
+							</td>
+							<td class="px-3 py-3.5 sm:px-4">
+								<StatusBadge status={inv.status} />
+							</td>
+							<td
+								class="px-3 py-3.5 text-right font-bold whitespace-nowrap text-slate-900 sm:px-4"
 							>
-								Project
-							</th>
-							<th
-								scope="col"
-								class="px-3 py-3 text-left font-bold tracking-wider text-slate-600 uppercase sm:px-4"
-							>
-								Status
-							</th>
-							<th
-								scope="col"
-								class="px-3 py-3 text-right font-bold tracking-wider text-slate-600 uppercase sm:px-4"
-							>
-								Total
-							</th>
-							<th
-								scope="col"
-								class="px-3 py-3 text-left font-bold tracking-wider text-slate-600 uppercase sm:px-4"
-							>
-								Due Date
-							</th>
-							<th
-								scope="col"
-								class="px-3 py-3 text-right font-bold tracking-wider text-slate-600 uppercase sm:px-4"
-							>
-								Actions
-							</th>
-						</tr>
-					</thead>
-					<tbody class="divide-y divide-slate-100">
-						{#each data.invoices.items as inv (inv.id)}
-							<tr class="transition-colors hover:bg-slate-50/70">
-								<td class="px-3 py-3.5 font-bold text-slate-900 sm:px-4">
+								{fmtPrice(inv.total)}
+							</td>
+							<td class="px-3 py-3.5 whitespace-nowrap text-slate-600 sm:px-4">
+								{formatDate(inv.due_date)}
+							</td>
+							<td class="px-3 py-3.5 text-right whitespace-nowrap sm:px-4">
+								<div class="inline-flex items-center gap-1.5">
 									<a
 										href={resolve('/client/invoices/[id]', { id: inv.id })}
-										class="flex items-center gap-1.5 text-indigo-600 transition-colors hover:text-indigo-800"
+										class="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 shadow-2xs transition-colors hover:bg-slate-50"
 									>
-										<Icon icon={fileDocumentOutline} class="h-4 w-4 shrink-0 text-slate-400" />
-										{inv.invoice_number ?? 'Draft'}
+										<Icon icon={printerOutline} class="h-3.5 w-3.5 text-slate-500" />
+										View / Print
 									</a>
-								</td>
-								<td class="px-3 py-3.5 font-medium text-slate-700 sm:px-4">
-									{inv.project_name || '—'}
-								</td>
-								<td class="px-3 py-3.5 sm:px-4">
-									<StatusBadge status={inv.status} />
-								</td>
-								<td
-									class="px-3 py-3.5 text-right font-bold whitespace-nowrap text-slate-900 sm:px-4"
-								>
-									{fmtPrice(inv.total)}
-								</td>
-								<td class="px-3 py-3.5 whitespace-nowrap text-slate-600 sm:px-4">
-									{formatDate(inv.due_date)}
-								</td>
-								<td class="px-3 py-3.5 text-right whitespace-nowrap sm:px-4">
-									<div class="inline-flex items-center gap-1.5">
-										<a
-											href={resolve('/client/invoices/[id]', { id: inv.id })}
-											class="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 shadow-2xs transition-colors hover:bg-slate-50"
-										>
-											<Icon icon={printerOutline} class="h-3.5 w-3.5 text-slate-500" />
-											View / Print
-										</a>
-										<button
-											type="button"
-											onclick={() => downloadPdf(inv)}
-											disabled={downloadingId === inv.id}
-											class="inline-flex items-center gap-1 rounded-md bg-indigo-50 px-2.5 py-1 text-[11px] font-semibold text-indigo-700 transition-colors hover:bg-indigo-100 disabled:opacity-50"
-										>
-											{#if downloadingId === inv.id}
-												<Spinner class="h-3.5 w-3.5 text-indigo-600" />
-											{:else}
-												<Icon icon={downloadOutline} class="h-3.5 w-3.5 text-indigo-600" />
-											{/if}
-											PDF
-										</button>
-									</div>
-								</td>
-							</tr>
-						{/each}
-					</tbody>
-				</table>
-			</div>
+									<button
+										type="button"
+										onclick={() => downloadPdf(inv)}
+										disabled={downloadingId === inv.id}
+										class="inline-flex items-center gap-1 rounded-md bg-indigo-50 px-2.5 py-1 text-[11px] font-semibold text-indigo-700 transition-colors hover:bg-indigo-100 disabled:opacity-50"
+									>
+										{#if downloadingId === inv.id}
+											<Spinner class="h-3.5 w-3.5 text-indigo-600" />
+										{:else}
+											<Icon icon={downloadOutline} class="h-3.5 w-3.5 text-indigo-600" />
+										{/if}
+										PDF
+									</button>
+								</div>
+							</td>
+						</tr>
+					{/each}
+				</tbody>
+			</table>
+		</div>
 			<Pagination
 				page={data.invoices.page}
 				pageSize={data.invoices.page_size}

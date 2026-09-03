@@ -1027,3 +1027,97 @@ class TestEmailChange:
         entry = email_changed[0]
         assert entry["old_value"] == old_email
         assert entry["new_value"] == new_email
+
+
+class TestAvatar:
+    @pytest.mark.anyio
+    async def test_admin_avatar_upload_and_delete(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        plan = await _create_plan(db_session)
+        tenant = await _create_tenant(db_session, plan.id)
+        admin = await _create_user(
+            db_session, f"av-{uuid.uuid4().hex[:8]}@testco.com", AdminUserRole.ADMIN, tenant.id
+        )
+        headers = await _admin_auth_header(admin)
+
+        one_px_png = (
+            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+            b"\x08\x06\x00\x00\x00\x1f\x15c4\x00\x00\x00\rIDATx\x9cc`\x00\x00\x00"
+            b"\x02\x00\x01H\xaf\xa4q\x00\x00\x00\x00IEND\xaeB`\x82"
+        )
+
+        resp = await client.post(
+            "/api/v1/auth/profile/avatar",
+            files={"file": ("avatar.png", one_px_png, "image/png")},
+            headers=headers,
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["avatar_url"].startswith("/uploads/avatars/")
+
+        me = await client.get("/api/v1/auth/me", headers=headers)
+        assert me.status_code == 200
+        assert me.json()["avatar_url"] == data["avatar_url"]
+
+        # Delete avatar
+        del_resp = await client.delete("/api/v1/auth/profile/avatar", headers=headers)
+        assert del_resp.status_code == 200
+        assert del_resp.json()["avatar_url"] is None
+
+        me_after = await client.get("/api/v1/auth/me", headers=headers)
+        assert me_after.json()["avatar_url"] is None
+
+    @pytest.mark.anyio
+    async def test_client_avatar_upload_and_delete(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        plan = await _create_plan(db_session)
+        tenant = await _create_tenant(db_session, plan.id)
+        cli = await _create_client(db_session, tenant.id, email="cli-av@test.com")
+        cu = await _create_client_user(
+            db_session, cli.id, tenant.id, f"cu-av-{uuid.uuid4().hex[:8]}@test.com"
+        )
+        headers = await _client_auth_header(cu)
+
+        one_px_png = (
+            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+            b"\x08\x06\x00\x00\x00\x1f\x15c4\x00\x00\x00\rIDATx\x9cc`\x00\x00\x00"
+            b"\x02\x00\x01H\xaf\xa4q\x00\x00\x00\x00IEND\xaeB`\x82"
+        )
+
+        resp = await client.post(
+            "/api/v1/client/auth/user-profile/avatar",
+            files={"file": ("photo.png", one_px_png, "image/png")},
+            headers=headers,
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["avatar_url"].startswith("/uploads/avatars/")
+
+        me = await client.get("/api/v1/client/auth/me", headers=headers)
+        assert me.status_code == 200
+        assert me.json()["avatar_url"] == data["avatar_url"]
+
+        # Delete avatar
+        del_resp = await client.delete("/api/v1/client/auth/user-profile/avatar", headers=headers)
+        assert del_resp.status_code == 200
+        assert del_resp.json()["avatar_url"] is None
+
+    @pytest.mark.anyio
+    async def test_avatar_rejects_unsupported_type(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        plan = await _create_plan(db_session)
+        tenant = await _create_tenant(db_session, plan.id)
+        admin = await _create_user(
+            db_session, f"av-bad-{uuid.uuid4().hex[:8]}@testco.com", AdminUserRole.ADMIN, tenant.id
+        )
+        headers = await _admin_auth_header(admin)
+
+        resp = await client.post(
+            "/api/v1/auth/profile/avatar",
+            files={"file": ("test.txt", b"not an image", "text/plain")},
+            headers=headers,
+        )
+        assert resp.status_code == 422

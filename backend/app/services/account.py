@@ -32,6 +32,7 @@ from app.services.audit import log as audit_log
 from app.services.password_policy import get_min_password_length, validate_password_policy
 from app.services.smtp import send_tenant_email
 from app.services.users import create_password_reset_token
+from app.storage import get_storage
 
 # ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -406,6 +407,119 @@ async def update_client_profile(
 
     await session.refresh(user)
     return user
+
+
+_ALLOWED_AVATAR_TYPES = {
+    "image/png": ".png",
+    "image/x-png": ".png",
+    "image/jpeg": ".jpg",
+    "image/jpg": ".jpg",
+    "image/pjpeg": ".jpg",
+    "image/webp": ".webp",
+    "image/gif": ".gif",
+}
+_MAX_AVATAR_BYTES = 5 * 1024 * 1024
+
+
+async def save_user_avatar(
+    session: AsyncSession,
+    *,
+    user: AdminUser | ClientUser,
+    filename: str,
+    content_type: str,
+    data: bytes,
+    is_client: bool,
+) -> str:
+    """Validate image bytes, store avatar under public/avatars, update user.avatar_url, and audit."""
+    content_type = (content_type or "").lower()
+    fname = (filename or "").lower()
+    if content_type not in _ALLOWED_AVATAR_TYPES and fname:
+        if fname.endswith(".png"):
+            content_type = "image/png"
+        elif fname.endswith((".jpg", ".jpeg")):
+            content_type = "image/jpeg"
+        elif fname.endswith(".webp"):
+            content_type = "image/webp"
+        elif fname.endswith(".gif"):
+            content_type = "image/gif"
+
+    ext = _ALLOWED_AVATAR_TYPES.get(content_type)
+    if ext is None:
+        raise ValueError("Unsupported image type. Use PNG, JPEG, WebP, or GIF.")
+
+    if len(data) > _MAX_AVATAR_BYTES:
+        raise ValueError("Avatar image too large (max 5MB)")
+
+    file_token = uuid.uuid4().hex[:8]
+    storage_key = f"public/avatars/{user.id}_{file_token}{ext}"
+    await get_storage().put(storage_key, data, content_type)
+
+    avatar_url = f"/uploads/avatars/{user.id}_{file_token}{ext}"
+    user.avatar_url = avatar_url
+
+    await session.flush()
+    actor_type = ActorType.CLIENT_USER if is_client else ActorType.ADMIN_USER
+    entity_type = "client_user" if is_client else "admin_user"
+    user_type = "client_user" if is_client else "admin_user"
+
+    await audit_log(
+        session,
+        tenant_id=user.tenant_id,
+        actor_id=user.id,
+        actor_type=actor_type,
+        action="user.avatar_updated",
+        entity_type=entity_type,
+        entity_id=str(user.id),
+        details={"avatar_url": avatar_url},
+    )
+    await _record_activity(
+        session,
+        user_id=user.id,
+        user_type=user_type,
+        tenant_id=user.tenant_id,
+        event_type="profile.updated",
+        description="Profile picture updated",
+    )
+    await session.commit()
+    await session.refresh(user)
+    return avatar_url
+
+
+async def delete_user_avatar(
+    session: AsyncSession,
+    *,
+    user: AdminUser | ClientUser,
+    is_client: bool,
+) -> None:
+    """Remove user's avatar_url, audit the change."""
+    if user.avatar_url is None:
+        return
+    user.avatar_url = None
+    await session.flush()
+    actor_type = ActorType.CLIENT_USER if is_client else ActorType.ADMIN_USER
+    entity_type = "client_user" if is_client else "admin_user"
+    user_type = "client_user" if is_client else "admin_user"
+
+    await audit_log(
+        session,
+        tenant_id=user.tenant_id,
+        actor_id=user.id,
+        actor_type=actor_type,
+        action="user.avatar_deleted",
+        entity_type=entity_type,
+        entity_id=str(user.id),
+        details={},
+    )
+    await _record_activity(
+        session,
+        user_id=user.id,
+        user_type=user_type,
+        tenant_id=user.tenant_id,
+        event_type="profile.updated",
+        description="Profile picture removed",
+    )
+    await session.commit()
+    await session.refresh(user)
 
 
 # ── Password change ─────────────────────────────────────────────────────────

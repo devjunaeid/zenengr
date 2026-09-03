@@ -70,13 +70,13 @@
 
 		<!-- Filter Bar -->
 		<form
-			class="mt-4 flex flex-wrap items-center gap-3 border-t border-slate-100 pt-4"
+			class="mt-4 flex flex-col gap-2.5 sm:flex-row sm:items-center border-t border-slate-100 pt-4"
 			onsubmit={(e) => {
 				e.preventDefault();
 				applyFilters();
 			}}
 		>
-			<div class="relative min-w-[220px] flex-1">
+			<div class="relative w-full sm:flex-1">
 				<Icon icon={magnify} class="absolute top-2.5 left-3 h-4 w-4 text-slate-400" />
 				<input
 					id="f-q"
@@ -87,24 +87,24 @@
 				/>
 			</div>
 
-			<div>
+			<div class="flex items-center gap-2">
 				<select
 					id="f-status"
 					bind:value={isActive}
-					class="rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs text-slate-700 shadow-2xs focus:border-indigo-500 focus:bg-white focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+					class="w-full sm:w-auto rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs text-slate-700 shadow-2xs focus:border-indigo-500 focus:bg-white focus:ring-1 focus:ring-indigo-500 focus:outline-none"
 				>
 					<option value="">All Statuses</option>
 					<option value="active">Active Only</option>
 					<option value="inactive">Inactive Only</option>
 				</select>
-			</div>
 
-			<button
-				type="submit"
-				class="rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-2xs transition-colors hover:bg-slate-50"
-			>
-				Filter
-			</button>
+				<button
+					type="submit"
+					class="rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-2xs transition-colors hover:bg-slate-50"
+				>
+					Filter
+				</button>
+			</div>
 		</form>
 	</section>
 
@@ -137,7 +137,56 @@
 				</div>
 			{/if}
 		{:else}
-			<div class="relative overflow-x-auto">
+			<!-- Mobile cards (< md): clearly separated distinct cards -->
+			<div class="space-y-3 p-3 bg-slate-50/60 md:hidden">
+				{#each data.services.items as s (s.id)}
+					<div class="rounded-xl border border-slate-200/90 bg-white p-4 shadow-2xs space-y-3 transition-shadow hover:shadow-xs">
+						<div class="flex items-start justify-between gap-3">
+							<div class="min-w-0">
+								<a
+									href={resolve('/app/settings/services/[id]', { id: s.id })}
+									class="text-sm font-bold text-indigo-600 hover:text-indigo-700"
+								>
+									{s.name}
+								</a>
+								{#if s.description}
+									<p class="mt-0.5 text-xs text-slate-500 line-clamp-2">{s.description}</p>
+								{/if}
+							</div>
+							<StatusBadge status={s.is_active ? 'active' : 'inactive'} />
+						</div>
+
+						<div class="grid grid-cols-2 gap-2 rounded-lg bg-slate-50 p-2.5 text-xs">
+							<div>
+								<span class="text-slate-400">Default Price:</span>
+								<span class="ml-1 font-bold text-slate-900">{fmtPrice(s.default_price)}</span>
+							</div>
+							<div>
+								<span class="text-slate-400">Milestones:</span>
+								<span class="ml-1 font-semibold text-slate-700">
+									{s.step_count} {s.step_count === 1 ? 'step' : 'steps'}
+								</span>
+							</div>
+							<div class="col-span-2">
+								<span class="text-slate-400">Created:</span>
+								<span class="ml-1 text-slate-600">{formatDate(s.created_at)}</span>
+							</div>
+						</div>
+
+						<div class="flex justify-end pt-1">
+							<a
+								href={resolve('/app/settings/services/[id]', { id: s.id })}
+								class="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50"
+							>
+								Configure service
+							</a>
+						</div>
+					</div>
+				{/each}
+			</div>
+
+			<!-- Desktop table (>= md) -->
+			<div class="relative hidden overflow-x-auto md:block">
 				<table class="min-w-full divide-y divide-slate-200">
 					<thead class="bg-slate-50">
 						<tr>

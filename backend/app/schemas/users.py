@@ -17,6 +17,7 @@ class UserListItem(BaseModel):
     role: AdminUserRole
     is_active: bool
     created_at: datetime
+    avatar_url: str | None = None
 
     model_config = {"from_attributes": True}
 

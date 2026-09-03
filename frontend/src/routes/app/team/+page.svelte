@@ -1,6 +1,6 @@
 <script>
 	import { invalidateAll } from '$app/navigation';
-	import { ApiError } from '$lib/api/client.js';
+	import { ApiError, assetUrl } from '$lib/api/client.js';
 	import * as tenantApi from '$lib/api/tenant.js';
 	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
@@ -9,6 +9,17 @@
 	import { formatDate, humanize } from '$lib/utils/format.js';
 
 	let { data } = $props();
+
+	function getInitials(name) {
+		if (!name) return 'U';
+		return name
+			.split(' ')
+			.map((p) => p[0])
+			.filter(Boolean)
+			.slice(0, 2)
+			.join('')
+			.toUpperCase();
+	}
 
 	/** @type {string} */
 	const token = auth.token ?? '';
@@ -339,8 +350,127 @@
 	</div>
 </div>
 
-<!-- Users table -->
-<div class="mt-4 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+<!-- Users mobile card view (< md) -->
+<div class="mt-4 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm md:hidden">
+	{#if filteredUsers.length === 0}
+		<div class="px-4 py-12 text-center">
+			<p class="text-sm font-medium text-slate-900">No team members match your criteria</p>
+			<p class="mt-1 text-xs text-slate-500">Try adjusting your search query or filters.</p>
+			{#if isFiltered}
+				<button
+					type="button"
+					onclick={clearFilters}
+					class="mt-3 inline-flex items-center gap-1.5 rounded-md bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100"
+				>
+					Clear all filters
+				</button>
+			{/if}
+		</div>
+	{:else}
+		<div class="space-y-3 p-3 bg-slate-50/60">
+			{#each filteredUsers as u (u.id)}
+				<div class="rounded-xl border border-slate-200/90 bg-white p-4 shadow-2xs space-y-3 transition-shadow hover:shadow-xs">
+					<div class="flex items-start justify-between gap-3">
+						<div class="flex items-center gap-3 min-w-0">
+							<div
+								class="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-indigo-600 to-violet-600 text-xs font-bold text-white shadow-2xs"
+							>
+								<span class="select-none">{getInitials(u.full_name)}</span>
+								{#if u.avatar_url}
+									<img
+										src={assetUrl(u.avatar_url)}
+										alt=""
+										class="absolute inset-0 h-full w-full object-cover"
+										onerror={(e) => { e.currentTarget.style.display = 'none'; }}
+									/>
+								{/if}
+							</div>
+							<div class="min-w-0">
+								<div class="flex items-center gap-2">
+									<span class="truncate text-sm font-semibold text-slate-900">{u.full_name}</span>
+									{#if u.id === auth.user?.id}
+										<span class="rounded bg-indigo-50 px-1.5 py-0.5 text-xs font-semibold text-indigo-700">You</span>
+									{/if}
+								</div>
+								<p class="truncate mt-0.5 text-xs text-slate-500">{u.email}</p>
+							</div>
+						</div>
+						<StatusBadge status={u.is_active ? 'active' : 'inactive'} />
+					</div>
+
+					<div class="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-slate-50 p-2.5 text-xs">
+						<div class="flex items-center gap-2">
+							<span class="text-slate-400">Role:</span>
+							{#if canManageTeam}
+								<select
+									id="m-role-{u.id}"
+									value={currentRoleId(u)}
+									disabled={isLastAdmin(u)}
+									title={isLastAdmin(u) ? 'The last active admin cannot be demoted' : undefined}
+									onchange={(e) => changeRole(u, e.currentTarget.value)}
+									class="rounded border-slate-300 py-1 pr-7 pl-2 text-xs font-medium shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 disabled:opacity-60"
+								>
+									{#each roleOptions as r (r.id)}
+										<option value={r.id}>{r.name}</option>
+									{/each}
+								</select>
+							{:else}
+								<span class="font-medium text-slate-700">{humanize(u.role)}</span>
+							{/if}
+						</div>
+						<div>
+							<span class="text-slate-400">Joined:</span>
+							<span class="ml-1 text-slate-600">{formatDate(u.created_at)}</span>
+						</div>
+					</div>
+
+					{#if canManageTeam && u.id !== auth.user?.id}
+						<div class="flex items-center justify-end gap-2 pt-1">
+							<button
+								type="button"
+								onclick={() => openSetPasswordModal(u)}
+								class="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50"
+							>
+								Password
+							</button>
+
+							{#if u.is_active}
+								<button
+									type="button"
+									disabled={isLastAdmin(u)}
+									onclick={() => (deactivateTarget = u)}
+									class="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-amber-700 shadow-2xs hover:bg-amber-50 disabled:opacity-40"
+								>
+									Revoke
+								</button>
+							{:else}
+								<button
+									type="button"
+									onclick={() => reactivateUser(u)}
+									class="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 shadow-2xs hover:bg-emerald-100"
+								>
+									Restore
+								</button>
+							{/if}
+
+							<button
+								type="button"
+								disabled={isLastAdmin(u)}
+								onclick={() => (deleteTarget = u)}
+								class="inline-flex items-center gap-1.5 rounded-lg border border-rose-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-rose-700 shadow-2xs hover:bg-rose-50 disabled:opacity-40"
+							>
+								Archive
+							</button>
+						</div>
+					{/if}
+				</div>
+			{/each}
+		</div>
+	{/if}
+</div>
+
+<!-- Users desktop table (>= md) -->
+<div class="mt-4 hidden overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm md:block">
 	<div class="relative overflow-x-auto">
 		<table class="min-w-full divide-y divide-slate-200">
 			<thead class="bg-slate-50">
@@ -399,13 +529,30 @@
 					{#each filteredUsers as u (u.id)}
 						<tr class="transition-colors hover:bg-slate-50">
 							<td class="px-4 py-3 text-sm font-medium text-slate-900">
-								{u.full_name}
-								{#if u.id === auth.user?.id}
-									<span
-										class="ml-1.5 rounded bg-indigo-50 px-1.5 py-0.5 text-xs font-semibold text-indigo-700"
-										>You</span
+								<div class="flex items-center gap-3">
+									<div
+										class="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-indigo-600 to-violet-600 text-xs font-bold text-white shadow-2xs"
 									>
-								{/if}
+										<span class="select-none">{getInitials(u.full_name)}</span>
+										{#if u.avatar_url}
+											<img
+												src={assetUrl(u.avatar_url)}
+												alt=""
+												class="absolute inset-0 h-full w-full object-cover"
+												onerror={(e) => { e.currentTarget.style.display = 'none'; }}
+											/>
+										{/if}
+									</div>
+									<div class="min-w-0">
+										<span class="font-semibold text-slate-900">{u.full_name}</span>
+										{#if u.id === auth.user?.id}
+											<span
+												class="ml-1.5 rounded bg-indigo-50 px-1.5 py-0.5 text-xs font-semibold text-indigo-700"
+												>You</span
+											>
+										{/if}
+									</div>
+								</div>
 							</td>
 							<td class="px-4 py-3 text-sm text-slate-600">{u.email}</td>
 							<td class="px-4 py-3">
@@ -556,6 +703,7 @@
 				<h2 class="text-lg font-semibold text-slate-900">Add New Employee</h2>
 				<button
 					type="button"
+					aria-label="Close modal"
 					onclick={() => (showAddModal = false)}
 					class="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
 				>
@@ -687,6 +835,7 @@
 				<h2 class="text-lg font-semibold text-slate-900">Set Password</h2>
 				<button
 					type="button"
+					aria-label="Close modal"
 					onclick={() => (passwordTarget = null)}
 					class="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
 				>

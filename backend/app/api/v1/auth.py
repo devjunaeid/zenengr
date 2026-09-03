@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_current_admin_user
@@ -21,8 +21,10 @@ from app.schemas.account import (
 from app.schemas.auth import LoginRequest, LoginResponse, UserResponse
 from app.services.account import (
     change_password,
+    delete_user_avatar,
     forgot_password_admin,
     list_activity,
+    save_user_avatar,
     update_admin_profile,
     verify_email_admin,
 )
@@ -112,6 +114,43 @@ async def update_profile(
         email=body.email,
     )
     return await _to_user_response(session, updated)
+
+
+@router.post("/profile/avatar")
+async def upload_profile_avatar(
+    file: UploadFile,
+    user: AdminUser = Depends(get_current_admin_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, str | None]:
+    """Upload own profile avatar image (PNG/JPEG/WebP/GIF, max 5MB)."""
+    data = await file.read()
+    try:
+        avatar_url = await save_user_avatar(
+            session,
+            user=user,
+            filename=file.filename or "",
+            content_type=file.content_type or "",
+            data=data,
+            is_client=False,
+        )
+    except ValueError as exc:
+        status_code = (
+            status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
+            if "too large" in str(exc).lower()
+            else status.HTTP_422_UNPROCESSABLE_CONTENT
+        )
+        raise HTTPException(status_code=status_code, detail=str(exc)) from exc
+    return {"avatar_url": avatar_url}
+
+
+@router.delete("/profile/avatar")
+async def delete_profile_avatar(
+    user: AdminUser = Depends(get_current_admin_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, str | None]:
+    """Remove own profile avatar image."""
+    await delete_user_avatar(session, user=user, is_client=False)
+    return {"avatar_url": None}
 
 
 @router.post("/change-password", status_code=status.HTTP_200_OK)

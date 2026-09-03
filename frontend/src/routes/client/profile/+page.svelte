@@ -1,9 +1,10 @@
 <script>
 	import * as accountApi from '$lib/api/account.js';
-	import { ApiError } from '$lib/api/client.js';
+	import { ApiError, assetUrl } from '$lib/api/client.js';
 	import * as portalApi from '$lib/api/portal.js';
 	import Spinner from '$lib/components/Spinner.svelte';
 	import StatusBadge from '$lib/components/StatusBadge.svelte';
+	import ScrollableTabs from '$lib/components/ScrollableTabs.svelte';
 	import TimezoneSelect from '$lib/components/TimezoneSelect.svelte';
 	import { portalAuth } from '$lib/stores/portalAuth.svelte.js';
 	import { formatAddress } from '$lib/utils/address.js';
@@ -14,6 +15,8 @@
 	import bellOutline from '@iconify-icons/mdi/bell-outline';
 	import checkCircle from '@iconify-icons/mdi/check-circle';
 	import alertCircleOutline from '@iconify-icons/mdi/alert-circle-outline';
+	import upload from '@iconify-icons/mdi/upload';
+	import trashCanOutline from '@iconify-icons/mdi/trash-can-outline';
 
 	// Layout guard guarantees these exist
 	const client = /** @type {import('$lib/api/portal.js').PortalClient} */ (portalAuth.client);
@@ -113,6 +116,68 @@
 			accountError = e instanceof ApiError ? e.message : 'Unable to save. Try again.';
 		} finally {
 			savingAccount = false;
+		}
+	}
+
+	function getInitials(name) {
+		if (!name) return 'U';
+		return name
+			.split(' ')
+			.map((p) => p[0])
+			.filter(Boolean)
+			.slice(0, 2)
+			.join('')
+			.toUpperCase();
+	}
+
+	let avatarFileInput = $state(/** @type {HTMLInputElement|null} */ (null));
+	let uploadingAvatar = $state(false);
+	let avatarError = $state(/** @type {string|null} */ (null));
+	let avatarSuccess = $state(/** @type {string|null} */ (null));
+	let imageLoadFailed = $state(false);
+
+	async function handleAvatarSelect(e) {
+		const files = e.target?.files;
+		if (!files || files.length === 0) return;
+		const file = files[0];
+		if (file.size > 5 * 1024 * 1024) {
+			avatarError = 'Image must be smaller than 5MB.';
+			return;
+		}
+		uploadingAvatar = true;
+		avatarError = null;
+		avatarSuccess = null;
+		try {
+			const res = await accountApi.uploadAvatar(fetch, token, file, { realm: 'client' });
+			accountAvatar = res.avatar_url;
+			imageLoadFailed = false;
+			if (portalAuth.user) portalAuth.user.avatar_url = res.avatar_url;
+			avatarSuccess = 'Profile picture updated successfully.';
+			setTimeout(() => (avatarSuccess = null), 4000);
+		} catch (err) {
+			avatarError = err instanceof ApiError ? err.message : 'Upload failed. Please try again.';
+		} finally {
+			uploadingAvatar = false;
+			if (avatarFileInput) avatarFileInput.value = '';
+		}
+	}
+
+	async function removeAvatar() {
+		if (uploadingAvatar) return;
+		uploadingAvatar = true;
+		avatarError = null;
+		avatarSuccess = null;
+		try {
+			await accountApi.deleteAvatar(fetch, token, { realm: 'client' });
+			accountAvatar = '';
+			imageLoadFailed = false;
+			if (portalAuth.user) portalAuth.user.avatar_url = null;
+			avatarSuccess = 'Profile picture removed.';
+			setTimeout(() => (avatarSuccess = null), 4000);
+		} catch (err) {
+			avatarError = err instanceof ApiError ? err.message : 'Failed to remove picture.';
+		} finally {
+			uploadingAvatar = false;
 		}
 	}
 
@@ -251,23 +316,21 @@
 	</div>
 
 	<!-- Tab Navigation Modules -->
-	<div
-		class="flex gap-1.5 overflow-x-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-2xs"
-	>
+	<ScrollableTabs ariaLabel="Profile sections">
 		{#each TABS as tab (tab.id)}
 			{@const active = activeTab === tab.id}
 			<button
 				type="button"
 				onclick={() => (activeTab = tab.id)}
-				class="inline-flex shrink-0 items-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold whitespace-nowrap transition-all {active
+				class="inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all {active
 					? 'bg-indigo-600 text-white shadow-2xs'
 					: 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}"
 			>
 				<Icon icon={tab.icon} class="h-4 w-4 shrink-0 {active ? 'text-white' : 'text-slate-400'}" />
-				{tab.label}
+				<span>{tab.label}</span>
 			</button>
 		{/each}
-	</div>
+	</ScrollableTabs>
 
 	<!-- Module 1: Personal Profile -->
 	{#if activeTab === 'profile'}
@@ -294,6 +357,76 @@
 					{accountError}
 				</div>
 			{/if}
+
+			<!-- Profile Picture Management Card -->
+			<div class="mt-5 rounded-xl border border-slate-200/90 bg-slate-50/60 p-4 sm:p-5">
+				<div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+					<div class="flex items-center gap-4">
+						<div
+							class="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-600 text-lg font-bold text-white shadow-sm ring-2 ring-white"
+						>
+							{#if accountAvatar && !imageLoadFailed}
+								<img
+									src={assetUrl(accountAvatar)}
+									alt=""
+									class="h-full w-full object-cover"
+									onerror={() => (imageLoadFailed = true)}
+								/>
+							{:else}
+								{getInitials(accountFullName)}
+							{/if}
+						</div>
+						<div>
+							<h3 class="text-xs font-bold tracking-wide text-slate-700 uppercase">Profile Photo</h3>
+							<p class="mt-0.5 text-xs text-slate-500">
+								Upload a PNG, JPEG, WebP, or GIF (max 5MB).
+							</p>
+							{#if avatarSuccess}
+								<p class="mt-1 text-xs font-semibold text-emerald-600">✓ {avatarSuccess}</p>
+							{/if}
+							{#if avatarError}
+								<p class="mt-1 text-xs font-semibold text-red-600">✗ {avatarError}</p>
+							{/if}
+						</div>
+					</div>
+
+					<div class="flex flex-wrap items-center gap-2">
+						<input
+							type="file"
+							accept="image/png,image/jpeg,image/webp,image/gif"
+							bind:this={avatarFileInput}
+							onchange={handleAvatarSelect}
+							class="hidden"
+							id="client-avatar-file-input"
+						/>
+						<button
+							type="button"
+							onclick={() => avatarFileInput?.click()}
+							disabled={uploadingAvatar}
+							class="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-2xs transition-colors hover:bg-slate-50 disabled:opacity-60"
+						>
+							{#if uploadingAvatar}
+								<Spinner class="h-3.5 w-3.5 text-indigo-600" />
+								Uploading...
+							{:else}
+								<Icon icon={upload} class="h-3.5 w-3.5 text-slate-500" />
+								Upload New Picture
+							{/if}
+						</button>
+						{#if accountAvatar}
+							<button
+								type="button"
+								onclick={removeAvatar}
+								disabled={uploadingAvatar}
+								class="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 shadow-2xs transition-colors hover:bg-rose-100 disabled:opacity-60"
+							>
+								<Icon icon={trashCanOutline} class="h-3.5 w-3.5" />
+								Remove
+							</button>
+						{/if}
+					</div>
+				</div>
+			</div>
 
 			<form
 				class="mt-5 space-y-4 text-xs"

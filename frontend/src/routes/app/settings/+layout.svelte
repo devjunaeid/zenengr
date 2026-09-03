@@ -9,6 +9,7 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { auth } from '$lib/stores/auth.svelte.js';
+	import ScrollableTabs from '$lib/components/ScrollableTabs.svelte';
 
 	const tabs = [
 		{ href: '/app/settings', label: 'Business Profile', icon: accountCog, exact: true },
@@ -52,29 +53,26 @@
 		</div>
 
 		<!-- Segmented Navigation Pill Bar -->
-		<nav
-			class="mt-5 flex scrollbar-none gap-1.5 overflow-x-auto rounded-xl border border-slate-200 bg-slate-100/70 p-1.5 shadow-2xs"
-			aria-label="Settings navigation"
-		>
+		<ScrollableTabs ariaLabel="Settings navigation" class="mt-5">
 			{#each visibleTabs as tab (tab.href)}
 				{@const active = isActive(tab)}
 				<a
 					href={resolve(tab.href)}
 					aria-current={active ? 'page' : undefined}
-					class="group inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all duration-150 {active
-						? 'bg-white text-indigo-700 shadow-xs ring-1 ring-slate-200/70'
-						: 'text-slate-600 hover:bg-white/60 hover:text-slate-900'}"
+					class="group inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all {active
+						? 'bg-indigo-600 text-white shadow-2xs'
+						: 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}"
 				>
 					<Icon
 						icon={tab.icon}
 						class="h-4 w-4 shrink-0 transition-colors {active
-							? 'text-indigo-600'
+							? 'text-white'
 							: 'text-slate-400 group-hover:text-slate-600'}"
 					/>
-					{tab.label}
+					<span>{tab.label}</span>
 				</a>
 			{/each}
-		</nav>
+		</ScrollableTabs>
 	</header>
 
 	<main>

@@ -7,6 +7,7 @@
 	import AuditLogList from '$lib/components/AuditLogList.svelte';
 	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
 	import Pagination from '$lib/components/Pagination.svelte';
+	import ScrollableTabs from '$lib/components/ScrollableTabs.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
 	import StatusBadge from '$lib/components/StatusBadge.svelte';
 	import { auth } from '$lib/stores/auth.svelte.js';
@@ -278,24 +279,24 @@
 </p>
 
 <!-- Tab bar -->
-<div class="mt-6 border-b border-slate-200">
-	<nav class="-mb-px flex gap-0.5 overflow-x-auto" aria-label="Tenant management tabs">
+<div class="mt-6">
+	<ScrollableTabs ariaLabel="Tenant management tabs">
 		{#each tabs as tab (tab.id)}
+			{@const active = activeTab === tab.id}
 			<button
 				type="button"
 				onclick={() => (activeTab = tab.id)}
-				class="flex shrink-0 items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none {activeTab ===
-				tab.id
-					? 'border-indigo-600 text-indigo-600'
-					: 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700'}"
-				aria-current={activeTab === tab.id ? 'page' : undefined}
+				class="inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all {active
+					? 'bg-indigo-600 text-white shadow-2xs'
+					: 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}"
+				aria-current={active ? 'page' : undefined}
 			>
 				{#if tab.id === 'overview'}
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
 						viewBox="0 0 20 20"
 						fill="currentColor"
-						class="h-4 w-4"
+						class="h-4 w-4 shrink-0 {active ? 'text-white' : 'text-slate-400'}"
 					>
 						<path
 							fill-rule="evenodd"
@@ -308,7 +309,7 @@
 						xmlns="http://www.w3.org/2000/svg"
 						viewBox="0 0 20 20"
 						fill="currentColor"
-						class="h-4 w-4"
+						class="h-4 w-4 shrink-0 {active ? 'text-white' : 'text-slate-400'}"
 					>
 						<path
 							fill-rule="evenodd"
@@ -321,7 +322,7 @@
 						xmlns="http://www.w3.org/2000/svg"
 						viewBox="0 0 20 20"
 						fill="currentColor"
-						class="h-4 w-4"
+						class="h-4 w-4 shrink-0 {active ? 'text-white' : 'text-slate-400'}"
 					>
 						<path
 							d="M7 8a3 3 0 100-6 3 3 0 000 6zM14.5 9a2.5 2.5 0 100-5 2.5 2.5 0 000 5zM1.615 16.428a1.224 1.224 0 01-.569-1.175 6.002 6.002 0 0111.908 0c.058.467-.172.92-.57 1.174A9.953 9.953 0 017 18a9.953 9.953 0 01-5.385-1.572zM14.5 16h-.106c.07-.297.088-.611.048-.933a7.47 7.47 0 00-1.588-3.755 4.502 4.502 0 015.874 2.636.818.818 0 01-.36.98A7.465 7.465 0 0114.5 16z"
@@ -332,7 +333,7 @@
 						xmlns="http://www.w3.org/2000/svg"
 						viewBox="0 0 20 20"
 						fill="currentColor"
-						class="h-4 w-4"
+						class="h-4 w-4 shrink-0 {active ? 'text-white' : 'text-slate-400'}"
 					>
 						<path
 							d="M3.5 2.75a.75.75 0 00-1.5 0v14.5a.75.75 0 001.5 0v-4.392l1.657-.348a6.449 6.449 0 014.271.572 7.948 7.948 0 005.965.524l2.078-.64A.75.75 0 0018 12.25v-8.5a.75.75 0 00-.904-.734l-2.38.501a7.25 7.25 0 01-4.186-.363l-.502-.2a8.75 8.75 0 00-5.053-.439l-1.475.31V2.75z"
@@ -343,7 +344,7 @@
 						xmlns="http://www.w3.org/2000/svg"
 						viewBox="0 0 20 20"
 						fill="currentColor"
-						class="h-4 w-4"
+						class="h-4 w-4 shrink-0 {active ? 'text-white' : 'text-slate-400'}"
 					>
 						<path
 							fill-rule="evenodd"
@@ -356,7 +357,7 @@
 						xmlns="http://www.w3.org/2000/svg"
 						viewBox="0 0 20 20"
 						fill="currentColor"
-						class="h-4 w-4"
+						class="h-4 w-4 shrink-0 {active ? 'text-white' : 'text-slate-400'}"
 					>
 						<path
 							fill-rule="evenodd"
@@ -365,17 +366,19 @@
 						/>
 					</svg>
 				{/if}
-				{tab.label}
+				<span>{tab.label}</span>
 				{#if tab.id === 'users'}
 					<span
-						class="ml-0.5 rounded-full bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-600"
+						class="ml-0.5 rounded-full px-1.5 py-0.2 text-[10px] font-bold {active
+							? 'bg-indigo-700/80 text-white'
+							: 'bg-slate-100 text-slate-600'}"
 					>
 						{data.users.length}
 					</span>
 				{/if}
 			</button>
 		{/each}
-	</nav>
+	</ScrollableTabs>
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════════ -->
@@ -680,7 +683,67 @@
 			{#if data.users.length === 0}
 				<p class="px-6 py-8 text-sm text-slate-500">No admin users found for this tenant.</p>
 			{:else}
-				<div class="relative overflow-x-auto">
+				<!-- Mobile cards (< md): clearly separated distinct cards -->
+				<div class="space-y-3 p-3 bg-slate-50/60 md:hidden">
+					{#each data.users as user (user.id)}
+						<div class="rounded-xl border border-slate-200/90 bg-white p-4 shadow-2xs space-y-3 transition-shadow hover:shadow-xs">
+							<div class="flex items-start justify-between gap-3">
+								<div class="min-w-0">
+									<div class="text-sm font-semibold text-slate-900">{user.full_name}</div>
+									<div class="text-xs text-slate-500">{user.email}</div>
+								</div>
+								<span
+									class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset
+									{user.role === 'admin'
+										? 'bg-indigo-50 text-indigo-700 ring-indigo-600/20'
+										: 'bg-slate-100 text-slate-700 ring-slate-500/20'}"
+								>
+									{humanize(user.role)}
+								</span>
+							</div>
+
+							<div class="flex items-center justify-between text-xs text-slate-500">
+								<span
+									class="inline-flex items-center gap-1.5 font-medium
+									{user.is_active ? 'text-green-700' : 'text-slate-400'}"
+								>
+									<span
+										class="inline-block h-1.5 w-1.5 rounded-full {user.is_active
+											? 'bg-green-500'
+											: 'bg-slate-300'}"
+									></span>
+									{user.is_active ? 'Active' : 'Inactive'}
+								</span>
+								<span>Created {formatDate(user.created_at)}</span>
+							</div>
+
+							<div class="flex justify-end pt-1">
+								<button
+									type="button"
+									onclick={() => openReset(user.id)}
+									class="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+								>
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										viewBox="0 0 16 16"
+										fill="currentColor"
+										class="h-3.5 w-3.5"
+									>
+										<path
+											fill-rule="evenodd"
+											d="M8 1a3.5 3.5 0 00-3.5 3.5V7A1.5 1.5 0 003 8.5v5A1.5 1.5 0 004.5 15h7a1.5 1.5 0 001.5-1.5v-5A1.5 1.5 0 0011.5 7V4.5A3.5 3.5 0 008 1zm2 6V4.5a2 2 0 10-4 0V7h4z"
+											clip-rule="evenodd"
+										/>
+									</svg>
+									Reset password
+								</button>
+							</div>
+						</div>
+					{/each}
+				</div>
+
+				<!-- Desktop table (>= md) -->
+				<div class="relative hidden overflow-x-auto md:block">
 					<table class="min-w-full divide-y divide-slate-200">
 						<thead class="bg-slate-50">
 							<tr>
@@ -1010,7 +1073,50 @@
 		{#if data.settings.length === 0}
 			<p class="px-6 py-8 text-sm text-slate-500">No settings defined for this tenant yet.</p>
 		{:else}
-			<div class="relative overflow-x-auto">
+			<!-- Mobile cards (< md): clearly separated distinct cards -->
+			<div class="space-y-3 p-3 bg-slate-50/60 md:hidden">
+				{#each data.settings as s (s.key)}
+					<div class="rounded-xl border border-slate-200/90 bg-white p-4 shadow-2xs space-y-3 transition-shadow hover:shadow-xs">
+						<div class="flex items-start justify-between gap-3">
+							<span class="font-mono text-xs font-bold text-slate-800 break-all">{s.key}</span>
+							<span class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600 shrink-0">
+								{s.permission_level}
+							</span>
+						</div>
+						<div>
+							<label for="m-aset-{s.key}" class="sr-only">Value for {s.key}</label>
+							<input
+								id="m-aset-{s.key}"
+								type="text"
+								bind:value={settingDrafts[s.key]}
+								class="block w-full rounded-lg border-slate-300 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
+							/>
+						</div>
+						<div class="flex items-center justify-between pt-1">
+							<div>
+								{#if savedSettingKeys[s.key]}
+									<span role="status" class="text-xs font-semibold text-green-700">
+										✓ {savedSettingKeys[s.key]}
+									</span>
+								{/if}
+							</div>
+							<button
+								type="button"
+								disabled={savingSettingKey === s.key}
+								aria-busy={savingSettingKey === s.key}
+								onclick={() => saveSetting(s.key)}
+								class="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+							>
+								{#if savingSettingKey === s.key}<Spinner class="h-3 w-3" />{/if}
+								Save
+							</button>
+						</div>
+					</div>
+				{/each}
+			</div>
+
+			<!-- Desktop table (>= md) -->
+			<div class="relative hidden overflow-x-auto md:block">
 				<table class="min-w-full divide-y divide-slate-200">
 					<thead class="bg-slate-50">
 						<tr>

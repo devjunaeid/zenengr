@@ -156,7 +156,70 @@
 			</EmptyState>
 		{/if}
 	{:else}
-		<div class="relative overflow-x-auto">
+		<!-- Mobile cards (< md): clearly separated distinct cards -->
+		<div class="space-y-3 p-3 bg-slate-50/60 md:hidden">
+			{#each data.invoices.items as inv (inv.id)}
+				<div class="rounded-xl border border-slate-200/90 bg-white p-4 shadow-2xs space-y-3 transition-shadow hover:shadow-xs">
+					<div class="flex items-start justify-between gap-3">
+						<a
+							href={resolve('/app/invoices/[id]', { id: inv.id })}
+							class="font-mono text-sm font-bold text-indigo-600 hover:text-indigo-500"
+						>
+							{inv.invoice_number ?? 'Draft Invoice'}
+						</a>
+						<StatusBadge status={inv.status} />
+					</div>
+
+					<div class="flex items-center justify-between rounded-lg bg-slate-50 p-2.5">
+						<span class="text-xs text-slate-500">Total Amount</span>
+						<span class="text-sm font-bold text-slate-900">{fmtPrice(inv.total)}</span>
+					</div>
+
+					<div class="grid grid-cols-2 gap-2 text-xs text-slate-500">
+						<div>
+							<span class="text-slate-400">Issued:</span>
+							<span class="ml-1 text-slate-700">{formatDate(inv.issue_date)}</span>
+						</div>
+						<div>
+							<span class="text-slate-400">Due:</span>
+							<span class="ml-1 text-slate-700">{formatDate(inv.due_date)}</span>
+						</div>
+					</div>
+
+					<div class="flex items-center justify-end gap-2 pt-1">
+						<a
+							href={resolve('/app/invoices/[id]', { id: inv.id })}
+							class="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50"
+						>
+							View
+						</a>
+						{#if inv.status === 'draft'}
+							<button
+								type="button"
+								disabled={issueBusyId === inv.id}
+								aria-busy={issueBusyId === inv.id}
+								onclick={() => issueInvoice(inv)}
+								class="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white shadow-2xs hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+							>
+								{#if issueBusyId === inv.id}<Spinner class="h-3 w-3 text-white" />{/if}
+								Issue
+							</button>
+						{:else if inv.status === 'issued' || inv.status === 'partially_paid' || inv.status === 'paid'}
+							<button
+								type="button"
+								onclick={() => (voidTarget = inv)}
+								class="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs font-semibold text-rose-700 shadow-2xs hover:bg-rose-100"
+							>
+								Void
+							</button>
+						{/if}
+					</div>
+				</div>
+			{/each}
+		</div>
+
+		<!-- Desktop table (>= md) -->
+		<div class="relative hidden overflow-x-auto md:block">
 			<table class="min-w-full divide-y divide-slate-200">
 				<thead class="bg-slate-50">
 					<tr>

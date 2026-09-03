@@ -1,4 +1,4 @@
-import { apiFetch } from './client.js';
+import { apiFetch, BASE_URL, ApiError } from './client.js';
 
 /**
  * Account self-service API (FEAT-011): profile, password, notification
@@ -51,6 +51,13 @@ import { apiFetch } from './client.js';
  */
 function profilePath(realm) {
 	return realm === 'client' ? '/client/auth/user-profile' : '/auth/profile';
+}
+
+/**
+ * @param {AccountRealm} realm
+ */
+function avatarPath(realm) {
+	return realm === 'client' ? '/client/auth/user-profile/avatar' : '/auth/profile/avatar';
 }
 
 /**
@@ -131,6 +138,55 @@ export function getMe(fetchFn, token, options = {}) {
 export function updateProfile(fetchFn, token, payload, options = {}) {
 	const { realm = 'admin' } = options;
 	return apiFetch(fetchFn, profilePath(realm), { method: 'PATCH', token, body: payload });
+}
+
+/**
+ * Upload profile avatar picture (JPEG, PNG, WebP, GIF, max 5MB).
+ * @param {typeof fetch} fetchFn
+ * @param {string} token
+ * @param {File} file
+ * @param {RealmOptions} [options]
+ * @returns {Promise<{ avatar_url: string }>}
+ */
+export async function uploadAvatar(fetchFn, token, file, options = {}) {
+	const { realm = 'admin' } = options;
+	const form = new FormData();
+	form.append('file', file);
+	const res = await fetchFn(`${BASE_URL}${avatarPath(realm)}`, {
+		method: 'POST',
+		headers: { Authorization: `Bearer ${token}` },
+		body: form
+	});
+	if (!res.ok) {
+		let data = null;
+		try {
+			data = await res.json();
+		} catch {
+			// ignore
+		}
+		const msg =
+			data?.error?.message ||
+			(typeof data?.detail === 'string' ? data.detail : null) ||
+			(Array.isArray(data?.detail) ? data.detail.map((d) => d.msg).join(', ') : null) ||
+			(typeof data?.error === 'string' ? data.error : null) ||
+			res.statusText ||
+			'Upload failed';
+		const code = data?.error?.code ?? (res.status === 413 ? 'FILE_TOO_LARGE' : 'UPLOAD_FAILED');
+		throw new ApiError(res.status, code, msg, data?.error?.details ?? {});
+	}
+	return res.json();
+}
+
+/**
+ * Remove profile avatar picture.
+ * @param {typeof fetch} fetchFn
+ * @param {string} token
+ * @param {RealmOptions} [options]
+ * @returns {Promise<{ avatar_url: null }>}
+ */
+export function deleteAvatar(fetchFn, token, options = {}) {
+	const { realm = 'admin' } = options;
+	return apiFetch(fetchFn, avatarPath(realm), { method: 'DELETE', token });
 }
 
 /**

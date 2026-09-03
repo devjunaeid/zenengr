@@ -125,7 +125,81 @@
 			</EmptyState>
 		{/if}
 	{:else}
-		<div class="relative overflow-x-auto">
+		<!-- Mobile cards (< md): clearly separated distinct cards -->
+		<div class="space-y-3 p-3 bg-slate-50/60 md:hidden">
+			{#each data.projects.items as p (p.id)}
+				<div class="rounded-xl border border-slate-200/90 bg-white p-4 shadow-2xs space-y-3 transition-shadow hover:shadow-xs">
+					<div class="flex items-start justify-between gap-3">
+						<div class="min-w-0">
+							<div class="flex items-center gap-2">
+								<span
+									class="shrink-0 rounded border border-slate-200 bg-slate-100 px-1.5 py-0.5 font-mono text-[11px] font-bold text-slate-700 shadow-2xs"
+								>
+									{formatProjectCode(p.id)}
+								</span>
+								<a
+									href={resolve('/app/projects/[id]', { id: p.id })}
+									class="truncate text-sm font-semibold text-indigo-600 hover:text-indigo-500"
+								>
+									{p.name}
+								</a>
+							</div>
+						</div>
+						<StatusBadge status={p.status} />
+					</div>
+
+					<!-- Progress on mobile -->
+					<div>
+						<div class="mb-1 flex items-center justify-between text-xs text-slate-500">
+							<span>Milestone Progress</span>
+							<span>
+								{#if p.milestone_total > 0}
+									{p.milestone_completed}/{p.milestone_total} ({progressPct(p)}%)
+								{:else}
+									None
+								{/if}
+							</span>
+						</div>
+						<div
+							class="h-1.5 w-full rounded-full bg-slate-100"
+							role="progressbar"
+							aria-valuenow={p.milestone_completed}
+							aria-valuemin={0}
+							aria-valuemax={p.milestone_total}
+							aria-label={`Milestone progress for ${p.name}`}
+						>
+							<div
+								class="h-1.5 rounded-full bg-indigo-600 transition-all"
+								style="width: {progressPct(p)}%"
+							></div>
+						</div>
+					</div>
+
+					<div class="grid grid-cols-2 gap-2 rounded-lg bg-slate-50 p-2.5 text-xs">
+						<div>
+							<span class="text-slate-400">Services:</span>
+							<span class="ml-1 font-semibold text-slate-700">{p.service_count}</span>
+						</div>
+						<div>
+							<span class="text-slate-400">Start date:</span>
+							<span class="ml-1 text-slate-600">{formatDate(p.start_date)}</span>
+						</div>
+					</div>
+
+					<div class="flex justify-end pt-1">
+						<a
+							href={resolve('/app/projects/[id]', { id: p.id })}
+							class="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50"
+						>
+							View project
+						</a>
+					</div>
+				</div>
+			{/each}
+		</div>
+
+		<!-- Desktop table (>= md) -->
+		<div class="relative hidden overflow-x-auto md:block">
 			<table class="min-w-full divide-y divide-slate-200">
 				<thead class="bg-slate-50">
 					<tr>

@@ -5,6 +5,8 @@
 	import receiptText from '@iconify-icons/mdi/receipt-text';
 	import accountCircle from '@iconify-icons/mdi/account-circle';
 	import menu from '@iconify-icons/mdi/menu';
+	import logoutVariant from '@iconify-icons/mdi/logout';
+	import chevronDown from '@iconify-icons/mdi/chevron-down';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
@@ -31,11 +33,46 @@
 	}
 
 	function logout() {
+		userMenuOpen = false;
 		portalAuth.logout();
 		goto(resolve('/client/login'));
 	}
 
 	let menuOpen = $state(false);
+	let userMenuOpen = $state(false);
+	let menuRef = $state(/** @type {HTMLDivElement|null} */ (null));
+
+	/**
+	 * @param {string|undefined|null} name
+	 */
+	function getInitials(name) {
+		if (!name) return 'C';
+		const parts = name.trim().split(/\s+/);
+		if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+		return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+	}
+
+	// Close user menu on click outside or Escape
+	$effect(() => {
+		if (!userMenuOpen || !menuRef) return;
+		/** @param {PointerEvent} e */
+		function onPointerDown(e) {
+			const target = /** @type {Node|null} */ (e.target);
+			if (target && menuRef && !menuRef.contains(target)) {
+				userMenuOpen = false;
+			}
+		}
+		/** @param {KeyboardEvent} e */
+		function onKeydown(e) {
+			if (e.key === 'Escape') userMenuOpen = false;
+		}
+		document.addEventListener('pointerdown', onPointerDown);
+		document.addEventListener('keydown', onKeydown);
+		return () => {
+			document.removeEventListener('pointerdown', onPointerDown);
+			document.removeEventListener('keydown', onKeydown);
+		};
+	});
 </script>
 
 <svelte:head
@@ -98,7 +135,7 @@
 
 		<div class="flex min-w-0 flex-1 flex-col print:w-full">
 			<header
-				class="sticky top-0 z-30 flex items-center gap-3 border-b border-slate-200 bg-white px-4 py-3 md:px-6 print:hidden"
+				class="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3 md:px-6 print:hidden"
 			>
 				<button
 					type="button"
@@ -109,17 +146,95 @@
 				>
 					<Icon icon={menu} class="h-5 w-5" />
 				</button>
-				<span class="ml-auto hidden min-w-0 truncate text-sm text-slate-700 sm:inline">
-					{portalAuth.user?.full_name}
-				</span>
-				<NotificationBell realm="client" />
-				<button
-					type="button"
-					onclick={logout}
-					class="shrink-0 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
-				>
-					Log out
-				</button>
+				<div class="ml-auto flex items-center gap-2 sm:gap-3">
+					<NotificationBell realm="client" />
+
+					<!-- User Avatar Menu -->
+					<div class="relative" bind:this={menuRef}>
+						<button
+							type="button"
+							class="group flex items-center gap-1.5 rounded-full p-1 text-slate-700 hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+							aria-label="Client account menu"
+							aria-haspopup="menu"
+							aria-expanded={userMenuOpen}
+							onclick={() => (userMenuOpen = !userMenuOpen)}
+						>
+							<div
+								class="relative flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-indigo-600 to-violet-600 text-xs font-bold text-white shadow-sm ring-2 ring-white group-hover:ring-indigo-200"
+							>
+								<span class="select-none">{getInitials(portalAuth.user?.full_name)}</span>
+								{#if portalAuth.user?.avatar_url}
+									<img
+										src={assetUrl(portalAuth.user.avatar_url)}
+										alt=""
+										class="absolute inset-0 h-full w-full object-cover"
+										onerror={(e) => { e.currentTarget.style.display = 'none'; }}
+									/>
+								{/if}
+							</div>
+							<Icon icon={chevronDown} class="hidden h-3.5 w-3.5 text-slate-400 sm:block" />
+						</button>
+
+						{#if userMenuOpen}
+							<div
+								class="absolute right-0 z-50 mt-2 w-64 origin-top-right rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg ring-1 ring-black/5 focus:outline-none"
+								role="menu"
+								aria-orientation="vertical"
+							>
+								<div class="flex items-center gap-3 border-b border-slate-100 px-3 py-2.5">
+									<div
+										class="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-indigo-600 to-violet-600 text-xs font-bold text-white shadow-xs ring-1 ring-slate-200"
+									>
+										<span class="select-none">{getInitials(portalAuth.user?.full_name)}</span>
+										{#if portalAuth.user?.avatar_url}
+											<img
+												src={assetUrl(portalAuth.user.avatar_url)}
+												alt=""
+												class="absolute inset-0 h-full w-full object-cover"
+												onerror={(e) => { e.currentTarget.style.display = 'none'; }}
+											/>
+										{/if}
+									</div>
+									<div class="min-w-0 flex-1">
+										<p class="truncate text-sm font-semibold text-slate-900">
+											{portalAuth.user?.full_name || 'Client User'}
+										</p>
+										<p class="truncate text-xs text-slate-500">
+											{portalAuth.user?.email || ''}
+										</p>
+										{#if portalAuth.tenantName}
+											<p class="mt-0.5 truncate text-xs font-medium text-indigo-600">
+												{portalAuth.tenantName}
+											</p>
+										{/if}
+									</div>
+								</div>
+
+								<div class="space-y-0.5 p-1">
+									<a
+										href={resolve('/client/profile')}
+										onclick={() => (userMenuOpen = false)}
+										class="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100 focus:bg-slate-100 focus:outline-none"
+										role="menuitem"
+									>
+										<Icon icon={accountCircle} class="h-4 w-4 text-slate-500" />
+										<span>Profile & Account</span>
+									</a>
+
+									<button
+										type="button"
+										role="menuitem"
+										onclick={logout}
+										class="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm font-medium text-rose-600 transition-colors hover:bg-rose-50 focus:bg-rose-50 focus:outline-none"
+									>
+										<Icon icon={logoutVariant} class="h-4 w-4" />
+										<span>Log out</span>
+									</button>
+								</div>
+							</div>
+						{/if}
+					</div>
+				</div>
 			</header>
 			<main class="mx-auto w-full max-w-7xl flex-1 p-4 sm:p-6">
 				{@render children()}

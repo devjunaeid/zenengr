@@ -106,7 +106,7 @@
 			</div>
 		</div>
 
-		<div class="p-6">
+		<div class="p-4 sm:p-6">
 			{#if profileMsg}
 				<div
 					role="status"
@@ -200,7 +200,7 @@
 							type="submit"
 							disabled={profileBusy}
 							aria-busy={profileBusy}
-							class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-xs font-semibold text-white shadow-2xs transition-colors hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+							class="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-xs font-semibold text-white shadow-2xs transition-colors hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
 						>
 							{#if profileBusy}<Spinner class="h-3.5 w-3.5 text-white" />{/if}
 							Save Profile Changes
@@ -229,7 +229,7 @@
 			</div>
 		</div>
 
-		<div class="p-6">
+		<div class="p-4 sm:p-6">
 			{#if logoMsg}
 				<div
 					role="status"
@@ -279,13 +279,13 @@
 					</label>
 					<p class="text-xs text-slate-500">Supports PNG, JPEG, WebP, GIF, or SVG (Max 5MB).</p>
 					{#if isAdmin}
-						<div class="flex flex-wrap items-center gap-3">
+						<div class="flex flex-col gap-3 sm:flex-row sm:items-center">
 							<input
 								id="sp-logo"
 								type="file"
 								accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml,.png,.jpg,.jpeg,.webp,.gif,.svg"
 								onchange={onFileSelected}
-								class="block cursor-pointer text-xs text-slate-500 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-slate-700 hover:file:bg-slate-200"
+								class="block w-full cursor-pointer text-xs text-slate-500 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-slate-700 hover:file:bg-slate-200"
 							/>
 							{#if logoFile}
 								<button
@@ -293,7 +293,7 @@
 									disabled={logoBusy}
 									aria-busy={logoBusy}
 									onclick={uploadLogo}
-									class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white shadow-2xs transition-colors hover:bg-indigo-700 disabled:opacity-60"
+									class="w-full sm:w-auto inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-2xs transition-colors hover:bg-indigo-700 disabled:opacity-60 shrink-0"
 								>
 									{#if logoBusy}<Spinner class="h-3 w-3 text-white" />{/if}
 									Upload Logo

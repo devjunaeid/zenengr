@@ -5,6 +5,7 @@
 	import receiptText from '@iconify-icons/mdi/receipt-text';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
+	import ScrollableTabs from '$lib/components/ScrollableTabs.svelte';
 
 	let { data, children } = $props();
 
@@ -47,16 +48,13 @@
 </nav>
 
 <!-- Client Top Navigation Bar -->
-<nav
-	class="mb-6 flex gap-1.5 overflow-x-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-2xs"
-	aria-label="Client sections"
->
+<ScrollableTabs ariaLabel="Client sections" class="mb-6">
 	{#each tabs as tab (tab.href)}
 		{@const active = isActive(tab)}
 		<a
 			href={resolve(tab.href)}
 			aria-current={active ? 'page' : undefined}
-			class="group inline-flex shrink-0 items-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold whitespace-nowrap transition-all {active
+			class="group inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all {active
 				? 'bg-indigo-600 text-white shadow-2xs'
 				: 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}"
 		>
@@ -66,9 +64,9 @@
 					? 'text-white'
 					: 'text-slate-400 group-hover:text-slate-600'}"
 			/>
-			{tab.label}
+			<span>{tab.label}</span>
 		</a>
 	{/each}
-</nav>
+</ScrollableTabs>
 
 {@render children()}

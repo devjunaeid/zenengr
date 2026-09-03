@@ -551,8 +551,29 @@
 		</div>
 	</div>
 
-	<!-- Line Items Table -->
-	<div class="relative overflow-x-auto py-6">
+	<!-- Line Items (Cards on mobile < sm, Table on desktop >= sm) -->
+	<div class="space-y-2.5 py-4 sm:hidden">
+		{#each data.invoice.line_items as li (li.id)}
+			<div class="rounded-xl border border-slate-200/90 bg-slate-50/50 p-3.5 space-y-2 shadow-2xs">
+				<div class="flex items-start justify-between gap-2">
+					<div class="min-w-0 flex-1">
+						<p class="text-xs font-semibold text-slate-900">{li.description}</p>
+						{#if li.project_service_id}
+							<span class="block text-[11px] text-slate-500">from attached service</span>
+						{/if}
+					</div>
+					<span class="font-mono text-xs font-bold text-slate-900 shrink-0">{fmtPrice(li.amount)}</span>
+				</div>
+				<div class="flex items-center justify-between text-[11px] text-slate-500 border-t border-slate-200/60 pt-1.5">
+					<span>Qty: <strong class="font-mono text-slate-700">{li.quantity}</strong></span>
+					<span>Unit Price: <strong class="font-mono text-slate-700">{fmtPrice(li.unit_price)}</strong></span>
+				</div>
+			</div>
+		{/each}
+	</div>
+
+	<!-- Line Items Table (Desktop >= sm) -->
+	<div class="hidden sm:block relative overflow-x-auto py-6">
 		<table class="min-w-full divide-y divide-slate-200 text-xs">
 			<thead>
 				<tr class="text-[10px] font-bold tracking-wider text-slate-500 uppercase">

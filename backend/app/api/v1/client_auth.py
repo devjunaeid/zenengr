@@ -7,7 +7,7 @@ import secrets
 import uuid
 from datetime import UTC, datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
@@ -45,9 +45,11 @@ from app.schemas.client_auth import (
 )
 from app.services.account import (
     change_password,
+    delete_user_avatar,
     forgot_password_client,
     list_activity,
     reset_client_password,
+    save_user_avatar,
     update_client_profile,
     verify_email_client,
 )
@@ -382,6 +384,43 @@ async def update_client_user_profile_endpoint(
         email=body.email,
     )
     return _build_client_me_response(updated)
+
+
+@auth_router.post("/user-profile/avatar")
+async def upload_client_user_avatar(
+    file: UploadFile,
+    user: ClientUser = Depends(get_current_client_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, str | None]:
+    """Upload own client user profile avatar image (PNG/JPEG/WebP/GIF, max 5MB)."""
+    data = await file.read()
+    try:
+        avatar_url = await save_user_avatar(
+            session,
+            user=user,
+            filename=file.filename or "",
+            content_type=file.content_type or "",
+            data=data,
+            is_client=True,
+        )
+    except ValueError as exc:
+        status_code = (
+            status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
+            if "too large" in str(exc).lower()
+            else status.HTTP_422_UNPROCESSABLE_CONTENT
+        )
+        raise HTTPException(status_code=status_code, detail=str(exc)) from exc
+    return {"avatar_url": avatar_url}
+
+
+@auth_router.delete("/user-profile/avatar")
+async def delete_client_user_avatar(
+    user: ClientUser = Depends(get_current_client_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, str | None]:
+    """Remove own client user profile avatar image."""
+    await delete_user_avatar(session, user=user, is_client=True)
+    return {"avatar_url": None}
 
 
 @auth_router.get("/notification-preferences", response_model=list[NotificationPreferenceResponse])
