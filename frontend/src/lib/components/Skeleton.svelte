@@ -19,7 +19,7 @@
 </script>
 
 <div
-	class="animate-pulse bg-slate-200 dark:bg-slate-800 {roundedClasses[rounded] ?? 'rounded-md'} {className}"
+	class="animate-pulse bg-slate-200 {roundedClasses[rounded] ?? 'rounded-md'} {className}"
 	aria-hidden="true"
 	{...restProps}
 ></div>

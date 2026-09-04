@@ -29,12 +29,12 @@
 
 	<!-- Table Card Container -->
 	<div
-		class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs dark:border-slate-800 dark:bg-slate-900"
+		class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs"
 	>
 		<div class="relative overflow-x-auto">
 			<table class="w-full text-left text-sm">
 				<thead
-					class="border-b border-slate-100 bg-slate-50/75 dark:border-slate-800/60 dark:bg-slate-800/30"
+					class="border-b border-slate-100 bg-slate-50/75"
 				>
 					<tr>
 						<!-- eslint-disable-next-line no-unused-vars -- skeleton placeholder loop; item unused -->
@@ -47,7 +47,7 @@
 						{/each}
 					</tr>
 				</thead>
-				<tbody class="divide-y divide-slate-100 dark:divide-slate-800/50">
+				<tbody class="divide-y divide-slate-100">
 					<!-- eslint-disable-next-line no-unused-vars -- skeleton placeholder loop; item unused -->
 					{#each Array(rows) as _, rowIndex (rowIndex)}
 						<tr class="transition-colors">

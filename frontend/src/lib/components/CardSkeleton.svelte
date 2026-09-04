@@ -14,7 +14,7 @@
 	<!-- eslint-disable-next-line no-unused-vars -- skeleton placeholder loop; item value unused -->
 	{#each Array(count) as _, i (i)}
 		<div
-			class="relative overflow-hidden rounded-xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900"
+			class="relative overflow-hidden rounded-xl border border-slate-200 bg-white p-5 shadow-xs"
 		>
 			<div class="flex items-center justify-between">
 				<Skeleton class="h-4 w-28" />
