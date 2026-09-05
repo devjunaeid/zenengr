@@ -117,8 +117,10 @@ export async function apiFetch(fetchFn, path, options = {}) {
 			await new Promise((r) => setTimeout(r, 250));
 			return apiFetch(fetchFn, path, { ...options, _retry: true });
 		}
+	}
 
-		const data = await res.json().catch(() => null);
+	const data = await res.json().catch(() => null);
+	if (!res.ok) {
 		let message = res.statusText;
 		let code = 'UNKNOWN';
 		let details = {};
