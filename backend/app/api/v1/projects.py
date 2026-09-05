@@ -750,7 +750,7 @@ async def list_project_members(
     user: AdminUser = Depends(get_current_admin_user),
 ) -> list[ProjectMemberSummary]:
     members = await project_service.list_project_members(
-        session, tenant_id=user.tenant_id, project_id=id
+        session, tenant_id=_get_tenant_id(user), project_id=id
     )
     return [ProjectMemberSummary(**m) for m in members]
 
@@ -769,7 +769,7 @@ async def add_project_member(
 ) -> ProjectMemberSummary:
     member = await project_service.add_project_member(
         session,
-        tenant_id=user.tenant_id,
+        tenant_id=_get_tenant_id(user),
         project_id=id,
         user_id=body.user_id,
         role=body.role,
@@ -791,7 +791,7 @@ async def update_project_member(
 ) -> ProjectMemberSummary:
     member = await project_service.update_project_member(
         session,
-        tenant_id=user.tenant_id,
+        tenant_id=_get_tenant_id(user),
         project_id=id,
         member_id=member_id,
         role=body.role,
@@ -811,7 +811,7 @@ async def remove_project_member(
     user: AdminUser = Depends(require_permission("manage", "projects")),
 ) -> Response:
     await project_service.remove_project_member(
-        session, tenant_id=user.tenant_id, project_id=id, member_id=member_id
+        session, tenant_id=_get_tenant_id(user), project_id=id, member_id=member_id
     )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 

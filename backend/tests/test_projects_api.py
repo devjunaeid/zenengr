@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import uuid
 from datetime import date, timedelta
-from decimal import Decimal
 
 import pytest
 from httpx import AsyncClient
@@ -24,7 +23,6 @@ from app.models.enums import (
     AdminUserRole,
     ClientStatus,
     ClientType,
-    InvoiceStatus,
     TenantStatus,
 )
 from app.models.invoice import Invoice, InvoiceLineItem
@@ -461,6 +459,35 @@ class TestProjectCRUD:
             headers=await _admin_auth_header(ctx["admin"]),
         )
         assert resp.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_valid_owner_id_creates_project_and_owner_member(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        ctx = await _bootstrap(db_session)
+        resp = await client.post(
+            "/api/v1/tenant/projects/",
+            json={
+                "name": "Project With Owner",
+                "client_id": str(ctx["client"].id),
+                "owner_id": str(ctx["admin"].id),
+            },
+            headers=await _admin_auth_header(ctx["admin"]),
+        )
+        assert resp.status_code == 201
+        data = resp.json()
+        assert data["owner_id"] == str(ctx["admin"].id)
+
+        # Verify detail response includes owner as member
+        detail_resp = await client.get(
+            f"/api/v1/tenant/projects/{data['id']}",
+            headers=await _admin_auth_header(ctx["admin"]),
+        )
+        assert detail_resp.status_code == 200
+        members = detail_resp.json()["members"]
+        assert len(members) == 1
+        assert members[0]["user_id"] == str(ctx["admin"].id)
+        assert members[0]["role"] == "lead"
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1735,7 +1762,8 @@ class TestAutoInvoice:
         invoices = await _invoices_for_project(db_session, pid)
         assert len(invoices) == 0
 
-        # Attaching services also keeps financial tracking on the live statement without auto-drafting
+        # Attaching services also keeps financial tracking on the
+        # live statement without auto-drafting
         await client.patch(
             f"/api/v1/tenant/projects/{pid}",
             json={"status": "active"},
@@ -1855,7 +1883,9 @@ class TestProjectMembersAPI:
         assert del_resp.status_code == 204
 
         # List members empty again
-        resp_after = await client.get(f"/api/v1/tenant/projects/{pid}/members", headers=admin_headers)
+        resp_after = await client.get(
+            f"/api/v1/tenant/projects/{pid}/members", headers=admin_headers
+        )
         assert resp_after.status_code == 200
         assert resp_after.json() == []
 

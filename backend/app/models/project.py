@@ -12,7 +12,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Index, Numeric, String, Uuid
+from sqlalchemy import Boolean, Date, DateTime, Enum, ForeignKey, Index, Numeric, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -92,7 +92,14 @@ class ProjectMember(TimestampMixin, Base):
         Uuid, ForeignKey("admin_users.id", ondelete="CASCADE"), index=True, nullable=False
     )
     role: Mapped[ProjectMemberRole] = mapped_column(
-        default=ProjectMemberRole.CONTRIBUTOR, nullable=False
+        Enum(
+            ProjectMemberRole,
+            native_enum=False,
+            values_callable=lambda obj: [e.value for e in obj],
+            length=32,
+        ),
+        default=ProjectMemberRole.CONTRIBUTOR,
+        nullable=False,
     )
     tenant_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("tenants.id"), index=True, nullable=False
