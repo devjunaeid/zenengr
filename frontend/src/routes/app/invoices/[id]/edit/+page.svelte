@@ -128,7 +128,7 @@
 <svelte:head><title>Edit {initial.invoice_number ?? 'draft'} — ZenEngr</title></svelte:head>
 
 <nav aria-label="Breadcrumb" class="text-sm text-slate-500">
-	<ol class="flex items-center gap-1">
+	<ol class="flex flex-wrap items-center gap-1">
 		<li>
 			<a href={resolve('/app/invoices')} class="hover:text-indigo-600">Invoices</a>
 		</li>

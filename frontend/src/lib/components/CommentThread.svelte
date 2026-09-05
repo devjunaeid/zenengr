@@ -199,7 +199,7 @@
 								aria-label="Edit comment"
 								title="Edit comment"
 								onclick={() => startEdit(c)}
-								class="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+								class="rounded p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
 							>
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
@@ -224,7 +224,7 @@
 									deletingId = c.id;
 									err = null;
 								}}
-								class="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none"
+								class="rounded p-2 text-slate-400 hover:bg-red-50 hover:text-red-600 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none"
 							>
 								<svg
 									xmlns="http://www.w3.org/2000/svg"

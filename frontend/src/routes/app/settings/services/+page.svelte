@@ -70,33 +70,39 @@
 
 		<!-- Filter Bar -->
 		<form
-			class="mt-4 flex flex-col gap-2.5 sm:flex-row sm:items-center border-t border-slate-100 pt-4"
+			class="mt-4 flex flex-col gap-2.5 border-t border-slate-100 pt-4 sm:flex-row sm:items-center"
 			onsubmit={(e) => {
 				e.preventDefault();
 				applyFilters();
 			}}
 		>
-			<div class="relative w-full sm:flex-1">
-				<Icon icon={magnify} class="absolute top-2.5 left-3 h-4 w-4 text-slate-400" />
-				<input
-					id="f-q"
-					type="search"
-					bind:value={q}
-					placeholder="Search services by name or description..."
-					class="w-full rounded-lg border border-slate-200 bg-slate-50/50 py-2 pr-3 pl-9 text-xs text-slate-800 placeholder-slate-400 shadow-2xs focus:border-indigo-500 focus:bg-white focus:ring-1 focus:ring-indigo-500 focus:outline-none"
-				/>
+			<div class="w-full sm:flex-1">
+				<label for="f-q" class="block text-xs font-medium text-slate-600">Search</label>
+				<div class="relative mt-1">
+					<Icon icon={magnify} class="absolute top-2.5 left-3 h-4 w-4 text-slate-400" />
+					<input
+						id="f-q"
+						type="search"
+						bind:value={q}
+						placeholder="Search services by name or description..."
+						class="w-full rounded-lg border border-slate-200 bg-slate-50/50 py-2 pr-3 pl-9 text-xs text-slate-800 placeholder-slate-400 shadow-2xs focus:border-indigo-500 focus:bg-white focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+					/>
+				</div>
 			</div>
 
 			<div class="flex items-center gap-2">
-				<select
-					id="f-status"
-					bind:value={isActive}
-					class="w-full sm:w-auto rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs text-slate-700 shadow-2xs focus:border-indigo-500 focus:bg-white focus:ring-1 focus:ring-indigo-500 focus:outline-none"
-				>
-					<option value="">All Statuses</option>
-					<option value="active">Active Only</option>
-					<option value="inactive">Inactive Only</option>
-				</select>
+				<div class="w-full sm:w-auto">
+					<label for="f-status" class="block text-xs font-medium text-slate-600">Status</label>
+					<select
+						id="f-status"
+						bind:value={isActive}
+						class="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs text-slate-700 shadow-2xs focus:border-indigo-500 focus:bg-white focus:ring-1 focus:ring-indigo-500 focus:outline-none sm:w-auto"
+					>
+						<option value="">All Statuses</option>
+						<option value="active">Active Only</option>
+						<option value="inactive">Inactive Only</option>
+					</select>
+				</div>
 
 				<button
 					type="submit"
@@ -138,9 +144,11 @@
 			{/if}
 		{:else}
 			<!-- Mobile cards (< md): clearly separated distinct cards -->
-			<div class="space-y-3 p-3 bg-slate-50/60 md:hidden">
+			<div class="space-y-3 bg-slate-50/60 p-3 md:hidden">
 				{#each data.services.items as s (s.id)}
-					<div class="rounded-xl border border-slate-200/90 bg-white p-4 shadow-2xs space-y-3 transition-shadow hover:shadow-xs">
+					<div
+						class="space-y-3 rounded-xl border border-slate-200/90 bg-white p-4 shadow-2xs transition-shadow hover:shadow-xs"
+					>
 						<div class="flex items-start justify-between gap-3">
 							<div class="min-w-0">
 								<a
@@ -150,7 +158,7 @@
 									{s.name}
 								</a>
 								{#if s.description}
-									<p class="mt-0.5 text-xs text-slate-500 line-clamp-2">{s.description}</p>
+									<p class="mt-0.5 line-clamp-2 text-xs text-slate-500">{s.description}</p>
 								{/if}
 							</div>
 							<StatusBadge status={s.is_active ? 'active' : 'inactive'} />
@@ -164,7 +172,8 @@
 							<div>
 								<span class="text-slate-400">Milestones:</span>
 								<span class="ml-1 font-semibold text-slate-700">
-									{s.step_count} {s.step_count === 1 ? 'step' : 'steps'}
+									{s.step_count}
+									{s.step_count === 1 ? 'step' : 'steps'}
 								</span>
 							</div>
 							<div class="col-span-2">

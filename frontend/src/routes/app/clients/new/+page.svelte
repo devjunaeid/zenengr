@@ -94,7 +94,7 @@
 	<!-- Top Breadcrumb & Header -->
 	<div class="mb-6">
 		<nav aria-label="Breadcrumb" class="text-xs font-medium text-slate-500">
-			<ol class="flex items-center gap-1.5">
+			<ol class="flex flex-wrap items-center gap-1.5">
 				<li>
 					<a href={resolve('/app/clients')} class="transition-colors hover:text-indigo-600"
 						>Clients</a

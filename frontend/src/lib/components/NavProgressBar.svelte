@@ -1,6 +1,5 @@
 <script>
 	import { navigating } from '$app/state';
-	import { onMount } from 'svelte';
 
 	let progress = $state(0);
 	let isVisible = $state(false);
@@ -19,6 +18,9 @@
 					progress += Math.max(diff, 1.5);
 				}
 			}, 100);
+			return () => {
+				if (timer) clearInterval(timer);
+			};
 		} else {
 			if (timer) clearInterval(timer);
 			if (isVisible) {
@@ -27,7 +29,10 @@
 					isVisible = false;
 					progress = 0;
 				}, 250);
-				return () => clearTimeout(timeout);
+				return () => {
+					if (timer) clearInterval(timer);
+					clearTimeout(timeout);
+				};
 			}
 		}
 	});
@@ -37,13 +42,14 @@
 	<div
 		class="fixed inset-x-0 top-0 z-50 h-1 overflow-hidden bg-transparent"
 		role="progressbar"
+		aria-label="Page loading"
 		aria-valuemin="0"
 		aria-valuemax="100"
 		aria-valuenow={Math.round(progress)}
 	>
 		<div
-			class="h-full bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-500 shadow-sm transition-all duration-200 ease-out"
-			style="width: {progress}%; box-shadow: 0 0 10px rgba(99, 102, 241, 0.6);"
+			class="h-full w-full origin-left bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-500 shadow-[0_0_10px_rgba(99,102,241,0.6)] transition-transform duration-200 ease-out"
+			style="transform: scaleX({progress / 100});"
 		></div>
 	</div>
 {/if}

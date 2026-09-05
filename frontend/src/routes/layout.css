@@ -5,3 +5,41 @@
 :root {
 	color-scheme: light;
 }
+
+/* Semantic brand tokens mapped onto the current indigo palette, kept for
+   future adoption. Nothing references them yet, so nothing changes. */
+@theme {
+	--color-brand-50: var(--color-indigo-50);
+	--color-brand-100: var(--color-indigo-100);
+	--color-brand-200: var(--color-indigo-200);
+	--color-brand-300: var(--color-indigo-300);
+	--color-brand-400: var(--color-indigo-400);
+	--color-brand-500: var(--color-indigo-500);
+	--color-brand-600: var(--color-indigo-600);
+	--color-brand-700: var(--color-indigo-700);
+	--color-brand-800: var(--color-indigo-800);
+	--color-brand-900: var(--color-indigo-900);
+}
+
+/* Dialog overlays/panels, dropdowns, and inline toasts reference these
+   utilities (`animate-fade-in`, `animate-in`). Safe to animate `transform`
+   here: Tailwind v4 translate utilities use the independent `translate`
+   property, so the dialogs' -translate-x/y-1/2 centering is untouched. */
+@keyframes impeccable-fade-in {
+	from {
+		opacity: 0;
+		transform: translateY(4px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+.animate-fade-in {
+	animation: impeccable-fade-in 0.15s ease-out both;
+}
+
+.animate-in {
+	animation: impeccable-fade-in 0.2s ease-out both;
+}

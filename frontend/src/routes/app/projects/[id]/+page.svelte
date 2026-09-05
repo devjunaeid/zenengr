@@ -19,13 +19,7 @@
 	import CopyBadge from '$lib/components/CopyBadge.svelte';
 	import { auth } from '$lib/stores/auth.svelte.js';
 	import { formatAddress } from '$lib/utils/address.js';
-	import {
-		formatDate,
-		formatDateTime,
-		fmtPrice,
-		fmtBytes,
-		humanize
-	} from '$lib/utils/format.js';
+	import { formatDate, formatDateTime, fmtPrice, fmtBytes, humanize } from '$lib/utils/format.js';
 	import * as filesApi from '$lib/api/files.js';
 	import FileCard from '$lib/components/FileCard.svelte';
 	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
@@ -1022,44 +1016,60 @@
 	<ScrollableTabs ariaLabel="Project tabs">
 		<button
 			type="button"
+			aria-current={activeTab === 'overview' ? 'true' : undefined}
 			onclick={() => (activeTab = 'overview')}
 			class="inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all {activeTab ===
 			'overview'
 				? 'bg-indigo-600 text-white shadow-2xs'
 				: 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}"
 		>
-			<Icon icon={viewDashboard} class="h-4 w-4 shrink-0 {activeTab === 'overview' ? 'text-white' : 'text-slate-400'}" />
+			<Icon
+				icon={viewDashboard}
+				class="h-4 w-4 shrink-0 {activeTab === 'overview' ? 'text-white' : 'text-slate-400'}"
+			/>
 			<span>Overview</span>
 		</button>
 		<button
 			type="button"
+			aria-current={activeTab === 'services' ? 'true' : undefined}
 			onclick={() => (activeTab = 'services')}
 			class="inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all {activeTab ===
 			'services'
 				? 'bg-indigo-600 text-white shadow-2xs'
 				: 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}"
 		>
-			<Icon icon={apps} class="h-4 w-4 shrink-0 {activeTab === 'services' ? 'text-white' : 'text-slate-400'}" />
+			<Icon
+				icon={apps}
+				class="h-4 w-4 shrink-0 {activeTab === 'services' ? 'text-white' : 'text-slate-400'}"
+			/>
 			<span>Services & Milestones</span>
-			<span class="rounded-full px-1.5 py-0.2 text-[10px] font-bold {activeTab === 'services' ? 'bg-indigo-700/80 text-white' : 'bg-slate-100 text-slate-600'}">
+			<span
+				class="py-0.2 rounded-full px-1.5 text-[10px] font-bold {activeTab === 'services'
+					? 'bg-indigo-700/80 text-white'
+					: 'bg-slate-100 text-slate-600'}"
+			>
 				{serviceCount}
 			</span>
 		</button>
 		<button
 			type="button"
+			aria-current={activeTab === 'ledger' ? 'true' : undefined}
 			onclick={() => (activeTab = 'ledger')}
 			class="inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all {activeTab ===
 			'ledger'
 				? 'bg-indigo-600 text-white shadow-2xs'
 				: 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}"
 		>
-			<Icon icon={receiptText} class="h-4 w-4 shrink-0 {activeTab === 'ledger' ? 'text-white' : 'text-slate-400'}" />
+			<Icon
+				icon={receiptText}
+				class="h-4 w-4 shrink-0 {activeTab === 'ledger' ? 'text-white' : 'text-slate-400'}"
+			/>
 			<span>Ledger & Financials</span>
 			{#if ledgerSummary}
 				{@const adv = Number(ledgerSummary.advance_balance) || 0}
 				{@const due = Number(ledgerSummary.due) || 0}
 				<span
-					class="rounded-full px-1.5 py-0.2 text-[10px] font-bold {activeTab === 'ledger'
+					class="py-0.2 rounded-full px-1.5 text-[10px] font-bold {activeTab === 'ledger'
 						? 'bg-indigo-700/80 text-white'
 						: adv > 0
 							? 'bg-emerald-100 text-emerald-800'
@@ -1073,45 +1083,66 @@
 		</button>
 		<button
 			type="button"
+			aria-current={activeTab === 'invoices' ? 'true' : undefined}
 			onclick={() => (activeTab = 'invoices')}
 			class="inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all {activeTab ===
 			'invoices'
 				? 'bg-indigo-600 text-white shadow-2xs'
 				: 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}"
 		>
-			<Icon icon={fileMultiple} class="h-4 w-4 shrink-0 {activeTab === 'invoices' ? 'text-white' : 'text-slate-400'}" />
+			<Icon
+				icon={fileMultiple}
+				class="h-4 w-4 shrink-0 {activeTab === 'invoices' ? 'text-white' : 'text-slate-400'}"
+			/>
 			<span>Invoices</span>
-			<span class="rounded-full px-1.5 py-0.2 text-[10px] font-bold {activeTab === 'invoices' ? 'bg-indigo-700/80 text-white' : 'bg-slate-100 text-slate-600'}">
+			<span
+				class="py-0.2 rounded-full px-1.5 text-[10px] font-bold {activeTab === 'invoices'
+					? 'bg-indigo-700/80 text-white'
+					: 'bg-slate-100 text-slate-600'}"
+			>
 				{invoiceList.length}
 			</span>
 		</button>
 		<button
 			type="button"
+			aria-current={activeTab === 'files' ? 'true' : undefined}
 			onclick={() => (activeTab = 'files')}
 			class="inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all {activeTab ===
 			'files'
 				? 'bg-indigo-600 text-white shadow-2xs'
 				: 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}"
 		>
-			<Icon icon={folderOutline} class="h-4 w-4 shrink-0 {activeTab === 'files' ? 'text-white' : 'text-slate-400'}" />
+			<Icon
+				icon={folderOutline}
+				class="h-4 w-4 shrink-0 {activeTab === 'files' ? 'text-white' : 'text-slate-400'}"
+			/>
 			<span>Files</span>
-			<span class="rounded-full px-1.5 py-0.2 text-[10px] font-bold {activeTab === 'files' ? 'bg-indigo-700/80 text-white' : 'bg-slate-100 text-slate-600'}">
+			<span
+				class="py-0.2 rounded-full px-1.5 text-[10px] font-bold {activeTab === 'files'
+					? 'bg-indigo-700/80 text-white'
+					: 'bg-slate-100 text-slate-600'}"
+			>
 				{projectFileList.length}
 			</span>
 		</button>
 		<button
 			type="button"
+			aria-current={activeTab === 'comments' ? 'true' : undefined}
 			onclick={() => (activeTab = 'comments')}
 			class="inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all {activeTab ===
 			'comments'
 				? 'bg-indigo-600 text-white shadow-2xs'
 				: 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}"
 		>
-			<Icon icon={comment} class="h-4 w-4 shrink-0 {activeTab === 'comments' ? 'text-white' : 'text-slate-400'}" />
+			<Icon
+				icon={comment}
+				class="h-4 w-4 shrink-0 {activeTab === 'comments' ? 'text-white' : 'text-slate-400'}"
+			/>
 			<span>Comments</span>
 		</button>
 		<button
 			type="button"
+			aria-current={activeTab === 'purchases' ? 'true' : undefined}
 			onclick={() => {
 				activeTab = 'purchases';
 				if (!purchaseListLoaded) loadPurchaseEntries();
@@ -1122,16 +1153,24 @@
 				: 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}"
 			id="tab-purchases"
 		>
-			<Icon icon={cartOutline} class="h-4 w-4 shrink-0 {activeTab === 'purchases' ? 'text-white' : 'text-slate-400'}" />
+			<Icon
+				icon={cartOutline}
+				class="h-4 w-4 shrink-0 {activeTab === 'purchases' ? 'text-white' : 'text-slate-400'}"
+			/>
 			<span>Purchases</span>
 			{#if purchaseList.length > 0}
-				<span class="rounded-full px-1.5 py-0.2 text-[10px] font-bold {activeTab === 'purchases' ? 'bg-indigo-700/80 text-white' : 'bg-slate-100 text-slate-600'}">
+				<span
+					class="py-0.2 rounded-full px-1.5 text-[10px] font-bold {activeTab === 'purchases'
+						? 'bg-indigo-700/80 text-white'
+						: 'bg-slate-100 text-slate-600'}"
+				>
 					{purchaseList.length}
 				</span>
 			{/if}
 		</button>
 		<button
 			type="button"
+			aria-current={activeTab === 'team' ? 'true' : undefined}
 			onclick={() => (activeTab = 'team')}
 			class="inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all {activeTab ===
 			'team'
@@ -1139,10 +1178,17 @@
 				: 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}"
 			id="tab-team"
 		>
-			<Icon icon={account} class="h-4 w-4 shrink-0 {activeTab === 'team' ? 'text-white' : 'text-slate-400'}" />
+			<Icon
+				icon={account}
+				class="h-4 w-4 shrink-0 {activeTab === 'team' ? 'text-white' : 'text-slate-400'}"
+			/>
 			<span>Team</span>
 			{#if memberList.length > 0}
-				<span class="rounded-full px-1.5 py-0.2 text-[10px] font-bold {activeTab === 'team' ? 'bg-indigo-700/80 text-white' : 'bg-slate-100 text-slate-600'}">
+				<span
+					class="py-0.2 rounded-full px-1.5 text-[10px] font-bold {activeTab === 'team'
+						? 'bg-indigo-700/80 text-white'
+						: 'bg-slate-100 text-slate-600'}"
+				>
 					{memberList.length}
 				</span>
 			{/if}
@@ -1462,10 +1508,14 @@
 			<p class="px-6 py-8 text-sm text-slate-500">No services attached yet.</p>
 		{:else}
 			<!-- Mobile cards (< md): clearly separated distinct cards -->
-			<div class="space-y-3 p-3 bg-slate-50/60 md:hidden">
+			<div class="space-y-3 bg-slate-50/60 p-3 md:hidden">
 				{#each data.project.services as ps (ps.id)}
 					{@const isCancelled = ps.status === 'cancelled'}
-					<div class="rounded-xl border border-slate-200/90 bg-white p-4 shadow-2xs space-y-3 transition-shadow hover:shadow-xs {isCancelled ? 'opacity-60 bg-slate-50' : ''}">
+					<div
+						class="space-y-3 rounded-xl border border-slate-200/90 bg-white p-4 shadow-2xs transition-shadow hover:shadow-xs {isCancelled
+							? 'bg-slate-50 opacity-60'
+							: ''}"
+					>
 						<div class="flex items-start justify-between gap-3">
 							<span class="text-sm font-bold text-slate-900 {isCancelled ? 'line-through' : ''}">
 								{ps.service_name}
@@ -1476,7 +1526,8 @@
 						<div class="grid grid-cols-2 gap-2 rounded-lg bg-slate-50 p-2.5 text-xs">
 							<div>
 								<span class="text-slate-400">Price:</span>
-								<span class="ml-1 font-bold text-slate-900">{fmtPrice(ps.price_at_attachment)}</span>
+								<span class="ml-1 font-bold text-slate-900">{fmtPrice(ps.price_at_attachment)}</span
+								>
 							</div>
 							<div>
 								<span class="text-slate-400">Milestones:</span>
@@ -1873,9 +1924,11 @@
 			</div>
 		{:else}
 			<!-- Mobile cards (< md): clearly separated distinct cards -->
-			<div class="space-y-3 p-3 bg-slate-50/60 md:hidden">
+			<div class="space-y-3 bg-slate-50/60 p-3 md:hidden">
 				{#each invoiceList as inv (inv.id)}
-					<div class="rounded-xl border border-slate-200/90 bg-white p-4 shadow-2xs space-y-3 transition-shadow hover:shadow-xs">
+					<div
+						class="space-y-3 rounded-xl border border-slate-200/90 bg-white p-4 shadow-2xs transition-shadow hover:shadow-xs"
+					>
 						<div class="flex items-start justify-between gap-3">
 							<a
 								href={resolve('/app/invoices/[id]', { id: inv.id })}
@@ -2287,39 +2340,38 @@
 {/if}
 
 <!-- ═══════════════ Purchase Entry — Add/Edit Modal ═══════════════════════ -->
-{#if purchaseModalOpen}
-	<div
-		class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/60 p-4 pt-12 backdrop-blur-xs"
-		role="dialog"
-		aria-modal="true"
-		aria-labelledby="purchase-modal-title"
-	>
-		<div class="w-full max-w-3xl rounded-2xl bg-white shadow-2xl">
+<Dialog.Root bind:open={purchaseModalOpen}>
+	<Dialog.Portal>
+		<Dialog.Overlay class="fixed inset-0 z-40 bg-black/50" />
+		<Dialog.Content
+			class="fixed top-1/2 left-1/2 z-50 max-h-[calc(100vh-2rem)] w-[calc(100%-2rem)] max-w-3xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-white shadow-2xl focus:outline-none sm:max-h-[85vh]"
+		>
 			<!-- Modal header -->
 			<div class="flex items-center justify-between border-b border-slate-100 px-6 py-4">
 				<div>
-					<h2 id="purchase-modal-title" class="text-base font-semibold text-slate-900">
+					<Dialog.Title class="text-base font-semibold text-slate-900">
 						{purchaseEditTarget ? 'Edit Purchase Entry' : 'New Purchase Entry'}
-					</h2>
-					<p class="mt-0.5 text-xs text-slate-400">
+					</Dialog.Title>
+					<Dialog.Description class="mt-0.5 text-xs text-slate-400">
 						All items belong to this entry. Totals are computed automatically.
-					</p>
+					</Dialog.Description>
 				</div>
-				<button
-					type="button"
-					onclick={() => (purchaseModalOpen = false)}
-					class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+				<Dialog.Close
 					aria-label="Close"
+					class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
 				>
-					<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"
-						><path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M6 18L18 6M6 6l12 12"
-						/></svg
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						viewBox="0 0 20 20"
+						fill="currentColor"
+						class="h-5 w-5"
+						aria-hidden="true"
 					>
-				</button>
+						<path
+							d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"
+						/>
+					</svg>
+				</Dialog.Close>
 			</div>
 
 			<div class="space-y-5 px-6 py-5">
@@ -2512,43 +2564,52 @@
 					Save Entry
 				</button>
 			</div>
-		</div>
-	</div>
-{/if}
+		</Dialog.Content>
+	</Dialog.Portal>
+</Dialog.Root>
 
 <!-- ═══════════════ Purchase Entry — Invoice-Style View ═══════════════════ -->
-{#if purchaseViewEntry || purchaseViewLoading || purchaseViewErr}
-	<div
-		class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/60 p-4 pt-12 backdrop-blur-xs"
-		role="dialog"
-		aria-modal="true"
-		aria-labelledby="purchase-view-title"
-	>
-		<div class="w-full max-w-2xl rounded-2xl bg-white shadow-2xl">
+<Dialog.Root
+	bind:open={
+		() => Boolean(purchaseViewEntry || purchaseViewLoading || purchaseViewErr),
+		(v) => {
+			if (!v) {
+				purchaseViewEntry = null;
+				purchaseViewErr = null;
+			}
+		}
+	}
+>
+	<Dialog.Portal>
+		<Dialog.Overlay class="fixed inset-0 z-40 bg-black/50" />
+		<Dialog.Content
+			class="fixed top-1/2 left-1/2 z-50 max-h-[calc(100vh-2rem)] w-[calc(100%-2rem)] max-w-2xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-white shadow-2xl focus:outline-none sm:max-h-[85vh]"
+		>
 			<!-- View header -->
 			<div class="flex items-center justify-between border-b border-slate-100 px-6 py-4">
-				<h2 id="purchase-view-title" class="text-base font-semibold text-slate-900">
+				<Dialog.Title class="text-base font-semibold text-slate-900">
 					Purchase Entry — Detail View
-				</h2>
-				<button
-					type="button"
-					onclick={() => {
-						purchaseViewEntry = null;
-						purchaseViewErr = null;
-					}}
-					class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+				</Dialog.Title>
+				<Dialog.Close
 					aria-label="Close"
+					class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
 				>
-					<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"
-						><path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M6 18L18 6M6 6l12 12"
-						/></svg
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						viewBox="0 0 20 20"
+						fill="currentColor"
+						class="h-5 w-5"
+						aria-hidden="true"
 					>
-				</button>
+						<path
+							d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"
+						/>
+					</svg>
+				</Dialog.Close>
 			</div>
+			<Dialog.Description class="sr-only">
+				Invoice-style detail view of the selected purchase entry.
+			</Dialog.Description>
 
 			<div class="px-6 py-6">
 				{#if purchaseViewLoading}
@@ -2652,9 +2713,9 @@
 					</div>
 				{/if}
 			</div>
-		</div>
-	</div>
-{/if}
+		</Dialog.Content>
+	</Dialog.Portal>
+</Dialog.Root>
 
 {#if activeTab === 'team'}
 	<!-- ═══════════════════════════════ TEAM TAB ════════════════════════════ -->
@@ -2692,24 +2753,30 @@
 				</div>
 			{:else}
 				<!-- Mobile cards (< md): clearly separated distinct cards -->
-				<div class="space-y-3 p-3 bg-slate-50/60 md:hidden">
+				<div class="space-y-3 bg-slate-50/60 p-3 md:hidden">
 					{#each memberList as m (m.id)}
-						<div class="rounded-xl border border-slate-200/90 bg-white p-4 shadow-2xs space-y-3 transition-shadow hover:shadow-xs">
+						<div
+							class="space-y-3 rounded-xl border border-slate-200/90 bg-white p-4 shadow-2xs transition-shadow hover:shadow-xs"
+						>
 							<div class="flex items-start justify-between gap-3">
 								<div class="min-w-0">
 									<p class="text-sm font-semibold text-slate-900">{m.full_name || 'Staff User'}</p>
 									<p class="text-xs text-slate-500">{m.email || '—'}</p>
 								</div>
 								{#if !canManage}
-									<span class="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700 uppercase">
+									<span
+										class="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700 uppercase"
+									>
 										{m.role}
 									</span>
 								{/if}
 							</div>
 
 							{#if canManage}
-								<div class="flex items-center justify-between gap-2 rounded-lg bg-slate-50 p-2.5 text-xs">
-									<span class="text-slate-500 font-medium">Project Role:</span>
+								<div
+									class="flex items-center justify-between gap-2 rounded-lg bg-slate-50 p-2.5 text-xs"
+								>
+									<span class="font-medium text-slate-500">Project Role:</span>
 									<select
 										value={m.role}
 										disabled={memberRoleBusy === m.id}
@@ -3652,30 +3719,35 @@
 </Dialog.Root>
 
 <!-- File Upload Dialog -->
-{#if showFileUploadModal}
-	<div
-		class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-xs"
-		role="dialog"
-		aria-modal="true"
-	>
-		<div class="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+<Dialog.Root bind:open={showFileUploadModal}>
+	<Dialog.Portal>
+		<Dialog.Overlay class="fixed inset-0 z-40 bg-black/50" />
+		<Dialog.Content
+			class="fixed top-1/2 left-1/2 z-50 max-h-[calc(100vh-2rem)] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg bg-white p-4 shadow-xl focus:outline-none sm:max-h-[85vh] sm:p-6"
+		>
 			<div class="flex items-center justify-between border-b border-slate-100 pb-3">
-				<h2 class="text-lg font-semibold text-slate-900">Upload Project File</h2>
-				<button
-					type="button"
-					onclick={() => (showFileUploadModal = false)}
-					class="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+				<Dialog.Title class="text-lg font-semibold text-slate-900">Upload Project File</Dialog.Title
 				>
-					<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+				<Dialog.Close
+					aria-label="Close"
+					class="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+				>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						viewBox="0 0 20 20"
+						fill="currentColor"
+						class="h-5 w-5"
+						aria-hidden="true"
+					>
 						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M6 18L18 6M6 6l12 12"
+							d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"
 						/>
 					</svg>
-				</button>
+				</Dialog.Close>
 			</div>
+			<Dialog.Description class="sr-only">
+				Select one or more files to attach to this project.
+			</Dialog.Description>
 
 			{#if uploadErr}
 				<p class="mt-3 rounded-md bg-red-50 p-2.5 text-sm text-red-700">{uploadErr}</p>
@@ -3753,35 +3825,44 @@
 					Cancel
 				</button>
 			</div>
-		</div>
-	</div>
-{/if}
+		</Dialog.Content>
+	</Dialog.Portal>
+</Dialog.Root>
 
 <!-- File Rename Dialog -->
-{#if renameTarget}
-	<div
-		class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-xs"
-		role="dialog"
-		aria-modal="true"
-	>
-		<div class="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+<Dialog.Root
+	bind:open={
+		() => renameTarget !== null,
+		(v) => {
+			if (!v) renameTarget = null;
+		}
+	}
+>
+	<Dialog.Portal>
+		<Dialog.Overlay class="fixed inset-0 z-40 bg-black/50" />
+		<Dialog.Content
+			class="fixed top-1/2 left-1/2 z-50 max-h-[calc(100vh-2rem)] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg bg-white p-4 shadow-xl focus:outline-none sm:max-h-[85vh] sm:p-6"
+		>
 			<div class="flex items-center justify-between border-b border-slate-100 pb-3">
-				<h2 class="text-lg font-semibold text-slate-900">Rename File</h2>
-				<button
-					type="button"
-					onclick={() => (renameTarget = null)}
-					class="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+				<Dialog.Title class="text-lg font-semibold text-slate-900">Rename File</Dialog.Title>
+				<Dialog.Close
+					aria-label="Close"
+					class="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
 				>
-					<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						viewBox="0 0 20 20"
+						fill="currentColor"
+						class="h-5 w-5"
+						aria-hidden="true"
+					>
 						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M6 18L18 6M6 6l12 12"
+							d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"
 						/>
 					</svg>
-				</button>
+				</Dialog.Close>
 			</div>
+			<Dialog.Description class="sr-only">Enter a new name for this file.</Dialog.Description>
 
 			{#if renameErr}
 				<p class="mt-3 rounded-md bg-red-50 p-2.5 text-sm text-red-700">{renameErr}</p>
@@ -3828,21 +3909,29 @@
 					</button>
 				</div>
 			</form>
-		</div>
-	</div>
-{/if}
+		</Dialog.Content>
+	</Dialog.Portal>
+</Dialog.Root>
 
 <!-- File Preview Modal -->
-{#if previewTarget}
-	<div
-		class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 p-4 backdrop-blur-xs"
-		role="dialog"
-		aria-modal="true"
-	>
-		<div class="flex max-h-[90vh] w-full max-w-3xl flex-col rounded-xl bg-white shadow-2xl">
+<Dialog.Root
+	bind:open={
+		() => previewTarget !== null,
+		(v) => {
+			if (!v) previewTarget = null;
+		}
+	}
+>
+	<Dialog.Portal>
+		<Dialog.Overlay class="fixed inset-0 z-40 bg-black/50" />
+		<Dialog.Content
+			class="fixed top-1/2 left-1/2 z-50 flex max-h-[calc(100vh-2rem)] w-[calc(100%-2rem)] max-w-3xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-y-auto rounded-xl bg-white shadow-2xl focus:outline-none sm:max-h-[85vh]"
+		>
 			<div class="flex items-center justify-between border-b border-slate-200 px-6 py-4">
 				<div>
-					<h2 class="text-base font-semibold text-slate-900">{previewTarget.name}</h2>
+					<Dialog.Title class="text-base font-semibold text-slate-900"
+						>{previewTarget.name}</Dialog.Title
+					>
 					<p class="text-xs text-slate-500">
 						{fmtBytes(previewTarget.size_bytes)} • {previewTarget.content_type}
 					</p>
@@ -3855,22 +3944,27 @@
 					>
 						Download
 					</button>
-					<button
-						type="button"
-						onclick={() => (previewTarget = null)}
-						class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+					<Dialog.Close
+						aria-label="Close"
+						class="rounded p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
 					>
-						<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							viewBox="0 0 20 20"
+							fill="currentColor"
+							class="h-5 w-5"
+							aria-hidden="true"
+						>
 							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M6 18L18 6M6 6l12 12"
+								d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"
 							/>
 						</svg>
-					</button>
+					</Dialog.Close>
 				</div>
 			</div>
+			<Dialog.Description class="sr-only">
+				Preview of {previewTarget.name}. Download the file to view its full content.
+			</Dialog.Description>
 
 			<div class="flex flex-1 items-center justify-center overflow-auto bg-slate-50 p-6">
 				{#if previewLoading}
@@ -3903,9 +3997,9 @@
 					</div>
 				{/if}
 			</div>
-		</div>
-	</div>
-{/if}
+		</Dialog.Content>
+	</Dialog.Portal>
+</Dialog.Root>
 
 <!-- Delete File Confirm Dialog -->
 <ConfirmDialog

@@ -28,7 +28,7 @@
 	}
 
 	const overlayBtn =
-		'flex h-7 w-7 items-center justify-center rounded text-white hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-40';
+		'flex h-10 w-10 sm:h-7 sm:w-7 items-center justify-center rounded text-white hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-40';
 </script>
 
 <div

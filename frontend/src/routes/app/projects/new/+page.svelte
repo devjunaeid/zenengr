@@ -149,7 +149,7 @@
 <svelte:head><title>New project — ZenEngr</title></svelte:head>
 
 <nav aria-label="Breadcrumb" class="text-sm text-slate-500">
-	<ol class="flex items-center gap-1">
+	<ol class="flex flex-wrap items-center gap-1">
 		<li>
 			<a href={resolve('/app/projects')} class="hover:text-indigo-600">Projects</a>
 		</li>

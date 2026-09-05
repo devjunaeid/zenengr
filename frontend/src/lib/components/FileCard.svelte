@@ -71,12 +71,32 @@
 	let thumbUrl = $state(null);
 	let thumbLoading = $state(false);
 
+	/** @type {HTMLElement|null} */
+	let tileNode = $state(null);
+	let inView = $state(false);
+
+	// Lazy-load gate: only fetch the image blob once the card enters the
+	// viewport. Fires once, then unobserves; the fetch effect below reacts
+	// to `inView` so later `file.id` changes still refetch immediately.
+	$effect(() => {
+		if (!isImage || inView || !tileNode) return;
+		const observer = new IntersectionObserver((entries) => {
+			if (entries.some((entry) => entry.isIntersecting)) {
+				inView = true;
+				observer.disconnect();
+			}
+		});
+		observer.observe(tileNode);
+		return () => observer.disconnect();
+	});
+
 	$effect(() => {
 		if (!isImage) {
 			thumbUrl = null;
 			thumbLoading = false;
 			return;
 		}
+		if (!inView) return;
 		const id = file.id;
 		/** @type {string|null} */
 		let url = null;
@@ -117,7 +137,7 @@
 	}
 
 	const overlayBtn =
-		'flex h-7 w-7 items-center justify-center rounded text-white hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-40';
+		'flex h-9 w-9 sm:h-7 sm:w-7 items-center justify-center rounded text-white hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-40';
 </script>
 
 <div
@@ -128,7 +148,7 @@
 	onclick={onClick}
 	onkeydown={onKeydown}
 >
-	<div class="relative">
+	<div class="relative" bind:this={tileNode}>
 		<div class="flex h-24 items-center justify-center overflow-hidden rounded-md bg-slate-50">
 			{#if thumbUrl}
 				<img src={thumbUrl} alt={file.name} class="h-full w-full object-cover" />

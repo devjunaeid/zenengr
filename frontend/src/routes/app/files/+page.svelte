@@ -714,7 +714,7 @@
 	>
 		<div class="flex items-center justify-between border-b border-slate-200 px-6 py-4">
 			<div>
-				<h2 id="files-h" class="text-base font-semibold text-slate-900">Files</h2>
+				<h1 id="files-h" class="text-base font-semibold text-slate-900">Files</h1>
 				<p class="mt-0.5 text-sm text-slate-500">
 					{data.files.total}
 					{data.files.total === 1 ? 'file' : 'files'}

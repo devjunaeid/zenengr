@@ -145,6 +145,7 @@
 					<Icon icon={magnify} class="absolute top-2.5 left-2.5 h-3.5 w-3.5 text-slate-400" />
 					<input
 						type="text"
+						aria-label="Search actions"
 						bind:this={inputRef}
 						bind:value={search}
 						placeholder="Search actions (e.g. invoice, project, user)..."

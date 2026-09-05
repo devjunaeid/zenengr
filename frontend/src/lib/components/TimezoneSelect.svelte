@@ -170,6 +170,7 @@
 					<input
 						bind:this={inputRef}
 						type="text"
+						aria-label="Search timezones"
 						bind:value={search}
 						placeholder="Search city, country, or UTC..."
 						class="w-full rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"

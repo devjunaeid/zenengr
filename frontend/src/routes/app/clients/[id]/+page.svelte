@@ -236,7 +236,7 @@
 					</div>
 					<div class="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
 						{#if data.client.email}
-							<span class="inline-flex items-center gap-1">
+							<span class="inline-flex items-center gap-1 break-all">
 								<Icon icon={emailOutline} class="h-3.5 w-3.5 text-slate-400" />
 								{data.client.email}
 							</span>
@@ -385,6 +385,7 @@
 			<button
 				type="button"
 				onclick={() => setTab(tab.id)}
+				aria-current={active ? 'true' : undefined}
 				class="inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all {active
 					? 'bg-indigo-600 text-white shadow-2xs'
 					: 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}"
@@ -393,7 +394,7 @@
 				<span>{tab.label}</span>
 				{#if count != null}
 					<span
-						class="rounded-full px-1.5 py-0.2 text-[10px] font-bold {active
+						class="py-0.2 rounded-full px-1.5 text-[10px] font-bold {active
 							? 'bg-indigo-700/80 text-white'
 							: 'bg-slate-100 text-slate-600'}"
 					>

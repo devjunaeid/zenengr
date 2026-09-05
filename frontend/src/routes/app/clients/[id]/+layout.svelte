@@ -38,7 +38,7 @@
 
 <!-- Breadcrumb Header -->
 <nav aria-label="Breadcrumb" class="mb-4 text-xs font-semibold text-slate-500">
-	<ol class="flex items-center gap-1.5">
+	<ol class="flex flex-wrap items-center gap-1.5">
 		<li>
 			<a href={resolve('/app/clients')} class="transition-colors hover:text-indigo-600">Clients</a>
 		</li>

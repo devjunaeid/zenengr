@@ -26,7 +26,7 @@
 		<div class="flex items-center gap-2">
 			<button
 				type="button"
-				class="rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+				class="rounded-md border border-slate-300 bg-white p-3 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 sm:px-2.5 sm:py-1.5"
 				disabled={page <= 1}
 				aria-label="Previous page"
 				title="Previous page"
@@ -37,7 +37,7 @@
 			<span class="text-sm text-slate-600">Page {page} of {pages}</span>
 			<button
 				type="button"
-				class="rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+				class="rounded-md border border-slate-300 bg-white p-3 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 sm:px-2.5 sm:py-1.5"
 				disabled={page >= pages}
 				aria-label="Next page"
 				onclick={() => onpage(page + 1)}

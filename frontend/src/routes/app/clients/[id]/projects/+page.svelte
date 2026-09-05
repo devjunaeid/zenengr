@@ -32,7 +32,7 @@
 <svelte:head><title>Projects — {data.client.name} — ZenEngr</title></svelte:head>
 
 <nav aria-label="Breadcrumb" class="text-sm text-slate-500">
-	<ol class="flex items-center gap-1">
+	<ol class="flex flex-wrap items-center gap-1">
 		<li>
 			<a href={resolve('/app/clients')} class="hover:text-indigo-600">Clients</a>
 		</li>
@@ -83,9 +83,11 @@
 		</EmptyState>
 	{:else}
 		<!-- Mobile cards (< md): clearly separated distinct cards -->
-		<div class="space-y-3 p-3 bg-slate-50/60 md:hidden">
+		<div class="space-y-3 bg-slate-50/60 p-3 md:hidden">
 			{#each data.projects.items as p (p.id)}
-				<div class="rounded-xl border border-slate-200/90 bg-white p-4 shadow-2xs space-y-3 transition-shadow hover:shadow-xs">
+				<div
+					class="space-y-3 rounded-xl border border-slate-200/90 bg-white p-4 shadow-2xs transition-shadow hover:shadow-xs"
+				>
 					<div class="flex items-start justify-between gap-3">
 						<a
 							href={resolve('/app/projects/[id]', { id: p.id })}
