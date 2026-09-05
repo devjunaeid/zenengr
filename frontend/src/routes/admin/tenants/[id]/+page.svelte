@@ -683,38 +683,40 @@
 			{#if data.users.length === 0}
 				<p class="px-6 py-8 text-sm text-slate-500">No admin users found for this tenant.</p>
 			{:else}
-				<!-- Mobile cards (< md): clearly separated distinct cards -->
-				<div class="space-y-3 p-3 bg-slate-50/60 md:hidden">
+				<!-- Mobile & Tablet cards (< lg): responsive grid -->
+				<div class="grid grid-cols-1 gap-3.5 p-3 bg-slate-50/60 sm:grid-cols-2 lg:hidden">
 					{#each data.users as user (user.id)}
-						<div class="rounded-xl border border-slate-200/90 bg-white p-4 shadow-2xs space-y-3 transition-shadow hover:shadow-xs">
-							<div class="flex items-start justify-between gap-3">
-								<div class="min-w-0">
-									<div class="text-sm font-semibold text-slate-900">{user.full_name}</div>
-									<div class="text-xs text-slate-500">{user.email}</div>
-								</div>
-								<span
-									class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset
-									{user.role === 'admin'
-										? 'bg-indigo-50 text-indigo-700 ring-indigo-600/20'
-										: 'bg-slate-100 text-slate-700 ring-slate-500/20'}"
-								>
-									{humanize(user.role)}
-								</span>
-							</div>
-
-							<div class="flex items-center justify-between text-xs text-slate-500">
-								<span
-									class="inline-flex items-center gap-1.5 font-medium
-									{user.is_active ? 'text-green-700' : 'text-slate-400'}"
-								>
+						<div class="flex flex-col justify-between rounded-xl border border-slate-200/90 bg-white p-4 shadow-2xs space-y-3 transition-shadow hover:shadow-xs">
+							<div class="space-y-3">
+								<div class="flex items-start justify-between gap-3">
+									<div class="min-w-0">
+										<div class="text-sm font-semibold text-slate-900">{user.full_name}</div>
+										<div class="text-xs text-slate-500">{user.email}</div>
+									</div>
 									<span
-										class="inline-block h-1.5 w-1.5 rounded-full {user.is_active
-											? 'bg-green-500'
-											: 'bg-slate-300'}"
-									></span>
-									{user.is_active ? 'Active' : 'Inactive'}
-								</span>
-								<span>Created {formatDate(user.created_at)}</span>
+										class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset
+										{user.role === 'admin'
+											? 'bg-indigo-50 text-indigo-700 ring-indigo-600/20'
+											: 'bg-slate-100 text-slate-700 ring-slate-500/20'}"
+									>
+										{humanize(user.role)}
+									</span>
+								</div>
+
+								<div class="flex items-center justify-between text-xs text-slate-500">
+									<span
+										class="inline-flex items-center gap-1.5 font-medium
+										{user.is_active ? 'text-green-700' : 'text-slate-400'}"
+									>
+										<span
+											class="inline-block h-1.5 w-1.5 rounded-full {user.is_active
+												? 'bg-green-500'
+												: 'bg-slate-300'}"
+										></span>
+										{user.is_active ? 'Active' : 'Inactive'}
+									</span>
+									<span>Created {formatDate(user.created_at)}</span>
+								</div>
 							</div>
 
 							<div class="flex justify-end pt-1">
@@ -742,8 +744,8 @@
 					{/each}
 				</div>
 
-				<!-- Desktop table (>= md) -->
-				<div class="relative hidden overflow-x-auto md:block">
+				<!-- Desktop table (>= lg) -->
+				<div class="relative hidden overflow-x-auto lg:block">
 					<table class="min-w-full divide-y divide-slate-200">
 						<thead class="bg-slate-50">
 							<tr>
@@ -1073,24 +1075,26 @@
 		{#if data.settings.length === 0}
 			<p class="px-6 py-8 text-sm text-slate-500">No settings defined for this tenant yet.</p>
 		{:else}
-			<!-- Mobile cards (< md): clearly separated distinct cards -->
-			<div class="space-y-3 p-3 bg-slate-50/60 md:hidden">
+			<!-- Mobile & Tablet cards (< lg): responsive grid -->
+			<div class="grid grid-cols-1 gap-3.5 p-3 bg-slate-50/60 sm:grid-cols-2 lg:hidden">
 				{#each data.settings as s (s.key)}
-					<div class="rounded-xl border border-slate-200/90 bg-white p-4 shadow-2xs space-y-3 transition-shadow hover:shadow-xs">
-						<div class="flex items-start justify-between gap-3">
-							<span class="font-mono text-xs font-bold text-slate-800 break-all">{s.key}</span>
-							<span class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600 shrink-0">
-								{s.permission_level}
-							</span>
-						</div>
-						<div>
-							<label for="m-aset-{s.key}" class="sr-only">Value for {s.key}</label>
-							<input
-								id="m-aset-{s.key}"
-								type="text"
-								bind:value={settingDrafts[s.key]}
-								class="block w-full rounded-lg border-slate-300 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
-							/>
+					<div class="flex flex-col justify-between rounded-xl border border-slate-200/90 bg-white p-4 shadow-2xs space-y-3 transition-shadow hover:shadow-xs">
+						<div class="space-y-2.5">
+							<div class="flex items-start justify-between gap-3">
+								<span class="font-mono text-xs font-bold text-slate-800 break-all">{s.key}</span>
+								<span class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600 shrink-0">
+									{s.permission_level}
+								</span>
+							</div>
+							<div>
+								<label for="m-aset-{s.key}" class="sr-only">Value for {s.key}</label>
+								<input
+									id="m-aset-{s.key}"
+									type="text"
+									bind:value={settingDrafts[s.key]}
+									class="block w-full rounded-lg border-slate-300 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
+								/>
+							</div>
 						</div>
 						<div class="flex items-center justify-between pt-1">
 							<div>
@@ -1115,8 +1119,8 @@
 				{/each}
 			</div>
 
-			<!-- Desktop table (>= md) -->
-			<div class="relative hidden overflow-x-auto md:block">
+			<!-- Desktop table (>= lg) -->
+			<div class="relative hidden overflow-x-auto lg:block">
 				<table class="min-w-full divide-y divide-slate-200">
 					<thead class="bg-slate-50">
 						<tr>

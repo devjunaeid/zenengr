@@ -310,40 +310,42 @@
 {/if}
 
 <div class="mt-6 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-	<!-- Mobile cards (< md): clearly separated distinct cards -->
-	<div class="space-y-3 p-3 bg-slate-50/60 md:hidden">
+	<!-- Mobile & Tablet cards (< lg): responsive grid -->
+	<div class="grid grid-cols-1 gap-3.5 p-3 bg-slate-50/60 sm:grid-cols-2 lg:hidden">
 		{#each data.plans as plan (plan.id)}
-			<div class="rounded-xl border border-slate-200/90 bg-white p-4 shadow-2xs space-y-3 transition-shadow hover:shadow-xs">
-				<div class="flex items-start justify-between gap-3">
-					<div class="min-w-0">
-						<span class="text-sm font-bold text-slate-900">{plan.name}</span>
-						{#if plan.description}
-							<p class="mt-0.5 text-xs text-slate-500">{plan.description}</p>
-						{/if}
+			<div class="flex flex-col justify-between rounded-xl border border-slate-200/90 bg-white p-4 shadow-2xs space-y-3 transition-shadow hover:shadow-xs">
+				<div class="space-y-3">
+					<div class="flex items-start justify-between gap-3">
+						<div class="min-w-0">
+							<span class="text-sm font-bold text-slate-900">{plan.name}</span>
+							{#if plan.description}
+								<p class="mt-0.5 text-xs text-slate-500">{plan.description}</p>
+							{/if}
+						</div>
+						<StatusBadge status={plan.is_active ? 'active' : 'inactive'} />
 					</div>
-					<StatusBadge status={plan.is_active ? 'active' : 'inactive'} />
-				</div>
 
-				<div class="grid grid-cols-2 gap-2 rounded-lg bg-slate-50 p-2.5 text-xs">
-					<div>
-						<span class="text-slate-400">Max Users:</span>
-						<span class="ml-1 font-semibold text-slate-700">{plan.max_admin_users}</span>
-					</div>
-					<div>
-						<span class="text-slate-400">Max Clients:</span>
-						<span class="ml-1 font-semibold text-slate-700">{plan.max_clients}</span>
-					</div>
-					<div>
-						<span class="text-slate-400">Projects:</span>
-						<span class="ml-1 font-semibold text-slate-700">{plan.max_active_projects}</span>
-					</div>
-					<div>
-						<span class="text-slate-400">Storage:</span>
-						<span class="ml-1 font-semibold text-slate-700">{plan.max_storage_mb} MB</span>
-					</div>
-					<div class="col-span-2">
-						<span class="text-slate-400">Active Tenants:</span>
-						<span class="ml-1 font-semibold text-slate-700">{plan.tenant_count}</span>
+					<div class="grid grid-cols-2 gap-2 rounded-lg bg-slate-50 p-2.5 text-xs">
+						<div>
+							<span class="text-slate-400">Max Users:</span>
+							<span class="ml-1 font-semibold text-slate-700">{plan.max_admin_users}</span>
+						</div>
+						<div>
+							<span class="text-slate-400">Max Clients:</span>
+							<span class="ml-1 font-semibold text-slate-700">{plan.max_clients}</span>
+						</div>
+						<div>
+							<span class="text-slate-400">Projects:</span>
+							<span class="ml-1 font-semibold text-slate-700">{plan.max_active_projects}</span>
+						</div>
+						<div>
+							<span class="text-slate-400">Storage:</span>
+							<span class="ml-1 font-semibold text-slate-700">{plan.max_storage_mb} MB</span>
+						</div>
+						<div class="col-span-2">
+							<span class="text-slate-400">Active Tenants:</span>
+							<span class="ml-1 font-semibold text-slate-700">{plan.tenant_count}</span>
+						</div>
 					</div>
 				</div>
 
@@ -369,8 +371,8 @@
 		{/each}
 	</div>
 
-	<!-- Desktop table (>= md) -->
-	<div class="relative hidden overflow-x-auto md:block">
+	<!-- Desktop table (>= lg) -->
+	<div class="relative hidden overflow-x-auto lg:block">
 		<table class="min-w-full divide-y divide-slate-200">
 			<thead class="bg-slate-50">
 				<tr>

@@ -62,7 +62,7 @@
 		</div>
 	</section>
 
-	<div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+	<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
 		<!-- Active Projects Overview -->
 		<section
 			class="flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-5 shadow-2xs"

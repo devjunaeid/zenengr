@@ -116,37 +116,39 @@
 				/>
 			{/if}
 		{:else}
-		<!-- Mobile cards (< md): clearly separated distinct cards -->
-		<div class="space-y-3 p-3 bg-slate-50/60 md:hidden">
+		<!-- Mobile & Tablet cards (< lg): responsive grid -->
+		<div class="grid grid-cols-1 gap-3.5 p-3 bg-slate-50/60 sm:grid-cols-2 lg:hidden">
 			{#each data.invoices.items as inv (inv.id)}
-				<div class="rounded-xl border border-slate-200/90 bg-white p-4 shadow-2xs space-y-3 transition-shadow hover:shadow-xs">
-					<div class="flex items-start justify-between gap-3">
-						<div class="min-w-0">
-							<a
-								href={resolve('/client/invoices/[id]', { id: inv.id })}
-								class="flex items-center gap-1.5 text-sm font-bold text-indigo-600 transition-colors hover:text-indigo-800"
-							>
-								<Icon icon={fileDocumentOutline} class="h-4 w-4 shrink-0 text-slate-400" />
-								{inv.invoice_number ?? 'Draft Invoice'}
-							</a>
-							<p class="mt-0.5 text-xs text-slate-600">
-								{inv.project_name || 'General Project'}
-							</p>
+				<div class="flex flex-col justify-between rounded-xl border border-slate-200/90 bg-white p-4 shadow-2xs space-y-3 transition-shadow hover:shadow-xs">
+					<div class="space-y-3">
+						<div class="flex items-start justify-between gap-3">
+							<div class="min-w-0">
+								<a
+									href={resolve('/client/invoices/[id]', { id: inv.id })}
+									class="flex items-center gap-1.5 text-sm font-bold text-indigo-600 transition-colors hover:text-indigo-800"
+								>
+									<Icon icon={fileDocumentOutline} class="h-4 w-4 shrink-0 text-slate-400" />
+									{inv.invoice_number ?? 'Draft Invoice'}
+								</a>
+								<p class="mt-0.5 text-xs text-slate-600">
+									{inv.project_name || 'General Project'}
+								</p>
+							</div>
+							<StatusBadge status={inv.status} />
 						</div>
-						<StatusBadge status={inv.status} />
-					</div>
 
-					<div class="flex items-center justify-between rounded-lg bg-slate-50 p-2.5">
-						<span class="text-xs text-slate-500">Amount Due</span>
-						<span class="text-sm font-bold text-slate-900">{fmtPrice(inv.total)}</span>
-					</div>
-
-					{#if inv.due_date}
-						<div class="text-xs text-slate-500">
-							<span>Due date:</span>
-							<span class="ml-1 font-medium text-slate-700">{formatDate(inv.due_date)}</span>
+						<div class="flex items-center justify-between rounded-lg bg-slate-50 p-2.5">
+							<span class="text-xs text-slate-500">Amount Due</span>
+							<span class="text-sm font-bold text-slate-900">{fmtPrice(inv.total)}</span>
 						</div>
-					{/if}
+
+						{#if inv.due_date}
+							<div class="text-xs text-slate-500">
+								<span>Due date:</span>
+								<span class="ml-1 font-medium text-slate-700">{formatDate(inv.due_date)}</span>
+							</div>
+						{/if}
+					</div>
 
 					<div class="flex items-center gap-2 pt-1">
 						<a
@@ -174,8 +176,8 @@
 			{/each}
 		</div>
 
-		<!-- Desktop table (>= md) -->
-		<div class="relative hidden overflow-x-auto md:block">
+		<!-- Desktop table (>= lg) -->
+		<div class="relative hidden overflow-x-auto lg:block">
 			<table class="min-w-full divide-y divide-slate-200 text-xs">
 				<thead class="bg-slate-50/80">
 					<tr>

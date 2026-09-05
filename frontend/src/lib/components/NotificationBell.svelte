@@ -149,56 +149,103 @@
 	</button>
 
 	{#if open}
+		<!-- Mobile backdrop overlay (< sm) -->
+		<button
+			type="button"
+			class="fixed inset-0 z-40 bg-black/20 sm:hidden"
+			aria-label="Close notifications"
+			onclick={() => (open = false)}
+		></button>
+
 		<div
-			class="absolute right-0 z-50 mt-2 w-80 max-w-[calc(100vw-2rem)] overflow-hidden rounded-lg bg-slate-100 shadow-lg ring-1 ring-slate-200"
+			class="fixed inset-x-3 top-16 z-50 max-h-[calc(100vh-5rem)] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl ring-1 ring-black/5 sm:absolute sm:inset-x-auto sm:top-full sm:right-0 sm:mt-2 sm:w-80 sm:max-h-[28rem] sm:max-w-[calc(100vw-2rem)] sm:rounded-xl"
 			role="region"
 			aria-label="Notifications"
 		>
-			<div class="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3">
-				<h3 class="text-sm font-semibold text-slate-900">Notifications</h3>
-				{#if store.unread > 0}
+			<div class="flex items-center justify-between border-b border-slate-100 bg-slate-50/70 px-4 py-3">
+				<div class="flex items-center gap-2">
+					<h3 class="text-sm font-semibold text-slate-900">Notifications</h3>
+					{#if store.unread > 0}
+						<span
+							class="inline-flex items-center rounded-full bg-indigo-100 px-2 py-0.5 text-[11px] font-semibold text-indigo-700"
+						>
+							{store.unread} new
+						</span>
+					{/if}
+				</div>
+				<div class="flex items-center gap-2">
+					{#if store.unread > 0}
+						<button
+							type="button"
+							onclick={handleMarkAllRead}
+							class="rounded px-2 py-1 text-xs font-semibold text-indigo-600 hover:bg-indigo-50 hover:text-indigo-800 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+						>
+							Mark all read
+						</button>
+					{/if}
 					<button
 						type="button"
-						onclick={handleMarkAllRead}
-						class="rounded text-xs font-medium text-indigo-600 hover:text-indigo-800 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+						onclick={() => (open = false)}
+						class="rounded-lg p-1 text-slate-400 hover:bg-slate-200/60 hover:text-slate-600 sm:hidden"
+						aria-label="Close"
 					>
-						Mark all read
+						<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+						</svg>
 					</button>
-				{/if}
+				</div>
 			</div>
-			<div class="max-h-96 overflow-y-auto">
+			<div class="max-h-[calc(100vh-10rem)] sm:max-h-96 overflow-y-auto divide-y divide-slate-100">
 				{#if store.items.length === 0}
-					<p class="px-4 py-8 text-center text-sm text-slate-500">No notifications yet.</p>
+					<div class="px-4 py-10 text-center">
+						<svg
+							class="mx-auto h-8 w-8 text-slate-300"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="1.5"
+								d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0"
+							/>
+						</svg>
+						<p class="mt-2 text-sm font-medium text-slate-600">No notifications yet</p>
+						<p class="mt-0.5 text-xs text-slate-400">We'll notify you when changes happen.</p>
+					</div>
 				{:else}
-					<ul class="divide-y divide-slate-200">
+					<ul class="divide-y divide-slate-100">
 						{#each store.items as item (item.id)}
 							<li>
 								<button
 									type="button"
 									onclick={() => handleClick(item)}
 									aria-label={item.title || 'Notification'}
-									class="flex w-full items-start gap-2.5 px-4 py-3 text-left hover:bg-slate-200/70 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none focus-visible:ring-inset"
+									class="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none focus-visible:ring-inset {item.is_read
+										? 'bg-white'
+										: 'bg-indigo-50/30'}"
 								>
 									<span
 										class="mt-1.5 h-2 w-2 shrink-0 rounded-full {item.is_read
 											? 'bg-transparent'
-											: 'bg-indigo-500'}"
+											: 'bg-indigo-600'}"
 										aria-hidden="true"
 									></span>
 									<span class="min-w-0 flex-1">
 										<span
 											class="block truncate text-sm {item.is_read
-												? 'font-medium text-slate-600'
+												? 'font-medium text-slate-700'
 												: 'font-semibold text-slate-900'}"
 										>
 											{item.title || 'Notification'}
 										</span>
 										{#if item.body}
-											<span class="mt-0.5 line-clamp-2 block text-sm text-slate-500"
+											<span class="mt-0.5 line-clamp-2 block text-xs text-slate-500"
 												>{item.body}</span
 											>
 										{/if}
-										<span class="mt-0.5 block text-xs text-slate-400"
+										<span class="mt-1 block text-[11px] text-slate-400"
 											>{timeAgo(item.created_at)}</span
 										>
 									</span>

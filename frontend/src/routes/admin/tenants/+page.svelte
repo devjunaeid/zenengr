@@ -111,36 +111,37 @@
 			description="No results match your search. Try different filters."
 		/>
 	{:else}
-		<!-- Mobile card view (< md) -->
-		<!-- Mobile cards (< md): clearly separated distinct cards -->
-		<div class="space-y-3 p-3 bg-slate-50/60 md:hidden">
+		<!-- Mobile & Tablet cards (< lg): responsive grid -->
+		<div class="grid grid-cols-1 gap-3.5 p-3 bg-slate-50/60 sm:grid-cols-2 lg:hidden">
 			{#each data.tenants.items as tenant (tenant.id)}
-				<div class="rounded-xl border border-slate-200/90 bg-white p-4 shadow-2xs space-y-3 transition-shadow hover:shadow-xs">
-					<div class="flex items-start justify-between gap-3">
-						<div class="min-w-0">
-							<a
-								href={resolve('/admin/tenants/[id]', { id: tenant.id })}
-								class="text-sm font-semibold text-indigo-600 hover:text-indigo-500"
-							>
-								{tenant.business_name}
-							</a>
-							<p class="mt-0.5 font-mono text-xs text-slate-500">{tenant.slug}</p>
+				<div class="flex flex-col justify-between rounded-xl border border-slate-200/90 bg-white p-4 shadow-2xs space-y-3 transition-shadow hover:shadow-xs">
+					<div class="space-y-3">
+						<div class="flex items-start justify-between gap-3">
+							<div class="min-w-0">
+								<a
+									href={resolve('/admin/tenants/[id]', { id: tenant.id })}
+									class="text-sm font-semibold text-indigo-600 hover:text-indigo-500"
+								>
+									{tenant.business_name}
+								</a>
+								<p class="mt-0.5 font-mono text-xs text-slate-500">{tenant.slug}</p>
+							</div>
+							<StatusBadge status={tenant.status} />
 						</div>
-						<StatusBadge status={tenant.status} />
-					</div>
 
-					<div class="grid grid-cols-2 gap-2 rounded-lg bg-slate-50 p-2.5 text-xs">
-						<div>
-							<span class="text-slate-400">Plan:</span>
-							<span class="ml-1 font-medium text-slate-700">{tenant.plan_name}</span>
-						</div>
-						<div>
-							<span class="text-slate-400">Users:</span>
-							<span class="ml-1 font-medium text-slate-700">{tenant.active_user_count}</span>
-						</div>
-						<div class="col-span-2">
-							<span class="text-slate-400">Created:</span>
-							<span class="ml-1 text-slate-600">{formatDate(tenant.created_at)}</span>
+						<div class="grid grid-cols-2 gap-2 rounded-lg bg-slate-50 p-2.5 text-xs">
+							<div>
+								<span class="text-slate-400">Plan:</span>
+								<span class="ml-1 font-medium text-slate-700">{tenant.plan_name}</span>
+							</div>
+							<div>
+								<span class="text-slate-400">Users:</span>
+								<span class="ml-1 font-medium text-slate-700">{tenant.active_user_count}</span>
+							</div>
+							<div class="col-span-2">
+								<span class="text-slate-400">Created:</span>
+								<span class="ml-1 text-slate-600">{formatDate(tenant.created_at)}</span>
+							</div>
 						</div>
 					</div>
 
@@ -156,8 +157,8 @@
 			{/each}
 		</div>
 
-		<!-- Desktop table (>= md) -->
-		<div class="relative hidden overflow-x-auto md:block">
+		<!-- Desktop table (>= lg) -->
+		<div class="relative hidden overflow-x-auto lg:block">
 			<table class="min-w-full divide-y divide-slate-200">
 				<thead class="bg-slate-50">
 					<tr>

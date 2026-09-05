@@ -130,52 +130,54 @@
 			</EmptyState>
 		{/if}
 	{:else}
-		<!-- Mobile cards (< md): clearly separated distinct cards -->
-		<div class="space-y-3 p-3 bg-slate-50/60 md:hidden">
+		<!-- Mobile & Tablet cards (< lg): responsive grid -->
+		<div class="grid grid-cols-1 gap-3.5 p-3 bg-slate-50/60 sm:grid-cols-2 lg:hidden">
 			{#each data.invoices.items as inv (inv.id)}
 				{@const projectName = data.projects.find((p) => p.id === inv.project_id)?.name}
-				<div class="rounded-xl border border-slate-200/90 bg-white p-4 shadow-2xs space-y-3 transition-shadow hover:shadow-xs">
-					<div class="flex items-start justify-between gap-3">
-						<div class="min-w-0">
-							<a
-								href={resolve('/app/invoices/[id]', { id: inv.id })}
-								class="font-mono text-sm font-bold text-indigo-600 hover:text-indigo-500"
-							>
-								{inv.invoice_number ?? 'Draft Invoice'}
-							</a>
-							<p class="mt-0.5 text-xs text-slate-500">
-								{#if inv.project_id}
-									{projectName ?? '—'}
-								{:else}
-									<span class="italic text-slate-400">Internal</span>
-								{/if}
-							</p>
-						</div>
-						<div class="flex flex-col items-end gap-1">
-							<StatusBadge status={inv.status} />
-							{#if inv.is_auto}
-								<span
-									class="inline-flex items-center rounded-full bg-violet-100 px-1.5 py-0.2 text-[10px] font-medium text-violet-800"
+				<div class="flex flex-col justify-between rounded-xl border border-slate-200/90 bg-white p-4 shadow-2xs space-y-3 transition-shadow hover:shadow-xs">
+					<div class="space-y-3">
+						<div class="flex items-start justify-between gap-3">
+							<div class="min-w-0">
+								<a
+									href={resolve('/app/invoices/[id]', { id: inv.id })}
+									class="font-mono text-sm font-bold text-indigo-600 hover:text-indigo-500"
 								>
-									Statement
-								</span>
-							{/if}
+									{inv.invoice_number ?? 'Draft Invoice'}
+								</a>
+								<p class="mt-0.5 text-xs text-slate-500">
+									{#if inv.project_id}
+										{projectName ?? '—'}
+									{:else}
+										<span class="italic text-slate-400">Internal</span>
+									{/if}
+								</p>
+							</div>
+							<div class="flex flex-col items-end gap-1">
+								<StatusBadge status={inv.status} />
+								{#if inv.is_auto}
+									<span
+										class="inline-flex items-center rounded-full bg-violet-100 px-1.5 py-0.2 text-[10px] font-medium text-violet-800"
+									>
+										Statement
+									</span>
+								{/if}
+							</div>
 						</div>
-					</div>
 
-					<div class="flex items-center justify-between rounded-lg bg-slate-50 p-2.5">
-						<span class="text-xs text-slate-500">Total Amount</span>
-						<span class="text-sm font-bold text-slate-900">{fmtPrice(inv.total)}</span>
-					</div>
-
-					<div class="grid grid-cols-2 gap-2 text-xs text-slate-500">
-						<div>
-							<span class="text-slate-400">Issued:</span>
-							<span class="ml-1 text-slate-700">{formatDate(inv.issue_date)}</span>
+						<div class="flex items-center justify-between rounded-lg bg-slate-50 p-2.5">
+							<span class="text-xs text-slate-500">Total Amount</span>
+							<span class="text-sm font-bold text-slate-900">{fmtPrice(inv.total)}</span>
 						</div>
-						<div>
-							<span class="text-slate-400">Created:</span>
-							<span class="ml-1 text-slate-700">{formatDate(inv.created_at)}</span>
+
+						<div class="grid grid-cols-2 gap-2 text-xs text-slate-500">
+							<div>
+								<span class="text-slate-400">Issued:</span>
+								<span class="ml-1 text-slate-700">{formatDate(inv.issue_date)}</span>
+							</div>
+							<div>
+								<span class="text-slate-400">Created:</span>
+								<span class="ml-1 text-slate-700">{formatDate(inv.created_at)}</span>
+							</div>
 						</div>
 					</div>
 
@@ -191,8 +193,8 @@
 			{/each}
 		</div>
 
-		<!-- Desktop table (>= md) -->
-		<div class="relative hidden overflow-x-auto md:block">
+		<!-- Desktop table (>= lg) -->
+		<div class="relative hidden overflow-x-auto lg:block">
 			<table class="min-w-full divide-y divide-slate-200">
 				<thead class="bg-slate-50">
 					<tr>

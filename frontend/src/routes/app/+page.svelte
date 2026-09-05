@@ -50,12 +50,13 @@
 	<div>
 		<h1 class="text-2xl font-bold text-slate-900">Dashboard</h1>
 		<p class="mt-1 text-sm text-slate-500">
-			Welcome back, {auth.user?.full_name}. Active Plan: <span class="font-bold text-indigo-600">{data.plan.plan_name}</span>
+			Welcome back, {auth.user?.full_name}. Active Plan:
+			<span class="font-bold text-indigo-600">{data.plan.plan_name}</span>
 		</p>
 	</div>
 
 	<!-- Plan Quota Limits & Usage Cards -->
-	<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+	<div class="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
 		{#each Object.entries(data.plan.limits) as [key, limit] (key)}
 			{@const used = data.plan.usage[key.replace(/^max_/, '')] ?? 0}
 			<div class="rounded-xl border border-slate-200 bg-white p-5 shadow-2xs">
@@ -81,30 +82,51 @@
 	</div>
 
 	<!-- Quick Actions Hub -->
-	<section class="rounded-xl border border-slate-200 bg-white p-6 shadow-2xs" aria-labelledby="quick-actions-h">
+	<section
+		class="rounded-xl border border-slate-200 bg-white p-6 shadow-2xs"
+		aria-labelledby="quick-actions-h"
+	>
 		<div class="mb-4">
 			<h2 id="quick-actions-h" class="text-base font-bold text-slate-900">Quick Actions</h2>
-			<p class="mt-0.5 text-xs text-slate-500">Fast shortcuts to common operational tasks and management workflows.</p>
+			<p class="mt-0.5 text-xs text-slate-500">
+				Fast shortcuts to common operational tasks and management workflows.
+			</p>
 		</div>
 
-		<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+		<div class="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
 			<!-- eslint-disable svelte/no-navigation-without-resolve -- pre-resolved via resolve() in quickActions array -->
 			{#each quickActions as action (action.title)}
 				<a
 					href={action.href}
-					class="group flex flex-col justify-between rounded-xl border border-slate-200/90 bg-white p-4 shadow-2xs transition-all hover:shadow-xs {action.color.split(' ').pop()}"
+					class="group flex flex-col justify-between rounded-xl border border-slate-200/90 bg-white p-4 shadow-2xs transition-all hover:shadow-xs {action.color
+						.split(' ')
+						.pop()}"
 				>
 					<div>
-						<div class="flex h-10 w-10 items-center justify-center rounded-xl {action.color.split(' ').slice(0, 2).join(' ')}">
+						<div
+							class="flex h-10 w-10 items-center justify-center rounded-xl {action.color
+								.split(' ')
+								.slice(0, 2)
+								.join(' ')}"
+						>
 							<Icon icon={action.icon} class="h-5 w-5" />
 						</div>
-						<h3 class="mt-3 text-sm font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">{action.title}</h3>
-						<p class="mt-1 text-xs text-slate-500 leading-relaxed">{action.description}</p>
+						<h3
+							class="mt-3 text-sm font-bold text-slate-900 transition-colors group-hover:text-indigo-600"
+						>
+							{action.title}
+						</h3>
+						<p class="mt-1 text-xs leading-relaxed text-slate-500">{action.description}</p>
 					</div>
 
-					<div class="mt-4 flex items-center gap-1 text-xs font-semibold text-indigo-600 group-hover:text-indigo-700 pt-2 border-t border-slate-100">
+					<div
+						class="mt-4 flex items-center gap-1 border-t border-slate-100 pt-2 text-xs font-semibold text-indigo-600 group-hover:text-indigo-700"
+					>
 						<span>Start now</span>
-						<Icon icon={arrowRight} class="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+						<Icon
+							icon={arrowRight}
+							class="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5"
+						/>
 					</div>
 				</a>
 			{/each}

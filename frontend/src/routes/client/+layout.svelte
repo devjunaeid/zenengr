@@ -82,22 +82,22 @@
 
 {#if isAuthed}
 	<div class="flex min-h-screen bg-slate-50 print:block">
-		<!-- Mobile backdrop -->
+		<!-- Mobile and Tablet backdrop (< lg) -->
 		{#if menuOpen}
 			<button
 				type="button"
-				class="fixed inset-0 z-40 bg-black/40 md:hidden print:hidden"
+				class="fixed inset-0 z-40 bg-black/40 lg:hidden print:hidden"
 				aria-label="Close navigation"
 				onclick={() => (menuOpen = false)}
 			></button>
 		{/if}
 
 		<aside
-			class="fixed inset-y-0 left-0 z-50 w-60 shrink-0 border-r border-slate-200 bg-white transition-transform duration-200 md:static md:translate-x-0 print:hidden {menuOpen
+			class="fixed inset-y-0 left-0 z-50 w-64 shrink-0 border-r border-slate-200 bg-white transition-transform duration-200 lg:static lg:w-60 lg:translate-x-0 print:hidden {menuOpen
 				? 'translate-x-0'
 				: '-translate-x-full'}"
 		>
-			<div class="border-b border-slate-200 px-5 py-4">
+			<div class="flex items-center justify-between border-b border-slate-200 px-5 py-4">
 				<a
 					href={resolve('/client/projects')}
 					class="flex items-center gap-2.5 text-sm font-semibold text-slate-900 transition-opacity hover:opacity-90"
@@ -111,6 +111,16 @@
 					{/if}
 					<span class="min-w-0 truncate">{portalAuth.tenantName || 'Client Portal'}</span>
 				</a>
+				<button
+					type="button"
+					class="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 lg:hidden"
+					aria-label="Close navigation"
+					onclick={() => (menuOpen = false)}
+				>
+					<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+					</svg>
+				</button>
 			</div>
 			<nav aria-label="Client navigation" class="space-y-1 overflow-y-auto p-3">
 				{#each nav as item (item.href)}
@@ -135,11 +145,11 @@
 
 		<div class="flex min-w-0 flex-1 flex-col print:w-full">
 			<header
-				class="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3 md:px-6 print:hidden"
+				class="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3 sm:px-6 print:hidden"
 			>
 				<button
 					type="button"
-					class="rounded-md border border-slate-300 bg-white p-2 text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none md:hidden"
+					class="rounded-md border border-slate-300 bg-white p-2 text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none lg:hidden"
 					aria-label="Toggle navigation"
 					aria-expanded={menuOpen}
 					onclick={() => (menuOpen = !menuOpen)}

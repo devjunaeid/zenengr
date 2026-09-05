@@ -351,8 +351,8 @@
 	</div>
 </div>
 
-<!-- Users mobile card view (< md) -->
-<div class="mt-4 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm md:hidden">
+<!-- Users mobile & tablet card view (< lg) -->
+<div class="mt-4 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm lg:hidden">
 	{#if filteredUsers.length === 0}
 		<div class="px-4 py-12 text-center">
 			<p class="text-sm font-medium text-slate-900">No team members match your criteria</p>
@@ -368,10 +368,10 @@
 			{/if}
 		</div>
 	{:else}
-		<div class="space-y-3 bg-slate-50/60 p-3">
+		<div class="grid grid-cols-1 gap-3 bg-slate-50/60 p-3 sm:grid-cols-2">
 			{#each filteredUsers as u (u.id)}
 				<div
-					class="space-y-3 rounded-xl border border-slate-200/90 bg-white p-4 shadow-2xs transition-shadow hover:shadow-xs"
+					class="flex flex-col justify-between space-y-3 rounded-xl border border-slate-200/90 bg-white p-4 shadow-2xs transition-shadow hover:shadow-xs"
 				>
 					<div class="flex items-start justify-between gap-3">
 						<div class="flex min-w-0 items-center gap-3">
@@ -479,9 +479,9 @@
 	{/if}
 </div>
 
-<!-- Users desktop table (>= md) -->
+<!-- Users desktop table (>= lg) -->
 <div
-	class="mt-4 hidden overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm md:block"
+	class="mt-4 hidden overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm lg:block"
 >
 	<div class="relative overflow-x-auto">
 		<table class="min-w-full divide-y divide-slate-200">

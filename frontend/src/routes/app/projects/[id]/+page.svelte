@@ -1243,7 +1243,7 @@
 				{/if}
 			</div>
 
-			<dl class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+			<dl class="mt-4 grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
 				<div>
 					<dt
 						class="flex items-center gap-1.5 text-xs font-medium tracking-wider text-slate-500 uppercase"
@@ -1319,7 +1319,7 @@
 			aria-labelledby="project-details-h"
 		>
 			<h2 id="project-details-h" class="text-base font-semibold text-slate-900">Project Details</h2>
-			<dl class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+			<dl class="mt-4 grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
 				<div>
 					<dt class="text-xs font-medium tracking-wider text-slate-500 uppercase">Start Date</dt>
 					<dd class="mt-1 text-sm font-medium text-slate-900">
@@ -1752,7 +1752,7 @@
 			{@const disc = discountDisplay()}
 			{@const due = Number(ledgerSummary?.due) || 0}
 			{@const advanceBal = Number(ledgerSummary?.advance_balance) || 0}
-			<dl class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+			<dl class="mt-4 grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
 				<div>
 					<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Subtotal</dt>
 					<dd class="mt-1 text-lg font-semibold text-slate-900">

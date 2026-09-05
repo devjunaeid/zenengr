@@ -122,8 +122,8 @@
 	</p>
 {/if}
 
-<div class="mt-6 grid gap-6 lg:grid-cols-3">
-	<div class="lg:col-span-1">
+<div class="mt-6 grid gap-6 md:grid-cols-3">
+	<div class="md:col-span-1">
 		<section
 			class="rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
 			aria-labelledby="info-h"
@@ -158,7 +158,7 @@
 		</section>
 	</div>
 
-	<div class="lg:col-span-2">
+	<div class="md:col-span-2">
 		<section
 			class="rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
 			aria-labelledby="steps-h"

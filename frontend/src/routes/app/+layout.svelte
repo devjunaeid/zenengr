@@ -131,12 +131,12 @@
 		</div>
 	{/if}
 	<header
-		class="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3 md:px-6 print:hidden"
+		class="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3 sm:px-6 print:hidden"
 	>
 		<div class="flex min-w-0 items-center gap-2.5">
 			<button
 				type="button"
-				class="rounded-md border border-slate-300 bg-white p-2 text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none md:hidden"
+				class="rounded-md border border-slate-300 bg-white p-2 text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none lg:hidden"
 				aria-label="Open navigation"
 				aria-expanded={sidebarOpen}
 				onclick={() => (sidebarOpen = true)}
@@ -259,21 +259,34 @@
 	</header>
 
 	<div class="flex flex-1 print:block print:w-full">
-		<!-- Mobile backdrop -->
+		<!-- Mobile and Tablet backdrop (< lg) -->
 		{#if sidebarOpen}
 			<button
 				type="button"
-				class="fixed inset-0 z-40 bg-black/40 md:hidden"
+				class="fixed inset-0 z-40 bg-black/40 lg:hidden"
 				aria-label="Close navigation"
 				onclick={() => (sidebarOpen = false)}
 			></button>
 		{/if}
 
 		<aside
-			class="fixed inset-y-0 left-0 z-50 w-56 shrink-0 overflow-y-auto border-r border-slate-200 bg-white transition-transform duration-200 md:static md:translate-x-0 print:hidden {sidebarOpen
+			class="fixed inset-y-0 left-0 z-50 w-64 shrink-0 overflow-y-auto border-r border-slate-200 bg-white transition-transform duration-200 lg:static lg:w-56 lg:translate-x-0 print:hidden {sidebarOpen
 				? 'translate-x-0'
 				: '-translate-x-full'}"
 		>
+			<div class="flex items-center justify-between border-b border-slate-200 px-4 py-3.5 lg:hidden">
+				<span class="text-sm font-semibold text-slate-800">Navigation</span>
+				<button
+					type="button"
+					class="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+					aria-label="Close navigation"
+					onclick={() => (sidebarOpen = false)}
+				>
+					<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+					</svg>
+				</button>
+			</div>
 			<nav aria-label="Tenant navigation" class="space-y-1 p-3">
 				{#each visibleNav as item (item.href)}
 					{@const active = isActive(item)}
