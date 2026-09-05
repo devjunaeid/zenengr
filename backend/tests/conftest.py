@@ -65,7 +65,11 @@ async def _setup_test_db() -> AsyncGenerator[None]:
 @pytest_asyncio.fixture
 async def session() -> AsyncGenerator[AsyncSession]:
     """Transaction rollback per test. Schema already exists from session fixture."""
-    engine = create_async_engine(_TEST_URL)
+    engine = create_async_engine(
+        _TEST_URL,
+        pool_pre_ping=True,
+        connect_args={"statement_cache_size": 0, "command_timeout": 60},
+    )
     connection = await engine.connect()
     transaction = await connection.begin()
     s = AsyncSession(bind=connection, expire_on_commit=False)

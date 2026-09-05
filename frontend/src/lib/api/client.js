@@ -110,8 +110,15 @@ export async function apiFetch(fetchFn, path, options = {}) {
 
 	if (res.status === 204) return null;
 
-	const data = await res.json().catch(() => null);
 	if (!res.ok) {
+		// For idempotent GET requests, automatically retry once on transient 500-504 server errors
+		// before failing, so that transient connection drops or server wakeups recover transparently.
+		if (method === 'GET' && !options._retry && res.status >= 500 && res.status <= 504) {
+			await new Promise((r) => setTimeout(r, 250));
+			return apiFetch(fetchFn, path, { ...options, _retry: true });
+		}
+
+		const data = await res.json().catch(() => null);
 		let message = res.statusText;
 		let code = 'UNKNOWN';
 		let details = {};

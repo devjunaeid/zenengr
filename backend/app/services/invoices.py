@@ -37,11 +37,11 @@ from app.models.ledger_entry import LedgerEntry
 from app.models.project import Project
 from app.models.project_service import ProjectService
 from app.models.tenant import Tenant
-from app.models.transaction import PaymentAllocation, Transaction
+from app.models.transaction import Transaction
 from app.services.audit import log as audit_log
 from app.services.notifications import notify_invoice_issued, safe_notify
 from app.services.settings import DEFAULT_SETTINGS, get_tenant_setting_by_key
-from app.services.transactions import _auto_allocate, _recompute_invoice_status
+from app.services.transactions import _recompute_invoice_status
 
 # ── Exceptions ──────────────────────────────────────────────────────────────
 
@@ -510,7 +510,7 @@ async def list_invoices(
 ) -> dict[str, Any]:
     """List invoices for a tenant with optional status/project/client filters."""
     query = (
-        select(Invoice).options(selectinload(Invoice.project)).where(Invoice.tenant_id == tenant_id)
+        select(Invoice).options(joinedload(Invoice.project)).where(Invoice.tenant_id == tenant_id)
     )
     if status_filter is not None:
         query = query.where(Invoice.status == status_filter)
@@ -548,12 +548,12 @@ async def list_invoices(
             {
                 "id": inv.id,
                 "invoice_number": inv.invoice_number,
-                "status": inv.status,
+                "status": inv.status.value if hasattr(inv.status, "value") else str(inv.status),
                 "project_id": inv.project_id,
                 "client_id": inv.project.client_id if inv.project else None,
                 "issue_date": inv.issue_date,
                 "due_date": inv.due_date,
-                "total": f"{inv.total:.2f}",
+                "total": f"{inv.total:.2f}" if inv.total is not None else "0.00",
                 "created_at": inv.created_at,
                 "is_auto": inv.is_auto,
             }

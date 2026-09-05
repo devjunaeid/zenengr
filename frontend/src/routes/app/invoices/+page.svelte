@@ -45,8 +45,8 @@
 	<div>
 		<h1 class="text-2xl font-semibold text-slate-900">Invoices</h1>
 		<p class="mt-1 text-sm text-slate-500">
-			{data.invoices.total}
-			{data.invoices.total === 1 ? 'invoice' : 'invoices'}
+			{data.invoices?.total ?? 0}
+			{(data.invoices?.total ?? 0) === 1 ? 'invoice' : 'invoices'}
 		</p>
 	</div>
 	<a
@@ -56,6 +56,19 @@
 		New invoice
 	</a>
 </div>
+
+{#if data.loadError}
+	<div class="mt-4 flex items-center justify-between rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 shadow-2xs">
+		<span>{data.loadError}</span>
+		<button
+			type="button"
+			onclick={() => window.location.reload()}
+			class="font-medium underline hover:text-amber-900 focus-visible:outline-none"
+		>
+			Retry
+		</button>
+	</div>
+{/if}
 
 <form
 	class="mt-6 flex flex-wrap items-end gap-3"

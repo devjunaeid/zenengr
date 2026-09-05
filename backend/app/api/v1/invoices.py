@@ -60,20 +60,31 @@ def _parse_uuid(value: str, *, kind: str) -> uuid.UUID:
 
 
 def _to_line_item_response(item: Any) -> InvoiceLineItemResponse:
+    q = item.quantity if item.quantity is not None else 0
+    up = item.unit_price if item.unit_price is not None else 0
+    amt = item.amount if item.amount is not None else 0
     return InvoiceLineItemResponse(
         id=item.id,
-        description=item.description,
+        description=item.description or "",
         entry_date=item.entry_date,
-        quantity=f"{item.quantity:.2f}",
-        unit_price=f"{item.unit_price:.2f}",
-        amount=f"{item.amount:.2f}",
+        quantity=f"{q:.2f}",
+        unit_price=f"{up:.2f}",
+        amount=f"{amt:.2f}",
         service_id=item.service_id,
         project_service_id=item.project_service_id,
     )
 
 
 def _to_response(invoice: Any) -> InvoiceResponse:
-    items = sorted(invoice.line_items, key=lambda li: li.created_at)
+    from datetime import UTC, datetime
+
+    items = sorted(
+        invoice.line_items or [],
+        key=lambda li: li.created_at or datetime.min.replace(tzinfo=UTC),
+    )
+    subtotal = invoice.subtotal if invoice.subtotal is not None else 0
+    tax_total = invoice.tax_total if invoice.tax_total is not None else 0
+    total = invoice.total if invoice.total is not None else 0
     return InvoiceResponse(
         id=invoice.id,
         invoice_number=invoice.invoice_number,
@@ -84,10 +95,10 @@ def _to_response(invoice: Any) -> InvoiceResponse:
         is_auto=invoice.is_auto,
         issue_date=invoice.issue_date,
         due_date=invoice.due_date,
-        subtotal=f"{invoice.subtotal:.2f}",
-        tax_total=f"{invoice.tax_total:.2f}",
-        total=f"{invoice.total:.2f}",
-        notes=invoice.notes,
+        subtotal=f"{subtotal:.2f}",
+        tax_total=f"{tax_total:.2f}",
+        total=f"{total:.2f}",
+        notes=invoice.notes or "",
         line_items=[_to_line_item_response(li) for li in items],
         created_at=invoice.created_at,
         updated_at=invoice.updated_at,
@@ -95,21 +106,26 @@ def _to_response(invoice: Any) -> InvoiceResponse:
 
 
 def _to_transaction_response(tx: Any) -> TransactionResponse:
-    allocations = sorted(tx.allocations, key=lambda a: a.created_at)
+    from datetime import UTC, datetime
+
+    allocations = sorted(
+        tx.allocations or [],
+        key=lambda a: a.created_at or datetime.min.replace(tzinfo=UTC),
+    )
     return TransactionResponse(
         id=tx.id,
         invoice_id=tx.invoice_id,
-        amount=f"{tx.amount:.2f}",
+        amount=f"{tx.amount:.2f}" if tx.amount is not None else "0.00",
         direction=tx.direction,
         method=tx.method,
-        reference_note=tx.reference_note,
+        reference_note=tx.reference_note or "",
         recorded_by_id=tx.recorded_by_id,
         recorded_at=tx.recorded_at,
         allocations=[
             PaymentAllocationResponse(
                 id=a.id,
                 line_item_id=a.line_item_id,
-                amount=f"{a.amount:.2f}",
+                amount=f"{a.amount:.2f}" if a.amount is not None else "0.00",
             )
             for a in allocations
         ],
@@ -121,6 +137,12 @@ def _to_transaction_response(tx: Any) -> TransactionResponse:
 # ═══════════════════════════════════════════════════════════════════════════
 
 
+@router.post(
+    "",
+    response_model=InvoiceResponse,
+    status_code=status.HTTP_201_CREATED,
+    include_in_schema=False,
+)
 @router.post(
     "/",
     response_model=InvoiceResponse,
@@ -146,6 +168,7 @@ async def create_invoice_endpoint(
     return _to_response(invoice)
 
 
+@router.get("", response_model=InvoiceListResponse, include_in_schema=False)
 @router.get("/", response_model=InvoiceListResponse)
 async def list_invoices_endpoint(
     page: int = Query(default=1, ge=1),

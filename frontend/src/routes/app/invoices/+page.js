@@ -10,15 +10,29 @@ export async function load({ fetch, url }) {
 	const projectId = url.searchParams.get('project_id') ?? '';
 	const page = Math.max(1, Number(url.searchParams.get('page') ?? '1') || 1);
 
-	const [invoices, projects] = await Promise.all([
-		invoiceApi.listInvoices(fetch, token, {
+	let invoices = { items: [], total: 0, page: 1, page_size: 20 };
+	let loadError = null;
+
+	try {
+		invoices = await invoiceApi.listInvoices(fetch, token, {
 			page,
 			page_size: 20,
 			...(status && { status }),
 			...(projectId && { project_id: projectId })
-		}),
-		projectApi.listProjects(fetch, token, { page_size: 100 }).catch(() => ({ items: [] }))
-	]);
+		});
+	} catch (err) {
+		console.error('Failed to load invoices:', err);
+		loadError = 'Unable to load invoices. Please refresh to try again.';
+	}
 
-	return { invoices, projects: projects.items, filters: { status, project_id: projectId, page } };
+	const projects = await projectApi
+		.listProjects(fetch, token, { page_size: 100 })
+		.catch(() => ({ items: [] }));
+
+	return {
+		invoices,
+		projects: projects.items,
+		filters: { status, project_id: projectId, page },
+		loadError
+	};
 }

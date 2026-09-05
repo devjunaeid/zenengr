@@ -118,14 +118,17 @@ async def check_limit(
     """
     plan = await _get_plan_limits(session, tenant_id)
 
-    limit_map: dict[Resource, int] = {
+    # Alias legacy/alternative names
+    normalized_resource = "admin_users" if resource in ("team_members", "users") else resource
+
+    limit_map: dict[str, int] = {
         "admin_users": plan.max_admin_users,
         "clients": plan.max_clients,
         "active_projects": plan.max_active_projects,
         "storage_mb": plan.max_storage_mb,
     }
-    limit = limit_map[resource]
+    limit = limit_map.get(normalized_resource, plan.max_admin_users)
 
-    current = await _count_current_usage(session, tenant_id, resource)
+    current = await _count_current_usage(session, tenant_id, normalized_resource)  # type: ignore[arg-type]
     if current + increment > limit:
         raise LimitExceededError(resource=resource, limit=limit, current=current)

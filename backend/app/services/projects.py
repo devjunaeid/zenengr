@@ -282,7 +282,7 @@ async def create_project(
         start_date=start_date,
         owner_id=owner_id,
     )
-    project.auto_invoice = False
+    project.auto_invoice = auto_invoice
 
     if owner_id is not None:
         owner_member = ProjectMember(
@@ -323,6 +323,29 @@ async def create_project(
     )
 
     await session.commit()
+
+    # AUTO-INVOICE (opt-in): one open draft carrying every attached service.
+    if auto_invoice and services:
+        try:
+            from app.services import invoices as invoice_service
+            name_by_id = {svc.id: svc.name for svc in services}
+            for ps in project.project_services:
+                await invoice_service.append_service_to_draft_invoice(
+                    session,
+                    tenant_id=tenant_id,
+                    project_id=project.id,
+                    project_service_id=ps.id,
+                    service_id=ps.service_id,
+                    price=ps.price_at_attachment or Decimal("0"),
+                    description=name_by_id.get(ps.service_id, ""),
+                    actor_id=actor_id,
+                )
+        except Exception:
+            logger.exception(
+                "auto-invoice creation failed for project %s",
+                project.id,
+            )
+
     await safe_notify(notify_project_created(session, project_id=project.id))
     return project
 
@@ -578,6 +601,26 @@ async def attach_service(
     await session.refresh(project_service)
 
     # AUTO-INVOICE (opt-in): append this service to the project's open draft
+    if project.auto_invoice:
+        try:
+            from app.services import invoices as invoice_service
+            await invoice_service.append_service_to_draft_invoice(
+                session,
+                tenant_id=tenant_id,
+                project_id=project.id,
+                project_service_id=project_service.id,
+                service_id=project_service.service_id,
+                price=project_service.price_at_attachment or Decimal("0"),
+                description=service.name,
+                actor_id=actor_id,
+            )
+        except Exception:
+            logger.exception(
+                "auto-invoice append failed for project %s, project_service %s",
+                project.id,
+                project_service.id,
+            )
+
     # Wire the relationship in-memory: async SQLAlchemy cannot lazy-load
     # relationships outside the greenlet, and attach_service_endpoint reads
     # project_service.service.name right after this returns. The object is
