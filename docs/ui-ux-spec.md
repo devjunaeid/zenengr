@@ -268,4 +268,17 @@ In addition to WCAG 2.1 AA baseline (existing section):
 - **Error state in modals/dialogs:** Focus trap, error summary at top, `aria-describedby` linking description.
 - **Keyboard flow:** All forms navigable via Tab in logical order. Submit on Enter. Cancel via Escape.
 - **Color contrast on badges:** Text-to-badge-background ratio >= 3:1 minimum; 4.5:1 preferred.
-- **Announce dynamic updates:** Use `aria-live="polite"` region for toast notifications, status auto-updates (invoice status change after payment recorded).**
+- **Announce dynamic updates:** Use `aria-live="polite"` region for toast notifications, status auto-updates (invoice status change after payment recorded).
+
+## PWA & App Shell Experience
+
+- **Display Mode:** `standalone` (borderless window, system title bar, no browser URL chrome).
+- **Brand Palette Integration:**
+  - Theme color: `#4f46e5` (Electric Indigo) matching primary accents.
+  - Background color: `#f8fafc` (Slate 50) matching app root background.
+- **App Icons:** High-resolution vector and PNG assets (`512x512`, `192x192`, `32x32`) utilizing the balanced-monolith mark.
+- **Zero-Latency Splash:** The existing `#app-boot-loader` handles cold boots before SvelteKit mounts.
+- **Offline Network Awareness:**
+  - Subtle floating status banner appears if connectivity is interrupted (`navigator.onLine === false`).
+  - Read-only navigation remains possible; mutation actions alert the user rather than failing silently.
+  - Auto-dismisses when connection resumes with a brief success confirmation.

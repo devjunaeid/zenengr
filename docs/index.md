@@ -19,9 +19,9 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 
 | Area | Count | Key metric |
 | ---- | ----- | ---------- |
-| Features | 20 | approved: 19, proposed: 1 |
-| User stories | 64 | done: 23, in_progress: 4, proposed: 37 |
-| Todos | 193 | done: 186, in_progress: 0, proposed: 7 |
+| Features | 21 | approved: 20, proposed: 1 |
+| User stories | 65 | done: 24, in_progress: 4, proposed: 37 |
+| Todos | 196 | done: 189, in_progress: 0, proposed: 7 |
 | Decisions | 2 | accepted: 2 |
 
 ## Active sprint
@@ -61,6 +61,7 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | [FEAT-017](features/FEAT-017-notifications.md) | Realtime Notifications (Admin + Client) | approved | P0 |
 | [FEAT-018](features/FEAT-018-project-ledger.md) | Project Ledger (Balance-Forward) & Formal Invoice Generator | approved | P0 |
 | [FEAT-019](features/FEAT-019-statement-invoicing.md) | Cumulative Statement Invoicing & Realtime Financial Sync | approved | P0 |
+| [FEAT-020](features/FEAT-020-pwa-webapp-install.md) | Progressive Web App (PWA) & Web App Install Support | approved | P1 |
 
 ### Stories
 
@@ -130,6 +131,7 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | [US-062](stories/US-062.md) | Formal invoice generator + tagging | FEAT-018 | done |
 | [US-063](stories/US-063.md) | Project statement live preview, running balance & advance calculation | FEAT-019 | proposed |
 | [US-064](stories/US-064.md) | Cumulative statement invoice issuance & dual-portal PDF view | FEAT-019 | proposed |
+| [US-065](stories/US-065.md) | Installable Web App Shell & PWA Support | FEAT-020 | done |
 
 ### Todos
 
@@ -426,10 +428,19 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | [TODO-192](todos/TODO-192.md) | Frontend 'Generate Statement Invoice' action & Client portal statement view | US-064 | proposed |
 | [TODO-193](todos/TODO-193.md) | Automated tests & end-to-end verification for statement invoices | US-064 | proposed |
 
+#### FEAT-020 — Progressive Web App (PWA) & Web App Install Support
+
+| ID | Title | Story | Status |
+| -- | ----- | ----- | ------ |
+| [TODO-194](todos/TODO-194.md) | Copy icon assets, create manifest.webmanifest, and configure HTML PWA headers | US-065 | done |
+| [TODO-195](todos/TODO-195.md) | Implement SvelteKit service worker with app shell pre-caching and asset versioning | US-065 | done |
+| [TODO-196](todos/TODO-196.md) | Add in-app install trigger helper and offline connectivity banner | US-065 | done |
+
 ## Recently updated
 
 | Date | Item | Change |
 | ---- | ---- | ------ |
+| 2026-09-08 | FEAT-020 PWA & Web App Install Support docs drafted | docs/features/FEAT-020-pwa-webapp-install.md, docs/stories/US-065.md, docs/todos/TODO-194.md..TODO-196.md, docs/index.md. |
 | 2026-08-26 | FEAT-019 Cumulative Statement Invoicing & Realtime Financial Sync docs drafted | docs/features/FEAT-019-statement-invoicing.md, docs/stories/US-063.md, docs/stories/US-064.md, docs/todos/TODO-187.md..TODO-193.md, docs/index.md, docs/progress.md. |
 | 2026-08-07 | FEAT-018 Project Ledger & Invoice Generator docs drafted | docs/features/FEAT-018-project-ledger.md, docs/stories/US-061.md, docs/stories/US-062.md, docs/todos/TODO-178.md, docs/todos/TODO-179.md, docs/todos/TODO-180.md, docs/todos/TODO-181.md, docs/todos/TODO-182.md, docs/todos/TODO-183.md, docs/todos/TODO-184.md, docs/todos/TODO-185.md, docs/todos/TODO-186.md, docs/index.md, docs/progress.md. |
 | 2026-08-06 | FEAT-017 Realtime Notifications docs drafted | docs/features/FEAT-017-notifications.md, docs/stories/US-059.md, docs/stories/US-060.md, docs/todos/TODO-168.md, docs/todos/TODO-169.md, docs/todos/TODO-170.md, docs/todos/TODO-171.md, docs/todos/TODO-172.md, docs/todos/TODO-173.md, docs/todos/TODO-174.md, docs/todos/TODO-175.md, docs/todos/TODO-176.md, docs/todos/TODO-177.md, docs/index.md, docs/progress.md. |
