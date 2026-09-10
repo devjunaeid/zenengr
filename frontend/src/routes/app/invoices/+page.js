@@ -7,7 +7,10 @@ export async function load({ fetch, url }) {
 	const token = auth.token;
 
 	const status = url.searchParams.get('status') ?? '';
+	const invoiceType = url.searchParams.get('type') ?? '';
 	const projectId = url.searchParams.get('project_id') ?? '';
+	const dateFrom = url.searchParams.get('date_from') ?? '';
+	const dateTo = url.searchParams.get('date_to') ?? '';
 	const page = Math.max(1, Number(url.searchParams.get('page') ?? '1') || 1);
 
 	let invoices = { items: [], total: 0, page: 1, page_size: 20 };
@@ -18,7 +21,10 @@ export async function load({ fetch, url }) {
 			page,
 			page_size: 20,
 			...(status && { status }),
-			...(projectId && { project_id: projectId })
+			...(invoiceType && { invoice_type: invoiceType }),
+			...(projectId && { project_id: projectId }),
+			...(dateFrom && { date_from: dateFrom }),
+			...(dateTo && { date_to: dateTo })
 		});
 	} catch (err) {
 		console.error('Failed to load invoices:', err);
@@ -32,7 +38,14 @@ export async function load({ fetch, url }) {
 	return {
 		invoices,
 		projects: projects.items,
-		filters: { status, project_id: projectId, page },
+		filters: {
+			status,
+			type: invoiceType,
+			project_id: projectId,
+			date_from: dateFrom,
+			date_to: dateTo,
+			page
+		},
 		loadError
 	};
 }

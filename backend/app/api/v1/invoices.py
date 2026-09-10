@@ -7,6 +7,7 @@ Guards: manage/invoices = admin+manager for writes; all staff can read.
 from __future__ import annotations
 
 import uuid
+from datetime import date
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
@@ -93,6 +94,7 @@ def _to_response(invoice: Any) -> InvoiceResponse:
         client_id=invoice.project.client_id if invoice.project else None,
         is_general=invoice.project_id is None,
         is_auto=invoice.is_auto,
+        billed_to=invoice.billed_to or {},
         issue_date=invoice.issue_date,
         due_date=invoice.due_date,
         subtotal=f"{subtotal:.2f}",
@@ -162,6 +164,7 @@ async def create_invoice_endpoint(
         issue_date=body.issue_date,
         due_date=body.due_date,
         notes=body.notes,
+        billed_to=body.billed_to,
         line_items=body.line_items,
         actor_id=user.id,
     )
@@ -174,8 +177,11 @@ async def list_invoices_endpoint(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
     status_val: str | None = Query(default=None, alias="status"),
+    invoice_type: str | None = Query(default=None),
     project_id: str | None = Query(default=None),
     client_id: str | None = Query(default=None),
+    date_from: date | None = Query(default=None),
+    date_to: date | None = Query(default=None),
     session: AsyncSession = Depends(get_session),
     user: AdminUser = Depends(get_current_admin_user),
 ) -> InvoiceListResponse:
@@ -194,6 +200,17 @@ async def list_invoices_endpoint(
                     "Must be 'draft', 'issued', 'partially_paid', 'paid', or 'void'."
                 ),
             ) from None
+
+    clean_invoice_type: str | None = None
+    if invoice_type:
+        clean_invoice_type = invoice_type.strip().lower()
+        if clean_invoice_type not in ("all", "project", "general"):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="invoice_type must be 'project', 'general', or 'all'",
+            )
+        if clean_invoice_type == "all":
+            clean_invoice_type = None
 
     parsed_project_id: uuid.UUID | None = None
     if project_id:
@@ -221,8 +238,11 @@ async def list_invoices_endpoint(
         page=page,
         page_size=page_size,
         status_filter=status_filter,
+        invoice_type=clean_invoice_type,
         project_id=parsed_project_id,
         client_id=parsed_client_id,
+        date_from=date_from,
+        date_to=date_to,
     )
     items = [InvoiceListItem(**item) for item in result["items"]]
     return InvoiceListResponse(
@@ -283,6 +303,7 @@ async def update_invoice_endpoint(
         issue_date=body.issue_date,
         due_date=body.due_date,
         notes=body.notes,
+        billed_to=body.billed_to,
         line_items=body.line_items,
         actor_id=user.id,
     )

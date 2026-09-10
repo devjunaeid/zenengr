@@ -13,6 +13,8 @@ import { ApiError, apiFetch, BASE_URL } from './client.js';
  * @property {string|null} invoice_number null while draft
  * @property {'draft'|'issued'|'partially_paid'|'paid'|'void'} status
  * @property {boolean} is_auto true for auto-generated statement invoices
+ * @property {boolean} [is_general] true for general invoices without project
+ * @property {Record<string, any>|null} [billed_to] recipient billing info
  * @property {string|null} project_id null for general (internal) invoices
  * @property {string|null} client_id null for general (internal) invoices
  * @property {string|null} issue_date ISO date
@@ -42,6 +44,7 @@ import { ApiError, apiFetch, BASE_URL } from './client.js';
  * @property {string|null} project_id null for general (internal) invoices
  * @property {string|null} client_id null for general (internal) invoices
  * @property {boolean} is_general true when project_id/client_id are null
+ * @property {Record<string, any>|null} [billed_to] recipient billing info
  * @property {string|null} issue_date
  * @property {string|null} due_date
  * @property {number|string} subtotal
@@ -91,7 +94,7 @@ import { ApiError, apiFetch, BASE_URL } from './client.js';
 /**
  * @param {typeof fetch} fetchFn
  * @param {string} token
- * @param {{ page?: number, page_size?: number, status?: string, project_id?: string, client_id?: string }} [params]
+ * @param {{ page?: number, page_size?: number, status?: string, invoice_type?: string, project_id?: string, client_id?: string, date_from?: string, date_to?: string }} [params]
  *   `client_id` filters to that client's project invoices (general/internal excluded server-side).
  * @returns {Promise<{ items: InvoiceListItem[], total: number, page: number, page_size: number }>}
  */
@@ -117,6 +120,7 @@ export function getInvoice(fetchFn, token, id) {
  *   issue_date?: string,
  *   due_date?: string,
  *   notes?: string,
+ *   billed_to?: Record<string, any>,
  *   line_items: Array<{ project_service_id?: string, description?: string, unit_price?: string|number, quantity?: number, entry_date?: string }>
  * }} body Create payload; omit project_id for general (internal) invoices
  * @returns {Promise<InvoiceDetailResponse>}

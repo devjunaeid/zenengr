@@ -282,3 +282,19 @@ In addition to WCAG 2.1 AA baseline (existing section):
   - Subtle floating status banner appears if connectivity is interrupted (`navigator.onLine === false`).
   - Read-only navigation remains possible; mutation actions alert the user rather than failing silently.
   - Auto-dismisses when connection resumes with a brief success confirmation.
+
+## Invoicing Workflow & Directory Filtering (FEAT-021)
+
+- **Invoice Creation Type Selector:**
+  - Segmented control cards allow toggling between **Project Invoice** and **General Invoice**.
+  - Visual icons (`briefcase-outline`, `file-document-outline`) with clear descriptions of billable scope.
+- **Searchable Project Picker:**
+  - Combobox input with real-time text query filtering projects by name or client.
+  - Selected state presents clean card with project status and instant change/clear buttons.
+- **General Invoice Billed-To Info:**
+  - Structured card capturing recipient/company name, billing email, phone, street address, and tax ID / VAT number.
+  - Quick-fill dropdown enables populating Billed-To details from existing client records in 1 click.
+- **Invoice Directory Filtering:**
+  - Toolbar with Type selector (All, Project, General), Status filter, Project filter (disabled for general invoices), and optional Date Range (From Date, To Date).
+  - Clear/Reset filters trigger visible whenever active filters are present.
+  - General invoices display recipient name badge in both desktop table and mobile cards.

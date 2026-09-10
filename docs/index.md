@@ -62,6 +62,7 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | [FEAT-018](features/FEAT-018-project-ledger.md) | Project Ledger (Balance-Forward) & Formal Invoice Generator | approved | P0 |
 | [FEAT-019](features/FEAT-019-statement-invoicing.md) | Cumulative Statement Invoicing & Realtime Financial Sync | approved | P0 |
 | [FEAT-020](features/FEAT-020-pwa-webapp-install.md) | Progressive Web App (PWA) & Web App Install Support | approved | P1 |
+| [FEAT-021](features/FEAT-021-invoice-type-selector-and-filtering.md) | Invoice Type Selector, Billed-To Info & Advanced Filtering | approved | P1 |
 
 ### Stories
 
@@ -132,6 +133,7 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | [US-063](stories/US-063.md) | Project statement live preview, running balance & advance calculation | FEAT-019 | proposed |
 | [US-064](stories/US-064.md) | Cumulative statement invoice issuance & dual-portal PDF view | FEAT-019 | proposed |
 | [US-065](stories/US-065.md) | Installable Web App Shell & PWA Support | FEAT-020 | done |
+| [US-066](stories/US-066.md) | Invoice Type Selector, Billed-To Information & Advanced Directory Filtering | FEAT-021 | done |
 
 ### Todos
 
@@ -436,10 +438,20 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | [TODO-195](todos/TODO-195.md) | Implement SvelteKit service worker with app shell pre-caching and asset versioning | US-065 | done |
 | [TODO-196](todos/TODO-196.md) | Add in-app install trigger helper and offline connectivity banner | US-065 | done |
 
+#### FEAT-021 — Invoice Type Selector, Billed-To Info & Advanced Filtering
+
+| ID | Title | Story | Status |
+| -- | ----- | ----- | ------ |
+| [TODO-197](todos/TODO-197.md) | Database model and migration for `invoices.billed_to` JSONB column | US-066 | done |
+| [TODO-198](todos/TODO-198.md) | Backend schemas, services, API endpoints, and PDF generation with `billed_to`, `invoice_type`, and date range filters | US-066 | done |
+| [TODO-199](todos/TODO-199.md) | Frontend new invoice create form: Type selector, Billed-To form card, and searchable project picker | US-066 | done |
+| [TODO-200](todos/TODO-200.md) | Frontend invoices list filtering: Type selector, optional date range filter, and Billed-To display in detail/list views | US-066 | done |
+
 ## Recently updated
 
 | Date | Item | Change |
 | ---- | ---- | ------ |
+| 2026-09-09 | FEAT-021 Invoice Type Selector, Billed-To Info & Advanced Filtering shipped | docs/features/FEAT-021-invoice-type-selector-and-filtering.md, docs/stories/US-066.md, docs/todos/TODO-197.md..TODO-200.md, backend/app/models/invoice.py, backend/alembic/versions/b2d3e4f5a6b7_add_invoice_billed_to.py, backend/app/schemas/invoices.py, backend/app/services/invoices.py, backend/app/api/v1/invoices.py, backend/app/services/pdf.py, backend/tests/test_invoices_api.py, frontend/src/lib/api/invoices.js, frontend/src/routes/app/invoices/*, docs/index.md, docs/progress.md. |
 | 2026-09-08 | FEAT-020 PWA & Web App Install Support docs drafted | docs/features/FEAT-020-pwa-webapp-install.md, docs/stories/US-065.md, docs/todos/TODO-194.md..TODO-196.md, docs/index.md. |
 | 2026-08-26 | FEAT-019 Cumulative Statement Invoicing & Realtime Financial Sync docs drafted | docs/features/FEAT-019-statement-invoicing.md, docs/stories/US-063.md, docs/stories/US-064.md, docs/todos/TODO-187.md..TODO-193.md, docs/index.md, docs/progress.md. |
 | 2026-08-07 | FEAT-018 Project Ledger & Invoice Generator docs drafted | docs/features/FEAT-018-project-ledger.md, docs/stories/US-061.md, docs/stories/US-062.md, docs/todos/TODO-178.md, docs/todos/TODO-179.md, docs/todos/TODO-180.md, docs/todos/TODO-181.md, docs/todos/TODO-182.md, docs/todos/TODO-183.md, docs/todos/TODO-184.md, docs/todos/TODO-185.md, docs/todos/TODO-186.md, docs/index.md, docs/progress.md. |

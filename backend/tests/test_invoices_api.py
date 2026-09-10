@@ -986,3 +986,127 @@ class TestAutoStatementInvoice:
         resp = await client.post(f"/api/v1/tenant/invoices/{inv_id}/void", headers=headers)
         assert resp.status_code == 422
         assert "cannot be voided" in resp.json()["error"]["message"]
+
+
+class TestInvoiceTypeAndBilledTo:
+    @pytest.mark.asyncio
+    async def test_create_and_update_general_invoice_with_billed_to(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        ctx = await _bootstrap(db_session)
+        headers = await _admin_auth_header(ctx["admin"])
+
+        billed_data = {
+            "name": "Globex Corp",
+            "email": "billing@globex.test",
+            "phone": "+1 555-0199",
+            "address": "100 Innovation Way, Suite 400",
+            "tax_id": "VAT-998877",
+        }
+        resp = await client.post(
+            "/api/v1/tenant/invoices/",
+            headers=headers,
+            json={
+                "project_id": None,
+                "billed_to": billed_data,
+                "line_items": [
+                    {"description": "Consulting Services", "unit_price": "250.00", "quantity": 2}
+                ],
+            },
+        )
+        assert resp.status_code == 201
+        data = resp.json()
+        assert data["is_general"] is True
+        assert data["project_id"] is None
+        assert data["billed_to"] == billed_data
+        inv_id = data["id"]
+
+        # Detail fetch verifies billed_to
+        detail = await client.get(f"/api/v1/tenant/invoices/{inv_id}", headers=headers)
+        assert detail.status_code == 200
+        assert detail.json()["billed_to"] == billed_data
+
+        # Update billed_to on draft
+        updated_billed = dict(billed_data, name="Globex International")
+        patch_resp = await client.patch(
+            f"/api/v1/tenant/invoices/{inv_id}",
+            headers=headers,
+            json={"billed_to": updated_billed},
+        )
+        assert patch_resp.status_code == 200
+        assert patch_resp.json()["billed_to"]["name"] == "Globex International"
+
+        # PDF render with billed_to succeeds
+        pdf_resp = await client.get(f"/api/v1/tenant/invoices/{inv_id}/pdf", headers=headers)
+        assert pdf_resp.status_code == 200
+        assert pdf_resp.headers["content-type"] == "application/pdf"
+        assert len(pdf_resp.content) > 0
+
+    @pytest.mark.asyncio
+    async def test_filter_by_invoice_type_and_date_range(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        ctx = await _bootstrap(db_session)
+        headers = await _admin_auth_header(ctx["admin"])
+
+        # 1. Project invoice dated 2026-04-10
+        p_resp = await client.post(
+            "/api/v1/tenant/invoices/",
+            headers=headers,
+            json={
+                "project_id": str(ctx["project"].id),
+                "issue_date": "2026-04-10",
+                "line_items": [{"project_service_id": str(ctx["ps"].id), "quantity": 1}],
+            },
+        )
+        assert p_resp.status_code == 201
+        proj_inv_id = p_resp.json()["id"]
+
+        # 2. General invoice dated 2026-05-20
+        g_resp = await client.post(
+            "/api/v1/tenant/invoices/",
+            headers=headers,
+            json={
+                "project_id": None,
+                "issue_date": "2026-05-20",
+                "billed_to": {"name": "Initech"},
+                "line_items": [{"description": "Ad-hoc task", "unit_price": "100.00"}],
+            },
+        )
+        assert g_resp.status_code == 201
+        gen_inv_id = g_resp.json()["id"]
+
+        # Filter invoice_type=project
+        res_p = await client.get("/api/v1/tenant/invoices/?invoice_type=project", headers=headers)
+        assert res_p.status_code == 200
+        items_p = res_p.json()["items"]
+        assert any(i["id"] == proj_inv_id for i in items_p)
+        assert not any(i["id"] == gen_inv_id for i in items_p)
+
+        # Filter invoice_type=general
+        res_g = await client.get("/api/v1/tenant/invoices/?invoice_type=general", headers=headers)
+        assert res_g.status_code == 200
+        items_g = res_g.json()["items"]
+        assert any(i["id"] == gen_inv_id for i in items_g)
+        assert not any(i["id"] == proj_inv_id for i in items_g)
+        gen_item = next(i for i in items_g if i["id"] == gen_inv_id)
+        assert gen_item["is_general"] is True
+        assert gen_item["billed_to"]["name"] == "Initech"
+
+        # Filter date_from=2026-05-01 -> only general invoice
+        res_d1 = await client.get("/api/v1/tenant/invoices/?date_from=2026-05-01", headers=headers)
+        assert res_d1.status_code == 200
+        items_d1 = res_d1.json()["items"]
+        assert any(i["id"] == gen_inv_id for i in items_d1)
+        assert not any(i["id"] == proj_inv_id for i in items_d1)
+
+        # Filter date_to=2026-05-01 -> only project invoice
+        res_d2 = await client.get("/api/v1/tenant/invoices/?date_to=2026-05-01", headers=headers)
+        assert res_d2.status_code == 200
+        items_d2 = res_d2.json()["items"]
+        assert any(i["id"] == proj_inv_id for i in items_d2)
+        assert not any(i["id"] == gen_inv_id for i in items_d2)
+
+        # Invalid invoice_type -> 422
+        res_inv = await client.get("/api/v1/tenant/invoices/?invoice_type=unknown", headers=headers)
+        assert res_inv.status_code == 422

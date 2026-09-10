@@ -13,9 +13,10 @@ from __future__ import annotations
 import uuid
 from datetime import date
 from decimal import Decimal
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import Boolean, Date, ForeignKey, Numeric, String, Text, UniqueConstraint, Uuid
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -52,6 +53,7 @@ class Invoice(TimestampMixin, Base):
     total: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=Decimal("0"), nullable=False)
     notes: Mapped[str] = mapped_column(Text, default="", nullable=False)
     is_auto: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    billed_to: Mapped[dict[str, Any] | None] = mapped_column(JSONB, default=dict, nullable=True)
 
     project: Mapped[Project | None] = relationship("Project")
     line_items: Mapped[list[InvoiceLineItem]] = relationship(

@@ -523,9 +523,33 @@
 	<div class="grid grid-cols-1 gap-8 border-b border-slate-200 py-8 text-xs sm:grid-cols-2">
 		<div>
 			<h3 class="text-[10px] font-bold tracking-wider text-slate-400 uppercase">Billed To</h3>
-			<p class="mt-2 text-sm font-bold text-slate-900">
-				{data.invoice.client_id ? 'Client Account' : 'General Client'}
-			</p>
+			{#if data.invoice.project_id && data.project?.client}
+				<p class="mt-2 text-sm font-bold text-slate-900">{data.project.client.name}</p>
+				{#if data.project.client.email}<p class="text-slate-500">
+						{data.project.client.email}
+					</p>{/if}
+				{#if data.project.client.phone}<p class="text-slate-500">
+						{data.project.client.phone}
+					</p>{/if}
+			{:else if data.invoice.billed_to && data.invoice.billed_to.name}
+				<p class="mt-2 text-sm font-bold text-slate-900">{data.invoice.billed_to.name}</p>
+				{#if data.invoice.billed_to.email}<p class="text-slate-500">
+						{data.invoice.billed_to.email}
+					</p>{/if}
+				{#if data.invoice.billed_to.phone}<p class="text-slate-500">
+						{data.invoice.billed_to.phone}
+					</p>{/if}
+				{#if data.invoice.billed_to.address}<p class="text-slate-500 whitespace-pre-line">
+						{data.invoice.billed_to.address}
+					</p>{/if}
+				{#if data.invoice.billed_to.tax_id}<p class="text-slate-500">
+						Tax ID / VAT: {data.invoice.billed_to.tax_id}
+					</p>{/if}
+			{:else}
+				<p class="mt-2 text-sm font-bold text-slate-900">
+					{data.invoice.client_id ? 'Client Account' : 'General Client'}
+				</p>
+			{/if}
 		</div>
 
 		<div class="space-y-1.5 sm:text-right">

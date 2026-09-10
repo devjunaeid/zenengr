@@ -19,6 +19,13 @@
 	let issueDate = $state(initial.issue_date);
 	let dueDate = $state(initial.due_date);
 	let notes = $state(initial.notes ?? '');
+	let billedTo = $state({
+		name: initial.billed_to?.name ?? '',
+		email: initial.billed_to?.email ?? '',
+		phone: initial.billed_to?.phone ?? '',
+		address: initial.billed_to?.address ?? '',
+		tax_id: initial.billed_to?.tax_id ?? ''
+	});
 	let projectServices = $state(untrack(() => data.project?.services ?? []));
 
 	let rowKey = 1;
@@ -112,6 +119,15 @@
 					return item;
 				})
 			};
+			if (!data.project) {
+				body.billed_to = {
+					name: billedTo.name.trim(),
+					email: billedTo.email.trim(),
+					phone: billedTo.phone.trim(),
+					address: billedTo.address.trim(),
+					tax_id: billedTo.tax_id.trim()
+				};
+			}
 			if (issueDate) body.issue_date = issueDate;
 			if (dueDate) body.due_date = dueDate;
 			if (notes.trim()) body.notes = notes.trim();
@@ -169,7 +185,7 @@
 				<input
 					id="i-project"
 					type="text"
-					value={data.project ? data.project.name : 'Internal invoice'}
+					value={data.project ? data.project.name : 'General Invoice (No project)'}
 					disabled
 					class="mt-1 block w-full cursor-not-allowed rounded-md border-slate-300 bg-slate-50 text-sm text-slate-600 shadow-sm"
 				/>
@@ -193,6 +209,63 @@
 				/>
 			</div>
 		</div>
+
+		{#if !data.project}
+			<div class="rounded-xl border border-slate-200 bg-slate-50/50 p-4 space-y-3">
+				<h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider">Billed To Details</h3>
+				<div class="grid gap-3 sm:grid-cols-2">
+					<div class="sm:col-span-2">
+						<label for="bt-name" class="block text-xs font-semibold text-slate-700"
+							>Recipient Name</label
+						>
+						<input
+							id="bt-name"
+							type="text"
+							bind:value={billedTo.name}
+							class="mt-1 block w-full rounded-lg border-slate-300 px-3 py-1.5 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
+						/>
+					</div>
+					<div>
+						<label for="bt-email" class="block text-xs font-semibold text-slate-700">Email</label>
+						<input
+							id="bt-email"
+							type="email"
+							bind:value={billedTo.email}
+							class="mt-1 block w-full rounded-lg border-slate-300 px-3 py-1.5 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
+						/>
+					</div>
+					<div>
+						<label for="bt-phone" class="block text-xs font-semibold text-slate-700">Phone</label>
+						<input
+							id="bt-phone"
+							type="tel"
+							bind:value={billedTo.phone}
+							class="mt-1 block w-full rounded-lg border-slate-300 px-3 py-1.5 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
+						/>
+					</div>
+					<div class="sm:col-span-2">
+						<label for="bt-addr" class="block text-xs font-semibold text-slate-700">Address</label>
+						<textarea
+							id="bt-addr"
+							bind:value={billedTo.address}
+							rows="2"
+							class="mt-1 block w-full rounded-lg border-slate-300 px-3 py-1.5 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
+						></textarea>
+					</div>
+					<div>
+						<label for="bt-tax" class="block text-xs font-semibold text-slate-700"
+							>Tax ID / VAT</label
+						>
+						<input
+							id="bt-tax"
+							type="text"
+							bind:value={billedTo.tax_id}
+							class="mt-1 block w-full rounded-lg border-slate-300 px-3 py-1.5 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
+						/>
+					</div>
+				</div>
+			</div>
+		{/if}
 
 		<div>
 			<label for="i-notes" class="block text-sm font-medium text-slate-700">Notes</label>

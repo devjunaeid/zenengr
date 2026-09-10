@@ -6,6 +6,8 @@ import uuid
 from datetime import date, datetime
 from decimal import Decimal
 
+from typing import Any
+
 from pydantic import BaseModel
 
 from app.models.enums import InvoiceStatus
@@ -24,6 +26,7 @@ class InvoiceCreateRequest(BaseModel):
     issue_date: date | None = None
     due_date: date | None = None
     notes: str | None = None
+    billed_to: dict[str, Any] | None = None
     line_items: list[InvoiceLineItemInput] = []
     model_config = {"extra": "forbid"}
 
@@ -41,6 +44,7 @@ class InvoiceUpdateRequest(BaseModel):
     issue_date: date | None = None
     due_date: date | None = None
     notes: str | None = None
+    billed_to: dict[str, Any] | None = None
     line_items: list[InvoiceLineItemUpdateInput] | None = None
     model_config = {"extra": "forbid"}
 
@@ -64,6 +68,7 @@ class InvoiceResponse(BaseModel):
     client_id: uuid.UUID | None
     is_general: bool
     is_auto: bool = False
+    billed_to: dict[str, Any] | None = None
     issue_date: date | None
     due_date: date | None
     subtotal: str
@@ -81,7 +86,9 @@ class InvoiceListItem(BaseModel):
     status: InvoiceStatus
     project_id: uuid.UUID | None
     client_id: uuid.UUID | None
+    is_general: bool = False
     is_auto: bool = False
+    billed_to: dict[str, Any] | None = None
     issue_date: date | None
     due_date: date | None
     total: str

@@ -218,6 +218,22 @@ async def render_invoice_pdf(
             billed_left.append(Paragraph(client.phone, ParagraphStyle("ClientPhone", parent=styles["Normal"], fontSize=8.5, leading=12, textColor=colors.HexColor("#475569"))))
         if client.tax_id:
             billed_left.append(Paragraph(f"Tax ID / VAT: {client.tax_id}", ParagraphStyle("ClientTax", parent=styles["Normal"], fontSize=8.5, leading=12, textColor=colors.HexColor("#475569"))))
+    elif invoice.billed_to and isinstance(invoice.billed_to, dict) and invoice.billed_to.get("name"):
+        b_name = invoice.billed_to.get("name", "")
+        b_email = invoice.billed_to.get("email", "")
+        b_phone = invoice.billed_to.get("phone", "")
+        b_address = invoice.billed_to.get("address", "")
+        b_tax = invoice.billed_to.get("tax_id", "")
+        billed_left.append(Paragraph(f"<b>{b_name}</b>", ParagraphStyle("ClientName", parent=styles["Normal"], fontSize=10, leading=14, textColor=colors.HexColor("#0f172a"))))
+        if b_email:
+            billed_left.append(Paragraph(b_email, ParagraphStyle("ClientEmail", parent=styles["Normal"], fontSize=8.5, leading=12, textColor=colors.HexColor("#475569"))))
+        if b_phone:
+            billed_left.append(Paragraph(b_phone, ParagraphStyle("ClientPhone", parent=styles["Normal"], fontSize=8.5, leading=12, textColor=colors.HexColor("#475569"))))
+        if b_address:
+            clean_addr = b_address.replace("\n", "<br/>")
+            billed_left.append(Paragraph(clean_addr, ParagraphStyle("ClientAddr", parent=styles["Normal"], fontSize=8.5, leading=12, textColor=colors.HexColor("#475569"))))
+        if b_tax:
+            billed_left.append(Paragraph(f"Tax ID / VAT: {b_tax}", ParagraphStyle("ClientTax", parent=styles["Normal"], fontSize=8.5, leading=12, textColor=colors.HexColor("#475569"))))
     else:
         billed_left.append(Paragraph("General Account", styles["Normal"]))
 

@@ -428,6 +428,7 @@ async def create_draft_invoice(
     issue_date: date | None,
     due_date: date | None,
     notes: str | None,
+    billed_to: dict[str, Any] | None = None,
     line_items: list[Any],
     actor_id: uuid.UUID,
     is_auto: bool = False,
@@ -462,6 +463,7 @@ async def create_draft_invoice(
         total=subtotal,
         notes=notes or "",
         is_auto=is_auto,
+        billed_to=billed_to or {},
     )
     session.add(invoice)
     await session.flush()
@@ -471,6 +473,8 @@ async def create_draft_invoice(
     audit_details: dict[str, str] = {"total": str(subtotal)}
     if project_id is not None:
         audit_details["project_id"] = str(project_id)
+    if billed_to and isinstance(billed_to, dict) and billed_to.get("name"):
+        audit_details["billed_to_name"] = str(billed_to["name"])
     await audit_log(
         session,
         tenant_id=tenant_id,
@@ -505,33 +509,48 @@ async def list_invoices(
     page: int = 1,
     page_size: int = 20,
     status_filter: InvoiceStatus | None = None,
+    invoice_type: str | None = None,
     project_id: uuid.UUID | None = None,
     client_id: uuid.UUID | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
 ) -> dict[str, Any]:
-    """List invoices for a tenant with optional status/project/client filters."""
+    """List invoices for a tenant with optional status/type/date/project/client filters."""
     query = (
         select(Invoice).options(joinedload(Invoice.project)).where(Invoice.tenant_id == tenant_id)
     )
+    count_stmt = select(Invoice).where(Invoice.tenant_id == tenant_id)
+
     if status_filter is not None:
         query = query.where(Invoice.status == status_filter)
+        count_stmt = count_stmt.where(Invoice.status == status_filter)
+    if invoice_type == "general":
+        query = query.where(Invoice.project_id.is_(None))
+        count_stmt = count_stmt.where(Invoice.project_id.is_(None))
+    elif invoice_type == "project":
+        query = query.where(Invoice.project_id.is_not(None))
+        count_stmt = count_stmt.where(Invoice.project_id.is_not(None))
     if project_id is not None:
         query = query.where(Invoice.project_id == project_id)
+        count_stmt = count_stmt.where(Invoice.project_id == project_id)
     if client_id is not None:
         query = query.join(Project, Invoice.project_id == Project.id).where(
             Project.client_id == client_id,
             Invoice.project_id.is_not(None),
         )
-
-    count_stmt = select(Invoice).where(Invoice.tenant_id == tenant_id)
-    if status_filter is not None:
-        count_stmt = count_stmt.where(Invoice.status == status_filter)
-    if project_id is not None:
-        count_stmt = count_stmt.where(Invoice.project_id == project_id)
-    if client_id is not None:
         count_stmt = count_stmt.join(Project, Invoice.project_id == Project.id).where(
             Project.client_id == client_id,
             Invoice.project_id.is_not(None),
         )
+
+    effective_date = func.coalesce(Invoice.issue_date, func.date(Invoice.created_at))
+    if date_from is not None:
+        query = query.where(effective_date >= date_from)
+        count_stmt = count_stmt.where(effective_date >= date_from)
+    if date_to is not None:
+        query = query.where(effective_date <= date_to)
+        count_stmt = count_stmt.where(effective_date <= date_to)
+
     count_q = select(func.count()).select_from(count_stmt.subquery())
     total_result = await session.execute(count_q)
     total: int = total_result.scalar_one()
@@ -551,6 +570,8 @@ async def list_invoices(
                 "status": inv.status.value if hasattr(inv.status, "value") else str(inv.status),
                 "project_id": inv.project_id,
                 "client_id": inv.project.client_id if inv.project else None,
+                "is_general": inv.project_id is None,
+                "billed_to": inv.billed_to or {},
                 "issue_date": inv.issue_date,
                 "due_date": inv.due_date,
                 "total": f"{inv.total:.2f}" if inv.total is not None else "0.00",
@@ -575,6 +596,7 @@ async def update_draft_invoice(
     issue_date: date | None,
     due_date: date | None,
     notes: str | None,
+    billed_to: dict[str, Any] | None = None,
     line_items: list[Any] | None,
     actor_id: uuid.UUID,
 ) -> Invoice:
@@ -587,7 +609,7 @@ async def update_draft_invoice(
 
     if invoice.status != InvoiceStatus.DRAFT:
         # Issued/paid invoices: notes stay editable; everything else is locked.
-        if issue_date is not None or due_date is not None or line_items is not None:
+        if issue_date is not None or due_date is not None or line_items is not None or billed_to is not None:
             raise InvoiceNotDraftError()
         if notes is None or notes == invoice.notes:
             return invoice
@@ -614,6 +636,9 @@ async def update_draft_invoice(
         changed = True
     if notes is not None and invoice.notes != notes:
         invoice.notes = notes
+        changed = True
+    if billed_to is not None and invoice.billed_to != billed_to:
+        invoice.billed_to = billed_to
         changed = True
     if line_items is not None:
         await _replace_line_items(session, invoice, line_items)
