@@ -172,7 +172,7 @@ async def list_client_projects_endpoint(
 
     if q and q.strip():
         term = f"%{q.strip()}%"
-        search_filter = Project.name.ilike(term) | Project.description.ilike(term)
+        search_filter = Project.name.ilike(term)
         query = query.where(search_filter)
         count_query = count_query.where(search_filter)
 

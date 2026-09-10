@@ -93,7 +93,9 @@ import { apiFetch, ApiError, BASE_URL } from './client.js';
  * @property {string} id
  * @property {string} name
  * @property {string} client_id
+ * @property {string} [status]
  * @property {string|null} [client_name]
+ * @property {any} [client]
  */
 
 /**

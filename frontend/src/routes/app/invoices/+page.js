@@ -12,6 +12,7 @@ export async function load({ fetch, url }) {
 	const dateTo = url.searchParams.get('date_to') ?? '';
 	const page = Math.max(1, Number(url.searchParams.get('page') ?? '1') || 1);
 
+	/** @type {any} */
 	let invoices = { items: [], total: 0, page: 1, page_size: 20 };
 	let loadError = null;
 

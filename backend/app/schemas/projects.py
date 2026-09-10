@@ -19,7 +19,7 @@ from app.models.enums import (
 
 
 class ProjectPaymentCreateRequest(BaseModel):
-    amount: Decimal = Field(..., gt=0)
+    amount: Decimal = Field(..., gt=Decimal(0))
     method: PaymentMethod = PaymentMethod.BANK_TRANSFER
     entry_date: date | None = None
     reference_note: str = ""
@@ -191,7 +191,7 @@ class ProjectCreateResponse(BaseModel):
 
 class AttachServiceRequest(BaseModel):
     service_id: uuid.UUID
-    price: Decimal | None = Field(default=None, gt=0)
+    price: Decimal | None = Field(default=None, gt=Decimal(0))
 
 
 class AttachServiceResponse(BaseModel):

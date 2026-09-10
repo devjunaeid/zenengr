@@ -449,7 +449,7 @@ async def create_draft_invoice(
     resolved = await _resolve_line_items(
         session, tenant_id=tenant_id, project_id=project_id, inputs=line_items
     )
-    subtotal = _money(sum(item["amount"] for item in resolved))
+    subtotal = _money(sum((item["amount"] for item in resolved), Decimal("0")))
 
     invoice = Invoice(
         tenant_id=tenant_id,
@@ -683,7 +683,7 @@ async def _replace_line_items(
         inputs=inputs,
         existing_by_id=existing,
     )
-    subtotal = _money(sum(item["amount"] for item in resolved))
+    subtotal = _money(sum((item["amount"] for item in resolved), Decimal("0")))
     invoice.subtotal = subtotal
     invoice.tax_total = Decimal("0")
     invoice.total = subtotal

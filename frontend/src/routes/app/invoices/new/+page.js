@@ -15,14 +15,15 @@ export async function load({ fetch, url }) {
 			: null
 	]);
 
-	const projects = pickerRes.items ?? [];
+	/** @type {any[]} */
+	const projects = [...(pickerRes.items ?? [])];
 	if (initialProject && !projects.some((p) => p.id === initialProject.id)) {
 		projects.unshift({
 			id: initialProject.id,
 			name: initialProject.name,
 			client_id: initialProject.client_id,
 			status: initialProject.status,
-			client_name: initialProject.client?.name ?? null
+			client_name: /** @type {any} */ (initialProject).client?.name ?? null
 		});
 	}
 
