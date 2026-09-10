@@ -131,22 +131,42 @@
 		}
 	}
 
-	// Filtered projects for searchable combobox
-	let filteredProjects = $derived.by(() => {
-		const q = projectSearchQuery.trim().toLowerCase();
-		if (!q) return data.projects;
-		return data.projects.filter(
-			(p) =>
-				p.name?.toLowerCase().includes(q) ||
-				p.client_name?.toLowerCase().includes(q) ||
-				p.client?.name?.toLowerCase().includes(q)
-		);
-	});
+	// Filtered projects for searchable combobox with server-side typeahead
+	let pickerProjects = $state(untrack(() => data.projects ?? []));
+	let isSearchingProjects = $state(false);
+	/** @type {any} */
+	let searchTimeout = null;
 
-	let selectedProject = $derived(data.projects.find((p) => p.id === projectId));
+	function onProjectSearchInput(e) {
+		projectSearchQuery = e.target.value;
+		projectDropdownOpen = true;
+		if (searchTimeout) clearTimeout(searchTimeout);
+		searchTimeout = setTimeout(async () => {
+			const q = projectSearchQuery.trim();
+			try {
+				isSearchingProjects = true;
+				const res = await projectApi.getProjectPicker(fetch, auth.token, {
+					q: q || undefined,
+					limit: 10
+				});
+				pickerProjects = res.items ?? [];
+			} catch (err) {
+				console.error('Project search error:', err);
+			} finally {
+				isSearchingProjects = false;
+			}
+		}, 250);
+	}
+
+	let selectedProject = $derived(
+		pickerProjects.find((p) => p.id === projectId) ?? data.projects.find((p) => p.id === projectId)
+	);
 
 	function selectProject(proj) {
 		projectId = proj.id;
+		if (!pickerProjects.some((p) => p.id === proj.id)) {
+			pickerProjects.push(proj);
+		}
 		projectSearchQuery = '';
 		projectDropdownOpen = false;
 	}
@@ -437,7 +457,7 @@
 	<!-- 2A. Project Selection (when Project Invoice is selected) -->
 	<!-- ══════════════════════════════════════════════════════════════ -->
 	{#if invoiceType === 'project'}
-		<section class="rounded-xl border border-slate-200 bg-white p-5 shadow-2xs space-y-4">
+		<section class="space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-2xs">
 			<div>
 				<label for="search-project-input" class="block text-sm font-bold text-slate-900">
 					Select Project *
@@ -452,7 +472,7 @@
 				<div
 					class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-indigo-200 bg-indigo-50/60 p-4"
 				>
-					<div class="flex items-center gap-3 min-w-0">
+					<div class="flex min-w-0 items-center gap-3">
 						<div
 							class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-indigo-600 text-white"
 						>
@@ -460,7 +480,7 @@
 						</div>
 						<div class="min-w-0">
 							<div class="flex items-center gap-2">
-								<span class="text-sm font-bold text-slate-900 truncate">
+								<span class="truncate text-sm font-bold text-slate-900">
 									{selectedProject.name}
 								</span>
 								<StatusBadge status={selectedProject.status} />
@@ -507,15 +527,19 @@
 						<input
 							id="search-project-input"
 							type="text"
-							bind:value={projectSearchQuery}
+							value={projectSearchQuery}
+							oninput={onProjectSearchInput}
 							onfocus={() => (projectDropdownOpen = true)}
 							placeholder="Search project by name or client..."
-							class="block w-full rounded-lg border-slate-300 pl-9 pr-8 text-sm shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
+							class="block w-full rounded-lg border-slate-300 pr-8 pl-9 text-sm shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
 						/>
 						{#if projectSearchQuery}
 							<button
 								type="button"
-								onclick={() => (projectSearchQuery = '')}
+								onclick={() => {
+									projectSearchQuery = '';
+									pickerProjects = data.projects ?? [];
+								}}
 								class="absolute inset-y-0 right-0 flex items-center pr-2.5 text-slate-400 hover:text-slate-600"
 							>
 								<Icon icon={close} class="h-4 w-4" />
@@ -528,12 +552,14 @@
 						<div
 							class="absolute z-20 mt-1 max-h-60 w-full overflow-auto rounded-xl border border-slate-200 bg-white py-1 shadow-lg ring-1 ring-black/5"
 						>
-							{#if filteredProjects.length === 0}
+							{#if isSearchingProjects}
+								<div class="p-3 text-center text-xs text-slate-500">Searching projects...</div>
+							{:else if pickerProjects.length === 0}
 								<div class="p-3 text-center text-xs text-slate-500">
 									No projects found matching "{projectSearchQuery}".
 								</div>
 							{:else}
-								{#each filteredProjects as p (p.id)}
+								{#each pickerProjects as p (p.id)}
 									<button
 										type="button"
 										onclick={() => selectProject(p)}
@@ -544,15 +570,17 @@
 									>
 										<div class="min-w-0 flex-1">
 											<div class="flex items-center gap-2">
-												<span class="font-medium text-slate-900 truncate">{p.name}</span>
-												<StatusBadge status={p.status} />
+												<span class="truncate font-medium text-slate-900">{p.name}</span>
+												{#if p.status}
+													<StatusBadge status={p.status} />
+												{/if}
 											</div>
 											<div class="mt-0.5 text-[11px] text-slate-500">
 												Client: {p.client_name || p.client?.name || '—'}
 											</div>
 										</div>
 										{#if p.id === projectId}
-											<Icon icon={check} class="h-4 w-4 text-indigo-600 shrink-0" />
+											<Icon icon={check} class="h-4 w-4 shrink-0 text-indigo-600" />
 										{/if}
 									</button>
 								{/each}
@@ -568,7 +596,7 @@
 		<!-- ══════════════════════════════════════════════════════════════ -->
 	{:else}
 		<section
-			class="rounded-xl border border-slate-200 bg-white p-5 shadow-2xs space-y-4"
+			class="space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-2xs"
 			aria-labelledby="billed-to-h"
 		>
 			<div class="flex flex-wrap items-center justify-between gap-3">
@@ -589,7 +617,7 @@
 							id="quick-client"
 							value={selectedClientId}
 							onchange={(e) => onClientSelect(e.currentTarget.value)}
-							class="rounded-lg border-slate-300 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 py-1.5"
+							class="rounded-lg border-slate-300 py-1.5 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
 						>
 							<option value="">— Select a client to pre-fill —</option>
 							{#each data.clients as c (c.id)}
@@ -672,7 +700,7 @@
 	<!-- ══════════════════════════════════════════════════════════════ -->
 	<!-- 3. Dates & Notes Section -->
 	<!-- ══════════════════════════════════════════════════════════════ -->
-	<section class="rounded-xl border border-slate-200 bg-white p-5 shadow-2xs space-y-4">
+	<section class="space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-2xs">
 		<h2 class="text-sm font-bold text-slate-900">Dates & Terms</h2>
 		<div class="grid gap-4 sm:grid-cols-2">
 			<div>
@@ -959,7 +987,7 @@
 			</div>
 			<div class="flex justify-between border-t border-slate-200 pt-2">
 				<dt class="font-semibold text-slate-900">Total</dt>
-				<dd class="font-bold text-indigo-600 text-base">{fmtPrice(total)}</dd>
+				<dd class="text-base font-bold text-indigo-600">{fmtPrice(total)}</dd>
 			</div>
 		</dl>
 	</section>
@@ -972,14 +1000,14 @@
 			type="submit"
 			disabled={busy}
 			aria-busy={busy}
-			class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-2xs hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60 transition-colors"
+			class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-2xs transition-colors hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
 		>
 			{#if busy}<Spinner class="h-4 w-4 text-white" />{/if}
 			Create invoice
 		</button>
 		<a
 			href={resolve('/app/invoices')}
-			class="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-2xs hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none transition-colors"
+			class="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-2xs transition-colors hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
 		>
 			Cancel
 		</a>

@@ -13,7 +13,8 @@ from sqlalchemy import String, cast, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models.enums import ProjectStatus
+from app.models.client import Client
+from app.models.enums import MilestoneStatus, ProjectServiceStatus, ProjectStatus
 from app.models.project import Project, ProjectMember
 from app.models.project_milestone import ProjectMilestone
 from app.models.project_service import ProjectService
@@ -66,6 +67,53 @@ async def get_project_for_tenant_with_services(
     return result.unique().scalar_one_or_none()
 
 
+async def search_projects_picker(
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    q: str | None = None,
+    client_id: uuid.UUID | None = None,
+    limit: int = 10,
+) -> list[dict[str, Any]]:
+    """Fast, lean project lookup for dropdowns and pickers (id, name, client_id, client_name)."""
+    query = (
+        select(
+            Project.id,
+            Project.name,
+            Project.client_id,
+            Project.status,
+            Client.name.label("client_name"),
+        )
+        .outerjoin(Client, Client.id == Project.client_id)
+        .where(Project.tenant_id == tenant_id)
+    )
+    if client_id is not None:
+        query = query.where(Project.client_id == client_id)
+    if q and q.strip():
+        search_term = q.strip().lstrip("#")
+        pattern = f"%{search_term}%"
+        query = query.where(
+            or_(
+                Project.name.ilike(pattern),
+                Client.name.ilike(pattern),
+                cast(Project.id, String).ilike(pattern),
+            )
+        )
+    query = query.order_by(Project.name.asc()).limit(limit)
+    result = await session.execute(query)
+    rows = result.mappings().all()
+    return [
+        {
+            "id": r["id"],
+            "name": r["name"],
+            "client_id": r["client_id"],
+            "status": r["status"],
+            "client_name": r["client_name"],
+        }
+        for r in rows
+    ]
+
+
 async def list_projects_for_tenant(
     session: AsyncSession,
     *,
@@ -76,23 +124,14 @@ async def list_projects_for_tenant(
     client_id: uuid.UUID | None = None,
     q: str | None = None,
     sort: str | None = None,
-) -> tuple[list[Project], int]:
-    """List projects for a tenant with filters + pagination. Eager-loads
-    project_services + milestones + members for rollup counts."""
-    query = select(Project).options(
-        selectinload(Project.owner),
-        selectinload(Project.project_services),
-        selectinload(Project.milestones),
-        selectinload(Project.members).selectinload(ProjectMember.user),
-    ).where(Project.tenant_id == tenant_id)
-
+) -> tuple[list[dict[str, Any]], int]:
+    """List projects for a tenant with filters + pagination using single-query SQL pushdown aggregation."""
     count_q = select(func.count(Project.id)).where(Project.tenant_id == tenant_id)
 
+    search_filter = None
     if status is not None:
-        query = query.where(Project.status == status)
         count_q = count_q.where(Project.status == status)
     if client_id is not None:
-        query = query.where(Project.client_id == client_id)
         count_q = count_q.where(Project.client_id == client_id)
     if q and q.strip():
         search_term = q.strip().lstrip("#")
@@ -100,7 +139,6 @@ async def list_projects_for_tenant(
             Project.name.ilike(f"%{search_term}%"),
             cast(Project.id, String).ilike(f"%{search_term}%"),
         )
-        query = query.where(search_filter)
         count_q = count_q.where(search_filter)
 
     total_result = await session.execute(count_q)
@@ -108,6 +146,55 @@ async def list_projects_for_tenant(
 
     if total == 0:
         return [], 0
+
+    # Subqueries for active service count and milestone stats
+    svc_sub = (
+        select(
+            ProjectService.project_id,
+            func.count().label("service_count"),
+        )
+        .where(ProjectService.status == ProjectServiceStatus.ACTIVE)
+        .group_by(ProjectService.project_id)
+        .subquery()
+    )
+    ms_sub = (
+        select(
+            ProjectMilestone.project_id,
+            func.count().label("milestone_total"),
+            func.count()
+            .filter(ProjectMilestone.status == MilestoneStatus.COMPLETED)
+            .label("milestone_completed"),
+        )
+        .group_by(ProjectMilestone.project_id)
+        .subquery()
+    )
+
+    query = (
+        select(
+            Project.id,
+            Project.name,
+            Project.client_id,
+            Project.status,
+            Project.start_date,
+            Project.owner_id,
+            Project.auto_invoice,
+            Project.created_at,
+            Project.updated_at,
+            func.coalesce(svc_sub.c.service_count, 0).label("service_count"),
+            func.coalesce(ms_sub.c.milestone_total, 0).label("milestone_total"),
+            func.coalesce(ms_sub.c.milestone_completed, 0).label("milestone_completed"),
+        )
+        .outerjoin(svc_sub, svc_sub.c.project_id == Project.id)
+        .outerjoin(ms_sub, ms_sub.c.project_id == Project.id)
+        .where(Project.tenant_id == tenant_id)
+    )
+
+    if status is not None:
+        query = query.where(Project.status == status)
+    if client_id is not None:
+        query = query.where(Project.client_id == client_id)
+    if search_filter is not None:
+        query = query.where(search_filter)
 
     # Sort
     if sort:
@@ -125,8 +212,25 @@ async def list_projects_for_tenant(
     offset = (page - 1) * page_size
     query = query.offset(offset).limit(page_size)
     result = await session.execute(query)
-    items = list(result.unique().scalars().all())
+    rows = result.mappings().all()
 
+    items = [
+        {
+            "id": r["id"],
+            "name": r["name"],
+            "client_id": r["client_id"],
+            "status": r["status"],
+            "start_date": r["start_date"],
+            "owner_id": r["owner_id"],
+            "auto_invoice": r["auto_invoice"],
+            "service_count": r["service_count"],
+            "milestone_total": r["milestone_total"],
+            "milestone_completed": r["milestone_completed"],
+            "created_at": r["created_at"],
+            "updated_at": r["updated_at"],
+        }
+        for r in rows
+    ]
     return items, total
 
 

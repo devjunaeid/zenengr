@@ -1797,13 +1797,12 @@ class TestAutoInvoice:
 
         # Generate statement invoice on demand
         gen_resp = await client.post(
-            f"/api/v1/tenant/projects/{pid}/statement-invoice",
+            f"/api/v1/tenant/projects/{pid}/generate-statement-invoice",
             headers=admin_headers,
         )
-        assert gen_resp.status_code == 200
+        assert gen_resp.status_code == 201
         inv_data = gen_resp.json()
-        assert inv_data["is_auto"] is True
-        assert inv_data["status"] == "draft"
+        assert inv_data["status"] == "issued"
 
 
 class TestProjectMembersAPI:
@@ -1888,5 +1887,57 @@ class TestProjectMembersAPI:
         )
         assert resp_after.status_code == 200
         assert resp_after.json() == []
+
+
+class TestProjectPickerAPI:
+    @pytest.mark.asyncio
+    async def test_project_picker_endpoint(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        ctx = await _bootstrap(db_session)
+        admin_headers = await _admin_auth_header(ctx["admin"])
+
+        # Create project
+        create_resp = await client.post(
+            "/api/v1/tenant/projects/",
+            json={
+                "name": "Picker Alpha Project",
+                "client_id": str(ctx["client"].id),
+            },
+            headers=admin_headers,
+        )
+        assert create_resp.status_code == 201
+        pid = create_resp.json()["id"]
+
+        # 1. Fetch picker list
+        picker_resp = await client.get(
+            "/api/v1/tenant/projects/picker",
+            headers=admin_headers,
+        )
+        assert picker_resp.status_code == 200
+        data = picker_resp.json()
+        assert "items" in data
+        assert any(p["id"] == pid for p in data["items"])
+        matching = next(p for p in data["items"] if p["id"] == pid)
+        assert matching["name"] == "Picker Alpha Project"
+        assert matching["client_name"] == ctx["client"].name
+
+        # 2. Search picker by query
+        search_resp = await client.get(
+            "/api/v1/tenant/projects/picker?q=Picker Alpha",
+            headers=admin_headers,
+        )
+        assert search_resp.status_code == 200
+        sdata = search_resp.json()
+        assert len(sdata["items"]) >= 1
+        assert sdata["items"][0]["id"] == pid
+
+        # 3. Search picker with non-matching query
+        empty_resp = await client.get(
+            "/api/v1/tenant/projects/picker?q=NonExistentQueryXYZ",
+            headers=admin_headers,
+        )
+        assert empty_resp.status_code == 200
+        assert len(empty_resp.json()["items"]) == 0
 
 

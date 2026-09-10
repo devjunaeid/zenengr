@@ -421,33 +421,33 @@ async def list_projects(
         sort=sort,
     )
 
-    result_items: list[dict[str, Any]] = []
-    for p in items:
-        active_services = [s for s in p.project_services if s.status == ProjectServiceStatus.ACTIVE]
-        milestones = p.milestones
-        completed = sum(1 for m in milestones if m.status == MilestoneStatus.COMPLETED)
-        result_items.append(
-            {
-                "id": p.id,
-                "name": p.name,
-                "client_id": p.client_id,
-                "status": p.status,
-                "start_date": p.start_date,
-                "owner_id": p.owner_id,
-                "auto_invoice": p.auto_invoice,
-                "service_count": len(active_services),
-                "milestone_total": len(milestones),
-                "milestone_completed": completed,
-                "created_at": p.created_at,
-                "updated_at": p.updated_at,
-            }
-        )
-
     return {
-        "items": result_items,
+        "items": items,
         "total": total,
         "page": page,
         "page_size": page_size,
+    }
+
+
+async def get_projects_picker(
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    q: str | None = None,
+    client_id: uuid.UUID | None = None,
+    limit: int = 10,
+) -> dict[str, Any]:
+    """Fast lean project lookup for dropdowns and pickers."""
+    items = await project_repo.search_projects_picker(
+        session,
+        tenant_id=tenant_id,
+        q=q,
+        client_id=client_id,
+        limit=min(max(1, limit), 50),
+    )
+    return {
+        "items": items,
+        "total": len(items),
     }
 
 

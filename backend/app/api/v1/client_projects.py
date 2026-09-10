@@ -20,6 +20,7 @@ from app.db.session import get_session
 from app.models.client_user import ClientUser
 from app.models.enums import MilestoneStatus, ProjectStatus
 from app.models.file_asset import FileAsset
+from app.models.project_milestone import ProjectMilestone
 from app.models.project import Project
 from app.models.project_service import ProjectService
 from app.models.tenant import Tenant
@@ -95,8 +96,11 @@ def _completion_pct(total: int, completed: int) -> float:
     return round(completed / total * 100, 2)
 
 
-def _to_list_item(project: Project) -> ClientProjectListItem:
-    total, completed = _milestone_counts(project)
+def _to_list_item(
+    project: Project, total: int | None = None, completed: int | None = None
+) -> ClientProjectListItem:
+    if total is None or completed is None:
+        total, completed = _milestone_counts(project)
     return ClientProjectListItem(
         id=project.id,
         name=project.name,
@@ -132,35 +136,55 @@ async def list_client_projects_endpoint(
                 ),
             ) from None
 
-    base = (
-        select(Project)
-        .options(
-            selectinload(Project.project_services),
-            selectinload(Project.milestones),
+    ms_sub = (
+        select(
+            ProjectMilestone.project_id.label("project_id"),
+            func.count().label("milestone_total"),
+            func.count()
+            .filter(ProjectMilestone.status == MilestoneStatus.COMPLETED)
+            .label("milestone_completed"),
         )
+        .group_by(ProjectMilestone.project_id)
+        .subquery()
+    )
+
+    query = (
+        select(
+            Project,
+            func.coalesce(ms_sub.c.milestone_total, 0).label("ms_total"),
+            func.coalesce(ms_sub.c.milestone_completed, 0).label("ms_completed"),
+        )
+        .outerjoin(ms_sub, Project.id == ms_sub.c.project_id)
         .where(
             Project.client_id == user.client_id,
             Project.tenant_id == user.tenant_id,
         )
     )
+
+    count_query = select(func.count(Project.id)).where(
+        Project.client_id == user.client_id,
+        Project.tenant_id == user.tenant_id,
+    )
+
     if status_filter is not None:
-        base = base.where(Project.status == status_filter)
+        query = query.where(Project.status == status_filter)
+        count_query = count_query.where(Project.status == status_filter)
 
     if q and q.strip():
         term = f"%{q.strip()}%"
-        base = base.where(Project.name.ilike(term) | Project.description.ilike(term))
+        search_filter = Project.name.ilike(term) | Project.description.ilike(term)
+        query = query.where(search_filter)
+        count_query = count_query.where(search_filter)
 
-    total: int = (
-        await session.execute(select(func.count()).select_from(base.subquery()))
-    ).scalar_one()
+    total: int = (await session.execute(count_query)).scalar_one()
 
     result = await session.execute(
-        base.order_by(Project.created_at.desc()).offset((page - 1) * page_size).limit(page_size)
+        query.order_by(Project.created_at.desc()).offset((page - 1) * page_size).limit(page_size)
     )
-    projects = list(result.unique().scalars().all())
+    rows = result.all()
 
     return ClientProjectListResponse(
-        items=[_to_list_item(p) for p in projects],
+        items=[_to_list_item(row[0], int(row[1]), int(row[2])) for row in rows],
         total=total,
         page=page,
         page_size=page_size,

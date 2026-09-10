@@ -15,7 +15,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import contains_eager, selectinload
 
 from app.core.dependencies import get_current_client_user
 from app.db.session import get_session
@@ -122,7 +122,7 @@ async def list_client_invoices_endpoint(
 
     base = (
         select(Invoice)
-        .options(selectinload(Invoice.project))
+        .options(contains_eager(Invoice.project))
         .join(Project, Invoice.project_id == Project.id)
         .where(*_client_invoice_scope(user))
         # Void invoices stay on the tenant ledger but are hidden from the portal.

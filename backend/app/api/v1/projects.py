@@ -43,6 +43,8 @@ from app.schemas.projects import (
     ProjectMilestoneItem,
     ProjectOverviewResponse,
     ProjectPaymentCreateRequest,
+    ProjectPickerItem,
+    ProjectPickerResponse,
     ProjectServiceFinancialItem,
     ProjectServiceItem,
     ProjectUpdateRequest,
@@ -283,6 +285,37 @@ async def list_projects_endpoint(
         page=result["page"],
         page_size=result["page_size"],
     )
+
+
+@router.get("/picker", response_model=ProjectPickerResponse)
+async def get_projects_picker_endpoint(
+    q: str | None = Query(default=None),
+    client_id: str | None = Query(default=None),
+    limit: int = Query(default=10, ge=1, le=50),
+    session: AsyncSession = Depends(get_session),
+    user: AdminUser = Depends(get_current_admin_user),
+) -> ProjectPickerResponse:
+    """Fast, lightweight project picker for dropdowns and search comboboxes."""
+    tenant_id = _get_tenant_id(user)
+    parsed_client_id: uuid.UUID | None = None
+    if client_id:
+        try:
+            parsed_client_id = uuid.UUID(client_id)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="client_id must be a valid UUID",
+            ) from exc
+
+    result = await project_service.get_projects_picker(
+        session,
+        tenant_id=tenant_id,
+        q=q,
+        client_id=parsed_client_id,
+        limit=limit,
+    )
+    items = [ProjectPickerItem(**item) for item in result["items"]]
+    return ProjectPickerResponse(items=items, total=result["total"])
 
 
 @router.get("/{project_id}", response_model=ProjectDetailResponse)
@@ -627,6 +660,11 @@ async def get_project_statement_pdf_endpoint(
     "/{project_id}/generate-statement-invoice",
     response_model=InvoiceResponse,
     status_code=status.HTTP_201_CREATED,
+)
+@router.post(
+    "/{project_id}/statement-invoice",
+    response_model=InvoiceResponse,
+    status_code=status.HTTP_200_OK,
 )
 async def generate_statement_invoice_endpoint(
     project_id: str,

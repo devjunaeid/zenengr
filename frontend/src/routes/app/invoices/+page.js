@@ -1,5 +1,4 @@
 import * as invoiceApi from '$lib/api/invoices.js';
-import * as projectApi from '$lib/api/projects.js';
 import { auth } from '$lib/stores/auth.svelte.js';
 
 export async function load({ fetch, url }) {
@@ -31,13 +30,8 @@ export async function load({ fetch, url }) {
 		loadError = 'Unable to load invoices. Please refresh to try again.';
 	}
 
-	const projects = await projectApi
-		.listProjects(fetch, token, { page_size: 100 })
-		.catch(() => ({ items: [] }));
-
 	return {
 		invoices,
-		projects: projects.items,
 		filters: {
 			status,
 			type: invoiceType,

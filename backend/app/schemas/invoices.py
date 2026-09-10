@@ -85,6 +85,7 @@ class InvoiceListItem(BaseModel):
     invoice_number: str | None
     status: InvoiceStatus
     project_id: uuid.UUID | None
+    project_name: str | None = None
     client_id: uuid.UUID | None
     is_general: bool = False
     is_auto: bool = False

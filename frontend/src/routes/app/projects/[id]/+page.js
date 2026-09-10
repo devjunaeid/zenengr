@@ -5,7 +5,6 @@ import * as filesApi from '$lib/api/files.js';
 import * as invoiceApi from '$lib/api/invoices.js';
 import * as projectApi from '$lib/api/projects.js';
 import * as rolesApi from '$lib/api/roles.js';
-import * as serviceApi from '$lib/api/services.js';
 import * as tenantApi from '$lib/api/tenant.js';
 import { auth } from '$lib/stores/auth.svelte.js';
 
@@ -14,56 +13,36 @@ export async function load({ fetch, params }) {
 	const token = auth.token;
 
 	try {
-		const [
-			project,
-			users,
-			overview,
-			ledger,
-			draftInvoices,
-			invoices,
-			projectFiles,
-			folderTree,
-			projectRoles
-		] = await Promise.all([
-			projectApi.getProject(fetch, token, params.id),
-			tenantApi
-				.listUsers(fetch, token, { page_size: 100, is_active: true })
-				.catch(() => ({ items: [] })),
-			invoiceApi.getProjectOverview(fetch, token, params.id).catch(() => null),
-			projectApi.getProjectLedger(fetch, token, params.id).catch(() => null),
-			invoiceApi
-				.listInvoices(fetch, token, { project_id: params.id, status: 'draft', page_size: 5 })
-				.catch(() => ({ items: [] })),
-			invoiceApi
-				.listInvoices(fetch, token, { project_id: params.id, page_size: 100 })
-				.catch(() => ({ items: [] })),
-			filesApi
-				.listFiles(fetch, token, { project_id: params.id, scope: 'project', page_size: 100 })
-				.catch(() => ({ items: [], total: 0 })),
-			filesApi.listFolders(fetch, token).catch(() => []),
-			rolesApi.getRoles(fetch, token).catch(() => [])
-		]);
+		const [project, users, overview, ledger, invoices, projectFiles, folderTree, projectRoles] =
+			await Promise.all([
+				projectApi.getProject(fetch, token, params.id),
+				tenantApi
+					.listUsers(fetch, token, { page_size: 100, is_active: true })
+					.catch(() => ({ items: [] })),
+				invoiceApi.getProjectOverview(fetch, token, params.id).catch(() => null),
+				projectApi.getProjectLedger(fetch, token, params.id).catch(() => null),
+				invoiceApi
+					.listInvoices(fetch, token, { project_id: params.id, page_size: 100 })
+					.catch(() => ({ items: [] })),
+				filesApi
+					.listFiles(fetch, token, { project_id: params.id, scope: 'project', page_size: 100 })
+					.catch(() => ({ items: [], total: 0 })),
+				filesApi.listFolders(fetch, token).catch(() => []),
+				rolesApi.getRoles(fetch, token).catch(() => [])
+			]);
 
-		const [client, detailResults] = await Promise.all([
-			project.client_id
-				? clientsApi.getClient(fetch, token, project.client_id).catch(() => null)
-				: null,
-			Promise.all(
-				Array.from(
-					new Set(project.services.filter((s) => s.status === 'active').map((s) => s.service_id))
-				).map((id) =>
-					serviceApi
-						.getService(fetch, token, id)
-						.then((d) => ({ id, name: d.name, steps: d.steps ?? [] }))
-						.catch(() => null)
-				)
-			)
-		]);
+		const client = project.client_id
+			? await clientsApi.getClient(fetch, token, project.client_id).catch(() => null)
+			: null;
 
 		const serviceDetails = {};
-		for (const r of detailResults) {
-			if (r) serviceDetails[r.id] = r;
+		for (const s of project.services ?? []) {
+			serviceDetails[s.service_id] = { id: s.service_id, name: s.service_name, steps: [] };
 		}
+
+		const draftInvoices = {
+			items: (invoices.items ?? []).filter((inv) => inv.status === 'draft').slice(0, 5)
+		};
 
 		return {
 			project,

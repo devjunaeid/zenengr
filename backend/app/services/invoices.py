@@ -569,6 +569,7 @@ async def list_invoices(
                 "invoice_number": inv.invoice_number,
                 "status": inv.status.value if hasattr(inv.status, "value") else str(inv.status),
                 "project_id": inv.project_id,
+                "project_name": inv.project.name if inv.project else None,
                 "client_id": inv.project.client_id if inv.project else None,
                 "is_general": inv.project_id is None,
                 "billed_to": inv.billed_to or {},

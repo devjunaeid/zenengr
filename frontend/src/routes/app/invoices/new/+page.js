@@ -5,15 +5,30 @@ import { auth } from '$lib/stores/auth.svelte.js';
 export async function load({ fetch, url }) {
 	await auth.init(fetch);
 	const token = auth.token;
+	const initialProjectId = url.searchParams.get('project_id') ?? '';
 
-	const [projects, clients] = await Promise.all([
-		projectApi.listProjects(fetch, token, { page_size: 100 }).catch(() => ({ items: [] })),
-		clientApi.listClients(fetch, token, { page_size: 100 }).catch(() => ({ items: [] }))
+	const [pickerRes, clientsRes, initialProject] = await Promise.all([
+		projectApi.getProjectPicker(fetch, token, { limit: 10 }).catch(() => ({ items: [] })),
+		clientApi.listClients(fetch, token, { page_size: 20 }).catch(() => ({ items: [] })),
+		initialProjectId
+			? projectApi.getProject(fetch, token, initialProjectId).catch(() => null)
+			: null
 	]);
 
+	const projects = pickerRes.items ?? [];
+	if (initialProject && !projects.some((p) => p.id === initialProject.id)) {
+		projects.unshift({
+			id: initialProject.id,
+			name: initialProject.name,
+			client_id: initialProject.client_id,
+			status: initialProject.status,
+			client_name: initialProject.client?.name ?? null
+		});
+	}
+
 	return {
-		projects: projects.items,
-		clients: clients.items,
-		initialProjectId: url.searchParams.get('project_id') ?? ''
+		projects,
+		clients: clientsRes.items ?? [],
+		initialProjectId
 	};
 }

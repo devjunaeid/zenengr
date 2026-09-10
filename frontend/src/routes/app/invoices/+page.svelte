@@ -1,5 +1,5 @@
 <script>
-	import { untrack } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -9,6 +9,8 @@
 	import EmptyState from '$lib/components/EmptyState.svelte';
 	import Pagination from '$lib/components/Pagination.svelte';
 	import StatusBadge from '$lib/components/StatusBadge.svelte';
+	import * as projectApi from '$lib/api/projects.js';
+	import { auth } from '$lib/stores/auth.svelte.js';
 	import { formatDate, fmtPrice, humanize } from '$lib/utils/format.js';
 
 	let { data } = $props();
@@ -18,6 +20,18 @@
 	let projectId = $state(untrack(() => data.filters.project_id));
 	let dateFrom = $state(untrack(() => data.filters.date_from));
 	let dateTo = $state(untrack(() => data.filters.date_to));
+
+	/** @type {import('$lib/api/projects.js').ProjectPickerItem[]} */
+	let projectOptions = $state([]);
+
+	onMount(async () => {
+		try {
+			const res = await projectApi.getProjectPicker(fetch, auth.token, { limit: 20 });
+			projectOptions = res.items ?? [];
+		} catch (err) {
+			console.error('Failed to load project filter options:', err);
+		}
+	});
 
 	let hasFilter = $derived(
 		Boolean(status) ||
@@ -78,7 +92,7 @@
 	</div>
 	<a
 		href={resolve('/app/invoices/new')}
-		class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-2xs hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none transition-colors"
+		class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-2xs transition-colors hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
 	>
 		New invoice
 	</a>
@@ -103,7 +117,7 @@
 <!-- Filter Bar -->
 <!-- ══════════════════════════════════════════════════════════════ -->
 <form
-	class="mt-6 rounded-xl border border-slate-200 bg-white p-4 shadow-2xs space-y-3"
+	class="mt-6 space-y-3 rounded-xl border border-slate-200 bg-white p-4 shadow-2xs"
 	onsubmit={(e) => {
 		e.preventDefault();
 		applyFilters();
@@ -111,7 +125,7 @@
 >
 	<div class="flex items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
 		<span
-			class="flex items-center gap-1.5 text-xs font-bold text-slate-700 uppercase tracking-wider"
+			class="flex items-center gap-1.5 text-xs font-bold tracking-wider text-slate-700 uppercase"
 		>
 			<Icon icon={filterVariant} class="h-3.5 w-3.5 text-slate-400" /> Filters
 		</span>
@@ -126,7 +140,7 @@
 		{/if}
 	</div>
 
-	<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5 items-end">
+	<div class="grid grid-cols-1 items-end gap-3 sm:grid-cols-2 lg:grid-cols-5">
 		<!-- 1. Type Filter -->
 		<div>
 			<label for="f-type" class="block text-xs font-semibold text-slate-600">Type</label>
@@ -165,7 +179,10 @@
 				class="mt-1 block w-full rounded-lg border-slate-300 py-1.5 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 disabled:bg-slate-100 disabled:text-slate-400"
 			>
 				<option value="">All projects</option>
-				{#each data.projects as p (p.id)}
+				{#if projectId && !projectOptions.some((p) => p.id === projectId)}
+					<option value={projectId}>Selected Project</option>
+				{/if}
+				{#each projectOptions as p (p.id)}
 					<option value={p.id}>{p.name}</option>
 				{/each}
 			</select>
@@ -247,11 +264,12 @@
 		{/if}
 	{:else}
 		<!-- Mobile & Tablet cards (< lg): responsive grid -->
-		<div class="grid grid-cols-1 gap-3.5 p-3 bg-slate-50/60 sm:grid-cols-2 lg:hidden">
+		<div class="grid grid-cols-1 gap-3.5 bg-slate-50/60 p-3 sm:grid-cols-2 lg:hidden">
 			{#each data.invoices.items as inv (inv.id)}
-				{@const projectName = data.projects.find((p) => p.id === inv.project_id)?.name}
+				{@const projectName =
+					inv.project_name ?? projectOptions.find((p) => p.id === inv.project_id)?.name}
 				<div
-					class="flex flex-col justify-between rounded-xl border border-slate-200/90 bg-white p-4 shadow-2xs space-y-3 transition-shadow hover:shadow-xs"
+					class="flex flex-col justify-between space-y-3 rounded-xl border border-slate-200/90 bg-white p-4 shadow-2xs transition-shadow hover:shadow-xs"
 				>
 					<div class="space-y-3">
 						<div class="flex items-start justify-between gap-3">
@@ -264,16 +282,16 @@
 								</a>
 								<div class="mt-0.5 text-xs">
 									{#if inv.project_id}
-										<span class="text-slate-700 font-medium">{projectName ?? '—'}</span>
+										<span class="font-medium text-slate-700">{projectName ?? '—'}</span>
 									{:else}
 										<div class="flex items-center gap-1.5">
 											<span
-												class="inline-flex items-center rounded-full bg-slate-100 px-1.5 py-0.2 text-[10px] font-medium text-slate-600 ring-1 ring-slate-500/20"
+												class="py-0.2 inline-flex items-center rounded-full bg-slate-100 px-1.5 text-[10px] font-medium text-slate-600 ring-1 ring-slate-500/20"
 											>
 												General
 											</span>
 											{#if inv.billed_to && inv.billed_to.name}
-												<span class="text-slate-900 font-medium truncate">
+												<span class="truncate font-medium text-slate-900">
 													{inv.billed_to.name}
 												</span>
 											{/if}
@@ -285,7 +303,7 @@
 								<StatusBadge status={inv.status} />
 								{#if inv.is_auto}
 									<span
-										class="inline-flex items-center rounded-full bg-violet-100 px-1.5 py-0.2 text-[10px] font-medium text-violet-800"
+										class="py-0.2 inline-flex items-center rounded-full bg-violet-100 px-1.5 text-[10px] font-medium text-violet-800"
 									>
 										Statement
 									</span>
@@ -367,8 +385,9 @@
 				</thead>
 				<tbody class="divide-y divide-slate-200">
 					{#each data.invoices.items as inv (inv.id)}
-						{@const projectName = data.projects.find((p) => p.id === inv.project_id)?.name}
-						<tr class="hover:bg-slate-50 transition-colors">
+						{@const projectName =
+							inv.project_name ?? projectOptions.find((p) => p.id === inv.project_id)?.name}
+						<tr class="transition-colors hover:bg-slate-50">
 							<td class="px-4 py-3 text-sm font-medium text-slate-900">
 								<a
 									href={resolve('/app/invoices/[id]', { id: inv.id })}
@@ -397,7 +416,7 @@
 										{#if inv.billed_to && inv.billed_to.name}
 											<span class="font-medium text-slate-900">{inv.billed_to.name}</span>
 										{:else}
-											<span class="italic text-slate-400">Internal</span>
+											<span class="text-slate-400 italic">Internal</span>
 										{/if}
 									</div>
 								{/if}
@@ -416,7 +435,7 @@
 								</span>
 							</td>
 							<td
-								class="px-4 py-3 text-right text-sm whitespace-nowrap font-mono font-semibold text-slate-900"
+								class="px-4 py-3 text-right font-mono text-sm font-semibold whitespace-nowrap text-slate-900"
 							>
 								{fmtPrice(inv.total)}
 							</td>

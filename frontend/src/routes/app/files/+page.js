@@ -24,7 +24,7 @@ export async function load({ fetch, url }) {
 				page_size: 20
 			})
 			.catch(() => ({ items: [], total: 0, page: 1, page_size: 20 })),
-		projectApi.listProjects(fetch, token, { page_size: 100 }).catch(() => ({ items: [] }))
+		projectApi.getProjectPicker(fetch, token, { limit: 100 }).catch(() => ({ items: [] }))
 	]);
 
 	return {

@@ -89,6 +89,14 @@ import { apiFetch, ApiError, BASE_URL } from './client.js';
  */
 
 /**
+ * @typedef {object} ProjectPickerItem
+ * @property {string} id
+ * @property {string} name
+ * @property {string} client_id
+ * @property {string|null} [client_name]
+ */
+
+/**
  * @param {typeof fetch} fetchFn
  * @param {string} token
  * @param {{ page?: number, page_size?: number, status?: string, client_id?: string, sort?: string, q?: string }} [params]
@@ -99,13 +107,26 @@ export function listProjects(fetchFn, token, params = {}) {
 }
 
 /**
+ * Fast lightweight project picker for dropdowns and search comboboxes.
+ * @param {typeof fetch} fetchFn
+ * @param {string} token
+ * @param {{ q?: string, client_id?: string, limit?: number }} [params]
+ * @returns {Promise<{ items: ProjectPickerItem[], total: number }>}
+ */
+export function getProjectPicker(fetchFn, token, params = {}) {
+	return apiFetch(fetchFn, '/tenant/projects/picker', { token, params });
+}
+
+/**
  * @param {typeof fetch} fetchFn
  * @param {string} token
  * @param {string} id
  * @returns {Promise<ProjectDetailResponse>}
  */
 export function getProject(fetchFn, token, id) {
-	return apiFetch(fetchFn, `/tenant/projects/${encodeURIComponent(id)}`, { token });
+	return apiFetch(fetchFn, `/tenant/projects/${encodeURIComponent(id)}`, {
+		token
+	});
 }
 
 /**
@@ -268,10 +289,14 @@ export function getProjectStatement(fetchFn, token, id) {
  * @returns {Promise<any>}
  */
 export function generateStatementInvoice(fetchFn, token, id) {
-	return apiFetch(fetchFn, `/tenant/projects/${encodeURIComponent(id)}/generate-statement-invoice`, {
-		method: 'POST',
-		token
-	});
+	return apiFetch(
+		fetchFn,
+		`/tenant/projects/${encodeURIComponent(id)}/generate-statement-invoice`,
+		{
+			method: 'POST',
+			token
+		}
+	);
 }
 
 async function fetchBlob(fetchFn, path, token) {
@@ -381,4 +406,3 @@ export function removeProjectMember(fetchFn, token, projectId, memberId) {
 		}
 	);
 }
-

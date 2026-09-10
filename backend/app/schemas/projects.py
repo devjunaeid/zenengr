@@ -99,6 +99,21 @@ class ProjectListResponse(BaseModel):
     page_size: int
 
 
+class ProjectPickerItem(BaseModel):
+    model_config = {"from_attributes": True}
+
+    id: uuid.UUID
+    name: str
+    client_id: uuid.UUID
+    status: ProjectStatus | None = None
+    client_name: str | None = None
+
+
+class ProjectPickerResponse(BaseModel):
+    items: list[ProjectPickerItem]
+    total: int
+
+
 class ProjectServiceItem(BaseModel):
     model_config = {"from_attributes": True}
 

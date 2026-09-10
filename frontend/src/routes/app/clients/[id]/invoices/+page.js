@@ -17,11 +17,11 @@ export async function load({ fetch, params, url }) {
 			...(status && { status })
 		}),
 		projectApi
-			.listProjects(fetch, token, { page_size: 100, client_id: params.id })
+			.listProjects(fetch, token, { page_size: 1, client_id: params.id, status: 'active' })
 			.catch(() => ({ items: [] }))
 	]);
 
-	const firstActiveProject = projects.items.find((p) => p.status === 'active');
+	const firstActiveProject = projects.items[0];
 
 	return {
 		invoices,
