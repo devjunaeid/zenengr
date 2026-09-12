@@ -219,6 +219,235 @@ async def add_project_payment(
     return entry
 
 
+async def update_manual_adjustment(
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    project_id: uuid.UUID,
+    entry_id: uuid.UUID,
+    amount: Decimal | None = None,
+    description: str | None = None,
+    entry_date: date | None = None,
+    actor_id: uuid.UUID,
+) -> LedgerEntry:
+    """Update a manual adjustment on the project ledger (FEAT-022, TODO-202)."""
+    project = await _get_project(session, tenant_id, project_id)
+    entry = await session.get(LedgerEntry, entry_id)
+    if (
+        entry is None
+        or entry.project_id != project.id
+        or entry.source_type != LedgerSourceType.MANUAL_ADJUSTMENT
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Manual adjustment not found",
+        )
+
+    if entry.invoice_ref is not None:
+        inv = await session.get(Invoice, entry.invoice_ref)
+        if inv and inv.status != InvoiceStatus.DRAFT:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Adjustment cannot be modified: already included on issued invoice {inv.invoice_number or entry.invoice_ref}. Void the invoice first.",
+            )
+
+    old_amount = entry.amount
+    old_desc = entry.description
+
+    if amount is not None:
+        entry.amount = _money(amount)
+    if description is not None:
+        entry.description = description
+    if entry_date is not None:
+        entry.entry_date = entry_date
+
+    await audit_log(
+        session,
+        tenant_id=tenant_id,
+        actor_id=actor_id,
+        actor_type=ActorType.ADMIN_USER,
+        action="project.ledger_adjustment_updated",
+        entity_type="project",
+        entity_id=str(project.id),
+        details={
+            "entry_id": str(entry.id),
+            "old_amount": f"{old_amount:.2f}",
+            "new_amount": f"{entry.amount:.2f}",
+            "old_description": old_desc,
+            "new_description": entry.description,
+        },
+    )
+    await session.commit()
+    await session.refresh(entry)
+    return entry
+
+
+async def delete_manual_adjustment(
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    project_id: uuid.UUID,
+    entry_id: uuid.UUID,
+    actor_id: uuid.UUID,
+) -> None:
+    """Delete a manual adjustment from the project ledger (FEAT-022, TODO-202)."""
+    project = await _get_project(session, tenant_id, project_id)
+    entry = await session.get(LedgerEntry, entry_id)
+    if (
+        entry is None
+        or entry.project_id != project.id
+        or entry.source_type != LedgerSourceType.MANUAL_ADJUSTMENT
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Manual adjustment not found",
+        )
+
+    if entry.invoice_ref is not None:
+        inv = await session.get(Invoice, entry.invoice_ref)
+        if inv and inv.status != InvoiceStatus.DRAFT:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Adjustment cannot be deleted: already included on issued invoice {inv.invoice_number or entry.invoice_ref}. Void the invoice first.",
+            )
+
+    await audit_log(
+        session,
+        tenant_id=tenant_id,
+        actor_id=actor_id,
+        actor_type=ActorType.ADMIN_USER,
+        action="project.ledger_adjustment_deleted",
+        entity_type="project",
+        entity_id=str(project.id),
+        details={
+            "entry_id": str(entry.id),
+            "amount": f"{entry.amount:.2f}",
+            "description": entry.description,
+        },
+    )
+    await session.delete(entry)
+    await session.commit()
+
+
+async def update_project_payment(
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    project_id: uuid.UUID,
+    entry_id: uuid.UUID,
+    amount: Decimal | None = None,
+    method: PaymentMethod | None = None,
+    entry_date: date | None = None,
+    reference_note: str | None = None,
+    actor_id: uuid.UUID,
+) -> LedgerEntry:
+    """Update a direct project payment (FEAT-022, TODO-202)."""
+    project = await _get_project(session, tenant_id, project_id)
+    entry = await session.get(LedgerEntry, entry_id)
+    if (
+        entry is None
+        or entry.project_id != project.id
+        or entry.type != LedgerEntryType.PAYMENT
+        or entry.source_id is not None
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Project payment not found",
+        )
+
+    if entry.invoice_ref is not None:
+        inv = await session.get(Invoice, entry.invoice_ref)
+        if inv and inv.status != InvoiceStatus.DRAFT:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Payment cannot be modified: already included on issued invoice {inv.invoice_number or entry.invoice_ref}.",
+            )
+
+    if amount is not None:
+        if _money(amount) <= Decimal("0"):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="Payment amount must be greater than 0",
+            )
+        entry.amount = _money(amount)
+
+    if entry_date is not None:
+        entry.entry_date = entry_date
+
+    if method is not None or reference_note is not None:
+        cur_method = entry.description.split(" - ")[0] if " - " in entry.description else entry.description
+        cur_note = entry.description.split(" - ", 1)[1] if " - " in entry.description else ""
+        m = method.value.replace("_", " ").title() if method is not None else cur_method
+        note = reference_note if reference_note is not None else cur_note
+        entry.description = f"{m} - {note}".strip(" -") if note else m
+
+    await audit_log(
+        session,
+        tenant_id=tenant_id,
+        actor_id=actor_id,
+        actor_type=ActorType.ADMIN_USER,
+        action="project.payment_updated",
+        entity_type="project",
+        entity_id=str(project.id),
+        details={
+            "entry_id": str(entry.id),
+            "amount": f"{entry.amount:.2f}",
+            "description": entry.description,
+        },
+    )
+    await session.commit()
+    await session.refresh(entry)
+    return entry
+
+
+async def delete_project_payment(
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    project_id: uuid.UUID,
+    entry_id: uuid.UUID,
+    actor_id: uuid.UUID,
+) -> None:
+    """Delete a direct project payment (FEAT-022, TODO-202)."""
+    project = await _get_project(session, tenant_id, project_id)
+    entry = await session.get(LedgerEntry, entry_id)
+    if (
+        entry is None
+        or entry.project_id != project.id
+        or entry.type != LedgerEntryType.PAYMENT
+        or entry.source_id is not None
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Project payment not found",
+        )
+
+    if entry.invoice_ref is not None:
+        inv = await session.get(Invoice, entry.invoice_ref)
+        if inv and inv.status != InvoiceStatus.DRAFT:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Payment cannot be deleted: already included on issued invoice {inv.invoice_number or entry.invoice_ref}.",
+            )
+
+    await audit_log(
+        session,
+        tenant_id=tenant_id,
+        actor_id=actor_id,
+        actor_type=ActorType.ADMIN_USER,
+        action="project.payment_deleted",
+        entity_type="project",
+        entity_id=str(project.id),
+        details={
+            "entry_id": str(entry.id),
+            "amount": f"{entry.amount:.2f}",
+            "description": entry.description,
+        },
+    )
+    await session.delete(entry)
+    await session.commit()
+
+
 # ── Ledger read (TODO-180) ─────────────────────────────────────────────────
 
 

@@ -19,9 +19,9 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 
 | Area | Count | Key metric |
 | ---- | ----- | ---------- |
-| Features | 21 | approved: 20, proposed: 1 |
-| User stories | 65 | done: 24, in_progress: 4, proposed: 37 |
-| Todos | 196 | done: 189, in_progress: 0, proposed: 7 |
+| Features | 22 | approved: 21, proposed: 1 |
+| User stories | 67 | done: 25, in_progress: 4, proposed: 38 |
+| Todos | 204 | done: 193, in_progress: 0, proposed: 11 |
 | Decisions | 2 | accepted: 2 |
 
 ## Active sprint
@@ -63,6 +63,7 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | [FEAT-019](features/FEAT-019-statement-invoicing.md) | Cumulative Statement Invoicing & Realtime Financial Sync | approved | P0 |
 | [FEAT-020](features/FEAT-020-pwa-webapp-install.md) | Progressive Web App (PWA) & Web App Install Support | approved | P1 |
 | [FEAT-021](features/FEAT-021-invoice-type-selector-and-filtering.md) | Invoice Type Selector, Billed-To Info & Advanced Filtering | approved | P1 |
+| [FEAT-022](features/FEAT-022-financial-corrections-and-ledger-management.md) | Financial Corrections, Service Price Edits & Ledger Entry Management | approved | P0 |
 
 ### Stories
 
@@ -134,6 +135,7 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | [US-064](stories/US-064.md) | Cumulative statement invoice issuance & dual-portal PDF view | FEAT-019 | proposed |
 | [US-065](stories/US-065.md) | Installable Web App Shell & PWA Support | FEAT-020 | done |
 | [US-066](stories/US-066.md) | Invoice Type Selector, Billed-To Information & Advanced Directory Filtering | FEAT-021 | done |
+| [US-067](stories/US-067.md) | Financial Corrections for Services, Adjustments, and Payments | FEAT-022 | done |
 
 ### Todos
 
@@ -447,10 +449,20 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | [TODO-199](todos/TODO-199.md) | Frontend new invoice create form: Type selector, Billed-To form card, and searchable project picker | US-066 | done |
 | [TODO-200](todos/TODO-200.md) | Frontend invoices list filtering: Type selector, optional date range filter, and Billed-To display in detail/list views | US-066 | done |
 
+#### FEAT-022 — Financial Corrections, Service Price Edits & Ledger Entry Management
+
+| ID | Title | Story | Status |
+| -- | ----- | ----- | ------ |
+| [TODO-201](todos/TODO-201.md) | Backend service price update API and draft invoice sync | US-067 | done |
+| [TODO-202](todos/TODO-202.md) | Backend manual adjustment & project payment update/delete endpoints | US-067 | done |
+| [TODO-203](todos/TODO-203.md) | Backend invoice transaction deletion and status recalculation | US-067 | done |
+| [TODO-204](todos/TODO-204.md) | Frontend financial corrections UI for services, ledger entries, and transactions | US-067 | done |
+
 ## Recently updated
 
 | Date | Item | Change |
 | ---- | ---- | ------ |
+| 2026-09-12 | FEAT-022 Financial Corrections, Service Price Edits & Ledger Entry Management shipped | docs/features/FEAT-022-financial-corrections-and-ledger-management.md, docs/stories/US-067.md, docs/todos/TODO-201.md..TODO-204.md, backend/app/schemas/projects.py, backend/app/schemas/ledger.py, backend/app/services/projects.py, backend/app/services/ledger.py, backend/app/services/transactions.py, backend/app/api/v1/projects.py, backend/app/api/v1/invoices.py, backend/tests/test_financial_corrections_api.py, frontend/src/lib/api/projects.js, frontend/src/lib/api/invoices.js, frontend/src/routes/app/projects/[id]/+page.svelte, frontend/src/routes/app/invoices/[id]/+page.svelte, docs/index.md, docs/progress.md. |
 | 2026-09-09 | FEAT-021 Invoice Type Selector, Billed-To Info & Advanced Filtering shipped | docs/features/FEAT-021-invoice-type-selector-and-filtering.md, docs/stories/US-066.md, docs/todos/TODO-197.md..TODO-200.md, backend/app/models/invoice.py, backend/alembic/versions/b2d3e4f5a6b7_add_invoice_billed_to.py, backend/app/schemas/invoices.py, backend/app/services/invoices.py, backend/app/api/v1/invoices.py, backend/app/services/pdf.py, backend/tests/test_invoices_api.py, frontend/src/lib/api/invoices.js, frontend/src/routes/app/invoices/*, docs/index.md, docs/progress.md. |
 | 2026-09-08 | FEAT-020 PWA & Web App Install Support docs drafted | docs/features/FEAT-020-pwa-webapp-install.md, docs/stories/US-065.md, docs/todos/TODO-194.md..TODO-196.md, docs/index.md. |
 | 2026-08-26 | FEAT-019 Cumulative Statement Invoicing & Realtime Financial Sync docs drafted | docs/features/FEAT-019-statement-invoicing.md, docs/stories/US-063.md, docs/stories/US-064.md, docs/todos/TODO-187.md..TODO-193.md, docs/index.md, docs/progress.md. |

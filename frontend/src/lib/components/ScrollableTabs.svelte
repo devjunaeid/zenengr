@@ -43,7 +43,7 @@
 	}
 </script>
 
-<div class="relative group/tabs {className}">
+<div class="group/tabs relative max-w-full min-w-0 {className}">
 	<!-- Left scroll indicator & button -->
 	{#if canScrollLeft}
 		<div
@@ -52,7 +52,7 @@
 			<button
 				type="button"
 				onclick={scrollLeft}
-				class="pointer-events-auto flex h-7 w-7 items-center justify-center rounded-full bg-white text-slate-600 shadow-md ring-1 ring-slate-200 transition-transform hover:scale-105 hover:text-indigo-600 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+				class="pointer-events-auto flex h-7 w-7 items-center justify-center rounded-full bg-white text-slate-600 shadow-md ring-1 ring-slate-200 transition-transform hover:scale-105 hover:text-indigo-600 focus:ring-2 focus:ring-indigo-500 focus-visible:outline-none"
 				aria-label="Scroll tabs left"
 			>
 				<Icon icon={chevronLeft} class="h-4 w-4" />
@@ -64,7 +64,7 @@
 	<nav
 		bind:this={container}
 		aria-label={ariaLabel}
-		class="flex items-center gap-1.5 overflow-x-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-2xs scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+		class="flex max-w-full min-w-0 [scrollbar-width:none] items-center gap-1.5 overflow-x-auto scroll-smooth rounded-xl border border-slate-200 bg-white p-1.5 shadow-2xs [&::-webkit-scrollbar]:hidden"
 	>
 		{@render children?.()}
 	</nav>
@@ -77,7 +77,7 @@
 			<button
 				type="button"
 				onclick={scrollRight}
-				class="pointer-events-auto flex h-7 w-7 items-center justify-center rounded-full bg-white text-slate-600 shadow-md ring-1 ring-slate-200 transition-transform hover:scale-105 hover:text-indigo-600 focus:ring-2 focus:ring-indigo-500 focus:outline-none animate-pulse sm:animate-none"
+				class="pointer-events-auto flex h-7 w-7 animate-pulse items-center justify-center rounded-full bg-white text-slate-600 shadow-md ring-1 ring-slate-200 transition-transform hover:scale-105 hover:text-indigo-600 focus:ring-2 focus:ring-indigo-500 focus:outline-none sm:animate-none"
 				aria-label="Scroll tabs right"
 			>
 				<Icon icon={chevronRight} class="h-4 w-4" />

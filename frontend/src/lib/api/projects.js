@@ -172,6 +172,45 @@ export function attachService(fetchFn, token, projectId, body) {
 }
 
 /**
+ * Update the attached price of a project service (FEAT-022).
+ * @param {typeof fetch} fetchFn
+ * @param {string} token
+ * @param {string} projectId
+ * @param {string} projectServiceId
+ * @param {number|string} price
+ * @returns {Promise<ProjectServiceItem>}
+ */
+export function updateProjectServicePrice(fetchFn, token, projectId, projectServiceId, price) {
+	return apiFetch(
+		fetchFn,
+		`/tenant/projects/${encodeURIComponent(projectId)}/services/${encodeURIComponent(projectServiceId)}`,
+		{
+			method: 'PATCH',
+			token,
+			body: { price }
+		}
+	);
+}
+
+/**
+ * Remove/unattach a project service (FEAT-022, TODO-070).
+ * @param {typeof fetch} fetchFn
+ * @param {string} token
+ * @param {string} projectId
+ * @param {string} projectServiceId
+ */
+export function removeProjectService(fetchFn, token, projectId, projectServiceId) {
+	return apiFetch(
+		fetchFn,
+		`/tenant/projects/${encodeURIComponent(projectId)}/services/${encodeURIComponent(projectServiceId)}`,
+		{
+			method: 'DELETE',
+			token
+		}
+	);
+}
+
+/**
  * @param {typeof fetch} fetchFn
  * @param {string} token
  * @param {string} projectId
@@ -264,12 +303,90 @@ export function addLedgerAdjustment(fetchFn, token, id, body) {
 	});
 }
 
+/**
+ * Update an existing manual ledger adjustment (FEAT-022).
+ * @param {typeof fetch} fetchFn
+ * @param {string} token
+ * @param {string} projectId
+ * @param {string} entryId
+ * @param {{ amount?: number|string, description?: string, entry_date?: string }} body
+ * @returns {Promise<LedgerEntry>}
+ */
+export function updateLedgerAdjustment(fetchFn, token, projectId, entryId, body) {
+	return apiFetch(
+		fetchFn,
+		`/tenant/projects/${encodeURIComponent(projectId)}/ledger/adjustments/${encodeURIComponent(entryId)}`,
+		{
+			method: 'PATCH',
+			token,
+			body
+		}
+	);
+}
+
+/**
+ * Delete a manual ledger adjustment (FEAT-022).
+ * @param {typeof fetch} fetchFn
+ * @param {string} token
+ * @param {string} projectId
+ * @param {string} entryId
+ */
+export function deleteLedgerAdjustment(fetchFn, token, projectId, entryId) {
+	return apiFetch(
+		fetchFn,
+		`/tenant/projects/${encodeURIComponent(projectId)}/ledger/adjustments/${encodeURIComponent(entryId)}`,
+		{
+			method: 'DELETE',
+			token
+		}
+	);
+}
+
 export function recordProjectPayment(fetchFn, token, projectId, body) {
 	return apiFetch(fetchFn, `/tenant/projects/${encodeURIComponent(projectId)}/payments`, {
 		method: 'POST',
 		token,
 		body
 	});
+}
+
+/**
+ * Update a direct project payment (FEAT-022).
+ * @param {typeof fetch} fetchFn
+ * @param {string} token
+ * @param {string} projectId
+ * @param {string} entryId
+ * @param {{ amount?: number|string, method?: string, entry_date?: string, reference_note?: string }} body
+ * @returns {Promise<LedgerEntry>}
+ */
+export function updateProjectPayment(fetchFn, token, projectId, entryId, body) {
+	return apiFetch(
+		fetchFn,
+		`/tenant/projects/${encodeURIComponent(projectId)}/payments/${encodeURIComponent(entryId)}`,
+		{
+			method: 'PATCH',
+			token,
+			body
+		}
+	);
+}
+
+/**
+ * Delete a direct project payment (FEAT-022).
+ * @param {typeof fetch} fetchFn
+ * @param {string} token
+ * @param {string} projectId
+ * @param {string} entryId
+ */
+export function deleteProjectPayment(fetchFn, token, projectId, entryId) {
+	return apiFetch(
+		fetchFn,
+		`/tenant/projects/${encodeURIComponent(projectId)}/payments/${encodeURIComponent(entryId)}`,
+		{
+			method: 'DELETE',
+			token
+		}
+	);
 }
 
 /**

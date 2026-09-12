@@ -120,7 +120,7 @@
 
 <svelte:head><title>{data?.profile?.business_name ?? 'ZenEngr'} — ZenEngr</title></svelte:head>
 
-<div class="flex min-h-screen flex-col bg-slate-50">
+<div class="flex min-h-screen flex-col overflow-x-clip bg-slate-50">
 	{#if navigating.to}
 		<div
 			class="fixed top-0 right-0 left-0 z-50 h-1 overflow-hidden bg-indigo-100"
@@ -185,7 +185,9 @@
 								src={assetUrl(data.user.avatar_url)}
 								alt=""
 								class="absolute inset-0 h-full w-full object-cover"
-								onerror={(e) => { e.currentTarget.style.display = 'none'; }}
+								onerror={(e) => {
+									e.currentTarget.style.display = 'none';
+								}}
 							/>
 						{/if}
 					</div>
@@ -208,7 +210,9 @@
 										src={assetUrl(data.user.avatar_url)}
 										alt=""
 										class="absolute inset-0 h-full w-full object-cover"
-										onerror={(e) => { e.currentTarget.style.display = 'none'; }}
+										onerror={(e) => {
+											e.currentTarget.style.display = 'none';
+										}}
 									/>
 								{/if}
 							</div>
@@ -258,7 +262,7 @@
 		</div>
 	</header>
 
-	<div class="flex flex-1 print:block print:w-full">
+	<div class="flex min-w-0 flex-1 print:block print:w-full">
 		<!-- Mobile and Tablet backdrop (< lg) -->
 		{#if sidebarOpen}
 			<button
@@ -270,11 +274,13 @@
 		{/if}
 
 		<aside
-			class="fixed inset-y-0 left-0 z-50 w-64 shrink-0 overflow-y-auto border-r border-slate-200 bg-white transition-transform duration-200 lg:static lg:w-56 lg:translate-x-0 print:hidden {sidebarOpen
+			class="fixed inset-y-0 left-0 z-50 w-64 shrink-0 overflow-y-auto border-r border-slate-200 bg-white transition-transform duration-200 lg:static lg:z-auto lg:w-56 lg:translate-x-0 print:hidden {sidebarOpen
 				? 'translate-x-0'
 				: '-translate-x-full'}"
 		>
-			<div class="flex items-center justify-between border-b border-slate-200 px-4 py-3.5 lg:hidden">
+			<div
+				class="flex items-center justify-between border-b border-slate-200 px-4 py-3.5 lg:hidden"
+			>
 				<span class="text-sm font-semibold text-slate-800">Navigation</span>
 				<button
 					type="button"
@@ -283,7 +289,12 @@
 					onclick={() => (sidebarOpen = false)}
 				>
 					<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M6 18L18 6M6 6l12 12"
+						/>
 					</svg>
 				</button>
 			</div>
@@ -308,7 +319,7 @@
 			</nav>
 		</aside>
 		<main
-			class="mx-auto w-full max-w-7xl flex-1 p-4 transition-opacity duration-150 sm:p-6 {navigating.to
+			class="mx-auto w-full max-w-7xl min-w-0 flex-1 p-4 transition-opacity duration-150 sm:p-6 {navigating.to
 				? 'pointer-events-none opacity-50'
 				: 'opacity-100'}"
 		>

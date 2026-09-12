@@ -40,6 +40,31 @@
 
 	const number = $derived(data.invoice.invoice_number ?? 'Draft');
 
+	let canManage = $derived(auth.can('manage', 'invoices') || auth.isTenantAdmin);
+
+	let deleteTxTarget = $state(null);
+	let deleteTxBusy = $state(false);
+
+	function openDeleteTx(tx) {
+		deleteTxTarget = tx;
+	}
+
+	async function executeDeleteTx() {
+		if (!deleteTxTarget) return;
+		deleteTxBusy = true;
+		actionErr = null;
+		try {
+			await invoiceApi.deleteInvoiceTransaction(fetch, token, data.invoice.id, deleteTxTarget.id);
+			deleteTxTarget = null;
+			actionMsg = 'Payment transaction removed successfully.';
+			await invalidateAll();
+		} catch (e) {
+			actionErr = e instanceof ApiError ? e.message : 'Could not delete payment transaction.';
+		} finally {
+			deleteTxBusy = false;
+		}
+	}
+
 	let pdfErr = $state(null);
 	let downloading = $state(false);
 	let viewing = $state(false);
@@ -539,7 +564,7 @@
 				{#if data.invoice.billed_to.phone}<p class="text-slate-500">
 						{data.invoice.billed_to.phone}
 					</p>{/if}
-				{#if data.invoice.billed_to.address}<p class="text-slate-500 whitespace-pre-line">
+				{#if data.invoice.billed_to.address}<p class="whitespace-pre-line text-slate-500">
 						{data.invoice.billed_to.address}
 					</p>{/if}
 				{#if data.invoice.billed_to.tax_id}<p class="text-slate-500">
@@ -790,6 +815,13 @@
 								class="px-4 py-3 text-right text-xs font-semibold tracking-wide text-slate-600 uppercase"
 								>Date</th
 							>
+							{#if canManage}
+								<th
+									scope="col"
+									class="px-4 py-3 text-right text-xs font-semibold tracking-wide text-slate-600 uppercase"
+									>Actions</th
+								>
+							{/if}
 						</tr>
 					</thead>
 					<tbody class="divide-y divide-slate-200">
@@ -820,10 +852,22 @@
 								<td class="px-4 py-3 text-right text-sm whitespace-nowrap text-slate-700"
 									>{formatDateTime(t.recorded_at)}</td
 								>
+								{#if canManage}
+									<td class="px-4 py-3 text-right text-sm whitespace-nowrap">
+										<button
+											type="button"
+											onclick={() => openDeleteTx(t)}
+											class="inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-rose-600 hover:bg-rose-50 hover:text-rose-700 focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:outline-none"
+											title="Delete payment"
+										>
+											Remove
+										</button>
+									</td>
+								{/if}
 							</tr>
 							{#if data.invoice.project_id == null && t.allocations.length > 0}
 								<tr class="bg-slate-50/50">
-									<td colspan="5" class="px-4 py-2">
+									<td colspan={canManage ? 6 : 5} class="px-4 py-2">
 										<details class="group">
 											<summary
 												class="flex cursor-pointer list-none items-center gap-1 text-xs text-slate-500 hover:text-indigo-600 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
@@ -894,6 +938,23 @@
 		destructive
 		busy={voidBusy}
 		onconfirm={runVoid}
+	/>
+
+	<ConfirmDialog
+		bind:open={
+			() => deleteTxTarget !== null,
+			(v) => {
+				if (!v) deleteTxTarget = null;
+			}
+		}
+		title="Remove Payment Transaction"
+		description={deleteTxTarget
+			? `Are you sure you want to remove this ${deleteTxTarget.direction === 'credit' ? 'refund' : 'payment'} of ${fmtPrice(deleteTxTarget.amount)}? The invoice balance and any associated unapplied advance will be recalculated.`
+			: ''}
+		confirmLabel="Remove"
+		destructive
+		busy={deleteTxBusy}
+		onconfirm={executeDeleteTx}
 	/>
 
 	<!-- Record payment dialog (bits-ui Dialog) -->

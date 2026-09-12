@@ -13,7 +13,7 @@ from __future__ import annotations
 import logging
 import uuid
 from datetime import date, timedelta
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
 from fastapi import HTTPException, status
@@ -24,12 +24,16 @@ from sqlalchemy.orm import selectinload
 from app.models.client import Client
 from app.models.enums import (
     ActorType,
+    InvoiceStatus,
+    LedgerEntryType,
+    LedgerSourceType,
     MilestoneStatus,
     ProjectMemberRole,
     ProjectServiceStatus,
     ProjectStatus,
 )
 from app.models.invoice import Invoice, InvoiceLineItem
+from app.models.ledger_entry import LedgerEntry
 from app.models.milestone_step_template import MilestoneStepTemplate
 from app.models.project import Project, ProjectMember
 from app.models.project_milestone import ProjectMilestone
@@ -139,6 +143,11 @@ async def _get_admin_user(session: AsyncSession, tenant_id: uuid.UUID, user_id: 
 
     user = await session.get(AdminUser, user_id)
     return user is not None and user.tenant_id == tenant_id
+
+
+def _money(value: Decimal) -> Decimal:
+    """Round to 2 decimal places, half-up."""
+    return Decimal(value).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
 
 def _compute_planned_date(
@@ -627,6 +636,125 @@ async def attach_service(
     # already in the identity map (expire_on_commit=False), so no IO occurs.
     project_service.service = service
     return project_service, milestone_count
+
+
+# ── Update project service price (FEAT-022, TODO-201) ──────────────────────
+
+
+async def update_project_service_price(
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    project_id: uuid.UUID,
+    project_service_id: uuid.UUID,
+    price: Decimal,
+    actor_id: uuid.UUID,
+) -> ProjectService:
+    """Update the attached price of a project service (FEAT-022, TODO-201).
+
+    Synchronizes the project service's ledger charge entry and updates any
+    open DRAFT invoices containing line items referencing this project service.
+    Rejects if already locked by an issued invoice.
+    """
+    project = await project_repo.get_project_for_tenant(session, tenant_id, project_id)
+    if project is None:
+        raise ProjectNotFoundError()
+
+    ps = await project_repo.get_project_service_for_tenant(session, tenant_id, project_service_id)
+    if ps is None or ps.project_id != project_id:
+        raise ProjectServiceNotAttachedError()
+
+    if ps.status == ProjectServiceStatus.CANCELLED:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Cannot update price of a cancelled service",
+        )
+
+    # Check if this service is already billed on an issued/paid invoice
+    issued_li_q = (
+        select(Invoice.invoice_number)
+        .join(InvoiceLineItem, InvoiceLineItem.invoice_id == Invoice.id)
+        .where(
+            InvoiceLineItem.project_service_id == project_service_id,
+            Invoice.status != InvoiceStatus.DRAFT,
+        )
+        .limit(1)
+    )
+    issued_inv_num = (await session.execute(issued_li_q)).scalar_one_or_none()
+    if issued_inv_num:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Service price cannot be updated: already billed on issued invoice {issued_inv_num}. Void the invoice first to edit.",
+        )
+
+    old_price = ps.price_at_attachment
+    new_price = _money(price)
+    ps.price_at_attachment = new_price
+
+    # Synchronize ledger charge entry
+    ch_q = select(LedgerEntry).where(
+        LedgerEntry.project_id == project.id,
+        LedgerEntry.source_type == LedgerSourceType.PROJECT_SERVICE,
+        LedgerEntry.source_id == project_service_id,
+        LedgerEntry.type == LedgerEntryType.CHARGE,
+    )
+    ledger_entry = (await session.execute(ch_q)).scalar_one_or_none()
+    if ledger_entry is not None:
+        if ledger_entry.invoice_ref is not None:
+            inv = await session.get(Invoice, ledger_entry.invoice_ref)
+            if inv and inv.status != InvoiceStatus.DRAFT:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"Service price cannot be updated: already covered by issued invoice {inv.invoice_number or ledger_entry.invoice_ref}. Void the invoice first to edit.",
+                )
+        ledger_entry.amount = new_price
+    else:
+        svc = await session.get(Service, ps.service_id)
+        svc_name = svc.name if svc is not None else ""
+        await ledger_service.add_service_charge(
+            session,
+            project_id=project.id,
+            project_service_id=ps.id,
+            amount=new_price,
+            description=svc_name,
+            actor_id=actor_id,
+        )
+
+    # Synchronize open DRAFT invoices containing line items referencing this project service
+    draft_li_q = (
+        select(InvoiceLineItem)
+        .join(Invoice, InvoiceLineItem.invoice_id == Invoice.id)
+        .where(
+            InvoiceLineItem.project_service_id == project_service_id,
+            Invoice.status == InvoiceStatus.DRAFT,
+        )
+    )
+    draft_items = list((await session.execute(draft_li_q)).scalars().all())
+    for li in draft_items:
+        li.unit_price = new_price
+        li.amount = _money(li.quantity * new_price)
+
+    await audit_log(
+        session,
+        tenant_id=tenant_id,
+        actor_id=actor_id,
+        actor_type=ActorType.ADMIN_USER,
+        action="project.service_price_updated",
+        entity_type="project",
+        entity_id=str(project.id),
+        details={
+            "project_service_id": str(project_service_id),
+            "old_price": f"{old_price:.2f}" if old_price is not None else None,
+            "new_price": f"{new_price:.2f}",
+        },
+    )
+    await session.commit()
+    await session.refresh(ps)
+    # Ensure ps.service is loaded for schema response
+    if ps.service is None:
+        svc = await session.get(Service, ps.service_id)
+        ps.service = svc
+    return ps
 
 
 # ── Remove project service (TODO-070) ──────────────────────────────────────

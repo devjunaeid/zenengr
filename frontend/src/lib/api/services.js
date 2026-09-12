@@ -42,7 +42,7 @@ import { apiFetch } from './client.js';
  * @returns {Promise<{ items: ServiceListItem[], total: number, page: number, page_size: number }>}
  */
 export function listServices(fetchFn, token, params = {}) {
-	return apiFetch(fetchFn, '/tenant/services', { token, params });
+	return apiFetch(fetchFn, '/tenant/services/', { token, params });
 }
 
 /**

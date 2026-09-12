@@ -298,3 +298,18 @@ In addition to WCAG 2.1 AA baseline (existing section):
   - Toolbar with Type selector (All, Project, General), Status filter, Project filter (disabled for general invoices), and optional Date Range (From Date, To Date).
   - Clear/Reset filters trigger visible whenever active filters are present.
   - General invoices display recipient name badge in both desktop table and mobile cards.
+
+## Financial Corrections & Ledger Entry Management (FEAT-022)
+
+- **Project Service Price Editing & Removal:**
+  - **Desktop Table & Mobile Cards:** Add "Actions" column/menu on each project service row.
+  - **Edit Price Modal:** Dialog showing Service Name, Current Attached Price, and a new price numeric input. Explicit guidance explaining that updating the price synchronizes the ledger charge and any open draft invoices.
+  - **Remove Service Dialog:** Explicit confirmation prompt showing whether the service will be deleted or soft-cancelled with a ledger reversal.
+  - **Lock Indicators:** If a service has been locked by an issued formal invoice, the edit action explains that the issued invoice must be voided or an adjustment used instead.
+- **Manual Ledger Adjustment Corrections:**
+  - **Ledger Timeline Actions:** For manual adjustment entries (`source_type === 'manual_adjustment'`), display inline or contextual menu with "Edit" and "Delete".
+  - **Edit Adjustment Modal:** Pre-filled with existing amount, description, and date; immediately recalculates balance on save.
+  - **Delete Confirmation:** Modal requiring confirmation before removing the adjustment.
+- **Direct Project Payments & Invoice Payments:**
+  - **Direct Project Payments:** Edit dialog (amount, method, date, reference note) and Delete dialog with instant refresh of the live ledger balance summary and statement preview.
+  - **Invoice Transactions:** "Delete Payment" button in invoice transactions table with confirmation dialog explaining the invoice balance and status will be updated accordingly.

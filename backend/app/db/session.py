@@ -1,7 +1,6 @@
 from collections.abc import AsyncGenerator
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.pool import NullPool
 
 from app.core.config import get_settings
 
@@ -16,10 +15,14 @@ is_pooler = any(
 )
 
 if is_pooler:
+    # Use a persistent connection pool with pool_pre_ping and recycling to avoid
+    # TLS handshake overhead on every query while safely coexisting with PgBouncer.
     engine = create_async_engine(
         settings.database_url,
-        poolclass=NullPool,
+        pool_size=10,
+        max_overflow=10,
         pool_pre_ping=True,
+        pool_recycle=120,
         connect_args={
             "statement_cache_size": 0,
             "command_timeout": 60,

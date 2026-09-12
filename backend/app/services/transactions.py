@@ -239,7 +239,7 @@ async def _recompute_invoice_status(session: AsyncSession, invoice: Invoice) -> 
         return
     net_paid = await _invoice_net_paid(session, invoice_id=invoice.id)
 
-    if net_paid >= Decimal(invoice.total):
+    if Decimal(invoice.total) > Decimal("0") and net_paid >= Decimal(invoice.total):
         invoice.status = InvoiceStatus.PAID
     elif net_paid > Decimal("0"):
         invoice.status = InvoiceStatus.PARTIALLY_PAID
@@ -577,6 +577,67 @@ async def list_transactions(
     )
     result = await session.execute(stmt)
     return list(result.unique().scalars().all())
+
+
+async def delete_transaction(
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    invoice_id: uuid.UUID,
+    transaction_id: uuid.UUID,
+    actor_id: uuid.UUID,
+) -> None:
+    """Delete a payment transaction recorded on an invoice (FEAT-022, TODO-203).
+
+    Cascades allocations, cleans up unapplied advance overpayments originating
+    from this invoice, recomputes the invoice's paid status, and records an
+    audit event.
+    """
+    invoice = await _get_invoice_with_items(session, tenant_id, invoice_id)
+    if invoice is None:
+        raise TransactionInvoiceNotFoundError()
+
+    tx = await session.get(Transaction, transaction_id)
+    if tx is None or tx.invoice_id != invoice.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Transaction not found",
+        )
+
+    # Check if an advance overpayment was created from this invoice and applied elsewhere
+    adv_stmt = select(Advance).where(Advance.source_invoice_id == invoice.id)
+    advances = list((await session.execute(adv_stmt)).scalars().all())
+    for adv in advances:
+        if adv.remaining_amount < adv.amount:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="Cannot delete payment: an overpayment advance generated from this invoice has already been applied elsewhere. Undo the advance application first.",
+            )
+
+    # Clean up unapplied advances originating from this invoice
+    for adv in advances:
+        await session.delete(adv)
+
+    await session.delete(tx)
+    await session.flush()
+
+    await _recompute_invoice_status(session, invoice)
+
+    await audit_log(
+        session,
+        tenant_id=tenant_id,
+        actor_id=actor_id,
+        actor_type=ActorType.ADMIN_USER,
+        action="invoice.transaction_deleted",
+        entity_type="invoice",
+        entity_id=str(invoice.id),
+        details={
+            "transaction_id": str(transaction_id),
+            "amount": f"{_money(tx.amount):.2f}",
+            "direction": tx.direction.value,
+        },
+    )
+    await session.commit()
 
 
 # ── Ledger (FEAT-015, TODO-158) ─────────────────────────────────────────────

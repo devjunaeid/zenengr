@@ -421,6 +421,30 @@ async def list_transactions_endpoint(
     return [_to_transaction_response(tx) for tx in txs]
 
 
+@router.delete(
+    "/{invoice_id}/transactions/{transaction_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_transaction_endpoint(
+    invoice_id: str,
+    transaction_id: str,
+    session: AsyncSession = Depends(get_session),
+    user: AdminUser = Depends(require_permission("manage", "invoices")),
+) -> Response:
+    """Delete a payment transaction recorded against an invoice. Admin/Manager only."""
+    tenant_id = _get_tenant_id(user)
+    iid = _parse_uuid(invoice_id, kind="Invoice")
+    tid = _parse_uuid(transaction_id, kind="Transaction")
+    await transaction_service.delete_transaction(
+        session,
+        tenant_id=tenant_id,
+        invoice_id=iid,
+        transaction_id=tid,
+        actor_id=user.id,
+    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # Refunds + advances (FEAT-015, TODO-154/155)
 # ═══════════════════════════════════════════════════════════════════════════

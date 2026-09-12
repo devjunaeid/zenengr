@@ -38,16 +38,44 @@
 	import minusCircle from '@iconify-icons/mdi/minus-circle';
 	import phoneOutline from '@iconify-icons/mdi/phone-outline';
 	import plusCircle from '@iconify-icons/mdi/plus-circle';
+	import pencil from '@iconify-icons/mdi/pencil';
+	import trashCanOutline from '@iconify-icons/mdi/trash-can-outline';
 	import receiptText from '@iconify-icons/mdi/receipt-text';
 	import upload from '@iconify-icons/mdi/upload';
 	import viewDashboard from '@iconify-icons/mdi/view-dashboard';
 
 	let { data } = $props();
 
+	let liveProjectOverride = $state(null);
+	let liveLedgerOverride = $state(null);
+	let liveOverviewOverride = $state(null);
+	let liveInvoicesOverride = $state(null);
+
+	let currentProject = $derived(liveProjectOverride ?? data.project);
+	let currentOverview = $derived(liveOverviewOverride ?? data.overview);
 	let activeTab = $state('overview');
-	let invoiceList = $derived(data.invoices?.items ?? []);
+	let invoiceList = $derived(liveInvoicesOverride ?? data.invoices?.items ?? []);
 	let issueBusyId = $state(null);
 	let pdfBusyId = $state(null);
+
+	async function refreshFinancials() {
+		try {
+			const [freshLedger, freshOverview, freshProject, freshInvoices] = await Promise.all([
+				projectApi.getProjectLedger(fetch, token, data.project.id).catch(() => null),
+				invoiceApi.getProjectOverview(fetch, token, data.project.id).catch(() => null),
+				projectApi.getProject(fetch, token, data.project.id).catch(() => null),
+				invoiceApi
+					.listInvoices(fetch, token, { project_id: data.project.id, page_size: 100 })
+					.catch(() => null)
+			]);
+			if (freshLedger) liveLedgerOverride = freshLedger;
+			if (freshOverview) liveOverviewOverride = freshOverview;
+			if (freshProject) liveProjectOverride = freshProject;
+			if (freshInvoices?.items) liveInvoicesOverride = freshInvoices.items;
+		} catch (err) {
+			console.error('Failed to refresh project data', err);
+		}
+	}
 
 	// ── Project Files State ──────────────────────────────────────────────────
 	let projectFileList = $derived(data.projectFiles ?? []);
@@ -81,7 +109,7 @@
 	});
 
 	let activeServicesList = $derived(
-		(data.project.services ?? []).filter((s) => s.status === 'active')
+		(currentProject.services ?? []).filter((s) => s.status === 'active')
 	);
 
 	let filteredProjectFiles = $derived(
@@ -231,7 +259,8 @@
 		try {
 			await invoiceApi.issueInvoice(fetch, token, inv.id);
 			toast.success(`Invoice ${inv.invoice_number || ''} issued successfully.`);
-			await invalidateAll();
+			await refreshFinancials();
+			invalidateAll();
 		} catch (e) {
 			toast.error(e instanceof ApiError ? e.message : 'Could not issue invoice.');
 		} finally {
@@ -338,7 +367,8 @@
 		try {
 			await projectApi.updateProject(fetch, token, data.project.id, { status: next });
 			toast.success(`Status changed to ${humanize(next)}.`);
-			await invalidateAll();
+			await refreshFinancials();
+			invalidateAll();
 		} catch (e) {
 			toast.error(e instanceof ApiError ? e.message : 'Status change failed.');
 		} finally {
@@ -359,7 +389,10 @@
 
 	let availableToAttach = $derived(
 		allServices.filter(
-			(s) => !data.project.services.some((ps) => ps.service_id === s.id && ps.status === 'active')
+			(s) =>
+				!(currentProject.services ?? []).some(
+					(ps) => ps.service_id === s.id && ps.status === 'active'
+				)
 		)
 	);
 
@@ -449,11 +482,82 @@
 				await projectApi.attachService(fetch, token, data.project.id, body);
 			}
 			addOpen = false;
-			await invalidateAll();
+			toast.success('Services attached successfully.');
+			await refreshFinancials();
+			invalidateAll();
 		} catch (e) {
 			addErr = e instanceof ApiError ? e.message : 'Could not add service.';
 		} finally {
 			addBusy = false;
+		}
+	}
+
+	// ── Service Price & Removal Management ──────────────────────────────────
+	let editServiceTarget = $state(null);
+	let editServicePriceValue = $state('');
+	let editServicePriceOpen = $state(false);
+	let editServicePriceBusy = $state(false);
+	let editServicePriceErr = $state(null);
+
+	function openEditServicePriceModal(ps) {
+		editServiceTarget = ps;
+		editServicePriceValue = String(ps.price_at_attachment ?? '');
+		editServicePriceErr = null;
+		editServicePriceOpen = true;
+	}
+
+	async function handleSaveServicePrice() {
+		if (!editServiceTarget) return;
+		editServicePriceErr = null;
+		const n = Number(editServicePriceValue);
+		if (editServicePriceValue === '' || !Number.isFinite(n) || n < 0) {
+			editServicePriceErr = 'Enter a valid price of 0 or greater.';
+			return;
+		}
+		editServicePriceBusy = true;
+		try {
+			await projectApi.updateProjectServicePrice(
+				fetch,
+				token,
+				data.project.id,
+				editServiceTarget.id,
+				{
+					price: String(n)
+				}
+			);
+			editServicePriceOpen = false;
+			toast.success('Service price updated successfully.');
+			await refreshFinancials();
+			invalidateAll();
+		} catch (e) {
+			editServicePriceErr = e instanceof ApiError ? e.message : 'Could not update service price.';
+		} finally {
+			editServicePriceBusy = false;
+		}
+	}
+
+	let removeServiceTarget = $state(null);
+	let removeServiceOpen = $state(false);
+	let removeServiceBusy = $state(false);
+
+	function openRemoveServiceModal(ps) {
+		removeServiceTarget = ps;
+		removeServiceOpen = true;
+	}
+
+	async function handleConfirmRemoveService() {
+		if (!removeServiceTarget) return;
+		removeServiceBusy = true;
+		try {
+			await projectApi.removeProjectService(fetch, token, data.project.id, removeServiceTarget.id);
+			removeServiceOpen = false;
+			toast.success('Service removed successfully.');
+			await refreshFinancials();
+			invalidateAll();
+		} catch (e) {
+			toast.error(e instanceof ApiError ? e.message : 'Could not remove service.');
+		} finally {
+			removeServiceBusy = false;
 		}
 	}
 
@@ -473,10 +577,10 @@
 		}
 	}
 
-	let serviceCount = $derived(data.project.services.length);
-	let milestoneTotal = $derived(data.project.milestones.length);
+	let serviceCount = $derived(currentProject.services?.length ?? 0);
+	let milestoneTotal = $derived(currentProject.milestones?.length ?? 0);
 	let milestoneCompleted = $derived(
-		data.project.milestones.filter((m) => m.status === 'completed').length
+		(currentProject.milestones ?? []).filter((m) => m.status === 'completed').length
 	);
 	let progressPct = $derived(
 		milestoneTotal === 0
@@ -486,13 +590,13 @@
 
 	let milestonesByService = $derived.by(() => {
 		const map = new SvelteMap();
-		for (const m of data.project.milestones) {
+		for (const m of currentProject.milestones ?? []) {
 			const arr = map.get(m.project_service_id) ?? [];
 			arr.push(m);
 			map.set(m.project_service_id, arr);
 		}
 		const out = [];
-		for (const ps of data.project.services) {
+		for (const ps of currentProject.services ?? []) {
 			const items = (map.get(ps.id) ?? [])
 				.slice()
 				.sort((a, b) => a.sequence_order - b.sequence_order);
@@ -507,7 +611,7 @@
 
 	const projectStatusOptions = ['draft', 'active', 'on_hold', 'completed', 'cancelled'];
 
-	let ledgerData = $derived(data.ledger);
+	let ledgerData = $derived(liveLedgerOverride ?? data.ledger);
 	let ledgerEntries = $derived(
 		(ledgerData?.entries ?? []).slice().sort((a, b) => {
 			const da = a.entry_date ?? a.created_at;
@@ -584,11 +688,97 @@
 				description: adjustDescription.trim()
 			});
 			adjustOpen = false;
-			await invalidateAll();
+			toast.success('Adjustment added successfully.');
+			await refreshFinancials();
+			invalidateAll();
 		} catch (e) {
 			adjustErr = e instanceof ApiError ? e.message : 'Could not add adjustment.';
 		} finally {
 			adjustBusy = false;
+		}
+	}
+
+	// ── Manual Adjustment Edit & Delete ──────────────────────────────────────
+	let editAdjustmentTarget = $state(null);
+	let editAdjustmentOpen = $state(false);
+	let editAdjustmentBusy = $state(false);
+	let editAdjustmentErr = $state(null);
+	let editAdjustmentAmount = $state('');
+	let editAdjustmentDescription = $state('');
+	let editAdjustmentDate = $state('');
+
+	function openEditAdjustmentModal(entry) {
+		editAdjustmentTarget = entry;
+		editAdjustmentAmount = String(entry.amount ?? '');
+		editAdjustmentDescription = entry.description ?? '';
+		editAdjustmentDate = entry.entry_date ? String(entry.entry_date).slice(0, 10) : '';
+		editAdjustmentErr = null;
+		editAdjustmentOpen = true;
+	}
+
+	async function handleSaveAdjustment() {
+		if (!editAdjustmentTarget) return;
+		editAdjustmentErr = null;
+		const n = Number(editAdjustmentAmount);
+		if (editAdjustmentAmount === '' || !Number.isFinite(n) || n === 0) {
+			editAdjustmentErr = 'Enter a non-zero signed amount (negative reduces the total).';
+			return;
+		}
+		if (!editAdjustmentDescription.trim()) {
+			editAdjustmentErr = 'Add a description.';
+			return;
+		}
+		editAdjustmentBusy = true;
+		try {
+			await projectApi.updateLedgerAdjustment(
+				fetch,
+				token,
+				data.project.id,
+				editAdjustmentTarget.id,
+				{
+					amount: String(n),
+					description: editAdjustmentDescription.trim(),
+					entry_date: editAdjustmentDate || null
+				}
+			);
+			editAdjustmentOpen = false;
+			toast.success('Adjustment updated successfully.');
+			await refreshFinancials();
+			invalidateAll();
+		} catch (e) {
+			editAdjustmentErr = e instanceof ApiError ? e.message : 'Could not update adjustment.';
+		} finally {
+			editAdjustmentBusy = false;
+		}
+	}
+
+	let deleteAdjustmentTarget = $state(null);
+	let deleteAdjustmentOpen = $state(false);
+	let deleteAdjustmentBusy = $state(false);
+
+	function openDeleteAdjustmentModal(entry) {
+		deleteAdjustmentTarget = entry;
+		deleteAdjustmentOpen = true;
+	}
+
+	async function handleConfirmDeleteAdjustment() {
+		if (!deleteAdjustmentTarget) return;
+		deleteAdjustmentBusy = true;
+		try {
+			await projectApi.deleteLedgerAdjustment(
+				fetch,
+				token,
+				data.project.id,
+				deleteAdjustmentTarget.id
+			);
+			deleteAdjustmentOpen = false;
+			toast.success('Adjustment deleted successfully.');
+			await refreshFinancials();
+			invalidateAll();
+		} catch (e) {
+			toast.error(e instanceof ApiError ? e.message : 'Could not delete adjustment.');
+		} finally {
+			deleteAdjustmentBusy = false;
 		}
 	}
 
@@ -625,7 +815,9 @@
 		try {
 			await projectApi.setProjectDiscount(fetch, token, data.project.id, body);
 			discountOpen = false;
-			await invalidateAll();
+			toast.success('Discount updated successfully.');
+			await refreshFinancials();
+			invalidateAll();
 		} catch (e) {
 			discountErr = e instanceof ApiError ? e.message : 'Could not save discount.';
 		} finally {
@@ -709,7 +901,8 @@
 			generateOpen = false;
 			statementOpen = false;
 			toast.success(`Statement invoice ${inv.invoice_number} generated and issued.`);
-			await invalidateAll();
+			await refreshFinancials();
+			invalidateAll();
 		} catch (e) {
 			generateErr = e instanceof ApiError ? e.message : 'Could not generate statement invoice.';
 		} finally {
@@ -751,11 +944,84 @@
 			});
 			paymentOpen = false;
 			toast.success('Payment recorded successfully.');
-			await invalidateAll();
+			await refreshFinancials();
+			invalidateAll();
 		} catch (e) {
 			paymentErr = e instanceof ApiError ? e.message : 'Could not record payment.';
 		} finally {
 			paymentBusy = false;
+		}
+	}
+
+	// ── Project Payment Edit & Delete ────────────────────────────────────────
+	let editPaymentTarget = $state(null);
+	let editPaymentOpen = $state(false);
+	let editPaymentBusy = $state(false);
+	let editPaymentErr = $state(null);
+	let editPaymentAmount = $state('');
+	let editPaymentMethod = $state('bank_transfer');
+	let editPaymentDate = $state('');
+	let editPaymentNote = $state('');
+
+	function openEditPaymentModal(entry) {
+		editPaymentTarget = entry;
+		editPaymentAmount = String(entry.amount ?? '');
+		editPaymentMethod = entry.method || 'bank_transfer';
+		editPaymentDate = entry.entry_date ? String(entry.entry_date).slice(0, 10) : '';
+		editPaymentNote = entry.notes || entry.reference_note || '';
+		editPaymentErr = null;
+		editPaymentOpen = true;
+	}
+
+	async function handleSaveEditedPayment() {
+		if (!editPaymentTarget) return;
+		editPaymentErr = null;
+		const n = Number(editPaymentAmount);
+		if (editPaymentAmount === '' || !Number.isFinite(n) || n <= 0) {
+			editPaymentErr = 'Enter a valid payment amount greater than 0.';
+			return;
+		}
+		editPaymentBusy = true;
+		try {
+			await projectApi.updateProjectPayment(fetch, token, data.project.id, editPaymentTarget.id, {
+				amount: String(n),
+				method: editPaymentMethod,
+				entry_date: editPaymentDate || null,
+				reference_note: editPaymentNote.trim()
+			});
+			editPaymentOpen = false;
+			toast.success('Payment updated successfully.');
+			await refreshFinancials();
+			invalidateAll();
+		} catch (e) {
+			editPaymentErr = e instanceof ApiError ? e.message : 'Could not update payment.';
+		} finally {
+			editPaymentBusy = false;
+		}
+	}
+
+	let deletePaymentTarget = $state(null);
+	let deletePaymentOpen = $state(false);
+	let deletePaymentBusy = $state(false);
+
+	function openDeletePaymentModal(entry) {
+		deletePaymentTarget = entry;
+		deletePaymentOpen = true;
+	}
+
+	async function handleConfirmDeletePayment() {
+		if (!deletePaymentTarget) return;
+		deletePaymentBusy = true;
+		try {
+			await projectApi.deleteProjectPayment(fetch, token, data.project.id, deletePaymentTarget.id);
+			deletePaymentOpen = false;
+			toast.success('Payment deleted successfully.');
+			await refreshFinancials();
+			invalidateAll();
+		} catch (e) {
+			toast.error(e instanceof ApiError ? e.message : 'Could not delete payment.');
+		} finally {
+			deletePaymentBusy = false;
 		}
 	}
 	// ── Purchase Entries State ───────────────────────────────────────────────
@@ -960,13 +1226,15 @@
 			<a href={resolve('/app/projects')} class="hover:text-indigo-600">Projects</a>
 		</li>
 		<li aria-hidden="true">/</li>
-		<li class="font-medium text-slate-700">{data.project.name}</li>
+		<li class="max-w-[200px] truncate font-medium text-slate-700 sm:max-w-md">
+			{data.project.name}
+		</li>
 	</ol>
 </nav>
 
 <div class="mt-2 flex flex-wrap items-center justify-between gap-3">
-	<div class="flex items-center gap-3">
-		<h1 class="text-2xl font-semibold text-slate-900">{data.project.name}</h1>
+	<div class="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
+		<h1 class="text-2xl font-semibold break-words text-slate-900">{data.project.name}</h1>
 		<CopyBadge value={data.project.id} />
 		<StatusBadge status={data.project.status} />
 	</div>
@@ -1012,7 +1280,7 @@
 	</p>
 {/if}
 
-<div class="mt-6">
+<div class="mt-6 max-w-full min-w-0">
 	<ScrollableTabs ariaLabel="Project tabs">
 		<button
 			type="button"
@@ -1410,8 +1678,8 @@
 					<dd class="mt-1 text-xl font-bold text-slate-900">
 						{ledgerSummary
 							? fmtPrice(ledgerSummary.total)
-							: data.overview?.financials
-								? fmtPrice(data.overview.financials.total)
+							: currentOverview?.financials
+								? fmtPrice(currentOverview.financials.total)
 								: '—'}
 					</dd>
 				</div>
@@ -1420,21 +1688,21 @@
 					<dd class="mt-1 text-xl font-bold text-emerald-700">
 						{ledgerSummary
 							? fmtPrice(ledgerSummary.paid)
-							: data.overview?.financials
-								? fmtPrice(data.overview.financials.paid)
+							: currentOverview?.financials
+								? fmtPrice(currentOverview.financials.paid)
 								: '—'}
 					</dd>
 				</div>
 				<div
 					class="rounded-lg border p-4 {Number(
-						ledgerSummary?.due ?? data.overview?.financials?.due
+						ledgerSummary?.due ?? currentOverview?.financials?.due
 					) > 0
 						? 'border-amber-200 bg-amber-50/60'
 						: 'border-slate-100 bg-slate-50'}"
 				>
 					<dt
 						class="text-xs font-medium tracking-wider {Number(
-							ledgerSummary?.due ?? data.overview?.financials?.due
+							ledgerSummary?.due ?? currentOverview?.financials?.due
 						) > 0
 							? 'text-amber-800'
 							: 'text-slate-500'} uppercase"
@@ -1443,28 +1711,28 @@
 					</dt>
 					<dd
 						class="mt-1 text-xl font-bold {Number(
-							ledgerSummary?.due ?? data.overview?.financials?.due
+							ledgerSummary?.due ?? currentOverview?.financials?.due
 						) > 0
 							? 'text-amber-800'
 							: 'text-emerald-700'}"
 					>
 						{ledgerSummary
 							? fmtPrice(ledgerSummary.due)
-							: data.overview?.financials
-								? fmtPrice(data.overview.financials.due)
+							: currentOverview?.financials
+								? fmtPrice(currentOverview.financials.due)
 								: '—'}
 					</dd>
 				</div>
 			</div>
 
-			{#if Number(ledgerSummary?.advance_balance ?? data.overview?.financials?.advance_balance) > 0}
+			{#if Number(ledgerSummary?.advance_balance ?? currentOverview?.financials?.advance_balance) > 0}
 				<div
 					class="mt-3 flex items-center justify-between rounded-lg border border-indigo-100 bg-indigo-50 p-3 text-xs text-indigo-900"
 				>
 					<span>Advance Credit Available:</span>
 					<span class="text-sm font-bold text-indigo-700"
 						>{fmtPrice(
-							ledgerSummary?.advance_balance ?? data.overview?.financials?.advance_balance
+							ledgerSummary?.advance_balance ?? currentOverview?.financials?.advance_balance
 						)}</span
 					>
 				</div>
@@ -1536,6 +1804,26 @@
 								</span>
 							</div>
 						</div>
+						{#if canManage && !isCancelled}
+							<div class="flex items-center justify-end gap-2 border-t border-slate-100 pt-2">
+								<button
+									type="button"
+									onclick={() => openEditServicePriceModal(ps)}
+									class="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 shadow-2xs hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+								>
+									<Icon icon={pencil} class="h-3.5 w-3.5 text-slate-500" />
+									Edit price
+								</button>
+								<button
+									type="button"
+									onclick={() => openRemoveServiceModal(ps)}
+									class="inline-flex items-center gap-1 rounded-md border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 shadow-2xs hover:bg-rose-100 focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:outline-none"
+								>
+									<Icon icon={trashCanOutline} class="h-3.5 w-3.5" />
+									Remove
+								</button>
+							</div>
+						{/if}
 					</div>
 				{/each}
 			</div>
@@ -1565,6 +1853,13 @@
 								class="px-4 py-3 text-right text-xs font-semibold tracking-wide text-slate-600 uppercase"
 								>Milestones</th
 							>
+							{#if canManage}
+								<th
+									scope="col"
+									class="px-4 py-3 text-right text-xs font-semibold tracking-wide text-slate-600 uppercase"
+									>Actions</th
+								>
+							{/if}
 						</tr>
 					</thead>
 					<tbody class="divide-y divide-slate-200">
@@ -1581,6 +1876,32 @@
 								<td class="px-4 py-3 text-right text-sm text-slate-700">
 									{data.project.milestones.filter((m) => m.project_service_id === ps.id).length}
 								</td>
+								{#if canManage}
+									<td class="px-4 py-3 text-right text-sm whitespace-nowrap">
+										{#if !isCancelled}
+											<div class="flex items-center justify-end gap-1">
+												<button
+													type="button"
+													onclick={() => openEditServicePriceModal(ps)}
+													class="inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+													title="Edit price"
+												>
+													<Icon icon={pencil} class="h-3.5 w-3.5" />
+													<span>Edit</span>
+												</button>
+												<button
+													type="button"
+													onclick={() => openRemoveServiceModal(ps)}
+													class="inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-rose-600 hover:bg-rose-50 hover:text-rose-700 focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:outline-none"
+													title="Remove service"
+												>
+													<Icon icon={trashCanOutline} class="h-3.5 w-3.5" />
+													<span>Remove</span>
+												</button>
+											</div>
+										{/if}
+									</td>
+								{/if}
 							</tr>
 						{/each}
 					</tbody>
@@ -1618,7 +1939,9 @@
 						</div>
 
 						<div class="relative overflow-x-auto">
-							<ul class="mt-3 divide-y divide-slate-200 rounded-md border border-slate-200">
+							<ul
+								class="mt-3 min-w-[560px] divide-y divide-slate-200 rounded-md border border-slate-200"
+							>
 								{#each group.items as m (m.id)}
 									{@const mBusy = Boolean(milestoneBusy[m.id])}
 									<li
@@ -1752,7 +2075,7 @@
 			{@const disc = discountDisplay()}
 			{@const due = Number(ledgerSummary?.due) || 0}
 			{@const advanceBal = Number(ledgerSummary?.advance_balance) || 0}
-			<dl class="mt-4 grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+			<dl class="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-5">
 				<div>
 					<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Subtotal</dt>
 					<dd class="mt-1 text-lg font-semibold text-slate-900">
@@ -1826,35 +2149,79 @@
 				{#each ledgerEntries as e (e.id)}
 					{@const meta = entryMeta(e)}
 					{@const price = entryPrice(e)}
-					<li class="flex items-center gap-3 px-6 py-3">
-						<span
-							class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full {meta.bg}"
-							aria-hidden="true"
-						>
-							<Icon icon={meta.icon} class="h-4 w-4 {meta.text}" />
-						</span>
-						<div class="min-w-0 flex-1">
-							<p class="truncate text-sm font-medium text-slate-900" title={entryLabel(e)}>
-								{entryLabel(e)}
-							</p>
-							<p
-								class="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-500"
+					<li class="flex items-center justify-between gap-3 px-4 py-3 sm:px-6">
+						<div class="flex min-w-0 flex-1 items-center gap-3">
+							<span
+								class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full {meta.bg}"
+								aria-hidden="true"
 							>
-								<span>{entrySubtext(e)}</span>
-								<span aria-hidden="true">·</span>
-								<span>{e.entry_date ? formatDate(e.entry_date) : formatDateTime(e.created_at)}</span
+								<Icon icon={meta.icon} class="h-4 w-4 {meta.text}" />
+							</span>
+							<div class="min-w-0 flex-1">
+								<p class="truncate text-sm font-medium text-slate-900" title={entryLabel(e)}>
+									{entryLabel(e)}
+								</p>
+								<p
+									class="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-500"
 								>
-								{#if e.type === 'charge' && e.invoice_ref && e.invoice_number}
-									<a
-										href={resolve('/app/invoices/[id]', { id: e.invoice_ref })}
-										class="inline-flex items-center rounded-full bg-indigo-50 px-2 py-0.5 font-medium text-indigo-700 ring-1 ring-indigo-600/20 hover:bg-indigo-100"
+									<span>{entrySubtext(e)}</span>
+									<span aria-hidden="true">·</span>
+									<span
+										>{e.entry_date ? formatDate(e.entry_date) : formatDateTime(e.created_at)}</span
 									>
-										Included in {e.invoice_number}
-									</a>
-								{/if}
-							</p>
+									{#if e.type === 'charge' && e.invoice_ref && e.invoice_number}
+										<a
+											href={resolve('/app/invoices/[id]', { id: e.invoice_ref })}
+											class="inline-flex items-center rounded-full bg-indigo-50 px-2 py-0.5 font-medium text-indigo-700 ring-1 ring-indigo-600/20 hover:bg-indigo-100"
+										>
+											Included in {e.invoice_number}
+										</a>
+									{/if}
+								</p>
+							</div>
 						</div>
-						<p class="shrink-0 text-sm font-semibold whitespace-nowrap {meta.text}">{price}</p>
+						<div class="flex shrink-0 items-center gap-2">
+							<p class="text-sm font-semibold whitespace-nowrap {meta.text}">{price}</p>
+							{#if canManage && e.source_type === 'manual_adjustment'}
+								<div class="flex items-center gap-0.5">
+									<button
+										type="button"
+										onclick={() => openEditAdjustmentModal(e)}
+										class="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+										title="Edit adjustment"
+									>
+										<Icon icon={pencil} class="h-4 w-4" />
+									</button>
+									<button
+										type="button"
+										onclick={() => openDeleteAdjustmentModal(e)}
+										class="rounded p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600 focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:outline-none"
+										title="Delete adjustment"
+									>
+										<Icon icon={trashCanOutline} class="h-4 w-4" />
+									</button>
+								</div>
+							{:else if canManage && e.type === 'payment' && !e.invoice_ref && e.source_type === 'transaction'}
+								<div class="flex items-center gap-0.5">
+									<button
+										type="button"
+										onclick={() => openEditPaymentModal(e)}
+										class="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+										title="Edit payment"
+									>
+										<Icon icon={pencil} class="h-4 w-4" />
+									</button>
+									<button
+										type="button"
+										onclick={() => openDeletePaymentModal(e)}
+										class="rounded p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600 focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:outline-none"
+										title="Delete payment"
+									>
+										<Icon icon={trashCanOutline} class="h-4 w-4" />
+									</button>
+								</div>
+							{/if}
+						</div>
 					</li>
 				{/each}
 			</ul>
@@ -2341,10 +2708,10 @@
 
 <!-- ═══════════════ Purchase Entry — Add/Edit Modal ═══════════════════════ -->
 <Dialog.Root bind:open={purchaseModalOpen}>
-	<Dialog.Portal>
-		<Dialog.Overlay class="fixed inset-0 z-40 bg-black/50" />
+	<Dialog.Portal to="body">
+		<Dialog.Overlay class="fixed inset-0 z-[60] bg-slate-950/60 backdrop-blur-xs" />
 		<Dialog.Content
-			class="fixed top-1/2 left-1/2 z-50 max-h-[calc(100vh-2rem)] w-[calc(100%-2rem)] max-w-3xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-white shadow-2xl focus:outline-none sm:max-h-[85vh]"
+			class="fixed top-1/2 left-1/2 z-[70] max-h-[calc(100vh-2rem)] w-[calc(100%-2rem)] max-w-3xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-white shadow-2xl focus:outline-none sm:max-h-[85vh]"
 		>
 			<!-- Modal header -->
 			<div class="flex items-center justify-between border-b border-slate-100 px-6 py-4">
@@ -2580,10 +2947,10 @@
 		}
 	}
 >
-	<Dialog.Portal>
-		<Dialog.Overlay class="fixed inset-0 z-40 bg-black/50" />
+	<Dialog.Portal to="body">
+		<Dialog.Overlay class="fixed inset-0 z-[60] bg-slate-950/60 backdrop-blur-xs" />
 		<Dialog.Content
-			class="fixed top-1/2 left-1/2 z-50 max-h-[calc(100vh-2rem)] w-[calc(100%-2rem)] max-w-2xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-white shadow-2xl focus:outline-none sm:max-h-[85vh]"
+			class="fixed top-1/2 left-1/2 z-[70] max-h-[calc(100vh-2rem)] w-[calc(100%-2rem)] max-w-2xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-white shadow-2xl focus:outline-none sm:max-h-[85vh]"
 		>
 			<!-- View header -->
 			<div class="flex items-center justify-between border-b border-slate-100 px-6 py-4">
@@ -2870,10 +3237,10 @@
 
 {#if showAddMemberModal}
 	<Dialog.Root open={showAddMemberModal} onOpenChange={(o) => (showAddMemberModal = o)}>
-		<Dialog.Portal>
-			<Dialog.Overlay class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs" />
+		<Dialog.Portal to="body">
+			<Dialog.Overlay class="fixed inset-0 z-[60] bg-slate-950/60 backdrop-blur-xs" />
 			<Dialog.Content
-				class="fixed top-1/2 left-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border border-slate-200 bg-white p-4 shadow-xl sm:p-6"
+				class="fixed top-1/2 left-1/2 z-[70] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border border-slate-200 bg-white p-4 shadow-xl sm:p-6"
 			>
 				<Dialog.Title class="text-base font-semibold text-slate-900">Add Team Member</Dialog.Title>
 				<Dialog.Description class="mt-1 text-xs text-slate-500">
@@ -2964,10 +3331,10 @@
 
 <!-- Add adjustment dialog -->
 <Dialog.Root bind:open={adjustOpen}>
-	<Dialog.Portal>
-		<Dialog.Overlay class="fixed inset-0 z-40 bg-black/50" />
+	<Dialog.Portal to="body">
+		<Dialog.Overlay class="fixed inset-0 z-[60] bg-slate-950/60 backdrop-blur-xs" />
 		<Dialog.Content
-			class="fixed top-1/2 left-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-4 shadow-xl focus:outline-none sm:p-6"
+			class="fixed top-1/2 left-1/2 z-[70] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-4 shadow-xl focus:outline-none sm:p-6"
 		>
 			<div class="flex items-center justify-between">
 				<Dialog.Title class="text-lg font-semibold text-slate-900">Add adjustment</Dialog.Title>
@@ -2989,8 +3356,8 @@
 				</Dialog.Close>
 			</div>
 			<Dialog.Description class="mt-2 text-sm text-slate-600">
-				Signed amount: positive adds to the project total, negative offsets it. The change is
-				appended to the ledger and cannot be edited or removed.
+				Signed amount: positive adds to the project total, negative offsets it. The ledger balance
+				and statement will be updated.
 			</Dialog.Description>
 
 			{#if adjustErr}
@@ -3055,10 +3422,10 @@
 
 <!-- Edit discount dialog -->
 <Dialog.Root bind:open={discountOpen}>
-	<Dialog.Portal>
-		<Dialog.Overlay class="fixed inset-0 z-40 bg-black/50" />
+	<Dialog.Portal to="body">
+		<Dialog.Overlay class="fixed inset-0 z-[60] bg-slate-950/60 backdrop-blur-xs" />
 		<Dialog.Content
-			class="fixed top-1/2 left-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-4 shadow-xl focus:outline-none sm:p-6"
+			class="fixed top-1/2 left-1/2 z-[70] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-4 shadow-xl focus:outline-none sm:p-6"
 		>
 			<div class="flex items-center justify-between">
 				<Dialog.Title class="text-lg font-semibold text-slate-900">Edit discount</Dialog.Title>
@@ -3153,10 +3520,10 @@
 
 <!-- Add service modal -->
 <Dialog.Root bind:open={addOpen}>
-	<Dialog.Portal>
-		<Dialog.Overlay class="fixed inset-0 z-40 bg-black/50" />
+	<Dialog.Portal to="body">
+		<Dialog.Overlay class="fixed inset-0 z-[60] bg-slate-950/60 backdrop-blur-xs" />
 		<Dialog.Content
-			class="fixed top-1/2 left-1/2 z-50 w-[calc(100%-2rem)] max-w-2xl -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-4 shadow-xl focus:outline-none sm:p-6"
+			class="fixed top-1/2 left-1/2 z-[70] w-[calc(100%-2rem)] max-w-2xl -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-4 shadow-xl focus:outline-none sm:p-6"
 		>
 			<div class="flex items-center justify-between">
 				<Dialog.Title class="text-lg font-semibold text-slate-900">Add service</Dialog.Title>
@@ -3335,10 +3702,10 @@
 
 <!-- Statement preview modal -->
 <Dialog.Root bind:open={statementOpen}>
-	<Dialog.Portal>
-		<Dialog.Overlay class="fixed inset-0 z-40 bg-black/50" />
+	<Dialog.Portal to="body">
+		<Dialog.Overlay class="fixed inset-0 z-[60] bg-slate-950/60 backdrop-blur-xs" />
 		<Dialog.Content
-			class="fixed top-1/2 left-1/2 z-50 max-h-[90vh] w-[calc(100%-2rem)] max-w-3xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg bg-white p-4 shadow-xl focus:outline-none sm:p-6"
+			class="fixed top-1/2 left-1/2 z-[70] max-h-[90vh] w-[calc(100%-2rem)] max-w-3xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg bg-white p-4 shadow-xl focus:outline-none sm:p-6"
 		>
 			<div class="flex items-center justify-between border-b border-slate-200 pb-3">
 				<div>
@@ -3496,10 +3863,10 @@
 
 <!-- Generate invoice confirmation dialog -->
 <Dialog.Root bind:open={generateOpen}>
-	<Dialog.Portal>
-		<Dialog.Overlay class="fixed inset-0 z-40 bg-black/50" />
+	<Dialog.Portal to="body">
+		<Dialog.Overlay class="fixed inset-0 z-[60] bg-slate-950/60 backdrop-blur-xs" />
 		<Dialog.Content
-			class="fixed top-1/2 left-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-4 shadow-xl focus:outline-none sm:p-6"
+			class="fixed top-1/2 left-1/2 z-[70] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-4 shadow-xl focus:outline-none sm:p-6"
 		>
 			<div class="flex items-center justify-between">
 				<Dialog.Title class="text-lg font-semibold text-slate-900"
@@ -3585,10 +3952,10 @@
 
 <!-- Record project payment dialog -->
 <Dialog.Root bind:open={paymentOpen}>
-	<Dialog.Portal>
-		<Dialog.Overlay class="fixed inset-0 z-40 bg-black/50" />
+	<Dialog.Portal to="body">
+		<Dialog.Overlay class="fixed inset-0 z-[60] bg-slate-950/60 backdrop-blur-xs" />
 		<Dialog.Content
-			class="fixed top-1/2 left-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-4 shadow-xl focus:outline-none sm:p-6"
+			class="fixed top-1/2 left-1/2 z-[70] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-4 shadow-xl focus:outline-none sm:p-6"
 		>
 			<div class="flex items-center justify-between">
 				<Dialog.Title class="text-lg font-semibold text-slate-900"
@@ -3720,10 +4087,10 @@
 
 <!-- File Upload Dialog -->
 <Dialog.Root bind:open={showFileUploadModal}>
-	<Dialog.Portal>
-		<Dialog.Overlay class="fixed inset-0 z-40 bg-black/50" />
+	<Dialog.Portal to="body">
+		<Dialog.Overlay class="fixed inset-0 z-[60] bg-slate-950/60 backdrop-blur-xs" />
 		<Dialog.Content
-			class="fixed top-1/2 left-1/2 z-50 max-h-[calc(100vh-2rem)] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg bg-white p-4 shadow-xl focus:outline-none sm:max-h-[85vh] sm:p-6"
+			class="fixed top-1/2 left-1/2 z-[70] max-h-[calc(100vh-2rem)] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg bg-white p-4 shadow-xl focus:outline-none sm:max-h-[85vh] sm:p-6"
 		>
 			<div class="flex items-center justify-between border-b border-slate-100 pb-3">
 				<Dialog.Title class="text-lg font-semibold text-slate-900">Upload Project File</Dialog.Title
@@ -3838,10 +4205,10 @@
 		}
 	}
 >
-	<Dialog.Portal>
-		<Dialog.Overlay class="fixed inset-0 z-40 bg-black/50" />
+	<Dialog.Portal to="body">
+		<Dialog.Overlay class="fixed inset-0 z-[60] bg-slate-950/60 backdrop-blur-xs" />
 		<Dialog.Content
-			class="fixed top-1/2 left-1/2 z-50 max-h-[calc(100vh-2rem)] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg bg-white p-4 shadow-xl focus:outline-none sm:max-h-[85vh] sm:p-6"
+			class="fixed top-1/2 left-1/2 z-[70] max-h-[calc(100vh-2rem)] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg bg-white p-4 shadow-xl focus:outline-none sm:max-h-[85vh] sm:p-6"
 		>
 			<div class="flex items-center justify-between border-b border-slate-100 pb-3">
 				<Dialog.Title class="text-lg font-semibold text-slate-900">Rename File</Dialog.Title>
@@ -3922,10 +4289,10 @@
 		}
 	}
 >
-	<Dialog.Portal>
-		<Dialog.Overlay class="fixed inset-0 z-40 bg-black/50" />
+	<Dialog.Portal to="body">
+		<Dialog.Overlay class="fixed inset-0 z-[60] bg-slate-950/60 backdrop-blur-xs" />
 		<Dialog.Content
-			class="fixed top-1/2 left-1/2 z-50 flex max-h-[calc(100vh-2rem)] w-[calc(100%-2rem)] max-w-3xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-y-auto rounded-xl bg-white shadow-2xl focus:outline-none sm:max-h-[85vh]"
+			class="fixed top-1/2 left-1/2 z-[70] flex max-h-[calc(100vh-2rem)] w-[calc(100%-2rem)] max-w-3xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-y-auto rounded-xl bg-white shadow-2xl focus:outline-none sm:max-h-[85vh]"
 		>
 			<div class="flex items-center justify-between border-b border-slate-200 px-6 py-4">
 				<div>
@@ -4017,4 +4384,385 @@
 	destructive
 	busy={deleteFileBusy}
 	onconfirm={executeFileDelete}
+/>
+
+<!-- Edit service price dialog -->
+<Dialog.Root bind:open={editServicePriceOpen}>
+	<Dialog.Portal to="body">
+		<Dialog.Overlay class="fixed inset-0 z-[60] bg-slate-950/60 backdrop-blur-xs" />
+		<Dialog.Content
+			class="fixed top-1/2 left-1/2 z-[70] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-4 shadow-xl focus:outline-none sm:p-6"
+		>
+			<div class="flex items-center justify-between">
+				<Dialog.Title class="text-lg font-semibold text-slate-900">Edit service price</Dialog.Title>
+				<Dialog.Close
+					aria-label="Close"
+					class="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+				>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						viewBox="0 0 20 20"
+						fill="currentColor"
+						class="h-5 w-5"
+						aria-hidden="true"
+					>
+						<path
+							d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"
+						/>
+					</svg>
+				</Dialog.Close>
+			</div>
+			<Dialog.Description class="mt-2 text-sm text-slate-600">
+				Update the attached price for <span class="font-medium text-slate-900"
+					>{editServiceTarget?.service_name}</span
+				>. This updates the ledger charge and active draft invoices.
+			</Dialog.Description>
+
+			{#if editServicePriceErr}
+				<p
+					role="alert"
+					class="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+				>
+					{editServicePriceErr}
+				</p>
+			{/if}
+
+			<form
+				class="mt-4 space-y-4"
+				onsubmit={(e) => {
+					e.preventDefault();
+					handleSaveServicePrice();
+				}}
+			>
+				<div>
+					<label for="edit-service-price" class="block text-sm font-medium text-slate-700"
+						>Price</label
+					>
+					<div class="relative mt-1 rounded-md shadow-sm">
+						<div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+							<span class="text-slate-500 sm:text-sm">$</span>
+						</div>
+						<input
+							id="edit-service-price"
+							type="number"
+							step="0.01"
+							min="0"
+							placeholder="0.00"
+							bind:value={editServicePriceValue}
+							required
+							class="block w-full rounded-md border-slate-300 pl-7 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+						/>
+					</div>
+				</div>
+				<div class="flex justify-end gap-3 pt-2">
+					<Dialog.Close
+						class="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+					>
+						Cancel
+					</Dialog.Close>
+					<button
+						type="submit"
+						disabled={editServicePriceBusy}
+						aria-busy={editServicePriceBusy}
+						class="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+					>
+						{#if editServicePriceBusy}<Spinner class="h-4 w-4 text-white" />{/if}
+						Save price
+					</button>
+				</div>
+			</form>
+		</Dialog.Content>
+	</Dialog.Portal>
+</Dialog.Root>
+
+<!-- Remove service confirm dialog -->
+<ConfirmDialog
+	bind:open={
+		() => removeServiceOpen,
+		(v) => {
+			removeServiceOpen = v;
+			if (!v) removeServiceTarget = null;
+		}
+	}
+	title="Remove Attached Service"
+	description={removeServiceTarget
+		? `Remove "${removeServiceTarget.service_name}" from this project? This will cancel the service, remove unbilled ledger charges, and update draft invoices.`
+		: ''}
+	confirmLabel="Remove"
+	destructive
+	busy={removeServiceBusy}
+	onconfirm={handleConfirmRemoveService}
+/>
+
+<!-- Edit adjustment dialog -->
+<Dialog.Root bind:open={editAdjustmentOpen}>
+	<Dialog.Portal to="body">
+		<Dialog.Overlay class="fixed inset-0 z-[60] bg-slate-950/60 backdrop-blur-xs" />
+		<Dialog.Content
+			class="fixed top-1/2 left-1/2 z-[70] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-4 shadow-xl focus:outline-none sm:p-6"
+		>
+			<div class="flex items-center justify-between">
+				<Dialog.Title class="text-lg font-semibold text-slate-900">Edit adjustment</Dialog.Title>
+				<Dialog.Close
+					aria-label="Close"
+					class="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+				>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						viewBox="0 0 20 20"
+						fill="currentColor"
+						class="h-5 w-5"
+						aria-hidden="true"
+					>
+						<path
+							d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"
+						/>
+					</svg>
+				</Dialog.Close>
+			</div>
+			<Dialog.Description class="mt-2 text-sm text-slate-600">
+				Update the amount or description of this ledger adjustment.
+			</Dialog.Description>
+
+			{#if editAdjustmentErr}
+				<p
+					role="alert"
+					class="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+				>
+					{editAdjustmentErr}
+				</p>
+			{/if}
+
+			<form
+				class="mt-4 space-y-4"
+				onsubmit={(e) => {
+					e.preventDefault();
+					handleSaveAdjustment();
+				}}
+			>
+				<div>
+					<label for="edit-adjust-amount" class="block text-sm font-medium text-slate-700"
+						>Amount</label
+					>
+					<input
+						id="edit-adjust-amount"
+						type="number"
+						step="0.01"
+						placeholder="0.00"
+						bind:value={editAdjustmentAmount}
+						class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+					/>
+				</div>
+				<div>
+					<label for="edit-adjust-desc" class="block text-sm font-medium text-slate-700"
+						>Description</label
+					>
+					<input
+						id="edit-adjust-desc"
+						type="text"
+						placeholder="e.g. Service cancellation credit"
+						bind:value={editAdjustmentDescription}
+						class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+					/>
+				</div>
+				<div>
+					<label for="edit-adjust-date" class="block text-sm font-medium text-slate-700">Date</label
+					>
+					<input
+						id="edit-adjust-date"
+						type="date"
+						bind:value={editAdjustmentDate}
+						class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+					/>
+				</div>
+				<div class="flex justify-end gap-3 pt-2">
+					<Dialog.Close
+						class="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+					>
+						Cancel
+					</Dialog.Close>
+					<button
+						type="submit"
+						disabled={editAdjustmentBusy}
+						aria-busy={editAdjustmentBusy}
+						class="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+					>
+						{#if editAdjustmentBusy}<Spinner class="h-4 w-4 text-white" />{/if}
+						Save changes
+					</button>
+				</div>
+			</form>
+		</Dialog.Content>
+	</Dialog.Portal>
+</Dialog.Root>
+
+<!-- Delete adjustment confirm dialog -->
+<ConfirmDialog
+	bind:open={
+		() => deleteAdjustmentOpen,
+		(v) => {
+			deleteAdjustmentOpen = v;
+			if (!v) deleteAdjustmentTarget = null;
+		}
+	}
+	title="Delete Ledger Adjustment"
+	description={deleteAdjustmentTarget
+		? `Permanently delete this adjustment of ${fmtPrice(deleteAdjustmentTarget.amount)}? The ledger balance and statement will be updated.`
+		: ''}
+	confirmLabel="Delete"
+	destructive
+	busy={deleteAdjustmentBusy}
+	onconfirm={handleConfirmDeleteAdjustment}
+/>
+
+<!-- Edit project payment dialog -->
+<Dialog.Root bind:open={editPaymentOpen}>
+	<Dialog.Portal to="body">
+		<Dialog.Overlay class="fixed inset-0 z-[60] bg-slate-950/60 backdrop-blur-xs" />
+		<Dialog.Content
+			class="fixed top-1/2 left-1/2 z-[70] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-4 shadow-xl focus:outline-none sm:p-6"
+		>
+			<div class="flex items-center justify-between">
+				<Dialog.Title class="text-lg font-semibold text-slate-900"
+					>Edit Project Payment</Dialog.Title
+				>
+				<Dialog.Close
+					aria-label="Close"
+					class="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+				>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						viewBox="0 0 20 20"
+						fill="currentColor"
+						class="h-5 w-5"
+						aria-hidden="true"
+					>
+						<path
+							d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"
+						/>
+					</svg>
+				</Dialog.Close>
+			</div>
+			<Dialog.Description class="mt-2 text-sm text-slate-600">
+				Correct the amount, payment method, date, or reference note for this direct payment.
+			</Dialog.Description>
+
+			{#if editPaymentErr}
+				<p
+					role="alert"
+					class="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+				>
+					{editPaymentErr}
+				</p>
+			{/if}
+
+			<form
+				class="mt-4 space-y-4"
+				onsubmit={(e) => {
+					e.preventDefault();
+					handleSaveEditedPayment();
+				}}
+			>
+				<div>
+					<label for="edit-pay-amount" class="block text-sm font-medium text-slate-700"
+						>Amount received</label
+					>
+					<div class="relative mt-1 rounded-md shadow-sm">
+						<div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+							<span class="text-slate-500 sm:text-sm">$</span>
+						</div>
+						<input
+							id="edit-pay-amount"
+							type="number"
+							step="0.01"
+							min="0.01"
+							placeholder="0.00"
+							bind:value={editPaymentAmount}
+							required
+							class="block w-full rounded-md border-slate-300 pl-7 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+						/>
+					</div>
+				</div>
+
+				<div class="grid gap-4 sm:grid-cols-2">
+					<div>
+						<label for="edit-pay-method" class="block text-sm font-medium text-slate-700"
+							>Payment method</label
+						>
+						<select
+							id="edit-pay-method"
+							bind:value={editPaymentMethod}
+							class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+						>
+							<option value="bank_transfer">Bank Transfer</option>
+							<option value="card">Credit Card</option>
+							<option value="cash">Cash</option>
+							<option value="check">Check</option>
+							<option value="other">Other</option>
+						</select>
+					</div>
+					<div>
+						<label for="edit-pay-date" class="block text-sm font-medium text-slate-700"
+							>Payment date</label
+						>
+						<input
+							id="edit-pay-date"
+							type="date"
+							bind:value={editPaymentDate}
+							class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+						/>
+					</div>
+				</div>
+
+				<div>
+					<label for="edit-pay-note" class="block text-sm font-medium text-slate-700"
+						>Reference note</label
+					>
+					<input
+						id="edit-pay-note"
+						type="text"
+						placeholder="Check #, Wire ref, transaction notes"
+						bind:value={editPaymentNote}
+						class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+					/>
+				</div>
+
+				<div class="flex justify-end gap-3 pt-2">
+					<Dialog.Close
+						class="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+					>
+						Cancel
+					</Dialog.Close>
+					<button
+						type="submit"
+						disabled={editPaymentBusy}
+						aria-busy={editPaymentBusy}
+						class="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+					>
+						{#if editPaymentBusy}<Spinner class="h-4 w-4 text-white" />{/if}
+						Save payment
+					</button>
+				</div>
+			</form>
+		</Dialog.Content>
+	</Dialog.Portal>
+</Dialog.Root>
+
+<!-- Delete project payment confirm dialog -->
+<ConfirmDialog
+	bind:open={
+		() => deletePaymentOpen,
+		(v) => {
+			deletePaymentOpen = v;
+			if (!v) deletePaymentTarget = null;
+		}
+	}
+	title="Delete Project Payment"
+	description={deletePaymentTarget
+		? `Permanently delete this payment of ${fmtPrice(deletePaymentTarget.amount)}? The ledger balance and client advance credit will be recalculated.`
+		: ''}
+	confirmLabel="Delete"
+	destructive
+	busy={deletePaymentBusy}
+	onconfirm={handleConfirmDeletePayment}
 />

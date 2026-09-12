@@ -133,6 +133,12 @@ def _compute_total(quantity: Decimal, rate: Decimal) -> Decimal:
     response_model=PurchaseEntryResponse,
     status_code=status.HTTP_201_CREATED,
 )
+@router.post(
+    "",
+    response_model=PurchaseEntryResponse,
+    status_code=status.HTTP_201_CREATED,
+    include_in_schema=False,
+)
 async def create_purchase_entry(
     project_id: str,
     body: PurchaseEntryCreateRequest,
@@ -185,6 +191,7 @@ async def create_purchase_entry(
 
 
 @router.get("/", response_model=PurchaseEntryListResponse)
+@router.get("", response_model=PurchaseEntryListResponse, include_in_schema=False)
 async def list_purchase_entries(
     project_id: str,
     page: int = Query(default=1, ge=1),

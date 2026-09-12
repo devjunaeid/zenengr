@@ -13,7 +13,7 @@ from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.models.enums import DiscountType, LedgerEntryType, LedgerSourceType
+from app.models.enums import DiscountType, LedgerEntryType, LedgerSourceType, PaymentMethod
 
 
 class LedgerEntryResponse(BaseModel):
@@ -62,3 +62,20 @@ class AdjustmentCreateRequest(BaseModel):
 
     amount: Decimal
     description: str = Field(min_length=1, max_length=500)
+
+
+class AdjustmentUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    amount: Decimal | None = None
+    description: str | None = Field(default=None, min_length=1, max_length=500)
+    entry_date: date | None = None
+
+
+class ProjectPaymentUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    amount: Decimal | None = Field(default=None, gt=Decimal(0))
+    method: PaymentMethod | None = None
+    entry_date: date | None = None
+    reference_note: str | None = None

@@ -194,6 +194,26 @@ export function listTransactions(fetchFn, token, invoiceId) {
 }
 
 /**
+ * Delete a payment transaction recorded against an invoice (FEAT-022).
+ *
+ * @param {typeof fetch} fetchFn
+ * @param {string} token
+ * @param {string} invoiceId
+ * @param {string} transactionId
+ * @returns {Promise<void>}
+ */
+export function deleteInvoiceTransaction(fetchFn, token, invoiceId, transactionId) {
+	return apiFetch(
+		fetchFn,
+		`/tenant/invoices/${encodeURIComponent(invoiceId)}/transactions/${encodeURIComponent(transactionId)}`,
+		{
+			method: 'DELETE',
+			token
+		}
+	);
+}
+
+/**
  * Record a refund (credit transaction) against an invoice. Cannot exceed the
  * invoice's net paid amount (server-enforced).
  *

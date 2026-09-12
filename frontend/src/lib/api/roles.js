@@ -35,7 +35,7 @@ import { apiFetch } from './client.js';
  * @returns {Promise<TenantRole[]>}
  */
 export function getRoles(fetchFn, token) {
-	return apiFetch(fetchFn, '/tenant/roles', { token });
+	return apiFetch(fetchFn, '/tenant/roles/', { token });
 }
 
 /**

@@ -13,27 +13,40 @@ export async function load({ fetch, params }) {
 	const token = auth.token;
 
 	try {
-		const [project, users, overview, ledger, invoices, projectFiles, folderTree, projectRoles] =
-			await Promise.all([
-				projectApi.getProject(fetch, token, params.id),
-				tenantApi
-					.listUsers(fetch, token, { page_size: 100, is_active: true })
-					.catch(() => ({ items: [] })),
-				invoiceApi.getProjectOverview(fetch, token, params.id).catch(() => null),
-				projectApi.getProjectLedger(fetch, token, params.id).catch(() => null),
-				invoiceApi
-					.listInvoices(fetch, token, { project_id: params.id, page_size: 100 })
-					.catch(() => ({ items: [] })),
-				filesApi
-					.listFiles(fetch, token, { project_id: params.id, scope: 'project', page_size: 100 })
-					.catch(() => ({ items: [], total: 0 })),
-				filesApi.listFolders(fetch, token).catch(() => []),
-				rolesApi.getRoles(fetch, token).catch(() => [])
-			]);
+		const projectPromise = projectApi.getProject(fetch, token, params.id);
+		const clientPromise = projectPromise
+			.then((p) =>
+				p?.client_id ? clientsApi.getClient(fetch, token, p.client_id).catch(() => null) : null
+			)
+			.catch(() => null);
 
-		const client = project.client_id
-			? await clientsApi.getClient(fetch, token, project.client_id).catch(() => null)
-			: null;
+		const [
+			project,
+			client,
+			users,
+			overview,
+			ledger,
+			invoices,
+			projectFiles,
+			folderTree,
+			projectRoles
+		] = await Promise.all([
+			projectPromise,
+			clientPromise,
+			tenantApi
+				.listUsers(fetch, token, { page_size: 100, is_active: true })
+				.catch(() => ({ items: [] })),
+			invoiceApi.getProjectOverview(fetch, token, params.id).catch(() => null),
+			projectApi.getProjectLedger(fetch, token, params.id).catch(() => null),
+			invoiceApi
+				.listInvoices(fetch, token, { project_id: params.id, page_size: 100 })
+				.catch(() => ({ items: [] })),
+			filesApi
+				.listFiles(fetch, token, { project_id: params.id, scope: 'project', page_size: 100 })
+				.catch(() => ({ items: [], total: 0 })),
+			filesApi.listFolders(fetch, token).catch(() => []),
+			rolesApi.getRoles(fetch, token).catch(() => [])
+		]);
 
 		const serviceDetails = {};
 		for (const s of project.services ?? []) {

@@ -63,6 +63,12 @@ def _to_detail_response(service: Any) -> ServiceDetailResponse:
     response_model=ServiceDetailResponse,
     status_code=status.HTTP_201_CREATED,
 )
+@router.post(
+    "",
+    response_model=ServiceDetailResponse,
+    status_code=status.HTTP_201_CREATED,
+    include_in_schema=False,
+)
 async def create_service_endpoint(
     body: ServiceCreateRequest,
     session: AsyncSession = Depends(get_session),
@@ -84,6 +90,7 @@ async def create_service_endpoint(
 
 
 @router.get("/", response_model=ServiceListResponse)
+@router.get("", response_model=ServiceListResponse, include_in_schema=False)
 async def list_services_endpoint(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),

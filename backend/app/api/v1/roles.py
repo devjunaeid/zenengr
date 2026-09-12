@@ -64,6 +64,7 @@ def _to_role_response(role: Any) -> RoleResponse:
 
 
 @router.get("/", response_model=list[RoleResponse])
+@router.get("", response_model=list[RoleResponse], include_in_schema=False)
 async def list_roles_endpoint(
     role_type: str | None = None,
     session: AsyncSession = Depends(get_session),

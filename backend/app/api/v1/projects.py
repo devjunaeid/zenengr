@@ -22,10 +22,12 @@ from app.schemas.comments import CommentCreateRequest, CommentEditRequest, Comme
 from app.schemas.invoices import InvoiceResponse
 from app.schemas.ledger import (
     AdjustmentCreateRequest,
+    AdjustmentUpdateRequest,
     DiscountResponse,
     DiscountUpdateRequest,
     LedgerEntryResponse,
     ProjectLedgerResponse,
+    ProjectPaymentUpdateRequest,
     SummaryResponse,
 )
 from app.schemas.projects import (
@@ -47,6 +49,7 @@ from app.schemas.projects import (
     ProjectPickerResponse,
     ProjectServiceFinancialItem,
     ProjectServiceItem,
+    ProjectServiceUpdateRequest,
     ProjectUpdateRequest,
     UpdateProjectMemberRequest,
 )
@@ -463,6 +466,45 @@ async def update_milestone_endpoint(
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# Update project service price (FEAT-022, TODO-201)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+@router.patch(
+    "/{project_id}/services/{project_service_id}",
+    response_model=ProjectServiceItem,
+)
+async def update_project_service_price_endpoint(
+    project_id: str,
+    project_service_id: str,
+    body: ProjectServiceUpdateRequest,
+    session: AsyncSession = Depends(get_session),
+    user: AdminUser = Depends(require_permission("manage", "projects")),
+) -> ProjectServiceItem:
+    """Update attached price of a project service. Admin/Manager only."""
+    tenant_id = _get_tenant_id(user)
+    pid = _parse_uuid(project_id, kind="Project")
+    psid = _parse_uuid(project_service_id, kind="Project service")
+    ps = await project_service.update_project_service_price(
+        session,
+        tenant_id=tenant_id,
+        project_id=pid,
+        project_service_id=psid,
+        price=body.price,
+        actor_id=user.id,
+    )
+    return ProjectServiceItem(
+        id=ps.id,
+        service_id=ps.service_id,
+        service_name=ps.service.name if ps.service else "",
+        status=ps.status,
+        price_at_attachment=ps.price_at_attachment,
+        created_at=ps.created_at,
+        updated_at=ps.updated_at,
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # Remove project service (TODO-070)
 # ═══════════════════════════════════════════════════════════════════════════
 
@@ -577,6 +619,69 @@ async def add_manual_adjustment_endpoint(
     )
 
 
+@router.patch(
+    "/{project_id}/ledger/adjustments/{entry_id}",
+    response_model=LedgerEntryResponse,
+)
+async def update_manual_adjustment_endpoint(
+    project_id: str,
+    entry_id: str,
+    body: AdjustmentUpdateRequest,
+    session: AsyncSession = Depends(get_session),
+    user: AdminUser = Depends(require_permission("manage", "projects")),
+) -> LedgerEntryResponse:
+    """Update a signed manual adjustment on the project ledger. Admin/Manager only."""
+    tenant_id = _get_tenant_id(user)
+    pid = _parse_uuid(project_id, kind="Project")
+    eid = _parse_uuid(entry_id, kind="Ledger entry")
+    entry = await ledger_service.update_manual_adjustment(
+        session,
+        tenant_id=tenant_id,
+        project_id=pid,
+        entry_id=eid,
+        amount=body.amount,
+        description=body.description,
+        entry_date=body.entry_date,
+        actor_id=user.id,
+    )
+    return LedgerEntryResponse(
+        id=entry.id,
+        type=entry.type,
+        amount=f"{entry.amount:.2f}",
+        description=entry.description,
+        source_type=entry.source_type,
+        source_id=entry.source_id,
+        invoice_ref=entry.invoice_ref,
+        invoice_number=None,
+        entry_date=entry.entry_date,
+        created_at=entry.created_at,
+    )
+
+
+@router.delete(
+    "/{project_id}/ledger/adjustments/{entry_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_manual_adjustment_endpoint(
+    project_id: str,
+    entry_id: str,
+    session: AsyncSession = Depends(get_session),
+    user: AdminUser = Depends(require_permission("manage", "projects")),
+) -> Response:
+    """Delete a manual adjustment from the project ledger. Admin/Manager only."""
+    tenant_id = _get_tenant_id(user)
+    pid = _parse_uuid(project_id, kind="Project")
+    eid = _parse_uuid(entry_id, kind="Ledger entry")
+    await ledger_service.delete_manual_adjustment(
+        session,
+        tenant_id=tenant_id,
+        project_id=pid,
+        entry_id=eid,
+        actor_id=user.id,
+    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
 @router.post(
     "/{project_id}/payments",
     response_model=LedgerEntryResponse,
@@ -613,6 +718,70 @@ async def record_project_payment_endpoint(
         entry_date=entry.entry_date,
         created_at=entry.created_at,
     )
+
+
+@router.patch(
+    "/{project_id}/payments/{entry_id}",
+    response_model=LedgerEntryResponse,
+)
+async def update_project_payment_endpoint(
+    project_id: str,
+    entry_id: str,
+    body: ProjectPaymentUpdateRequest,
+    session: AsyncSession = Depends(get_session),
+    user: AdminUser = Depends(require_permission("manage", "projects")),
+) -> LedgerEntryResponse:
+    """Update a direct payment on the project ledger. Admin/Manager only."""
+    tenant_id = _get_tenant_id(user)
+    pid = _parse_uuid(project_id, kind="Project")
+    eid = _parse_uuid(entry_id, kind="Ledger entry")
+    entry = await ledger_service.update_project_payment(
+        session,
+        tenant_id=tenant_id,
+        project_id=pid,
+        entry_id=eid,
+        amount=body.amount,
+        method=body.method,
+        entry_date=body.entry_date,
+        reference_note=body.reference_note,
+        actor_id=user.id,
+    )
+    return LedgerEntryResponse(
+        id=entry.id,
+        type=entry.type,
+        amount=f"{entry.amount:.2f}",
+        description=entry.description,
+        source_type=entry.source_type,
+        source_id=entry.source_id,
+        invoice_ref=entry.invoice_ref,
+        invoice_number=None,
+        entry_date=entry.entry_date,
+        created_at=entry.created_at,
+    )
+
+
+@router.delete(
+    "/{project_id}/payments/{entry_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_project_payment_endpoint(
+    project_id: str,
+    entry_id: str,
+    session: AsyncSession = Depends(get_session),
+    user: AdminUser = Depends(require_permission("manage", "projects")),
+) -> Response:
+    """Delete a direct payment from the project ledger. Admin/Manager only."""
+    tenant_id = _get_tenant_id(user)
+    pid = _parse_uuid(project_id, kind="Project")
+    eid = _parse_uuid(entry_id, kind="Ledger entry")
+    await ledger_service.delete_project_payment(
+        session,
+        tenant_id=tenant_id,
+        project_id=pid,
+        entry_id=eid,
+        actor_id=user.id,
+    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 # ── Statement & Cumulative Invoicing (FEAT-019, TODO-188/189) ──────────────

@@ -135,7 +135,7 @@ export async function uploadFile(fetchFn, token, formData) {
  * @returns {Promise<FileListResponse>}
  */
 export function listFiles(fetchFn, token, params = {}) {
-	return apiFetch(fetchFn, '/tenant/files', { token, params });
+	return apiFetch(fetchFn, '/tenant/files/', { token, params });
 }
 
 /**

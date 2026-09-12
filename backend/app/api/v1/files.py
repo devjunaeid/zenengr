@@ -214,6 +214,7 @@ async def upload_file_endpoint(
 
 
 @router.get("/", response_model=FileListResponse)
+@router.get("", response_model=FileListResponse, include_in_schema=False)
 async def list_files_endpoint(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),

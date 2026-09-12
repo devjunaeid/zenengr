@@ -26,10 +26,10 @@
 </script>
 
 <Dialog.Root {open} onOpenChange={(o) => (open = o)}>
-	<Dialog.Portal>
-		<Dialog.Overlay class="fixed inset-0 z-40 bg-black/50" />
+	<Dialog.Portal to="body">
+		<Dialog.Overlay class="fixed inset-0 z-[60] bg-slate-950/60 backdrop-blur-xs" />
 		<Dialog.Content
-			class="fixed top-1/2 left-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-4 shadow-xl focus:outline-none sm:p-6"
+			class="fixed top-1/2 left-1/2 z-[70] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-4 shadow-xl focus:outline-none sm:p-6"
 		>
 			<Dialog.Title class="text-lg font-semibold text-slate-900">{title}</Dialog.Title>
 			{#if description}

@@ -25,6 +25,12 @@ class ProjectPaymentCreateRequest(BaseModel):
     reference_note: str = ""
 
 
+class ProjectServiceUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    price: Decimal = Field(..., ge=Decimal(0))
+
+
 class ProjectMemberSummary(BaseModel):
     model_config = {"from_attributes": True}
 

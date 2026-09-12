@@ -50,11 +50,10 @@ import { apiFetch } from './client.js';
  * @returns {Promise<{ items: PurchaseEntryListItem[], total: number, page: number, page_size: number }>}
  */
 export function listPurchaseEntries(fetchFn, token, projectId, params = {}) {
-	return apiFetch(
-		fetchFn,
-		`/tenant/projects/${encodeURIComponent(projectId)}/purchase-entries`,
-		{ token, params }
-	);
+	return apiFetch(fetchFn, `/tenant/projects/${encodeURIComponent(projectId)}/purchase-entries/`, {
+		token,
+		params
+	});
 }
 
 /**
@@ -85,11 +84,11 @@ export function getPurchaseEntry(fetchFn, token, projectId, entryId) {
  * @returns {Promise<PurchaseEntry>}
  */
 export function createPurchaseEntry(fetchFn, token, projectId, body) {
-	return apiFetch(
-		fetchFn,
-		`/tenant/projects/${encodeURIComponent(projectId)}/purchase-entries`,
-		{ method: 'POST', token, body }
-	);
+	return apiFetch(fetchFn, `/tenant/projects/${encodeURIComponent(projectId)}/purchase-entries/`, {
+		method: 'POST',
+		token,
+		body
+	});
 }
 
 /**
