@@ -27,6 +27,8 @@ from app.schemas.clients import (
     ClientNoteCreateRequest,
     ClientNoteListResponse,
     ClientNoteResponse,
+    ClientPickerItem,
+    ClientPickerResponse,
     ClientTagsResponse,
     ClientUpdateRequest,
     ClientUserSummary,
@@ -145,6 +147,37 @@ async def list_tags_endpoint(
     tenant_id = _get_tenant_id(user)
     tags = await client_service.get_distinct_tags(session, tenant_id=tenant_id)
     return ClientTagsResponse(tags=tags)
+
+
+@router.get("/picker", response_model=ClientPickerResponse)
+async def get_clients_picker_endpoint(
+    q: str | None = Query(default=None),
+    status_val: str | None = Query(default=None, alias="status"),
+    limit: int = Query(default=20, ge=1, le=100),
+    session: AsyncSession = Depends(get_session),
+    user: AdminUser = Depends(get_current_admin_user),
+) -> ClientPickerResponse:
+    """Fast, lean client lookup for dropdowns and search comboboxes."""
+    tenant_id = _get_tenant_id(user)
+    status_filter = None
+    if status_val:
+        try:
+            status_filter = ClientStatus(status_val)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=f"Invalid status: {status_val}. Must be 'active' or 'archived'.",
+            ) from None
+
+    result = await client_service.get_clients_picker(
+        session,
+        tenant_id=tenant_id,
+        q=q,
+        status=status_filter,
+        limit=limit,
+    )
+    items = [ClientPickerItem(**item) for item in result["items"]]
+    return ClientPickerResponse(items=items, total=result["total"])
 
 
 @router.get("/{client_id}", response_model=ClientDetailResponse)

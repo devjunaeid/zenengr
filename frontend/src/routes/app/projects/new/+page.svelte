@@ -6,6 +6,7 @@
 	import * as projectApi from '$lib/api/projects.js';
 	import * as serviceApi from '$lib/api/services.js';
 	import Spinner from '$lib/components/Spinner.svelte';
+	import ClientPicker from '$lib/components/ClientPicker.svelte';
 	import { auth } from '$lib/stores/auth.svelte.js';
 	import { fmtPrice } from '$lib/utils/format.js';
 
@@ -192,25 +193,15 @@
 		<div class="grid gap-4 sm:grid-cols-2">
 			<div>
 				<label for="p-client" class="block text-sm font-medium text-slate-700">Client *</label>
-				<select
-					id="p-client"
-					bind:value={clientId}
-					required
-					class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-				>
-					<option value="" disabled>Select a client</option>
-					{#each data.clients as c (c.id)}
-						<option value={c.id}>{c.name}</option>
-					{/each}
-				</select>
-				{#if data.clients.length === 0}
-					<p class="mt-1 text-xs text-slate-500">
-						No active clients. <a
-							href={resolve('/app/clients/new')}
-							class="text-indigo-600 hover:text-indigo-500">Create one</a
-						> first.
-					</p>
-				{/if}
+				<div class="mt-1">
+					<ClientPicker
+						id="p-client"
+						name="client_id"
+						bind:value={clientId}
+						initialItems={data.clients}
+						required
+					/>
+				</div>
 			</div>
 			<div>
 				<label for="p-start" class="block text-sm font-medium text-slate-700">Start date</label>

@@ -87,6 +87,29 @@ export function listClients(fetchFn, token, params = {}) {
 }
 
 /**
+ * @typedef {Object} ClientPickerItem
+ * @property {string} id
+ * @property {string} name
+ * @property {string} [client_type]
+ * @property {string|null} [email]
+ * @property {string|null} [phone]
+ * @property {string} [status]
+ * @property {string|null} [tax_id]
+ * @property {Record<string, any>|string|null} [billing_address]
+ */
+
+/**
+ * Fast lightweight client picker for dropdowns and comboboxes.
+ * @param {typeof fetch} fetchFn
+ * @param {string} token
+ * @param {{ q?: string, status?: string, limit?: number }} [params]
+ * @returns {Promise<{ items: ClientPickerItem[], total: number }>}
+ */
+export function getClientPicker(fetchFn, token, params = {}) {
+	return apiFetch(fetchFn, '/tenant/clients/picker', { token, params });
+}
+
+/**
  * @param {typeof fetch} fetchFn
  * @param {string} token
  * @returns {Promise<{ tags: string[] }>}

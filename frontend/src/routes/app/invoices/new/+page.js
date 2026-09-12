@@ -9,7 +9,7 @@ export async function load({ fetch, url }) {
 
 	const [pickerRes, clientsRes, initialProject] = await Promise.all([
 		projectApi.getProjectPicker(fetch, token, { limit: 10 }).catch(() => ({ items: [] })),
-		clientApi.listClients(fetch, token, { page_size: 20 }).catch(() => ({ items: [] })),
+		clientApi.getClientPicker(fetch, token, { limit: 20 }).catch(() => ({ items: [] })),
 		initialProjectId
 			? projectApi.getProject(fetch, token, initialProjectId).catch(() => null)
 			: null

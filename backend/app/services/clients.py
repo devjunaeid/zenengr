@@ -642,3 +642,25 @@ async def update_client_profile(
         await session.commit()
 
     return client
+
+
+async def get_clients_picker(
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    q: str | None = None,
+    status: ClientStatus | None = None,
+    limit: int = 20,
+) -> dict[str, Any]:
+    """Fast lean client lookup for dropdowns and pickers."""
+    items = await client_repo.search_clients_picker(
+        session,
+        tenant_id=tenant_id,
+        q=q,
+        status=status,
+        limit=min(max(1, limit), 100),
+    )
+    return {
+        "items": items,
+        "total": len(items),
+    }

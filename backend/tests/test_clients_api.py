@@ -1254,3 +1254,38 @@ class TestUsageEndpoint:
 
         resp3 = await client.get("/api/v1/tenant/plan", headers=headers)
         assert resp3.json()["usage"]["clients"] == 2  # archived not counted
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Picker endpoint for dropdowns & scalable comboboxes
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestClientPicker:
+    @pytest.mark.asyncio
+    async def test_client_picker_search_and_limit(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        plan = await _create_plan(db_session)
+        tenant = await _create_tenant(db_session, plan.id)
+        admin = await _create_admin(
+            db_session, f"admin-{uuid.uuid4().hex[:8]}@testco.com", AdminUserRole.ADMIN, tenant.id
+        )
+        headers = await _admin_auth_header(admin)
+
+        await _create_client(db_session, tenant.id, name="Acme Corporation")
+        await _create_client(db_session, tenant.id, name="Beta Logistics")
+        await _create_client(db_session, tenant.id, name="Apex Holdings")
+
+        # Search by q
+        resp = await client.get("/api/v1/tenant/clients/picker?q=acme", headers=headers)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] == 1
+        assert data["items"][0]["name"] == "Acme Corporation"
+        assert "billing_address" in data["items"][0]
+
+        # Limit
+        resp2 = await client.get("/api/v1/tenant/clients/picker?limit=2", headers=headers)
+        assert resp2.status_code == 200
+        assert len(resp2.json()["items"]) == 2

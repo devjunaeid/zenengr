@@ -151,3 +151,24 @@ class ClientArchiveResponse(BaseModel):
     id: uuid.UUID
     name: str
     status: str
+
+
+# ── Client Picker ────────────────────────────────────────────────────────────
+
+
+class ClientPickerItem(BaseModel):
+    model_config = {"from_attributes": True}
+
+    id: uuid.UUID
+    name: str
+    client_type: str = "company"
+    email: str | None = None
+    phone: str | None = None
+    status: str = "active"
+    tax_id: str | None = None
+    billing_address: dict[str, Any] | str | None = None
+
+
+class ClientPickerResponse(BaseModel):
+    items: list[ClientPickerItem]
+    total: int

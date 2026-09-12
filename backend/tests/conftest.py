@@ -41,7 +41,10 @@ async def _setup_test_db() -> AsyncGenerator[None]:
         await conn.close()
 
     # Create schema once for entire session
-    engine = create_async_engine(_TEST_URL)
+    engine = create_async_engine(
+        _TEST_URL,
+        connect_args={"statement_cache_size": 0, "command_timeout": 60},
+    )
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     await engine.dispose()

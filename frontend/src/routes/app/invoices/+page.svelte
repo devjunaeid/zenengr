@@ -9,6 +9,7 @@
 	import EmptyState from '$lib/components/EmptyState.svelte';
 	import Pagination from '$lib/components/Pagination.svelte';
 	import StatusBadge from '$lib/components/StatusBadge.svelte';
+	import ProjectPicker from '$lib/components/ProjectPicker.svelte';
 	import * as projectApi from '$lib/api/projects.js';
 	import { auth } from '$lib/stores/auth.svelte.js';
 	import { formatDate, fmtPrice, humanize } from '$lib/utils/format.js';
@@ -172,20 +173,17 @@
 		<!-- 3. Project Filter -->
 		<div>
 			<label for="f-project" class="block text-xs font-semibold text-slate-600">Project</label>
-			<select
-				id="f-project"
-				bind:value={projectId}
-				disabled={invoiceType === 'general'}
-				class="mt-1 block w-full rounded-lg border-slate-300 py-1.5 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 disabled:bg-slate-100 disabled:text-slate-400"
-			>
-				<option value="">All projects</option>
-				{#if projectId && !projectOptions.some((p) => p.id === projectId)}
-					<option value={projectId}>Selected Project</option>
-				{/if}
-				{#each projectOptions as p (p.id)}
-					<option value={p.id}>{p.name}</option>
-				{/each}
-			</select>
+			<div class="mt-1">
+				<ProjectPicker
+					id="f-project"
+					name="project_id"
+					placeholder="All projects"
+					disabled={invoiceType === 'general'}
+					bind:value={projectId}
+					initialItems={projectOptions}
+					clearable
+				/>
+			</div>
 		</div>
 
 		<!-- 4. Date From Filter -->

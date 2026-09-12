@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import cast, func, or_, select, String
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -150,3 +150,56 @@ async def update(session: AsyncSession, client: Client, **kwargs: Any) -> Client
     await session.flush()
     await session.refresh(client)
     return client
+
+
+async def search_clients_picker(
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    q: str | None = None,
+    status: ClientStatus | None = None,
+    limit: int = 20,
+) -> list[dict[str, Any]]:
+    """Fast, lean client lookup for dropdowns and pickers."""
+    query = select(
+        Client.id,
+        Client.name,
+        Client.client_type,
+        Client.email,
+        Client.phone,
+        Client.status,
+        Client.tax_id,
+        Client.billing_address,
+    ).where(Client.tenant_id == tenant_id)
+
+    if status is not None:
+        query = query.where(Client.status == status)
+
+    if q and q.strip():
+        search_term = q.strip().lstrip("#")
+        pattern = f"%{search_term}%"
+        query = query.where(
+            or_(
+                Client.name.ilike(pattern),
+                Client.email.ilike(pattern),
+                Client.phone.ilike(pattern),
+                cast(Client.id, String).ilike(pattern),
+            )
+        )
+
+    query = query.order_by(Client.name.asc()).limit(limit)
+    result = await session.execute(query)
+    rows = result.mappings().all()
+    return [
+        {
+            "id": r["id"],
+            "name": r["name"],
+            "client_type": r["client_type"].value if hasattr(r["client_type"], "value") else str(r["client_type"]),
+            "email": r["email"],
+            "phone": r["phone"],
+            "status": r["status"].value if hasattr(r["status"], "value") else str(r["status"]),
+            "tax_id": r["tax_id"],
+            "billing_address": r["billing_address"],
+        }
+        for r in rows
+    ]

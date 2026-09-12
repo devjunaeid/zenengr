@@ -15,6 +15,7 @@
 	import * as projectApi from '$lib/api/projects.js';
 	import Spinner from '$lib/components/Spinner.svelte';
 	import StatusBadge from '$lib/components/StatusBadge.svelte';
+	import ClientPicker from '$lib/components/ClientPicker.svelte';
 	import { auth } from '$lib/stores/auth.svelte.js';
 	import { fmtPrice } from '$lib/utils/format.js';
 
@@ -105,28 +106,33 @@
 		}
 	}
 
-	function onClientSelect(clientId) {
-		selectedClientId = clientId;
-		if (!clientId) return;
-		const client = data.clients.find((c) => c.id === clientId);
-		if (client) {
-			billedTo.name = client.name || '';
-			billedTo.email = client.email || '';
-			billedTo.phone = client.phone || '';
-			billedTo.tax_id = client.tax_id || '';
-			if (client.billing_address) {
-				if (typeof client.billing_address === 'string') {
-					billedTo.address = client.billing_address;
-				} else if (typeof client.billing_address === 'object') {
-					const parts = [
-						client.billing_address.street,
-						client.billing_address.city,
-						client.billing_address.state,
-						client.billing_address.postal_code,
-						client.billing_address.country
-					].filter(Boolean);
-					billedTo.address = parts.join(', ');
-				}
+	function onClientSelect(target) {
+		if (!target) {
+			selectedClientId = '';
+			return;
+		}
+		const client =
+			typeof target === 'object' && target !== null
+				? target
+				: (data.clients || []).find((c) => c.id === target);
+		if (!client) return;
+		selectedClientId = client.id;
+		billedTo.name = client.name || '';
+		billedTo.email = client.email || '';
+		billedTo.phone = client.phone || '';
+		billedTo.tax_id = client.tax_id || '';
+		if (client.billing_address) {
+			if (typeof client.billing_address === 'string') {
+				billedTo.address = client.billing_address;
+			} else if (typeof client.billing_address === 'object') {
+				const parts = [
+					client.billing_address.street,
+					client.billing_address.city,
+					client.billing_address.state,
+					client.billing_address.postal_code,
+					client.billing_address.country
+				].filter(Boolean);
+				billedTo.address = parts.join(', ');
 			}
 		}
 	}
@@ -607,25 +613,21 @@
 					</p>
 				</div>
 
-				<!-- Quick client auto-fill -->
-				{#if data.clients && data.clients.length > 0}
-					<div class="flex items-center gap-2">
-						<label for="quick-client" class="text-xs font-semibold text-slate-600">
-							Auto-fill from client:
-						</label>
-						<select
+				<!-- Quick client auto-fill (Scalable Combobox) -->
+				<div class="flex flex-wrap items-center gap-2">
+					<label for="quick-client" class="text-xs font-semibold text-slate-600">
+						Auto-fill from client:
+					</label>
+					<div class="min-w-[240px] flex-1 sm:max-w-xs">
+						<ClientPicker
 							id="quick-client"
-							value={selectedClientId}
-							onchange={(e) => onClientSelect(e.currentTarget.value)}
-							class="rounded-lg border-slate-300 py-1.5 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
-						>
-							<option value="">— Select a client to pre-fill —</option>
-							{#each data.clients as c (c.id)}
-								<option value={c.id}>{c.name}</option>
-							{/each}
-						</select>
+							placeholder="Select a client to pre-fill..."
+							bind:value={selectedClientId}
+							initialItems={data.clients}
+							onselect={(client) => onClientSelect(client)}
+						/>
 					</div>
-				{/if}
+				</div>
 			</div>
 
 			<div class="grid gap-4 sm:grid-cols-2">
