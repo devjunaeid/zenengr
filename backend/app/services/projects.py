@@ -379,20 +379,31 @@ async def get_project_overview(
     *,
     tenant_id: uuid.UUID,
     project_id: uuid.UUID,
+    include_invoices: bool = False,
+    include_breakdown: bool = False,
 ) -> dict[str, Any]:
     """Build project overview data: milestone completion + financial summary.
 
     404 if project not found in tenant. Financial fields come from
     services/financials.py (live sums; see TODO-095/FEAT-008).
+    Invoices and service breakdown are conditionally queried on demand.
     """
     project = await get_project(session, tenant_id=tenant_id, project_id=project_id)
     total = len(project.milestones)
     completed = sum(1 for m in project.milestones if m.status == MilestoneStatus.COMPLETED)
     pct = 0.0 if total == 0 else round(completed / total * 100, 2)
     financials = await financials_service.get_project_financials(session, project_id=project.id)
-    invoices = await financials_service.list_linked_invoices(session, project_id=project.id)
-    service_breakdown = await financials_service.get_project_financials_by_service(
-        session, project_id=project.id
+    invoices = (
+        await financials_service.list_linked_invoices(session, project_id=project.id)
+        if include_invoices
+        else []
+    )
+    service_breakdown = (
+        await financials_service.get_project_financials_by_service(
+            session, project_id=project.id
+        )
+        if include_breakdown
+        else []
     )
     return {
         "project_id": project.id,
@@ -684,7 +695,10 @@ async def update_project_service_price(
     if issued_inv_num:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"Service price cannot be updated: already billed on issued invoice {issued_inv_num}. Void the invoice first to edit.",
+            detail=(
+                "Service price cannot be updated: already billed on issued invoice "
+                f"{issued_inv_num}. Void the invoice first to edit."
+            ),
         )
 
     old_price = ps.price_at_attachment
@@ -703,9 +717,13 @@ async def update_project_service_price(
         if ledger_entry.invoice_ref is not None:
             inv = await session.get(Invoice, ledger_entry.invoice_ref)
             if inv and inv.status != InvoiceStatus.DRAFT:
+                inv_ref = inv.invoice_number or ledger_entry.invoice_ref
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
-                    detail=f"Service price cannot be updated: already covered by issued invoice {inv.invoice_number or ledger_entry.invoice_ref}. Void the invoice first to edit.",
+                    detail=(
+                        "Service price cannot be updated: already covered by issued invoice "
+                        f"{inv_ref}. Void the invoice first to edit."
+                    ),
                 )
         ledger_entry.amount = new_price
     else:

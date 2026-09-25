@@ -85,7 +85,7 @@ class ClientDetailResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     client_users: list[ClientUserSummary]
-    recent_activity: list[dict[str, Any]]
+    recent_activity: list[dict[str, Any]] = Field(default_factory=list)
     active_projects: int = 0
     total_invoiced: str = "0.00"
     total_paid: str = "0.00"

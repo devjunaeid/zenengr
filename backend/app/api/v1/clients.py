@@ -7,6 +7,7 @@ Guard: manage/clients = admin+manager for writes; employee = view only on GETs.
 from __future__ import annotations
 
 import uuid
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -183,10 +184,14 @@ async def get_clients_picker_endpoint(
 @router.get("/{client_id}", response_model=ClientDetailResponse)
 async def get_client_endpoint(
     client_id: str,
+    include: str | None = Query(
+        default=None,
+        description="Comma-separated optional inclusions, e.g. 'activity'",
+    ),
     session: AsyncSession = Depends(get_session),
     user: AdminUser = Depends(get_current_admin_user),
 ) -> ClientDetailResponse:
-    """Get client detail with client_users and recent activity."""
+    """Get client detail with client_users and optional recent activity."""
     tenant_id = _get_tenant_id(user)
 
     try:
@@ -199,14 +204,29 @@ async def get_client_endpoint(
 
     client = await client_service.get_client_detail(session, tenant_id=tenant_id, client_id=cid)
 
-    # Get recent 10 activity entries
-    activity = await client_service.get_activity(
-        session,
-        tenant_id=tenant_id,
-        client_id=cid,
-        page=1,
-        page_size=10,
-    )
+    recent_activity: list[dict[str, Any]] = []
+    include_parts = [p.strip().lower() for p in include.split(",")] if include else []
+    if "activity" in include_parts:
+        activity = await client_service.get_activity(
+            session,
+            tenant_id=tenant_id,
+            client_id=cid,
+            page=1,
+            page_size=10,
+        )
+        recent_activity = [
+            {
+                "id": e.id,
+                "action": e.action,
+                "entity_type": e.entity_type,
+                "entity_id": e.entity_id,
+                "details": e.details,
+                "actor_id": e.actor_id,
+                "actor_type": e.actor_type,
+                "created_at": e.created_at.isoformat(),
+            }
+            for e in activity["items"]
+        ]
 
     client_users = [
         ClientUserSummary(
@@ -217,20 +237,6 @@ async def get_client_endpoint(
             is_primary_billing_contact=u.is_primary_billing_contact,
         )
         for u in client["client_users"]
-    ]
-
-    recent_activity = [
-        {
-            "id": e.id,
-            "action": e.action,
-            "entity_type": e.entity_type,
-            "entity_id": e.entity_id,
-            "details": e.details,
-            "actor_id": e.actor_id,
-            "actor_type": e.actor_type,
-            "created_at": e.created_at.isoformat(),
-        }
-        for e in activity["items"]
     ]
 
     return ClientDetailResponse(

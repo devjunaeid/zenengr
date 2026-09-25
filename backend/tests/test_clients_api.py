@@ -761,6 +761,15 @@ class TestGetClientDetail:
         assert len(data["client_users"]) == 1
         assert data["client_users"][0]["email"] == "cu@test.com"
         assert "recent_activity" in data
+        assert data["recent_activity"] == []  # Lean default response
+
+        # Include activity on demand
+        resp_with_act = await client.get(
+            f"/api/v1/tenant/clients/{cli.id}?include=activity", headers=headers
+        )
+        assert resp_with_act.status_code == 200
+        data_act = resp_with_act.json()
+        assert isinstance(data_act["recent_activity"], list)
 
     @pytest.mark.asyncio
     async def test_get_client_detail_active_projects_count(

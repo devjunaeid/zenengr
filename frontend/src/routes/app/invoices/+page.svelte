@@ -347,27 +347,20 @@
 							</div>
 						</div>
 
-						<div class="grid grid-cols-2 gap-2 text-xs text-slate-500">
-							<div>
-								<span class="text-slate-400">Due Date:</span>
-								{#if inv.due_date}
-									{@const overdue = isOverdue(inv)}
-									<span class="ml-1 {overdue ? 'font-semibold text-rose-600' : 'text-slate-700'}">
-										{formatDate(inv.due_date)}
-										{#if overdue}
-											<span class="ml-1 text-[10px] font-bold text-rose-600 uppercase"
-												>(Overdue)</span
-											>
-										{/if}
-									</span>
-								{:else}
-									<span class="ml-1 text-slate-400">—</span>
-								{/if}
-							</div>
-							<div>
-								<span class="text-slate-400">Issued:</span>
-								<span class="ml-1 text-slate-700">{formatDate(inv.issue_date)}</span>
-							</div>
+						<div class="text-xs text-slate-500">
+							<span class="text-slate-400">Due Date:</span>
+							{#if inv.due_date}
+								{@const overdue = isOverdue(inv)}
+								<span class="ml-1 {overdue ? 'font-semibold text-rose-600' : 'text-slate-700'}">
+									{formatDate(inv.due_date)}
+									{#if overdue}
+										<span class="ml-1 text-[10px] font-bold text-rose-600 uppercase">(Overdue)</span
+										>
+									{/if}
+								</span>
+							{:else}
+								<span class="ml-1 text-slate-400">—</span>
+							{/if}
 						</div>
 					</div>
 
@@ -429,18 +422,6 @@
 							class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
 						>
 							Due Date
-						</th>
-						<th
-							scope="col"
-							class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
-						>
-							Issued
-						</th>
-						<th
-							scope="col"
-							class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
-						>
-							Created
 						</th>
 					</tr>
 				</thead>
@@ -552,12 +533,6 @@
 								{:else}
 									<span class="text-slate-400">—</span>
 								{/if}
-							</td>
-							<td class="px-4 py-3 text-sm whitespace-nowrap text-slate-600">
-								{formatDate(inv.issue_date)}
-							</td>
-							<td class="px-4 py-3 text-sm whitespace-nowrap text-slate-600">
-								{formatDate(inv.created_at)}
 							</td>
 						</tr>
 					{/each}

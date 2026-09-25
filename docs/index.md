@@ -19,9 +19,9 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 
 | Area | Count | Key metric |
 | ---- | ----- | ---------- |
-| Features | 23 | approved: 22, proposed: 1 |
-| User stories | 69 | done: 27, in_progress: 4, proposed: 38 |
-| Todos | 208 | done: 197, in_progress: 0, proposed: 11 |
+| Features | 24 | approved: 23, proposed: 1 |
+| User stories | 71 | done: 31, in_progress: 2, proposed: 38 |
+| Todos | 212 | done: 201, in_progress: 0, proposed: 11 |
 | Decisions | 2 | accepted: 2 |
 
 ## Active sprint
@@ -65,6 +65,7 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | [FEAT-021](features/FEAT-021-invoice-type-selector-and-filtering.md) | Invoice Type Selector, Billed-To Info & Advanced Filtering | approved | P1 |
 | [FEAT-022](features/FEAT-022-financial-corrections-and-ledger-management.md) | Financial Corrections, Service Price Edits & Ledger Entry Management | approved | P0 |
 | [FEAT-023](features/FEAT-023-invoice-due-column-and-amount-in-words.md) | Invoice Table Due Column & Dynamic Amount in Words with Regional Numbering Systems | approved | P1 |
+| [FEAT-024](features/FEAT-024-lazy-loading-tabs-and-lean-apis.md) | Lazy Loading Tabbed Views & Lean On-Demand API Architecture | approved | P1 |
 
 ### Stories
 
@@ -139,6 +140,8 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | [US-067](stories/US-067.md) | Financial Corrections for Services, Adjustments, and Payments | FEAT-022 | done |
 | [US-068](stories/US-068.md) | Main Invoice Table Due Date Column & Overdue Highlighting | FEAT-023 | done |
 | [US-069](stories/US-069.md) | Tenant Numbering System Setting & Dynamic Amount in Words on Inputs | FEAT-023 | done |
+| [US-070](stories/US-070.md) | Lazy Loading Tab Data on Demand for Project, Client, and Portal Views | FEAT-024 | done |
+| [US-071](stories/US-071.md) | Lean API Queries, Default Scoped Payloads & On-Demand Extensions | FEAT-024 | done |
 
 ### Todos
 
@@ -470,10 +473,20 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | [TODO-207](todos/TODO-207.md) | Frontend numberToWords utility, settings store update, and AmountInWords component | US-069 | done |
 | [TODO-208](todos/TODO-208.md) | Add Numbering System setting to Configuration page and integrate AmountInWords on inputs | US-069 | done |
 
+#### FEAT-024 — Lazy Loading Tabbed Views & Lean On-Demand API Architecture
+
+| ID | Title | Story | Status |
+| -- | ----- | ----- | ------ |
+| [TODO-209](todos/TODO-209.md) | Refactor Staff Project Details (/app/projects/[id]) for lazy tab loading and client caching | US-070 | done |
+| [TODO-210](todos/TODO-210.md) | Refactor Staff Client Details (/app/clients/[id]) for lazy tab loading | US-070 | done |
+| [TODO-211](todos/TODO-211.md) | Refactor Client Portal Project View (/client/projects/[id]) for lazy tab loading | US-070 | done |
+| [TODO-212](todos/TODO-212.md) | Audit and optimize backend queries and API payloads for lean default responses | US-071 | done |
+
 ## Recently updated
 
 | Date | Item | Change |
 | ---- | ---- | ------ |
+| 2026-09-26 | FEAT-024 Lazy Loading Tabbed Views & Lean On-Demand API Architecture shipped | docs/features/FEAT-024-lazy-loading-tabs-and-lean-apis.md, docs/stories/US-070.md, docs/stories/US-071.md, docs/todos/TODO-209.md..TODO-212.md, frontend/src/routes/app/projects/[id]/*, frontend/src/routes/app/clients/[id]/*, frontend/src/routes/client/projects/[id]/*, backend/app/api/v1/clients.py, backend/app/api/v1/projects.py, docs/index.md, docs/progress.md. |
 | 2026-09-25 | FEAT-023 Invoice Table Due Column & Dynamic Amount in Words docs drafted | docs/features/FEAT-023-invoice-due-column-and-amount-in-words.md, docs/stories/US-068.md, docs/stories/US-069.md, docs/todos/TODO-205.md..TODO-208.md, docs/ui-ux-spec.md, docs/index.md. |
 | 2026-09-12 | FEAT-022 Financial Corrections, Service Price Edits & Ledger Entry Management shipped | docs/features/FEAT-022-financial-corrections-and-ledger-management.md, docs/stories/US-067.md, docs/todos/TODO-201.md..TODO-204.md, backend/app/schemas/projects.py, backend/app/schemas/ledger.py, backend/app/services/projects.py, backend/app/services/ledger.py, backend/app/services/transactions.py, backend/app/api/v1/projects.py, backend/app/api/v1/invoices.py, backend/tests/test_financial_corrections_api.py, frontend/src/lib/api/projects.js, frontend/src/lib/api/invoices.js, frontend/src/routes/app/projects/[id]/+page.svelte, frontend/src/routes/app/invoices/[id]/+page.svelte, docs/index.md, docs/progress.md. |
 | 2026-09-09 | FEAT-021 Invoice Type Selector, Billed-To Info & Advanced Filtering shipped | docs/features/FEAT-021-invoice-type-selector-and-filtering.md, docs/stories/US-066.md, docs/todos/TODO-197.md..TODO-200.md, backend/app/models/invoice.py, backend/alembic/versions/b2d3e4f5a6b7_add_invoice_billed_to.py, backend/app/schemas/invoices.py, backend/app/services/invoices.py, backend/app/api/v1/invoices.py, backend/app/services/pdf.py, backend/tests/test_invoices_api.py, frontend/src/lib/api/invoices.js, frontend/src/routes/app/invoices/*, docs/index.md, docs/progress.md. |

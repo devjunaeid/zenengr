@@ -1,6 +1,7 @@
 <script>
 	import { untrack } from 'svelte';
 	import { invalidateAll } from '$app/navigation';
+	import { page } from '$app/state';
 	import { Dialog } from 'bits-ui';
 	import { resolve } from '$app/paths';
 	import { SvelteMap } from 'svelte/reactivity';
@@ -10,6 +11,8 @@
 	import * as projectApi from '$lib/api/projects.js';
 	import * as serviceApi from '$lib/api/services.js';
 	import * as purchaseApi from '$lib/api/purchaseEntries.js';
+	import * as rolesApi from '$lib/api/roles.js';
+	import * as tenantApi from '$lib/api/tenant.js';
 	import AssigneePicker from '$lib/components/AssigneePicker.svelte';
 	import CommentThread from '$lib/components/CommentThread.svelte';
 	import MilestoneStatusSelector from '$lib/components/MilestoneStatusSelector.svelte';
@@ -51,13 +54,128 @@
 	let liveLedgerOverride = $state(null);
 	let liveOverviewOverride = $state(null);
 	let liveInvoicesOverride = $state(null);
+	let liveFilesOverride = $state(null);
+	let liveFoldersOverride = $state(null);
+	let liveUsersOverride = $state(null);
+	let liveRolesOverride = $state(null);
+
+	let ledgerLoading = $state(false);
+	let ledgerLoaded = $state(Boolean(data.ledger));
+
+	let invoicesLoading = $state(false);
+	let invoicesLoaded = $state(Boolean(data.invoices?.items?.length));
+
+	let filesLoading = $state(false);
+	let filesLoaded = $state(Boolean(data.projectFiles?.length));
+
+	let teamLoading = $state(false);
+	let teamLoaded = $state(Boolean(data.users?.length));
 
 	let currentProject = $derived(liveProjectOverride ?? data.project);
 	let currentOverview = $derived(liveOverviewOverride ?? data.overview);
-	let activeTab = $state('overview');
+	let activeTab = $state(page.url.searchParams.get('tab') || 'overview');
 	let invoiceList = $derived(liveInvoicesOverride ?? data.invoices?.items ?? []);
+	let projectFileList = $derived(liveFilesOverride ?? data.projectFiles ?? []);
+	let userList = $derived(liveUsersOverride ?? data.users ?? []);
 	let issueBusyId = $state(null);
 	let pdfBusyId = $state(null);
+
+	async function loadLedgerTab(force = false) {
+		if (ledgerLoading || (ledgerLoaded && !force)) return;
+		ledgerLoading = true;
+		try {
+			const res = await projectApi.getProjectLedger(fetch, token, data.project.id);
+			if (res) {
+				liveLedgerOverride = res;
+				ledgerLoaded = true;
+			}
+		} catch (e) {
+			console.error('Failed to load ledger', e);
+		} finally {
+			ledgerLoading = false;
+		}
+	}
+
+	async function loadInvoicesTab(force = false) {
+		if (invoicesLoading || (invoicesLoaded && !force)) return;
+		invoicesLoading = true;
+		try {
+			const res = await invoiceApi.listInvoices(fetch, token, {
+				project_id: data.project.id,
+				page_size: 100
+			});
+			if (res?.items) {
+				liveInvoicesOverride = res.items;
+				invoicesLoaded = true;
+			}
+		} catch (e) {
+			console.error('Failed to load invoices', e);
+		} finally {
+			invoicesLoading = false;
+		}
+	}
+
+	async function loadFilesTab(force = false) {
+		if (filesLoading || (filesLoaded && !force)) return;
+		filesLoading = true;
+		try {
+			const [fRes, treeRes] = await Promise.all([
+				filesApi
+					.listFiles(fetch, token, {
+						project_id: data.project.id,
+						scope: 'project',
+						page_size: 100
+					})
+					.catch(() => ({ items: [], total: 0 })),
+				filesApi.listFolders(fetch, token).catch(() => [])
+			]);
+			liveFilesOverride = fRes?.items ?? [];
+			liveFoldersOverride = treeRes ?? [];
+			filesLoaded = true;
+		} catch (e) {
+			console.error('Failed to load files', e);
+		} finally {
+			filesLoading = false;
+		}
+	}
+
+	async function loadTeamTab(force = false) {
+		if (teamLoading || (teamLoaded && !force)) return;
+		teamLoading = true;
+		try {
+			const [uRes, rRes] = await Promise.all([
+				tenantApi
+					.listUsers(fetch, token, { page_size: 100, is_active: true })
+					.catch(() => ({ items: [] })),
+				rolesApi.getRoles(fetch, token).catch(() => [])
+			]);
+			liveUsersOverride = uRes?.items ?? [];
+			liveRolesOverride = (rRes ?? []).filter((r) => r.role_type === 'project');
+			teamLoaded = true;
+		} catch (e) {
+			console.error('Failed to load team data', e);
+		} finally {
+			teamLoading = false;
+		}
+	}
+
+	function ensureTabData(tab) {
+		if (tab === 'ledger') loadLedgerTab();
+		else if (tab === 'invoices') loadInvoicesTab();
+		else if (tab === 'files') loadFilesTab();
+		else if (tab === 'team') loadTeamTab();
+		else if (tab === 'services') loadTeamTab();
+		else if (tab === 'purchases' && !purchaseListLoaded) loadPurchaseEntries();
+	}
+
+	function setTab(tabId) {
+		activeTab = tabId;
+		ensureTabData(tabId);
+	}
+
+	$effect(() => {
+		ensureTabData(activeTab);
+	});
 
 	async function refreshFinancials() {
 		try {
@@ -69,17 +187,22 @@
 					.listInvoices(fetch, token, { project_id: data.project.id, page_size: 100 })
 					.catch(() => null)
 			]);
-			if (freshLedger) liveLedgerOverride = freshLedger;
+			if (freshLedger) {
+				liveLedgerOverride = freshLedger;
+				ledgerLoaded = true;
+			}
 			if (freshOverview) liveOverviewOverride = freshOverview;
 			if (freshProject) liveProjectOverride = freshProject;
-			if (freshInvoices?.items) liveInvoicesOverride = freshInvoices.items;
+			if (freshInvoices?.items) {
+				liveInvoicesOverride = freshInvoices.items;
+				invoicesLoaded = true;
+			}
 		} catch (err) {
 			console.error('Failed to refresh project data', err);
 		}
 	}
 
 	// ── Project Files State ──────────────────────────────────────────────────
-	let projectFileList = $derived(data.projectFiles ?? []);
 	let fileSearchQuery = $state('');
 	let fileServiceFilter = $state('all');
 	let showFileUploadModal = $state(false);
@@ -102,7 +225,9 @@
 	let previewLoading = $state(false);
 
 	let projectFolderNodes = $derived.by(() => {
-		const roots = Array.isArray(data.folderTree) ? data.folderTree : [];
+		const roots = Array.isArray(liveFoldersOverride ?? data.folderTree)
+			? (liveFoldersOverride ?? data.folderTree)
+			: [];
 		const projRoot = roots.find((r) => r.scope === 'project');
 		if (!projRoot) return [];
 		const thisProjFolder = projRoot.children.find((c) => c.project_id === data.project.id);
@@ -157,7 +282,9 @@
 				if (existing) {
 					targetFolderId = existing.id;
 				} else {
-					const roots = Array.isArray(data.folderTree) ? data.folderTree : [];
+					const roots = Array.isArray(liveFoldersOverride ?? data.folderTree)
+						? (liveFoldersOverride ?? data.folderTree)
+						: [];
 					const projRoot = roots.find((r) => r.scope === 'project');
 					const thisProjFolder = projRoot?.children?.find((c) => c.project_id === data.project.id);
 					const newFolder = await filesApi.createFolder(fetch, token, {
@@ -184,7 +311,7 @@
 			}
 			showFileUploadModal = false;
 			toast.success(`${files.length} file(s) uploaded successfully.`);
-			await invalidateAll();
+			await loadFilesTab(true);
 		} catch (err) {
 			uploadErr = err instanceof ApiError ? err.message : 'Upload failed.';
 		} finally {
@@ -205,7 +332,7 @@
 			await filesApi.deleteFile(fetch, token, deleteFileTarget.id);
 			deleteFileTarget = null;
 			toast.success('File removed successfully.');
-			await invalidateAll();
+			await loadFilesTab(true);
 		} catch (err) {
 			toast.error(err instanceof ApiError ? err.message : 'Failed to delete file.');
 		} finally {
@@ -227,7 +354,7 @@
 		try {
 			await filesApi.renameFile(fetch, token, renameTarget.id, { name: newFileName.trim() });
 			renameTarget = null;
-			await invalidateAll();
+			await loadFilesTab(true);
 		} catch (err) {
 			renameErr = err instanceof ApiError ? err.message : 'Failed to rename file.';
 		} finally {
@@ -301,7 +428,7 @@
 	let memberRoleBusy = $state(null);
 
 	let availableProjectRoles = $derived.by(() => {
-		const list = data.projectRoles ?? [];
+		const list = liveRolesOverride ?? data.projectRoles ?? [];
 		if (list.length > 0) return list;
 		return [
 			{ name: 'lead', description: 'Project Lead' },
@@ -1286,7 +1413,7 @@
 		<button
 			type="button"
 			aria-current={activeTab === 'overview' ? 'true' : undefined}
-			onclick={() => (activeTab = 'overview')}
+			onclick={() => setTab('overview')}
 			class="inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all {activeTab ===
 			'overview'
 				? 'bg-indigo-600 text-white shadow-2xs'
@@ -1301,7 +1428,7 @@
 		<button
 			type="button"
 			aria-current={activeTab === 'services' ? 'true' : undefined}
-			onclick={() => (activeTab = 'services')}
+			onclick={() => setTab('services')}
 			class="inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all {activeTab ===
 			'services'
 				? 'bg-indigo-600 text-white shadow-2xs'
@@ -1323,7 +1450,7 @@
 		<button
 			type="button"
 			aria-current={activeTab === 'ledger' ? 'true' : undefined}
-			onclick={() => (activeTab = 'ledger')}
+			onclick={() => setTab('ledger')}
 			class="inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all {activeTab ===
 			'ledger'
 				? 'bg-indigo-600 text-white shadow-2xs'
@@ -1334,7 +1461,11 @@
 				class="h-4 w-4 shrink-0 {activeTab === 'ledger' ? 'text-white' : 'text-slate-400'}"
 			/>
 			<span>Ledger & Financials</span>
-			{#if ledgerSummary}
+			{#if ledgerLoading && !ledgerLoaded}
+				<span class="inline-flex items-center">
+					<Spinner class="h-3 w-3 text-slate-400" />
+				</span>
+			{:else if ledgerSummary}
 				{@const adv = Number(ledgerSummary.advance_balance) || 0}
 				{@const due = Number(ledgerSummary.due) || 0}
 				<span
@@ -1353,7 +1484,7 @@
 		<button
 			type="button"
 			aria-current={activeTab === 'invoices' ? 'true' : undefined}
-			onclick={() => (activeTab = 'invoices')}
+			onclick={() => setTab('invoices')}
 			class="inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all {activeTab ===
 			'invoices'
 				? 'bg-indigo-600 text-white shadow-2xs'
@@ -1364,18 +1495,24 @@
 				class="h-4 w-4 shrink-0 {activeTab === 'invoices' ? 'text-white' : 'text-slate-400'}"
 			/>
 			<span>Invoices</span>
-			<span
-				class="py-0.2 rounded-full px-1.5 text-[10px] font-bold {activeTab === 'invoices'
-					? 'bg-indigo-700/80 text-white'
-					: 'bg-slate-100 text-slate-600'}"
-			>
-				{invoiceList.length}
-			</span>
+			{#if invoicesLoading && !invoicesLoaded}
+				<span class="inline-flex items-center">
+					<Spinner class="h-3 w-3 text-slate-400" />
+				</span>
+			{:else}
+				<span
+					class="py-0.2 rounded-full px-1.5 text-[10px] font-bold {activeTab === 'invoices'
+						? 'bg-indigo-700/80 text-white'
+						: 'bg-slate-100 text-slate-600'}"
+				>
+					{invoiceList.length}
+				</span>
+			{/if}
 		</button>
 		<button
 			type="button"
 			aria-current={activeTab === 'files' ? 'true' : undefined}
-			onclick={() => (activeTab = 'files')}
+			onclick={() => setTab('files')}
 			class="inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all {activeTab ===
 			'files'
 				? 'bg-indigo-600 text-white shadow-2xs'
@@ -1386,18 +1523,24 @@
 				class="h-4 w-4 shrink-0 {activeTab === 'files' ? 'text-white' : 'text-slate-400'}"
 			/>
 			<span>Files</span>
-			<span
-				class="py-0.2 rounded-full px-1.5 text-[10px] font-bold {activeTab === 'files'
-					? 'bg-indigo-700/80 text-white'
-					: 'bg-slate-100 text-slate-600'}"
-			>
-				{projectFileList.length}
-			</span>
+			{#if filesLoading && !filesLoaded}
+				<span class="inline-flex items-center">
+					<Spinner class="h-3 w-3 text-slate-400" />
+				</span>
+			{:else}
+				<span
+					class="py-0.2 rounded-full px-1.5 text-[10px] font-bold {activeTab === 'files'
+						? 'bg-indigo-700/80 text-white'
+						: 'bg-slate-100 text-slate-600'}"
+				>
+					{projectFileList.length}
+				</span>
+			{/if}
 		</button>
 		<button
 			type="button"
 			aria-current={activeTab === 'comments' ? 'true' : undefined}
-			onclick={() => (activeTab = 'comments')}
+			onclick={() => setTab('comments')}
 			class="inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all {activeTab ===
 			'comments'
 				? 'bg-indigo-600 text-white shadow-2xs'
@@ -1412,10 +1555,7 @@
 		<button
 			type="button"
 			aria-current={activeTab === 'purchases' ? 'true' : undefined}
-			onclick={() => {
-				activeTab = 'purchases';
-				if (!purchaseListLoaded) loadPurchaseEntries();
-			}}
+			onclick={() => setTab('purchases')}
 			class="inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all {activeTab ===
 			'purchases'
 				? 'bg-indigo-600 text-white shadow-2xs'
@@ -1440,7 +1580,7 @@
 		<button
 			type="button"
 			aria-current={activeTab === 'team' ? 'true' : undefined}
-			onclick={() => (activeTab = 'team')}
+			onclick={() => setTab('team')}
 			class="inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all {activeTab ===
 			'team'
 				? 'bg-indigo-600 text-white shadow-2xs'
@@ -1452,7 +1592,11 @@
 				class="h-4 w-4 shrink-0 {activeTab === 'team' ? 'text-white' : 'text-slate-400'}"
 			/>
 			<span>Team</span>
-			{#if memberList.length > 0}
+			{#if teamLoading && !teamLoaded}
+				<span class="inline-flex items-center">
+					<Spinner class="h-3 w-3 text-slate-400" />
+				</span>
+			{:else if memberList.length > 0}
 				<span
 					class="py-0.2 rounded-full px-1.5 text-[10px] font-bold {activeTab === 'team'
 						? 'bg-indigo-700/80 text-white'
@@ -1607,7 +1751,10 @@
 					<dt class="text-xs font-medium tracking-wider text-slate-500 uppercase">Project Owner</dt>
 					<dd class="mt-1 text-sm font-medium text-slate-900">
 						{#if data.project.owner_id}
-							{data.users.find((u) => u.id === data.project.owner_id)?.full_name ?? '—'}
+							{(data.project.members ?? []).find((m) => m.user_id === data.project.owner_id)
+								?.full_name ??
+								userList.find((u) => u.id === data.project.owner_id)?.full_name ??
+								'—'}
 						{:else}
 							<span class="text-slate-400">Unassigned</span>
 						{/if}
@@ -1994,7 +2141,7 @@
 										<div class="sm:col-span-2">
 											<AssigneePicker
 												value={m.assignee_id}
-												users={data.users}
+												users={userList}
 												busy={mBusy}
 												disabled={!canManageMilestones || isCancelled}
 												onchange={(uid) => patchMilestone(m, { assignee_id: uid })}
@@ -2013,502 +2160,504 @@
 {/if}
 
 {#if activeTab === 'ledger'}
-	{#if canManage}
-		<div class="mt-6 flex flex-wrap items-center gap-3">
-			<button
-				type="button"
-				onclick={openPaymentDialog}
-				class="inline-flex items-center gap-2 rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-emerald-700 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-none"
-			>
-				<Icon icon={arrowDown} class="h-4 w-4" />
-				Record payment
-			</button>
-			<button
-				type="button"
-				onclick={openStatementPreview}
-				class="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
-			>
-				Preview statement
-			</button>
-			<button
-				type="button"
-				onclick={openGenerateDialog}
-				class="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
-			>
-				Generate invoice
-			</button>
-			<button
-				type="button"
-				onclick={openAdjustDialog}
-				class="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
-			>
-				Add adjustment
-			</button>
-			<button
-				type="button"
-				onclick={openDiscountDialog}
-				class="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
-			>
-				Edit discount
-			</button>
-			<!-- eslint-disable svelte/no-navigation-without-resolve -- query string appended to a resolved route -->
-			<a
-				href={resolve('/app/invoices/new') + '?project_id=' + data.project.id}
-				class="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
-			>
-				Custom invoice
-			</a>
-			<!-- eslint-enable svelte/no-navigation-without-resolve -->
-		</div>
-	{/if}
-
-	<!-- Ledger balance summary -->
-	<section
-		class="mt-6 rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
-		aria-labelledby="ledger-balance-h"
-	>
-		<h2 id="ledger-balance-h" class="text-base font-semibold text-slate-900">
-			Project ledger (balance)
-		</h2>
-		{#if !ledgerData}
-			<p class="mt-4 text-sm text-slate-500">Ledger unavailable.</p>
-		{:else}
-			{@const disc = discountDisplay()}
-			{@const due = Number(ledgerSummary?.due) || 0}
-			{@const advanceBal = Number(ledgerSummary?.advance_balance) || 0}
-			<dl class="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-5">
-				<div>
-					<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Subtotal</dt>
-					<dd class="mt-1 text-lg font-semibold text-slate-900">
-						{fmtPrice(ledgerSummary?.subtotal)}
-					</dd>
-				</div>
-				<div>
-					<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Discount</dt>
-					<dd class="mt-1 text-lg font-semibold text-slate-900">
-						{disc.display}
-						{#if disc.hint}
-							<span class="ml-1 text-xs font-normal text-slate-500">({disc.hint})</span>
-						{/if}
-					</dd>
-				</div>
-				<div>
-					<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Total</dt>
-					<dd class="mt-1 text-lg font-semibold text-slate-900">
-						{fmtPrice(ledgerSummary?.total)}
-					</dd>
-				</div>
-				<div>
-					<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Paid</dt>
-					<dd class="mt-1 text-lg font-semibold text-green-700">{fmtPrice(ledgerSummary?.paid)}</dd>
-				</div>
-				<div>
-					<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Due</dt>
-					<dd class="mt-1 text-lg font-bold {due > 0 ? 'text-red-600' : 'text-green-700'}">
-						{fmtPrice(ledgerSummary?.due)}
-					</dd>
-				</div>
-			</dl>
-			{#if advanceBal > 0}
-				<div class="mt-4 rounded-md border border-indigo-200 bg-indigo-50 p-3">
-					<p class="text-sm font-medium text-indigo-900">
-						Client Advance Credit: <span class="font-bold text-indigo-700"
-							>{fmtPrice(ledgerSummary?.advance_balance)}</span
-						>
-					</p>
-					<p class="mt-0.5 text-xs text-indigo-700">
-						Payments received exceed current charges. Credit will automatically apply toward future
-						charges.
-					</p>
-				</div>
-			{/if}
-		{/if}
-	</section>
-
-	<!-- Ledger -->
-	<section
-		class="mt-6 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"
-		aria-labelledby="ledger-h"
-	>
+	{#if ledgerLoading && !ledgerLoaded}
 		<div
-			class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-6 py-4"
+			class="mt-6 flex items-center justify-center rounded-lg border border-slate-200 bg-white p-16 shadow-xs"
 		>
-			<div>
-				<h2 id="ledger-h" class="text-base font-semibold text-slate-900">Ledger timeline</h2>
-				<p class="mt-0.5 text-sm text-slate-500">
-					Balance-forward timeline of charges, payments and refunds.
-				</p>
-			</div>
+			<Spinner class="h-8 w-8 text-indigo-600" />
 		</div>
-
-		{#if !ledgerData}
-			<p class="px-6 py-8 text-sm text-slate-500">Ledger unavailable.</p>
-		{:else if ledgerEntries.length === 0}
-			<p class="px-6 py-8 text-sm text-slate-500">No ledger entries yet.</p>
-		{:else}
-			<ul class="divide-y divide-slate-100">
-				{#each ledgerEntries as e (e.id)}
-					{@const meta = entryMeta(e)}
-					{@const price = entryPrice(e)}
-					<li class="flex items-center justify-between gap-3 px-4 py-3 sm:px-6">
-						<div class="flex min-w-0 flex-1 items-center gap-3">
-							<span
-								class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full {meta.bg}"
-								aria-hidden="true"
-							>
-								<Icon icon={meta.icon} class="h-4 w-4 {meta.text}" />
-							</span>
-							<div class="min-w-0 flex-1">
-								<p class="truncate text-sm font-medium text-slate-900" title={entryLabel(e)}>
-									{entryLabel(e)}
-								</p>
-								<p
-									class="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-500"
-								>
-									<span>{entrySubtext(e)}</span>
-									<span aria-hidden="true">·</span>
-									<span
-										>{e.entry_date ? formatDate(e.entry_date) : formatDateTime(e.created_at)}</span
-									>
-									{#if e.type === 'charge' && e.invoice_ref && e.invoice_number}
-										<a
-											href={resolve('/app/invoices/[id]', { id: e.invoice_ref })}
-											class="inline-flex items-center rounded-full bg-indigo-50 px-2 py-0.5 font-medium text-indigo-700 ring-1 ring-indigo-600/20 hover:bg-indigo-100"
-										>
-											Included in {e.invoice_number}
-										</a>
-									{/if}
-								</p>
-							</div>
-						</div>
-						<div class="flex shrink-0 items-center gap-2">
-							<p class="text-sm font-semibold whitespace-nowrap {meta.text}">{price}</p>
-							{#if canManage && e.source_type === 'manual_adjustment'}
-								<div class="flex items-center gap-0.5">
-									<button
-										type="button"
-										onclick={() => openEditAdjustmentModal(e)}
-										class="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
-										title="Edit adjustment"
-									>
-										<Icon icon={pencil} class="h-4 w-4" />
-									</button>
-									<button
-										type="button"
-										onclick={() => openDeleteAdjustmentModal(e)}
-										class="rounded p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600 focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:outline-none"
-										title="Delete adjustment"
-									>
-										<Icon icon={trashCanOutline} class="h-4 w-4" />
-									</button>
-								</div>
-							{:else if canManage && e.type === 'payment' && !e.invoice_ref && e.source_type === 'transaction'}
-								<div class="flex items-center gap-0.5">
-									<button
-										type="button"
-										onclick={() => openEditPaymentModal(e)}
-										class="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
-										title="Edit payment"
-									>
-										<Icon icon={pencil} class="h-4 w-4" />
-									</button>
-									<button
-										type="button"
-										onclick={() => openDeletePaymentModal(e)}
-										class="rounded p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600 focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:outline-none"
-										title="Delete payment"
-									>
-										<Icon icon={trashCanOutline} class="h-4 w-4" />
-									</button>
-								</div>
-							{/if}
-						</div>
-					</li>
-				{/each}
-			</ul>
+	{:else}
+		{#if canManage}
+			<div class="mt-6 flex flex-wrap items-center gap-3">
+				<button
+					type="button"
+					onclick={openPaymentDialog}
+					class="inline-flex items-center gap-2 rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-emerald-700 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-none"
+				>
+					<Icon icon={arrowDown} class="h-4 w-4" />
+					Record payment
+				</button>
+				<button
+					type="button"
+					onclick={openStatementPreview}
+					class="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+				>
+					Preview statement
+				</button>
+				<button
+					type="button"
+					onclick={openGenerateDialog}
+					class="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+				>
+					Generate invoice
+				</button>
+				<button
+					type="button"
+					onclick={openAdjustDialog}
+					class="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+				>
+					Add adjustment
+				</button>
+				<button
+					type="button"
+					onclick={openDiscountDialog}
+					class="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+				>
+					Edit discount
+				</button>
+				<!-- eslint-disable svelte/no-navigation-without-resolve -- query string appended to a resolved route -->
+				<a
+					href={resolve('/app/invoices/new') + '?project_id=' + data.project.id}
+					class="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+				>
+					Custom invoice
+				</a>
+				<!-- eslint-enable svelte/no-navigation-without-resolve -->
+			</div>
 		{/if}
-	</section>
+
+		<!-- Ledger balance summary -->
+		<section
+			class="mt-6 rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
+			aria-labelledby="ledger-balance-h"
+		>
+			<h2 id="ledger-balance-h" class="text-base font-semibold text-slate-900">
+				Project ledger (balance)
+			</h2>
+			{#if !ledgerData}
+				<p class="mt-4 text-sm text-slate-500">Ledger unavailable.</p>
+			{:else}
+				{@const disc = discountDisplay()}
+				{@const due = Number(ledgerSummary?.due) || 0}
+				{@const advanceBal = Number(ledgerSummary?.advance_balance) || 0}
+				<dl class="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-5">
+					<div>
+						<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Subtotal</dt>
+						<dd class="mt-1 text-lg font-semibold text-slate-900">
+							{fmtPrice(ledgerSummary?.subtotal)}
+						</dd>
+					</div>
+					<div>
+						<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Discount</dt>
+						<dd class="mt-1 text-lg font-semibold text-slate-900">
+							{disc.display}
+							{#if disc.hint}
+								<span class="ml-1 text-xs font-normal text-slate-500">({disc.hint})</span>
+							{/if}
+						</dd>
+					</div>
+					<div>
+						<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Total</dt>
+						<dd class="mt-1 text-lg font-semibold text-slate-900">
+							{fmtPrice(ledgerSummary?.total)}
+						</dd>
+					</div>
+					<div>
+						<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Paid</dt>
+						<dd class="mt-1 text-lg font-semibold text-green-700">
+							{fmtPrice(ledgerSummary?.paid)}
+						</dd>
+					</div>
+					<div>
+						<dt class="text-xs font-medium tracking-wide text-slate-500 uppercase">Due</dt>
+						<dd class="mt-1 text-lg font-bold {due > 0 ? 'text-red-600' : 'text-green-700'}">
+							{fmtPrice(ledgerSummary?.due)}
+						</dd>
+					</div>
+				</dl>
+				{#if advanceBal > 0}
+					<div class="mt-4 rounded-md border border-indigo-200 bg-indigo-50 p-3">
+						<p class="text-sm font-medium text-indigo-900">
+							Client Advance Credit: <span class="font-bold text-indigo-700"
+								>{fmtPrice(ledgerSummary?.advance_balance)}</span
+							>
+						</p>
+						<p class="mt-0.5 text-xs text-indigo-700">
+							Payments received exceed current charges. Credit will automatically apply toward
+							future charges.
+						</p>
+					</div>
+				{/if}
+			{/if}
+		</section>
+
+		<!-- Ledger -->
+		<section
+			class="mt-6 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"
+			aria-labelledby="ledger-h"
+		>
+			<div
+				class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-6 py-4"
+			>
+				<div>
+					<h2 id="ledger-h" class="text-base font-semibold text-slate-900">Ledger timeline</h2>
+					<p class="mt-0.5 text-sm text-slate-500">
+						Balance-forward timeline of charges, payments and refunds.
+					</p>
+				</div>
+			</div>
+
+			{#if !ledgerData}
+				<p class="px-6 py-8 text-sm text-slate-500">Ledger unavailable.</p>
+			{:else if ledgerEntries.length === 0}
+				<p class="px-6 py-8 text-sm text-slate-500">No ledger entries yet.</p>
+			{:else}
+				<ul class="divide-y divide-slate-100">
+					{#each ledgerEntries as e (e.id)}
+						{@const meta = entryMeta(e)}
+						{@const price = entryPrice(e)}
+						<li class="flex items-center justify-between gap-3 px-4 py-3 sm:px-6">
+							<div class="flex min-w-0 flex-1 items-center gap-3">
+								<span
+									class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full {meta.bg}"
+									aria-hidden="true"
+								>
+									<Icon icon={meta.icon} class="h-4 w-4 {meta.text}" />
+								</span>
+								<div class="min-w-0 flex-1">
+									<p class="truncate text-sm font-medium text-slate-900" title={entryLabel(e)}>
+										{entryLabel(e)}
+									</p>
+									<p
+										class="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-500"
+									>
+										<span>{entrySubtext(e)}</span>
+										<span aria-hidden="true">·</span>
+										<span
+											>{e.entry_date
+												? formatDate(e.entry_date)
+												: formatDateTime(e.created_at)}</span
+										>
+										{#if e.type === 'charge' && e.invoice_ref && e.invoice_number}
+											<a
+												href={resolve('/app/invoices/[id]', { id: e.invoice_ref })}
+												class="inline-flex items-center rounded-full bg-indigo-50 px-2 py-0.5 font-medium text-indigo-700 ring-1 ring-indigo-600/20 hover:bg-indigo-100"
+											>
+												Included in {e.invoice_number}
+											</a>
+										{/if}
+									</p>
+								</div>
+							</div>
+							<div class="flex shrink-0 items-center gap-2">
+								<p class="text-sm font-semibold whitespace-nowrap {meta.text}">{price}</p>
+								{#if canManage && e.source_type === 'manual_adjustment'}
+									<div class="flex items-center gap-0.5">
+										<button
+											type="button"
+											onclick={() => openEditAdjustmentModal(e)}
+											class="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+											title="Edit adjustment"
+										>
+											<Icon icon={pencil} class="h-4 w-4" />
+										</button>
+										<button
+											type="button"
+											onclick={() => openDeleteAdjustmentModal(e)}
+											class="rounded p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600 focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:outline-none"
+											title="Delete adjustment"
+										>
+											<Icon icon={trashCanOutline} class="h-4 w-4" />
+										</button>
+									</div>
+								{:else if canManage && e.type === 'payment' && !e.invoice_ref && e.source_type === 'transaction'}
+									<div class="flex items-center gap-0.5">
+										<button
+											type="button"
+											onclick={() => openEditPaymentModal(e)}
+											class="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+											title="Edit payment"
+										>
+											<Icon icon={pencil} class="h-4 w-4" />
+										</button>
+										<button
+											type="button"
+											onclick={() => openDeletePaymentModal(e)}
+											class="rounded p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600 focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:outline-none"
+											title="Delete payment"
+										>
+											<Icon icon={trashCanOutline} class="h-4 w-4" />
+										</button>
+									</div>
+								{/if}
+							</div>
+						</li>
+					{/each}
+				</ul>
+			{/if}
+		</section>
+	{/if}
 {/if}
 
 {#if activeTab === 'invoices'}
-	<!-- Invoices -->
-	<section
-		class="mt-6 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"
-		aria-labelledby="invoices-tab-h"
-	>
+	{#if invoicesLoading && !invoicesLoaded}
 		<div
-			class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-6 py-4"
+			class="mt-6 flex items-center justify-center rounded-lg border border-slate-200 bg-white p-16 shadow-xs"
 		>
-			<div>
-				<h2 id="invoices-tab-h" class="text-base font-semibold text-slate-900">Project Invoices</h2>
-				<p class="mt-0.5 text-sm text-slate-500">
-					{invoiceList.length}
-					{invoiceList.length === 1 ? 'invoice' : 'invoices'} issued or drafted for this project
-				</p>
-			</div>
-			{#if canManage}
-				<div class="flex flex-wrap items-center gap-2">
-					<button
-						type="button"
-						onclick={openGenerateDialog}
-						class="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
-					>
-						Generate Statement Invoice
-					</button>
-					<!-- eslint-disable svelte/no-navigation-without-resolve -- query string appended to a resolved route -->
-					<a
-						href={`${resolve('/app/invoices/new')}?project_id=${data.project.id}`}
-						class="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
-					>
-						New Custom Invoice
-					</a>
-					<!-- eslint-enable svelte/no-navigation-without-resolve -->
-				</div>
-			{/if}
+			<Spinner class="h-8 w-8 text-indigo-600" />
 		</div>
-
-		{#if invoiceList.length === 0}
-			<div class="px-6 py-12 text-center">
-				<p class="text-sm text-slate-500">No invoices generated for this project yet.</p>
+	{:else}
+		<!-- Invoices -->
+		<section
+			class="mt-6 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"
+			aria-labelledby="invoices-tab-h"
+		>
+			<div
+				class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-6 py-4"
+			>
+				<div>
+					<h2 id="invoices-tab-h" class="text-base font-semibold text-slate-900">
+						Project Invoices
+					</h2>
+					<p class="mt-0.5 text-sm text-slate-500">
+						{invoiceList.length}
+						{invoiceList.length === 1 ? 'invoice' : 'invoices'} issued or drafted for this project
+					</p>
+				</div>
 				{#if canManage}
-					<div class="mt-4 flex flex-wrap justify-center gap-3">
+					<div class="flex flex-wrap items-center gap-2">
 						<button
 							type="button"
 							onclick={openGenerateDialog}
-							class="rounded-md bg-indigo-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+							class="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
 						>
-							Generate statement invoice
+							Generate Statement Invoice
 						</button>
-						<!-- eslint-disable svelte/no-navigation-without-resolve -->
+						<!-- eslint-disable svelte/no-navigation-without-resolve -- query string appended to a resolved route -->
 						<a
 							href={`${resolve('/app/invoices/new')}?project_id=${data.project.id}`}
-							class="rounded-md border border-slate-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+							class="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
 						>
-							Create custom invoice
+							New Custom Invoice
 						</a>
 						<!-- eslint-enable svelte/no-navigation-without-resolve -->
 					</div>
 				{/if}
 			</div>
-		{:else}
-			<!-- Mobile cards (< md): clearly separated distinct cards -->
-			<div class="space-y-3 bg-slate-50/60 p-3 md:hidden">
-				{#each invoiceList as inv (inv.id)}
-					<div
-						class="space-y-3 rounded-xl border border-slate-200/90 bg-white p-4 shadow-2xs transition-shadow hover:shadow-xs"
-					>
-						<div class="flex items-start justify-between gap-3">
+
+			{#if invoiceList.length === 0}
+				<div class="px-6 py-12 text-center">
+					<p class="text-sm text-slate-500">No invoices generated for this project yet.</p>
+					{#if canManage}
+						<div class="mt-4 flex flex-wrap justify-center gap-3">
+							<button
+								type="button"
+								onclick={openGenerateDialog}
+								class="rounded-md bg-indigo-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+							>
+								Generate statement invoice
+							</button>
+							<!-- eslint-disable svelte/no-navigation-without-resolve -->
 							<a
-								href={resolve('/app/invoices/[id]', { id: inv.id })}
-								class="font-mono text-sm font-bold text-indigo-600 hover:text-indigo-500"
+								href={`${resolve('/app/invoices/new')}?project_id=${data.project.id}`}
+								class="rounded-md border border-slate-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
 							>
-								{inv.invoice_number ? inv.invoice_number : 'Draft Invoice'}
+								Create custom invoice
 							</a>
-							<StatusBadge status={inv.status} />
+							<!-- eslint-enable svelte/no-navigation-without-resolve -->
 						</div>
-
-						<div class="flex items-center justify-between rounded-lg bg-slate-50 p-2.5">
-							<div>
-								<span class="block text-xs text-slate-500">Total</span>
-								<span class="text-sm font-bold text-slate-900">{fmtPrice(inv.total)}</span>
-							</div>
-							<div class="text-right">
-								<span class="block text-xs text-slate-500">Due Amount</span>
-								<span
-									class="text-sm font-bold {Number(
-										inv.balance_due ?? (inv.status === 'paid' ? 0 : inv.total)
-									) > 0
-										? 'text-amber-700'
-										: 'text-slate-900'}"
+					{/if}
+				</div>
+			{:else}
+				<!-- Mobile cards (< md): clearly separated distinct cards -->
+				<div class="space-y-3 bg-slate-50/60 p-3 md:hidden">
+					{#each invoiceList as inv (inv.id)}
+						<div
+							class="space-y-3 rounded-xl border border-slate-200/90 bg-white p-4 shadow-2xs transition-shadow hover:shadow-xs"
+						>
+							<div class="flex items-start justify-between gap-3">
+								<a
+									href={resolve('/app/invoices/[id]', { id: inv.id })}
+									class="font-mono text-sm font-bold text-indigo-600 hover:text-indigo-500"
 								>
-									{fmtPrice(inv.balance_due ?? (inv.status === 'paid' ? '0.00' : inv.total))}
-								</span>
+									{inv.invoice_number ? inv.invoice_number : 'Draft Invoice'}
+								</a>
+								<StatusBadge status={inv.status} />
 							</div>
-						</div>
 
-						<div class="grid grid-cols-2 gap-2 text-xs text-slate-500">
-							<div>
-								<span class="text-slate-400">Issued:</span>
-								<span class="ml-1 text-slate-700">{formatDate(inv.issue_date)}</span>
-							</div>
-							<div>
-								<span class="text-slate-400">Due Date:</span>
-								<span class="ml-1 text-slate-700">{formatDate(inv.due_date)}</span>
-							</div>
-						</div>
-
-						<div class="flex items-center justify-end gap-2 pt-1">
-							<a
-								href={resolve('/app/invoices/[id]', { id: inv.id })}
-								class="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50"
-							>
-								View
-							</a>
-							{#if inv.status === 'draft' && canManage}
-								<button
-									type="button"
-									disabled={issueBusyId === inv.id}
-									onclick={() => issueProjectInvoice(inv)}
-									class="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white shadow-2xs hover:bg-indigo-700 disabled:opacity-50"
-								>
-									{#if issueBusyId === inv.id}Issuing...{:else}Issue{/if}
-								</button>
-							{/if}
-						</div>
-					</div>
-				{/each}
-			</div>
-
-			<!-- Desktop table (>= md) -->
-			<div class="relative hidden overflow-x-auto md:block">
-				<table class="min-w-full divide-y divide-slate-200">
-					<thead class="bg-slate-50">
-						<tr>
-							<th
-								scope="col"
-								class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
-								>Invoice #</th
-							>
-							<th
-								scope="col"
-								class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
-								>Status</th
-							>
-							<th
-								scope="col"
-								class="px-4 py-3 text-right text-xs font-semibold tracking-wide text-slate-600 uppercase"
-								>Total</th
-							>
-							<th
-								scope="col"
-								class="px-4 py-3 text-right text-xs font-semibold tracking-wide text-slate-600 uppercase"
-								>Due</th
-							>
-							<th
-								scope="col"
-								class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
-								>Issue date</th
-							>
-							<th
-								scope="col"
-								class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
-								>Due date</th
-							>
-							<th
-								scope="col"
-								class="px-4 py-3 text-right text-xs font-semibold tracking-wide text-slate-600 uppercase"
-								>Actions</th
-							>
-						</tr>
-					</thead>
-					<tbody class="divide-y divide-slate-200">
-						{#each invoiceList as inv (inv.id)}
-							<tr class="hover:bg-slate-50">
-								<td class="px-4 py-3 text-sm font-medium text-slate-900">
-									<a
-										href={resolve('/app/invoices/[id]', { id: inv.id })}
-										class="font-semibold text-indigo-600 hover:text-indigo-500"
+							<div class="flex items-center justify-between rounded-lg bg-slate-50 p-2.5">
+								<div>
+									<span class="block text-xs text-slate-500">Total</span>
+									<span class="text-sm font-bold text-slate-900">{fmtPrice(inv.total)}</span>
+								</div>
+								<div class="text-right">
+									<span class="block text-xs text-slate-500">Due Amount</span>
+									<span
+										class="text-sm font-bold {Number(
+											inv.balance_due ?? (inv.status === 'paid' ? 0 : inv.total)
+										) > 0
+											? 'text-amber-700'
+											: 'text-slate-900'}"
 									>
-										{inv.invoice_number ? inv.invoice_number : 'Draft'}
-									</a>
-								</td>
-								<td class="px-4 py-3"><StatusBadge status={inv.status} /></td>
-								<td
-									class="px-4 py-3 text-right text-sm font-semibold whitespace-nowrap text-slate-900"
-									>{fmtPrice(inv.total)}</td
+										{fmtPrice(inv.balance_due ?? (inv.status === 'paid' ? '0.00' : inv.total))}
+									</span>
+								</div>
+							</div>
+
+							<div class="grid grid-cols-2 gap-2 text-xs text-slate-500">
+								<div>
+									<span class="text-slate-400">Issued:</span>
+									<span class="ml-1 text-slate-700">{formatDate(inv.issue_date)}</span>
+								</div>
+								<div>
+									<span class="text-slate-400">Due Date:</span>
+									<span class="ml-1 text-slate-700">{formatDate(inv.due_date)}</span>
+								</div>
+							</div>
+
+							<div class="flex items-center justify-end gap-2 pt-1">
+								<a
+									href={resolve('/app/invoices/[id]', { id: inv.id })}
+									class="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50"
 								>
-								<td
-									class="px-4 py-3 text-right text-sm font-semibold whitespace-nowrap {Number(
-										inv.balance_due ?? (inv.status === 'paid' ? 0 : inv.total)
-									) > 0
-										? 'text-amber-700'
-										: 'text-slate-900'}"
-									>{fmtPrice(inv.balance_due ?? (inv.status === 'paid' ? '0.00' : inv.total))}</td
+									View
+								</a>
+								{#if inv.status === 'draft' && canManage}
+									<button
+										type="button"
+										disabled={issueBusyId === inv.id}
+										onclick={() => issueProjectInvoice(inv)}
+										class="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white shadow-2xs hover:bg-indigo-700 disabled:opacity-50"
+									>
+										{#if issueBusyId === inv.id}Issuing...{:else}Issue{/if}
+									</button>
+								{/if}
+							</div>
+						</div>
+					{/each}
+				</div>
+
+				<!-- Desktop table (>= md) -->
+				<div class="relative hidden overflow-x-auto md:block">
+					<table class="min-w-full divide-y divide-slate-200">
+						<thead class="bg-slate-50">
+							<tr>
+								<th
+									scope="col"
+									class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
+									>Invoice #</th
 								>
-								<td class="px-4 py-3 text-sm whitespace-nowrap text-slate-600"
-									>{formatDate(inv.issue_date)}</td
+								<th
+									scope="col"
+									class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
+									>Status</th
 								>
-								<td class="px-4 py-3 text-sm whitespace-nowrap text-slate-600"
-									>{formatDate(inv.due_date)}</td
+								<th
+									scope="col"
+									class="px-4 py-3 text-right text-xs font-semibold tracking-wide text-slate-600 uppercase"
+									>Total</th
 								>
-								<td class="px-4 py-3 text-right">
-									<div class="flex items-center justify-end gap-3 text-sm">
+								<th
+									scope="col"
+									class="px-4 py-3 text-right text-xs font-semibold tracking-wide text-slate-600 uppercase"
+									>Due</th
+								>
+								<th
+									scope="col"
+									class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
+									>Issue date</th
+								>
+								<th
+									scope="col"
+									class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
+									>Due date</th
+								>
+								<th
+									scope="col"
+									class="px-4 py-3 text-right text-xs font-semibold tracking-wide text-slate-600 uppercase"
+									>Actions</th
+								>
+							</tr>
+						</thead>
+						<tbody class="divide-y divide-slate-200">
+							{#each invoiceList as inv (inv.id)}
+								<tr class="hover:bg-slate-50">
+									<td class="px-4 py-3 text-sm font-medium text-slate-900">
 										<a
 											href={resolve('/app/invoices/[id]', { id: inv.id })}
-											class="font-medium text-indigo-600 hover:text-indigo-500"
+											class="font-semibold text-indigo-600 hover:text-indigo-500"
 										>
-											View
+											{inv.invoice_number ? inv.invoice_number : 'Draft'}
 										</a>
-										{#if inv.status === 'draft' && canManage}
-											<button
-												type="button"
-												disabled={issueBusyId === inv.id}
-												onclick={() => issueProjectInvoice(inv)}
-												class="font-medium text-emerald-600 hover:text-emerald-500 disabled:opacity-50"
+									</td>
+									<td class="px-4 py-3"><StatusBadge status={inv.status} /></td>
+									<td
+										class="px-4 py-3 text-right text-sm font-semibold whitespace-nowrap text-slate-900"
+										>{fmtPrice(inv.total)}</td
+									>
+									<td
+										class="px-4 py-3 text-right text-sm font-semibold whitespace-nowrap {Number(
+											inv.balance_due ?? (inv.status === 'paid' ? 0 : inv.total)
+										) > 0
+											? 'text-amber-700'
+											: 'text-slate-900'}"
+										>{fmtPrice(inv.balance_due ?? (inv.status === 'paid' ? '0.00' : inv.total))}</td
+									>
+									<td class="px-4 py-3 text-sm whitespace-nowrap text-slate-600"
+										>{formatDate(inv.issue_date)}</td
+									>
+									<td class="px-4 py-3 text-sm whitespace-nowrap text-slate-600"
+										>{formatDate(inv.due_date)}</td
+									>
+									<td class="px-4 py-3 text-right">
+										<div class="flex items-center justify-end gap-3 text-sm">
+											<a
+												href={resolve('/app/invoices/[id]', { id: inv.id })}
+												class="font-medium text-indigo-600 hover:text-indigo-500"
 											>
-												{#if issueBusyId === inv.id}Issuing...{:else}Issue{/if}
-											</button>
-										{/if}
-										{#if inv.status !== 'draft'}
-											<button
-												type="button"
-												disabled={pdfBusyId === inv.id}
-												onclick={() => downloadSingleInvoicePdf(inv)}
-												class="font-medium text-slate-600 hover:text-slate-900 disabled:opacity-50"
-											>
-												{#if pdfBusyId === inv.id}Downloading...{:else}PDF{/if}
-											</button>
-										{/if}
-									</div>
-								</td>
-							</tr>
-						{/each}
-					</tbody>
-				</table>
-			</div>
-		{/if}
-	</section>
+												View
+											</a>
+											{#if inv.status === 'draft' && canManage}
+												<button
+													type="button"
+													disabled={issueBusyId === inv.id}
+													onclick={() => issueProjectInvoice(inv)}
+													class="font-medium text-emerald-600 hover:text-emerald-500 disabled:opacity-50"
+												>
+													{#if issueBusyId === inv.id}Issuing...{:else}Issue{/if}
+												</button>
+											{/if}
+											{#if inv.status !== 'draft'}
+												<button
+													type="button"
+													disabled={pdfBusyId === inv.id}
+													onclick={() => downloadSingleInvoicePdf(inv)}
+													class="font-medium text-slate-600 hover:text-slate-900 disabled:opacity-50"
+												>
+													{#if pdfBusyId === inv.id}Downloading...{:else}PDF{/if}
+												</button>
+											{/if}
+										</div>
+									</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
+				</div>
+			{/if}
+		</section>
+	{/if}
 {/if}
 
 {#if activeTab === 'files'}
-	<!-- Project Files -->
-	<section class="mt-6 space-y-4" aria-labelledby="project-files-h">
-		<!-- Control Toolbar -->
+	{#if filesLoading && !filesLoaded}
 		<div
-			class="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-3.5 shadow-2xs sm:flex-row sm:items-center sm:justify-between"
+			class="mt-6 flex items-center justify-center rounded-xl border border-slate-200 bg-white p-16 shadow-2xs"
 		>
-			<div class="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-center">
-				<!-- Search Box -->
-				<div class="relative max-w-sm min-w-0 flex-1">
-					<div
-						class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400"
-					>
-						<svg
-							class="h-4 w-4"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-							stroke-width="2"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-							/>
-						</svg>
-					</div>
-					<input
-						type="text"
-						bind:value={fileSearchQuery}
-						placeholder="Search project files..."
-						class="block w-full rounded-lg border-slate-300 pr-8 pl-9 text-sm placeholder-slate-400 shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
-					/>
-					{#if fileSearchQuery}
-						<button
-							type="button"
-							onclick={() => (fileSearchQuery = '')}
-							class="absolute inset-y-0 right-0 flex items-center pr-2.5 text-slate-400 hover:text-slate-600"
-							aria-label="Clear search"
+			<Spinner class="h-8 w-8 text-indigo-600" />
+		</div>
+	{:else}
+		<!-- Project Files -->
+		<section class="mt-6 space-y-4" aria-labelledby="project-files-h">
+			<!-- Control Toolbar -->
+			<div
+				class="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-3.5 shadow-2xs sm:flex-row sm:items-center sm:justify-between"
+			>
+				<div class="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-center">
+					<!-- Search Box -->
+					<div class="relative max-w-sm min-w-0 flex-1">
+						<div
+							class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400"
 						>
 							<svg
 								class="h-4 w-4"
@@ -2517,89 +2666,117 @@
 								stroke="currentColor"
 								stroke-width="2"
 							>
-								<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+								/>
 							</svg>
-						</button>
+						</div>
+						<input
+							type="text"
+							bind:value={fileSearchQuery}
+							placeholder="Search project files..."
+							class="block w-full rounded-lg border-slate-300 pr-8 pl-9 text-sm placeholder-slate-400 shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
+						/>
+						{#if fileSearchQuery}
+							<button
+								type="button"
+								onclick={() => (fileSearchQuery = '')}
+								class="absolute inset-y-0 right-0 flex items-center pr-2.5 text-slate-400 hover:text-slate-600"
+								aria-label="Clear search"
+							>
+								<svg
+									class="h-4 w-4"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+									stroke-width="2"
+								>
+									<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+								</svg>
+							</button>
+						{/if}
+					</div>
+
+					<!-- Filter Selector -->
+					<div class="flex items-center gap-2">
+						<select
+							bind:value={fileServiceFilter}
+							class="max-w-full rounded-lg border-slate-300 text-sm shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
+						>
+							<option value="all">All Files ({projectFileList.length})</option>
+							<option value="general">General Project Files</option>
+							{#if projectFolderNodes.length > 0}
+								<optgroup label="Folders & Services">
+									{#each projectFolderNodes as fn (fn.id)}
+										<option value={fn.id}>📁 {fn.name}</option>
+									{/each}
+								</optgroup>
+							{/if}
+						</select>
+					</div>
+				</div>
+
+				<div>
+					<button
+						type="button"
+						onclick={() => openUploadModal('general')}
+						class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-2xs transition-colors hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+					>
+						<Icon icon={upload} class="h-4 w-4" />
+						Upload File
+					</button>
+				</div>
+			</div>
+
+			<!-- Files Grid -->
+			{#if filteredProjectFiles.length === 0}
+				<div class="rounded-xl border border-slate-200 bg-white p-12 text-center shadow-2xs">
+					<div
+						class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-500"
+					>
+						<Icon icon={folderOutline} class="h-6 w-6" />
+					</div>
+					<h3 class="mt-3 text-sm font-semibold text-slate-900">No project files found</h3>
+					<p class="mt-1 text-xs text-slate-500">
+						{fileSearchQuery || fileServiceFilter !== 'all'
+							? 'No files match your current search criteria.'
+							: 'Upload design assets, deliverables, contracts, or specifications for this project.'}
+					</p>
+					{#if fileSearchQuery || fileServiceFilter !== 'all'}
+						<div class="mt-4">
+							<button
+								type="button"
+								onclick={() => {
+									fileSearchQuery = '';
+									fileServiceFilter = 'all';
+								}}
+								class="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-200"
+							>
+								Clear filters
+							</button>
+						</div>
 					{/if}
 				</div>
-
-				<!-- Filter Selector -->
-				<div class="flex items-center gap-2">
-					<select
-						bind:value={fileServiceFilter}
-						class="max-w-full rounded-lg border-slate-300 text-sm shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
-					>
-						<option value="all">All Files ({projectFileList.length})</option>
-						<option value="general">General Project Files</option>
-						{#if projectFolderNodes.length > 0}
-							<optgroup label="Folders & Services">
-								{#each projectFolderNodes as fn (fn.id)}
-									<option value={fn.id}>📁 {fn.name}</option>
-								{/each}
-							</optgroup>
-						{/if}
-					</select>
+			{:else}
+				<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+					{#each filteredProjectFiles as f (f.id)}
+						<FileCard
+							file={f}
+							canAct={true}
+							{token}
+							onpreview={() => handleFilePreview(f)}
+							ondownload={() => handleFileDownload(f)}
+							onrename={() => openRenameModal(f)}
+							onmove={() => {}}
+							ondelete={() => (deleteFileTarget = f)}
+						/>
+					{/each}
 				</div>
-			</div>
-
-			<div>
-				<button
-					type="button"
-					onclick={() => openUploadModal('general')}
-					class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-2xs transition-colors hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-				>
-					<Icon icon={upload} class="h-4 w-4" />
-					Upload File
-				</button>
-			</div>
-		</div>
-
-		<!-- Files Grid -->
-		{#if filteredProjectFiles.length === 0}
-			<div class="rounded-xl border border-slate-200 bg-white p-12 text-center shadow-2xs">
-				<div
-					class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-500"
-				>
-					<Icon icon={folderOutline} class="h-6 w-6" />
-				</div>
-				<h3 class="mt-3 text-sm font-semibold text-slate-900">No project files found</h3>
-				<p class="mt-1 text-xs text-slate-500">
-					{fileSearchQuery || fileServiceFilter !== 'all'
-						? 'No files match your current search criteria.'
-						: 'Upload design assets, deliverables, contracts, or specifications for this project.'}
-				</p>
-				{#if fileSearchQuery || fileServiceFilter !== 'all'}
-					<div class="mt-4">
-						<button
-							type="button"
-							onclick={() => {
-								fileSearchQuery = '';
-								fileServiceFilter = 'all';
-							}}
-							class="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-200"
-						>
-							Clear filters
-						</button>
-					</div>
-				{/if}
-			</div>
-		{:else}
-			<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-				{#each filteredProjectFiles as f (f.id)}
-					<FileCard
-						file={f}
-						canAct={true}
-						{token}
-						onpreview={() => handleFilePreview(f)}
-						ondownload={() => handleFileDownload(f)}
-						onrename={() => openRenameModal(f)}
-						onmove={() => {}}
-						ondelete={() => (deleteFileTarget = f)}
-					/>
-				{/each}
-			</div>
-		{/if}
-	</section>
+			{/if}
+		</section>
+	{/if}
 {/if}
 
 {#if activeTab === 'comments'}
@@ -3113,154 +3290,165 @@
 </Dialog.Root>
 
 {#if activeTab === 'team'}
-	<!-- ═══════════════════════════════ TEAM TAB ════════════════════════════ -->
-	<section class="mt-6 space-y-5" aria-labelledby="team-h">
-		<div class="flex flex-wrap items-center justify-between gap-3">
-			<div>
-				<h2 id="team-h" class="flex items-center gap-2 text-lg font-semibold text-slate-900">
-					<Icon icon={account} class="h-5 w-5 text-indigo-500" />
-					Project Team Members
-				</h2>
-				<p class="mt-0.5 text-xs text-slate-500">
-					Employees assigned to this project and their project roles.
-				</p>
-			</div>
-			{#if canManage}
-				<button
-					type="button"
-					onclick={() => {
-						showAddMemberModal = true;
-						addMemberErr = '';
-					}}
-					class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
-					id="btn-add-team-member"
-				>
-					<Icon icon={plusCircle} class="h-4 w-4" />
-					Add Team Member
-				</button>
-			{/if}
+	{#if teamLoading && !teamLoaded}
+		<div
+			class="mt-6 flex items-center justify-center rounded-xl border border-slate-200 bg-white p-16 shadow-2xs"
+		>
+			<Spinner class="h-8 w-8 text-indigo-600" />
 		</div>
-
-		<div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xs">
-			{#if memberList.length === 0}
-				<div class="p-8 text-center text-sm text-slate-500">
-					No team members currently assigned to this project.
+	{:else}
+		<!-- ═══════════════════════════════ TEAM TAB ════════════════════════════ -->
+		<section class="mt-6 space-y-5" aria-labelledby="team-h">
+			<div class="flex flex-wrap items-center justify-between gap-3">
+				<div>
+					<h2 id="team-h" class="flex items-center gap-2 text-lg font-semibold text-slate-900">
+						<Icon icon={account} class="h-5 w-5 text-indigo-500" />
+						Project Team Members
+					</h2>
+					<p class="mt-0.5 text-xs text-slate-500">
+						Employees assigned to this project and their project roles.
+					</p>
 				</div>
-			{:else}
-				<!-- Mobile cards (< md): clearly separated distinct cards -->
-				<div class="space-y-3 bg-slate-50/60 p-3 md:hidden">
-					{#each memberList as m (m.id)}
-						<div
-							class="space-y-3 rounded-xl border border-slate-200/90 bg-white p-4 shadow-2xs transition-shadow hover:shadow-xs"
-						>
-							<div class="flex items-start justify-between gap-3">
-								<div class="min-w-0">
-									<p class="text-sm font-semibold text-slate-900">{m.full_name || 'Staff User'}</p>
-									<p class="text-xs text-slate-500">{m.email || '—'}</p>
+				{#if canManage}
+					<button
+						type="button"
+						onclick={() => {
+							showAddMemberModal = true;
+							addMemberErr = '';
+							if (!teamLoaded) loadTeamTab();
+						}}
+						class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+						id="btn-add-team-member"
+					>
+						<Icon icon={plusCircle} class="h-4 w-4" />
+						Add Team Member
+					</button>
+				{/if}
+			</div>
+
+			<div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xs">
+				{#if memberList.length === 0}
+					<div class="p-8 text-center text-sm text-slate-500">
+						No team members currently assigned to this project.
+					</div>
+				{:else}
+					<!-- Mobile cards (< md): clearly separated distinct cards -->
+					<div class="space-y-3 bg-slate-50/60 p-3 md:hidden">
+						{#each memberList as m (m.id)}
+							<div
+								class="space-y-3 rounded-xl border border-slate-200/90 bg-white p-4 shadow-2xs transition-shadow hover:shadow-xs"
+							>
+								<div class="flex items-start justify-between gap-3">
+									<div class="min-w-0">
+										<p class="text-sm font-semibold text-slate-900">
+											{m.full_name || 'Staff User'}
+										</p>
+										<p class="text-xs text-slate-500">{m.email || '—'}</p>
+									</div>
+									{#if !canManage}
+										<span
+											class="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700 uppercase"
+										>
+											{m.role}
+										</span>
+									{/if}
 								</div>
-								{#if !canManage}
-									<span
-										class="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700 uppercase"
+
+								{#if canManage}
+									<div
+										class="flex items-center justify-between gap-2 rounded-lg bg-slate-50 p-2.5 text-xs"
 									>
-										{m.role}
-									</span>
+										<span class="font-medium text-slate-500">Project Role:</span>
+										<select
+											value={m.role}
+											disabled={memberRoleBusy === m.id}
+											onchange={(e) => handleUpdateMemberRole(m.id, e.target.value)}
+											class="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-800 capitalize shadow-2xs focus:border-indigo-500 focus:outline-hidden"
+										>
+											{#each availableProjectRoles as pr (pr.name)}
+												<option value={pr.name}>{pr.name.replace('_', ' ')}</option>
+											{/each}
+										</select>
+									</div>
+								{/if}
+
+								{#if canManage}
+									<div class="flex justify-end pt-1">
+										<button
+											type="button"
+											onclick={() => handleRemoveMember(m.id)}
+											class="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs font-semibold text-rose-700 shadow-2xs hover:bg-rose-100"
+										>
+											Remove
+										</button>
+									</div>
 								{/if}
 							</div>
+						{/each}
+					</div>
 
-							{#if canManage}
-								<div
-									class="flex items-center justify-between gap-2 rounded-lg bg-slate-50 p-2.5 text-xs"
-								>
-									<span class="font-medium text-slate-500">Project Role:</span>
-									<select
-										value={m.role}
-										disabled={memberRoleBusy === m.id}
-										onchange={(e) => handleUpdateMemberRole(m.id, e.target.value)}
-										class="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-800 capitalize shadow-2xs focus:border-indigo-500 focus:outline-hidden"
-									>
-										{#each availableProjectRoles as pr (pr.name)}
-											<option value={pr.name}>{pr.name.replace('_', ' ')}</option>
-										{/each}
-									</select>
-								</div>
-							{/if}
-
-							{#if canManage}
-								<div class="flex justify-end pt-1">
-									<button
-										type="button"
-										onclick={() => handleRemoveMember(m.id)}
-										class="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs font-semibold text-rose-700 shadow-2xs hover:bg-rose-100"
-									>
-										Remove
-									</button>
-								</div>
-							{/if}
-						</div>
-					{/each}
-				</div>
-
-				<!-- Desktop table (>= md) -->
-				<div class="relative hidden overflow-x-auto md:block">
-					<table class="w-full text-left text-sm">
-						<thead
-							class="border-b border-slate-200 bg-slate-50 text-xs font-semibold tracking-wider text-slate-500 uppercase"
-						>
-							<tr>
-								<th class="px-4 py-3">Member</th>
-								<th class="px-4 py-3">Email</th>
-								<th class="px-4 py-3">Project Role</th>
-								<th class="px-4 py-3 text-right">Actions</th>
-							</tr>
-						</thead>
-						<tbody class="divide-y divide-slate-100 text-slate-700">
-							{#each memberList as m (m.id)}
-								<tr class="transition-colors hover:bg-slate-50/50">
-									<td class="px-4 py-3 font-medium text-slate-900">
-										{m.full_name || 'Staff User'}
-									</td>
-									<td class="px-4 py-3 text-slate-500">
-										{m.email || '—'}
-									</td>
-									<td class="px-4 py-3">
-										{#if canManage}
-											<select
-												value={m.role}
-												disabled={memberRoleBusy === m.id}
-												onchange={(e) => handleUpdateMemberRole(m.id, e.target.value)}
-												class="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-800 capitalize shadow-2xs focus:border-indigo-500 focus:outline-hidden"
-											>
-												{#each availableProjectRoles as pr (pr.name)}
-													<option value={pr.name}>{pr.name.replace('_', ' ')}</option>
-												{/each}
-											</select>
-										{:else}
-											<span
-												class="inline-flex items-center rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700 uppercase"
-											>
-												{m.role}
-											</span>
-										{/if}
-									</td>
-									<td class="px-4 py-3 text-right">
-										{#if canManage}
-											<button
-												type="button"
-												onclick={() => handleRemoveMember(m.id)}
-												class="text-xs font-medium text-rose-600 hover:text-rose-800 hover:underline"
-											>
-												Remove
-											</button>
-										{/if}
-									</td>
+					<!-- Desktop table (>= md) -->
+					<div class="relative hidden overflow-x-auto md:block">
+						<table class="w-full text-left text-sm">
+							<thead
+								class="border-b border-slate-200 bg-slate-50 text-xs font-semibold tracking-wider text-slate-500 uppercase"
+							>
+								<tr>
+									<th class="px-4 py-3">Member</th>
+									<th class="px-4 py-3">Email</th>
+									<th class="px-4 py-3">Project Role</th>
+									<th class="px-4 py-3 text-right">Actions</th>
 								</tr>
-							{/each}
-						</tbody>
-					</table>
-				</div>
-			{/if}
-		</div>
-	</section>
+							</thead>
+							<tbody class="divide-y divide-slate-100 text-slate-700">
+								{#each memberList as m (m.id)}
+									<tr class="transition-colors hover:bg-slate-50/50">
+										<td class="px-4 py-3 font-medium text-slate-900">
+											{m.full_name || 'Staff User'}
+										</td>
+										<td class="px-4 py-3 text-slate-500">
+											{m.email || '—'}
+										</td>
+										<td class="px-4 py-3">
+											{#if canManage}
+												<select
+													value={m.role}
+													disabled={memberRoleBusy === m.id}
+													onchange={(e) => handleUpdateMemberRole(m.id, e.target.value)}
+													class="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-800 capitalize shadow-2xs focus:border-indigo-500 focus:outline-hidden"
+												>
+													{#each availableProjectRoles as pr (pr.name)}
+														<option value={pr.name}>{pr.name.replace('_', ' ')}</option>
+													{/each}
+												</select>
+											{:else}
+												<span
+													class="inline-flex items-center rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700 uppercase"
+												>
+													{m.role}
+												</span>
+											{/if}
+										</td>
+										<td class="px-4 py-3 text-right">
+											{#if canManage}
+												<button
+													type="button"
+													onclick={() => handleRemoveMember(m.id)}
+													class="text-xs font-medium text-rose-600 hover:text-rose-800 hover:underline"
+												>
+													Remove
+												</button>
+											{/if}
+										</td>
+									</tr>
+								{/each}
+							</tbody>
+						</table>
+					</div>
+				{/if}
+			</div>
+		</section>
+	{/if}
 {/if}
 
 {#if showAddMemberModal}
@@ -3290,7 +3478,7 @@
 							class="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2 text-sm text-slate-800 shadow-2xs focus:border-indigo-500 focus:outline-hidden"
 						>
 							<option value="">-- Choose User --</option>
-							{#each data.users as u (u.id)}
+							{#each userList as u (u.id)}
 								{#if !memberList.some((m) => m.user_id === u.id)}
 									<option value={u.id}>{u.full_name} ({u.role})</option>
 								{/if}

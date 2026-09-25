@@ -8,14 +8,21 @@ export async function load({ fetch, params, url }) {
 	const token = auth.token;
 	const id = params.id;
 
+	const tab = url.searchParams.get('tab') || 'overview';
 	const notesPage = Math.max(1, Number(url.searchParams.get('notes_page') ?? '1') || 1);
 	const activityPage = Math.max(1, Number(url.searchParams.get('activity_page') ?? '1') || 1);
 
 	try {
 		const [notes, activity, ledger] = await Promise.all([
-			clientApi.listNotes(fetch, token, id, { page: notesPage, page_size: 20 }),
-			clientApi.listActivity(fetch, token, id, { page: activityPage, page_size: 20 }),
-			clientApi.getClientLedger(fetch, token, id).catch(() => null)
+			tab === 'notes'
+				? clientApi.listNotes(fetch, token, id, { page: notesPage, page_size: 20 })
+				: Promise.resolve(null),
+			tab === 'activity'
+				? clientApi.listActivity(fetch, token, id, { page: activityPage, page_size: 20 })
+				: Promise.resolve(null),
+			tab === 'financials'
+				? clientApi.getClientLedger(fetch, token, id).catch(() => null)
+				: Promise.resolve(null)
 		]);
 		return { notes, activity, ledger, filters: { notesPage, activityPage } };
 	} catch (e) {

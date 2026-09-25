@@ -1412,7 +1412,10 @@ class TestProjectOverview:
         )
         assert pay_resp.status_code == 201
 
-        resp = await client.get(f"/api/v1/tenant/projects/{pid}/overview", headers=admin_headers)
+        resp = await client.get(
+            f"/api/v1/tenant/projects/{pid}/overview?include=breakdown",
+            headers=admin_headers,
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert data["total_invoiced"] == "500.00"
@@ -1454,7 +1457,10 @@ class TestProjectOverview:
         inv_id = inv_resp.json()["id"]
         await client.post(f"/api/v1/tenant/invoices/{inv_id}/issue", headers=admin_headers)
 
-        resp = await client.get(f"/api/v1/tenant/projects/{pid}/overview", headers=admin_headers)
+        resp = await client.get(
+            f"/api/v1/tenant/projects/{pid}/overview?include=breakdown",
+            headers=admin_headers,
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert len(data["service_breakdown"]) == 1

@@ -337,13 +337,24 @@ async def get_project_endpoint(
 @router.get("/{project_id}/overview", response_model=ProjectOverviewResponse)
 async def get_project_overview_endpoint(
     project_id: str,
+    include: str | None = Query(
+        default=None,
+        description="Comma-separated optional inclusions: invoices, breakdown",
+    ),
     session: AsyncSession = Depends(get_session),
     user: AdminUser = Depends(get_current_admin_user),
 ) -> ProjectOverviewResponse:
     """Project overview with milestone completion and financial summary. All staff can read."""
     tenant_id = _get_tenant_id(user)
     pid = _parse_uuid(project_id, kind="Project")
-    data = await project_service.get_project_overview(session, tenant_id=tenant_id, project_id=pid)
+    include_parts = [p.strip().lower() for p in include.split(",")] if include else []
+    data = await project_service.get_project_overview(
+        session,
+        tenant_id=tenant_id,
+        project_id=pid,
+        include_invoices="invoices" in include_parts,
+        include_breakdown="breakdown" in include_parts,
+    )
     return ProjectOverviewResponse(
         project_id=data["project_id"],
         name=data["name"],

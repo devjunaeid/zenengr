@@ -46,11 +46,84 @@
 	let canManage = $derived(auth.can('manage', 'clients'));
 	let isEmployee = $derived(auth.user?.role === 'employee');
 
-	// Active tab state
 	let activeTab = $state(page.url.searchParams.get('tab') || 'overview');
+
+	let liveNotesOverride = $state(null);
+	let liveActivityOverride = $state(null);
+	let liveLedgerOverride = $state(null);
+
+	let notesLoading = $state(false);
+	let activityLoading = $state(false);
+	let ledgerLoading = $state(false);
+
+	let currentNotes = $derived(liveNotesOverride ?? data.notes);
+	let currentActivity = $derived(liveActivityOverride ?? data.activity);
+	let currentLedger = $derived(liveLedgerOverride ?? data.ledger);
+
+	async function loadNotesTab(force = false) {
+		if (notesLoading || (currentNotes && !force)) return;
+		notesLoading = true;
+		try {
+			const res = await clientApi.listNotes(fetch, token, data.client.id, {
+				page: data.filters?.notesPage || 1,
+				page_size: 20
+			});
+			liveNotesOverride = res;
+		} catch (e) {
+			console.error('Failed to load notes', e);
+		} finally {
+			notesLoading = false;
+		}
+	}
+
+	async function loadActivityTab(force = false) {
+		if (activityLoading || (currentActivity && !force)) return;
+		activityLoading = true;
+		try {
+			const res = await clientApi.listActivity(fetch, token, data.client.id, {
+				page: data.filters?.activityPage || 1,
+				page_size: 20
+			});
+			liveActivityOverride = res;
+		} catch (e) {
+			console.error('Failed to load activity', e);
+		} finally {
+			activityLoading = false;
+		}
+	}
+
+	async function loadLedgerTab(force = false) {
+		if (ledgerLoading || (currentLedger && !force)) return;
+		ledgerLoading = true;
+		try {
+			const res = await clientApi.getClientLedger(fetch, token, data.client.id);
+			liveLedgerOverride = res;
+		} catch (e) {
+			console.error('Failed to load client ledger', e);
+		} finally {
+			ledgerLoading = false;
+		}
+	}
+
+	function ensureClientTabData(tab) {
+		if (tab === 'financials') loadLedgerTab();
+		else if (tab === 'notes') loadNotesTab();
+		else if (tab === 'activity') loadActivityTab();
+	}
+
+	$effect(() => {
+		ensureClientTabData(activeTab);
+	});
+
+	$effect(() => {
+		if (data.notes) liveNotesOverride = data.notes;
+		if (data.activity) liveActivityOverride = data.activity;
+		if (data.ledger) liveLedgerOverride = data.ledger;
+	});
 
 	function setTab(tabId) {
 		activeTab = tabId;
+		ensureClientTabData(tabId);
 		const params = new SvelteURLSearchParams(page.url.searchParams);
 		if (tabId === 'overview') params.delete('tab');
 		else params.set('tab', tabId);
@@ -155,7 +228,7 @@
 		try {
 			await clientApi.addNote(fetch, token, data.client.id, { body: noteBody.trim() });
 			noteBody = '';
-			await invalidateAll();
+			await loadNotesTab(true);
 		} catch (e) {
 			noteErr = e instanceof ApiError ? e.message : 'Add note failed.';
 		} finally {
@@ -201,13 +274,13 @@
 			id: 'notes',
 			label: 'Internal Notes',
 			icon: noteTextOutline,
-			countBadge: () => data.notes.total
+			countBadge: () => currentNotes?.total
 		},
 		{
 			id: 'activity',
 			label: 'Activity Trail',
 			icon: history,
-			countBadge: () => data.activity.total
+			countBadge: () => currentActivity?.total
 		}
 	];
 </script>
@@ -333,11 +406,11 @@
 					Advance Balance
 				</p>
 				<p
-					class="mt-1 text-base font-bold {Number(data.ledger?.advance_balance || 0) > 0
+					class="mt-1 text-base font-bold {Number(currentLedger?.advance_balance || 0) > 0
 						? 'text-indigo-600'
 						: 'text-slate-900'}"
 				>
-					{fmtPrice(data.ledger?.advance_balance || 0)}
+					{fmtPrice(currentLedger?.advance_balance || 0)}
 				</p>
 			</div>
 		</div>
@@ -653,19 +726,23 @@
 						Chronological record of invoices, advances, and applied payments.
 					</p>
 				</div>
-				{#if data.ledger}
+				{#if currentLedger}
 					<div
 						class="rounded-lg border border-indigo-100 bg-indigo-50/70 px-3 py-1.5 text-xs font-semibold text-indigo-900"
 					>
 						Advance Balance: <span class="font-bold text-indigo-700"
-							>{fmtPrice(data.ledger.advance_balance)}</span
+							>{fmtPrice(currentLedger.advance_balance)}</span
 						>
 					</div>
 				{/if}
 			</div>
 
-			{#if data.ledger && data.ledger.entries && data.ledger.entries.length > 0}
-				<LedgerTable entries={data.ledger.entries} />
+			{#if ledgerLoading && !currentLedger}
+				<div class="flex items-center justify-center p-16">
+					<Spinner class="h-8 w-8 text-indigo-600" />
+				</div>
+			{:else if currentLedger && currentLedger.entries && currentLedger.entries.length > 0}
+				<LedgerTable entries={currentLedger.entries} />
 			{:else}
 				<div class="p-12 text-center text-xs text-slate-400">
 					<Icon icon={cashMultiple} class="mx-auto mb-2 h-8 w-8 text-slate-300" />
@@ -725,7 +802,11 @@
 					</form>
 				{/if}
 
-				{#if data.notes.items.length === 0}
+				{#if notesLoading && !currentNotes}
+					<div class="flex items-center justify-center p-16">
+						<Spinner class="h-8 w-8 text-indigo-600" />
+					</div>
+				{:else if !currentNotes || currentNotes.items.length === 0}
 					<div
 						class="rounded-xl border border-slate-100 bg-slate-50/50 p-8 text-center text-xs text-slate-400"
 					>
@@ -734,7 +815,7 @@
 					</div>
 				{:else}
 					<ul class="divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white">
-						{#each data.notes.items as n (n.id)}
+						{#each currentNotes.items as n (n.id)}
 							<li class="p-4 transition-colors hover:bg-slate-50/60">
 								<p class="text-xs leading-relaxed whitespace-pre-wrap text-slate-800">{n.body}</p>
 								<div class="mt-2 flex items-center gap-2 text-[11px] text-slate-400">
@@ -747,9 +828,9 @@
 						{/each}
 					</ul>
 					<Pagination
-						page={data.notes.page}
-						pageSize={data.notes.page_size}
-						total={data.notes.total}
+						page={currentNotes.page}
+						pageSize={currentNotes.page_size}
+						total={currentNotes.total}
 						onpage={gotoNotesPage}
 					/>
 				{/if}
@@ -769,14 +850,18 @@
 				</p>
 			</div>
 
-			{#if data.activity.items.length === 0}
+			{#if activityLoading && !currentActivity}
+				<div class="flex items-center justify-center p-16">
+					<Spinner class="h-8 w-8 text-indigo-600" />
+				</div>
+			{:else if !currentActivity || currentActivity.items.length === 0}
 				<div class="p-12 text-center text-xs text-slate-400">
 					<Icon icon={history} class="mx-auto mb-2 h-8 w-8 text-slate-300" />
 					No activity recorded for this client yet.
 				</div>
 			{:else}
 				<div class="divide-y divide-slate-100">
-					{#each data.activity.items as a (a.id)}
+					{#each currentActivity.items as a (a.id)}
 						{@const rows = formatClientActivityDetails(a.details)}
 						<div class="flex gap-3.5 p-4 transition-colors hover:bg-slate-50/60">
 							<span
@@ -822,9 +907,9 @@
 				</div>
 				<div class="border-t border-slate-100 p-4">
 					<Pagination
-						page={data.activity.page}
-						pageSize={data.activity.page_size}
-						total={data.activity.total}
+						page={currentActivity.page}
+						pageSize={currentActivity.page_size}
+						total={currentActivity.total}
 						onpage={gotoActivityPage}
 					/>
 				</div>

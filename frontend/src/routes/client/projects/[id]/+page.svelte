@@ -37,8 +37,59 @@
 	// Tabs state
 	let activeTab = $state(page.url.searchParams.get('tab') || 'overview');
 
+	let liveLedgerOverride = $state(null);
+	let liveFilesOverride = $state(null);
+	let ledgerLoading = $state(false);
+	let filesLoading = $state(false);
+
+	let ledgerData = $derived(liveLedgerOverride ?? data.ledger);
+	let currentFiles = $derived(liveFilesOverride ?? data.files);
+
+	async function loadLedgerTab(force = false) {
+		if (ledgerLoading || (ledgerData && !force)) return;
+		ledgerLoading = true;
+		try {
+			const res = await portalApi.getClientProjectLedger(fetch, token, data.project.id);
+			liveLedgerOverride = res;
+		} catch (e) {
+			console.error('Failed to load portal project ledger', e);
+		} finally {
+			ledgerLoading = false;
+		}
+	}
+
+	async function loadFilesTab(force = false) {
+		if (filesLoading || (currentFiles?.items?.length && !force)) return;
+		filesLoading = true;
+		try {
+			const res = await portalApi.listClientProjectFiles(fetch, token, data.project.id, {
+				page_size: 50
+			});
+			liveFilesOverride = res;
+		} catch (e) {
+			console.error('Failed to load portal project files', e);
+		} finally {
+			filesLoading = false;
+		}
+	}
+
+	function ensurePortalTabData(tab) {
+		if (tab === 'financials') loadLedgerTab();
+		else if (tab === 'files') loadFilesTab();
+	}
+
+	$effect(() => {
+		ensurePortalTabData(activeTab);
+	});
+
+	$effect(() => {
+		if (data.ledger) liveLedgerOverride = data.ledger;
+		if (data.files?.items?.length) liveFilesOverride = data.files;
+	});
+
 	function setTab(tabId) {
 		activeTab = tabId;
+		ensurePortalTabData(tabId);
 		const params = new SvelteURLSearchParams(page.url.searchParams);
 		if (tabId === 'overview') {
 			params.delete('tab');
@@ -90,7 +141,6 @@
 	}
 
 	// ---- ledger data ----
-	let ledgerData = $derived(data.ledger);
 	let ledgerEntries = $derived(
 		(ledgerData?.entries ?? []).slice().sort((a, b) => {
 			const da = a.entry_date ?? a.created_at;
@@ -138,7 +188,7 @@
 			icon: receiptText,
 			count: () => data.project.linked_invoices?.length || 0
 		},
-		{ id: 'files', label: 'Files & Assets', icon: folderMultiple, count: () => data.files.total }
+		{ id: 'files', label: 'Files & Assets', icon: folderMultiple, count: () => currentFiles?.total }
 	];
 </script>
 
@@ -218,7 +268,7 @@
 						<span>{tab.label}</span>
 						{#if count !== null && count > 0}
 							<span
-								class="rounded-full px-1.5 py-0.2 text-[10px] font-bold {active
+								class="py-0.2 rounded-full px-1.5 text-[10px] font-bold {active
 									? 'bg-indigo-700/80 text-white'
 									: 'bg-slate-100 text-slate-600'}"
 							>
@@ -343,114 +393,124 @@
 		<!-- Tab 3: Statement & Financials -->
 	{:else if activeTab === 'financials'}
 		<div class="space-y-6">
-			<!-- Statement Summary Banner -->
-			{#if ledgerSummary}
-				<section class="rounded-xl border border-slate-200 bg-white p-6 shadow-2xs">
-					<div
-						class="flex flex-col gap-4 border-b border-slate-100 pb-6 sm:flex-row sm:items-center sm:justify-between"
-					>
-						<div>
-							<h2 class="text-sm font-bold text-slate-900">Project Financial Statement</h2>
-							<p class="mt-0.5 text-xs text-slate-500">
-								Real-time ledger summary of charges and payments
-							</p>
-						</div>
-						<button
-							type="button"
-							onclick={downloadStatementPdf}
-							disabled={statementPdfBusy}
-							class="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-2 text-xs font-semibold text-white shadow-2xs transition-colors hover:bg-indigo-700 disabled:opacity-60"
+			{#if ledgerLoading && !ledgerData}
+				<div
+					class="flex items-center justify-center rounded-xl border border-slate-200 bg-white p-16 shadow-2xs"
+				>
+					<Spinner class="h-8 w-8 text-indigo-600" />
+				</div>
+			{:else}
+				<!-- Statement Summary Banner -->
+				{#if ledgerSummary}
+					<section class="rounded-xl border border-slate-200 bg-white p-6 shadow-2xs">
+						<div
+							class="flex flex-col gap-4 border-b border-slate-100 pb-6 sm:flex-row sm:items-center sm:justify-between"
 						>
-							{#if statementPdfBusy}
-								<Spinner class="h-3.5 w-3.5 text-white" />
-							{:else}
-								<Icon icon={downloadOutline} class="h-3.5 w-3.5" />
-							{/if}
-							Download Statement PDF
-						</button>
-					</div>
+							<div>
+								<h2 class="text-sm font-bold text-slate-900">Project Financial Statement</h2>
+								<p class="mt-0.5 text-xs text-slate-500">
+									Real-time ledger summary of charges and payments
+								</p>
+							</div>
+							<button
+								type="button"
+								onclick={downloadStatementPdf}
+								disabled={statementPdfBusy}
+								class="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-2 text-xs font-semibold text-white shadow-2xs transition-colors hover:bg-indigo-700 disabled:opacity-60"
+							>
+								{#if statementPdfBusy}
+									<Spinner class="h-3.5 w-3.5 text-white" />
+								{:else}
+									<Icon icon={downloadOutline} class="h-3.5 w-3.5" />
+								{/if}
+								Download Statement PDF
+							</button>
+						</div>
 
-					<div class="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-						<div class="rounded-xl border border-slate-100 bg-slate-50/70 p-3.5">
-							<span class="text-[10px] font-bold tracking-wider text-slate-500 uppercase"
-								>Subtotal</span
-							>
-							<p class="mt-1 text-base font-bold text-slate-900">
-								{fmtPrice(ledgerSummary.subtotal)}
+						<div class="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+							<div class="rounded-xl border border-slate-100 bg-slate-50/70 p-3.5">
+								<span class="text-[10px] font-bold tracking-wider text-slate-500 uppercase"
+									>Subtotal</span
+								>
+								<p class="mt-1 text-base font-bold text-slate-900">
+									{fmtPrice(ledgerSummary.subtotal)}
+								</p>
+							</div>
+							<div class="rounded-xl border border-slate-100 bg-slate-50/70 p-3.5">
+								<span class="text-[10px] font-bold tracking-wider text-slate-500 uppercase"
+									>Total Billed</span
+								>
+								<p class="mt-1 text-base font-bold text-slate-900">
+									{fmtPrice(ledgerSummary.total)}
+								</p>
+							</div>
+							<div class="rounded-xl border border-slate-100 bg-slate-50/70 p-3.5">
+								<span class="text-[10px] font-bold tracking-wider text-slate-500 uppercase"
+									>Total Paid</span
+								>
+								<p class="mt-1 text-base font-bold text-emerald-600">
+									{fmtPrice(ledgerSummary.paid)}
+								</p>
+							</div>
+							<div class="rounded-xl border border-slate-100 bg-slate-50/70 p-3.5">
+								<span class="text-[10px] font-bold tracking-wider text-slate-500 uppercase"
+									>Balance Due</span
+								>
+								<p
+									class="mt-1 text-base font-bold {Number(ledgerSummary.due) > 0
+										? 'text-amber-600'
+										: 'text-slate-900'}"
+								>
+									{fmtPrice(ledgerSummary.due)}
+								</p>
+							</div>
+						</div>
+					</section>
+				{/if}
+
+				<!-- Detailed Ledger Stream -->
+				<section class="rounded-xl border border-slate-200 bg-white p-6 shadow-2xs">
+					<h3 class="mb-4 text-sm font-bold text-slate-900">Transaction History & Charges</h3>
+					{#if ledgerEntries.length === 0}
+						<div class="py-8 text-center">
+							<p class="text-xs text-slate-500">
+								No ledger transactions recorded for this project yet.
 							</p>
 						</div>
-						<div class="rounded-xl border border-slate-100 bg-slate-50/70 p-3.5">
-							<span class="text-[10px] font-bold tracking-wider text-slate-500 uppercase"
-								>Total Billed</span
-							>
-							<p class="mt-1 text-base font-bold text-slate-900">{fmtPrice(ledgerSummary.total)}</p>
+					{:else}
+						<div class="divide-y divide-slate-100">
+							{#each ledgerEntries as e (e.id)}
+								{@const meta = entryMeta(e)}
+								<div
+									class="flex min-w-0 items-center justify-between py-3.5 transition-colors hover:bg-slate-50/60"
+								>
+									<div class="flex min-w-0 items-center gap-3">
+										<div
+											class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border {meta.bg}"
+										>
+											<Icon icon={meta.icon} class="h-4 w-4 {meta.text}" />
+										</div>
+										<div class="min-w-0">
+											<p class="text-xs font-bold text-slate-900">
+												{e.description || humanize(e.type)}
+											</p>
+											<p class="text-[11px] text-slate-500">
+												{formatDate(e.entry_date ?? e.created_at)}
+												{#if e.invoice_number}
+													· Ref: {e.invoice_number}
+												{/if}
+											</p>
+										</div>
+									</div>
+									<span class="shrink-0 font-mono text-xs font-bold whitespace-nowrap {meta.text}">
+										{entryPrice(e)}
+									</span>
+								</div>
+							{/each}
 						</div>
-						<div class="rounded-xl border border-slate-100 bg-slate-50/70 p-3.5">
-							<span class="text-[10px] font-bold tracking-wider text-slate-500 uppercase"
-								>Total Paid</span
-							>
-							<p class="mt-1 text-base font-bold text-emerald-600">
-								{fmtPrice(ledgerSummary.paid)}
-							</p>
-						</div>
-						<div class="rounded-xl border border-slate-100 bg-slate-50/70 p-3.5">
-							<span class="text-[10px] font-bold tracking-wider text-slate-500 uppercase"
-								>Balance Due</span
-							>
-							<p
-								class="mt-1 text-base font-bold {Number(ledgerSummary.due) > 0
-									? 'text-amber-600'
-									: 'text-slate-900'}"
-							>
-								{fmtPrice(ledgerSummary.due)}
-							</p>
-						</div>
-					</div>
+					{/if}
 				</section>
 			{/if}
-
-			<!-- Detailed Ledger Stream -->
-			<section class="rounded-xl border border-slate-200 bg-white p-6 shadow-2xs">
-				<h3 class="mb-4 text-sm font-bold text-slate-900">Transaction History & Charges</h3>
-				{#if ledgerEntries.length === 0}
-					<div class="py-8 text-center">
-						<p class="text-xs text-slate-500">
-							No ledger transactions recorded for this project yet.
-						</p>
-					</div>
-				{:else}
-					<div class="divide-y divide-slate-100">
-						{#each ledgerEntries as e (e.id)}
-							{@const meta = entryMeta(e)}
-							<div
-								class="flex min-w-0 items-center justify-between py-3.5 transition-colors hover:bg-slate-50/60"
-							>
-								<div class="flex min-w-0 items-center gap-3">
-									<div
-										class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border {meta.bg}"
-									>
-										<Icon icon={meta.icon} class="h-4 w-4 {meta.text}" />
-									</div>
-									<div class="min-w-0">
-										<p class="text-xs font-bold text-slate-900">
-											{e.description || humanize(e.type)}
-										</p>
-										<p class="text-[11px] text-slate-500">
-											{formatDate(e.entry_date ?? e.created_at)}
-											{#if e.invoice_number}
-												· Ref: {e.invoice_number}
-											{/if}
-										</p>
-									</div>
-								</div>
-								<span class="shrink-0 font-mono text-xs font-bold whitespace-nowrap {meta.text}">
-									{entryPrice(e)}
-								</span>
-							</div>
-						{/each}
-					</div>
-				{/if}
-			</section>
 		</div>
 
 		<!-- Tab 4: Invoices -->
@@ -509,13 +569,17 @@
 				<p class="mt-0.5 text-xs text-slate-500">Shared assets and project deliverables</p>
 			</div>
 
-			{#if data.files.items.length === 0}
+			{#if filesLoading && (!currentFiles || currentFiles.items.length === 0)}
+				<div class="flex items-center justify-center p-16">
+					<Spinner class="h-8 w-8 text-indigo-600" />
+				</div>
+			{:else if !currentFiles || currentFiles.items.length === 0}
 				<div class="p-8 text-center">
 					<p class="text-xs text-slate-500">No shared files uploaded for this project yet.</p>
 				</div>
 			{:else}
 				<div class="divide-y divide-slate-100">
-					{#each data.files.items as f (f.id)}
+					{#each currentFiles.items as f (f.id)}
 						<div
 							class="flex flex-wrap items-center justify-between gap-3 p-4.5 transition-colors hover:bg-slate-50/50"
 						>
