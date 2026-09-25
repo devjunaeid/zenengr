@@ -107,9 +107,9 @@
 			id: 'regional',
 			title: 'Regional & Date / Time Formats',
 			description:
-				'Configure standard timezone, date displays, and clock formats across all projects and portals.',
+				'Configure standard timezone, date displays, clock formats, and numbering conventions across all projects and portals.',
 			icon: earth,
-			keys: ['timezone', 'date_format', 'time_format']
+			keys: ['timezone', 'date_format', 'time_format', 'number_system']
 		},
 		{
 			id: 'financial',
@@ -151,6 +151,10 @@
 		time_format: {
 			label: 'Time Format',
 			description: 'Standard 24-hour or 12-hour AM/PM clock display.'
+		},
+		number_system: {
+			label: 'Numbering System',
+			description: 'Number-to-words convention for large transaction amounts and financial inputs.'
 		},
 		currency: {
 			label: 'Default Currency',
@@ -272,6 +276,24 @@
 													<option value="24h">24h — 14:30 (24-hour)</option>
 													<option value="12h">12h — 2:30 PM (12-hour)</option>
 												</select>
+											{:else if s.key === 'number_system'}
+												<div class="space-y-1">
+													<select
+														id="set-{s.key}"
+														bind:value={drafts[s.key]}
+														class="block w-full sm:w-80 rounded-lg border-slate-300 py-2 text-xs font-medium text-slate-800 shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
+													>
+														<option value="international">
+															International (Millions, Billions, Thousands)
+														</option>
+														<option value="south_asian">
+															South Asian (Lakh, Crore / Korti, Thousands)
+														</option>
+													</select>
+													<p class="text-[11px] text-slate-500">
+														Preview: 15,000,000 → <strong class="text-indigo-600 font-semibold">{drafts[s.key] === 'south_asian' || drafts[s.key] === 'indian' ? 'One crore fifty lakh' : 'Fifteen million'}</strong>
+													</p>
+												</div>
 											{:else if s.key === 'invoice_number_format'}
 												<select
 													id="set-{s.key}"

@@ -23,6 +23,7 @@
 	import * as filesApi from '$lib/api/files.js';
 	import FileCard from '$lib/components/FileCard.svelte';
 	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
+	import AmountInWords from '$lib/components/AmountInWords.svelte';
 	import Icon from '@iconify/svelte';
 	import cartOutline from '@iconify-icons/mdi/cart-outline';
 	import cart from '@iconify-icons/mdi/cart';
@@ -2307,8 +2308,22 @@
 						</div>
 
 						<div class="flex items-center justify-between rounded-lg bg-slate-50 p-2.5">
-							<span class="text-xs text-slate-500">Total Amount</span>
-							<span class="text-sm font-bold text-slate-900">{fmtPrice(inv.total)}</span>
+							<div>
+								<span class="block text-xs text-slate-500">Total</span>
+								<span class="text-sm font-bold text-slate-900">{fmtPrice(inv.total)}</span>
+							</div>
+							<div class="text-right">
+								<span class="block text-xs text-slate-500">Due Amount</span>
+								<span
+									class="text-sm font-bold {Number(
+										inv.balance_due ?? (inv.status === 'paid' ? 0 : inv.total)
+									) > 0
+										? 'text-amber-700'
+										: 'text-slate-900'}"
+								>
+									{fmtPrice(inv.balance_due ?? (inv.status === 'paid' ? '0.00' : inv.total))}
+								</span>
+							</div>
 						</div>
 
 						<div class="grid grid-cols-2 gap-2 text-xs text-slate-500">
@@ -2317,7 +2332,7 @@
 								<span class="ml-1 text-slate-700">{formatDate(inv.issue_date)}</span>
 							</div>
 							<div>
-								<span class="text-slate-400">Due:</span>
+								<span class="text-slate-400">Due Date:</span>
 								<span class="ml-1 text-slate-700">{formatDate(inv.due_date)}</span>
 							</div>
 						</div>
@@ -2366,6 +2381,11 @@
 							>
 							<th
 								scope="col"
+								class="px-4 py-3 text-right text-xs font-semibold tracking-wide text-slate-600 uppercase"
+								>Due</th
+							>
+							<th
+								scope="col"
 								class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
 								>Issue date</th
 							>
@@ -2396,6 +2416,14 @@
 								<td
 									class="px-4 py-3 text-right text-sm font-semibold whitespace-nowrap text-slate-900"
 									>{fmtPrice(inv.total)}</td
+								>
+								<td
+									class="px-4 py-3 text-right text-sm font-semibold whitespace-nowrap {Number(
+										inv.balance_due ?? (inv.status === 'paid' ? 0 : inv.total)
+									) > 0
+										? 'text-amber-700'
+										: 'text-slate-900'}"
+									>{fmtPrice(inv.balance_due ?? (inv.status === 'paid' ? '0.00' : inv.total))}</td
 								>
 								<td class="px-4 py-3 text-sm whitespace-nowrap text-slate-600"
 									>{formatDate(inv.issue_date)}</td
@@ -3377,7 +3405,10 @@
 				}}
 			>
 				<div>
-					<label for="adjust-amount" class="block text-sm font-medium text-slate-700">Amount</label>
+					<label for="adjust-amount" class="block text-sm font-medium text-slate-700">
+						Amount
+						<AmountInWords value={adjustAmount} />
+					</label>
 					<input
 						id="adjust-amount"
 						type="number"
@@ -3480,7 +3511,12 @@
 					</select>
 				</div>
 				<div>
-					<label for="discount-value" class="block text-sm font-medium text-slate-700">Value</label>
+					<label for="discount-value" class="block text-sm font-medium text-slate-700">
+						Value
+						{#if discountType === 'fixed'}
+							<AmountInWords value={discountValue} />
+						{/if}
+					</label>
 					<input
 						id="discount-value"
 						type="number"
@@ -3599,8 +3635,11 @@
 										<div class="mt-2 flex max-w-xs items-center gap-2">
 											<label
 												for={`add-price-${svc.id}`}
-												class="shrink-0 text-xs font-medium text-slate-600">Price</label
+												class="shrink-0 text-xs font-medium text-slate-600"
 											>
+												Price
+												<AmountInWords value={addPrices[svc.id]} />
+											</label>
 											<input
 												id={`add-price-${svc.id}`}
 												type="number"
@@ -4001,9 +4040,10 @@
 				}}
 			>
 				<div>
-					<label for="pay-amount" class="block text-sm font-medium text-slate-700"
-						>Amount received</label
-					>
+					<label for="pay-amount" class="block text-sm font-medium text-slate-700">
+						Amount received
+						<AmountInWords value={paymentAmount} />
+					</label>
 					<div class="relative mt-1 rounded-md shadow-sm">
 						<div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
 							<span class="text-slate-500 sm:text-sm">$</span>
@@ -4435,9 +4475,10 @@
 				}}
 			>
 				<div>
-					<label for="edit-service-price" class="block text-sm font-medium text-slate-700"
-						>Price</label
-					>
+					<label for="edit-service-price" class="block text-sm font-medium text-slate-700">
+						Price
+						<AmountInWords value={editServicePriceValue} />
+					</label>
 					<div class="relative mt-1 rounded-md shadow-sm">
 						<div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
 							<span class="text-slate-500 sm:text-sm">$</span>
@@ -4541,9 +4582,10 @@
 				}}
 			>
 				<div>
-					<label for="edit-adjust-amount" class="block text-sm font-medium text-slate-700"
-						>Amount</label
-					>
+					<label for="edit-adjust-amount" class="block text-sm font-medium text-slate-700">
+						Amount
+						<AmountInWords value={editAdjustmentAmount} />
+					</label>
 					<input
 						id="edit-adjust-amount"
 						type="number"
@@ -4664,9 +4706,10 @@
 				}}
 			>
 				<div>
-					<label for="edit-pay-amount" class="block text-sm font-medium text-slate-700"
-						>Amount received</label
-					>
+					<label for="edit-pay-amount" class="block text-sm font-medium text-slate-700">
+						Amount received
+						<AmountInWords value={editPaymentAmount} />
+					</label>
 					<div class="relative mt-1 rounded-md shadow-sm">
 						<div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
 							<span class="text-slate-500 sm:text-sm">$</span>

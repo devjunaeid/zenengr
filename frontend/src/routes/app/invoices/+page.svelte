@@ -79,6 +79,13 @@
 		// eslint-disable-next-line svelte/no-navigation-without-resolve -- query string appended to a resolved route
 		goto(buildUrl(p));
 	}
+
+	function isOverdue(inv) {
+		if (!inv.due_date) return false;
+		if (inv.status === 'paid' || inv.status === 'void') return false;
+		const today = new Date().toISOString().slice(0, 10);
+		return inv.due_date < today;
+	}
 </script>
 
 <svelte:head><title>Invoices — ZenEngr</title></svelte:head>
@@ -278,9 +285,17 @@
 								>
 									{inv.invoice_number ?? 'Draft Invoice'}
 								</a>
-								<div class="mt-0.5 text-xs">
+								<div class="mt-1 space-y-1 text-xs">
 									{#if inv.project_id}
-										<span class="font-medium text-slate-700">{projectName ?? '—'}</span>
+										<div class="flex flex-wrap items-center gap-1.5">
+											<span class="text-slate-400">Project:</span>
+											<a
+												href={resolve('/app/projects/[id]', { id: inv.project_id })}
+												class="max-w-[200px] truncate font-medium text-slate-800 hover:text-indigo-600"
+											>
+												{projectName ?? '—'}
+											</a>
+										</div>
 									{:else}
 										<div class="flex items-center gap-1.5">
 											<span
@@ -288,13 +303,17 @@
 											>
 												General
 											</span>
-											{#if inv.billed_to && inv.billed_to.name}
-												<span class="truncate font-medium text-slate-900">
-													{inv.billed_to.name}
-												</span>
-											{/if}
+											<span class="text-slate-400 italic">No project</span>
 										</div>
 									{/if}
+									<div class="flex items-center gap-1.5">
+										<span class="text-slate-400">Recipient:</span>
+										<span class="truncate font-medium text-slate-700">
+											{inv.client_name ||
+												inv.billed_to?.name ||
+												(inv.project_id ? 'Direct Client' : 'Internal')}
+										</span>
+									</div>
 								</div>
 							</div>
 							<div class="flex flex-col items-end gap-1">
@@ -310,18 +329,44 @@
 						</div>
 
 						<div class="flex items-center justify-between rounded-lg bg-slate-50 p-2.5">
-							<span class="text-xs text-slate-500">Total Amount</span>
-							<span class="text-sm font-bold text-slate-900">{fmtPrice(inv.total)}</span>
+							<div>
+								<span class="block text-xs text-slate-500">Total</span>
+								<span class="text-sm font-bold text-slate-900">{fmtPrice(inv.total)}</span>
+							</div>
+							<div class="text-right">
+								<span class="block text-xs text-slate-500">Due Amount</span>
+								<span
+									class="text-sm font-bold {Number(
+										inv.balance_due ?? (inv.status === 'paid' ? 0 : inv.total)
+									) > 0
+										? 'text-amber-700'
+										: 'text-slate-900'}"
+								>
+									{fmtPrice(inv.balance_due ?? (inv.status === 'paid' ? '0.00' : inv.total))}
+								</span>
+							</div>
 						</div>
 
 						<div class="grid grid-cols-2 gap-2 text-xs text-slate-500">
 							<div>
-								<span class="text-slate-400">Issued:</span>
-								<span class="ml-1 text-slate-700">{formatDate(inv.issue_date)}</span>
+								<span class="text-slate-400">Due Date:</span>
+								{#if inv.due_date}
+									{@const overdue = isOverdue(inv)}
+									<span class="ml-1 {overdue ? 'font-semibold text-rose-600' : 'text-slate-700'}">
+										{formatDate(inv.due_date)}
+										{#if overdue}
+											<span class="ml-1 text-[10px] font-bold text-rose-600 uppercase"
+												>(Overdue)</span
+											>
+										{/if}
+									</span>
+								{:else}
+									<span class="ml-1 text-slate-400">—</span>
+								{/if}
 							</div>
 							<div>
-								<span class="text-slate-400">Created:</span>
-								<span class="ml-1 text-slate-700">{formatDate(inv.created_at)}</span>
+								<span class="text-slate-400">Issued:</span>
+								<span class="ml-1 text-slate-700">{formatDate(inv.issue_date)}</span>
 							</div>
 						</div>
 					</div>
@@ -353,7 +398,13 @@
 							scope="col"
 							class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
 						>
-							Type / Recipient
+							Project
+						</th>
+						<th
+							scope="col"
+							class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
+						>
+							Recipient
 						</th>
 						<th
 							scope="col"
@@ -366,6 +417,18 @@
 							class="px-4 py-3 text-right text-xs font-semibold tracking-wide text-slate-600 uppercase"
 						>
 							Total
+						</th>
+						<th
+							scope="col"
+							class="px-4 py-3 text-right text-xs font-semibold tracking-wide text-slate-600 uppercase"
+						>
+							Due
+						</th>
+						<th
+							scope="col"
+							class="px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
+						>
+							Due Date
 						</th>
 						<th
 							scope="col"
@@ -386,7 +449,7 @@
 						{@const projectName =
 							inv.project_name ?? projectOptions.find((p) => p.id === inv.project_id)?.name}
 						<tr class="transition-colors hover:bg-slate-50">
-							<td class="px-4 py-3 text-sm font-medium text-slate-900">
+							<td class="px-4 py-3 text-sm font-medium whitespace-nowrap text-slate-900">
 								<a
 									href={resolve('/app/invoices/[id]', { id: inv.id })}
 									class="font-mono font-semibold text-indigo-600 hover:text-indigo-500"
@@ -394,15 +457,25 @@
 									{inv.invoice_number ?? 'Draft'}
 								</a>
 							</td>
+							<!-- Project Column -->
 							<td class="px-4 py-3 text-sm text-slate-700">
 								{#if inv.project_id}
 									<div class="flex items-center gap-1.5">
-										<span
-											class="inline-flex items-center rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700 ring-1 ring-indigo-600/20"
+										<a
+											href={resolve('/app/projects/[id]', { id: inv.project_id })}
+											class="max-w-[220px] truncate font-medium text-slate-900 hover:text-indigo-600"
+											title={projectName}
 										>
-											Project
-										</span>
-										<span class="font-medium text-slate-900">{projectName ?? '—'}</span>
+											{projectName ?? '—'}
+										</a>
+										{#if inv.is_auto}
+											<span
+												title="Statement invoice — internal, project-scoped"
+												class="py-0.2 inline-flex items-center rounded-full bg-violet-100 px-1.5 text-[10px] font-medium text-violet-800 ring-1 ring-violet-600/20 ring-inset"
+											>
+												Statement
+											</span>
+										{/if}
 									</div>
 								{:else}
 									<div class="flex items-center gap-1.5">
@@ -411,12 +484,24 @@
 										>
 											General
 										</span>
-										{#if inv.billed_to && inv.billed_to.name}
-											<span class="font-medium text-slate-900">{inv.billed_to.name}</span>
-										{:else}
-											<span class="text-slate-400 italic">Internal</span>
-										{/if}
+										<span class="text-xs text-slate-400 italic">No project</span>
 									</div>
+								{/if}
+							</td>
+							<!-- Recipient Column -->
+							<td class="px-4 py-3 text-sm text-slate-700">
+								{#if inv.client_name}
+									<div class="font-medium text-slate-900">{inv.client_name}</div>
+									{#if inv.client_company && inv.client_company !== inv.client_name}
+										<div class="text-xs text-slate-500">{inv.client_company}</div>
+									{/if}
+								{:else if inv.billed_to && inv.billed_to.name}
+									<div class="font-medium text-slate-900">{inv.billed_to.name}</div>
+									{#if inv.billed_to.email}
+										<div class="text-xs text-slate-500">{inv.billed_to.email}</div>
+									{/if}
+								{:else}
+									<span class="text-slate-400 italic">—</span>
 								{/if}
 							</td>
 							<td class="px-4 py-3">
@@ -436,6 +521,37 @@
 								class="px-4 py-3 text-right font-mono text-sm font-semibold whitespace-nowrap text-slate-900"
 							>
 								{fmtPrice(inv.total)}
+							</td>
+							<!-- Due Amount Column -->
+							<td
+								class="px-4 py-3 text-right font-mono text-sm font-semibold whitespace-nowrap {Number(
+									inv.balance_due ?? (inv.status === 'paid' ? 0 : inv.total)
+								) > 0
+									? 'text-amber-700'
+									: 'text-slate-900'}"
+							>
+								{fmtPrice(inv.balance_due ?? (inv.status === 'paid' ? '0.00' : inv.total))}
+							</td>
+							<td class="px-4 py-3 text-sm whitespace-nowrap">
+								{#if inv.due_date}
+									{@const overdue = isOverdue(inv)}
+									<span
+										class={overdue
+											? 'inline-flex items-center gap-1.5 font-medium text-rose-600'
+											: 'text-slate-600'}
+									>
+										{formatDate(inv.due_date)}
+										{#if overdue}
+											<span
+												class="inline-flex items-center rounded-full bg-rose-50 px-1.5 py-0.5 text-[10px] font-semibold text-rose-700 ring-1 ring-rose-600/20"
+											>
+												Overdue
+											</span>
+										{/if}
+									</span>
+								{:else}
+									<span class="text-slate-400">—</span>
+								{/if}
 							</td>
 							<td class="px-4 py-3 text-sm whitespace-nowrap text-slate-600">
 								{formatDate(inv.issue_date)}

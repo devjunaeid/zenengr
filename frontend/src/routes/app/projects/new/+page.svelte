@@ -7,6 +7,7 @@
 	import * as serviceApi from '$lib/api/services.js';
 	import Spinner from '$lib/components/Spinner.svelte';
 	import ClientPicker from '$lib/components/ClientPicker.svelte';
+	import AmountInWords from '$lib/components/AmountInWords.svelte';
 	import { auth } from '$lib/stores/auth.svelte.js';
 	import { fmtPrice } from '$lib/utils/format.js';
 
@@ -283,8 +284,11 @@
 									<div class="mt-2 flex max-w-xs items-center gap-2">
 										<label
 											for={`new-svc-price-${svc.id}`}
-											class="shrink-0 text-xs font-medium text-slate-600">Price</label
+											class="shrink-0 text-xs font-medium text-slate-600"
 										>
+											Price
+											<AmountInWords value={servicePrices[svc.id]} />
+										</label>
 										<input
 											id={`new-svc-price-${svc.id}`}
 											type="number"

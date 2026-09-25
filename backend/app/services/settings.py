@@ -67,6 +67,11 @@ DEFAULT_SETTINGS: list[dict[str, Any]] = [
         "value": "10",
         "permission_level": PermissionLevel.TENANT_ADMIN_EDITABLE,
     },
+    {
+        "key": "number_system",
+        "value": "international",
+        "permission_level": PermissionLevel.TENANT_ADMIN_EDITABLE,
+    },
 ]
 
 # ── Validation ──────────────────────────────────────────────────────────────
@@ -89,6 +94,7 @@ _VALID_DATE_FORMATS = frozenset(
 )
 
 _VALID_TIME_FORMATS = frozenset({"12h", "24h"})
+_VALID_NUMBER_SYSTEMS = frozenset({"international", "south_asian", "indian"})
 
 
 def validate_setting_value(key: str, value: str) -> None:
@@ -150,6 +156,13 @@ def validate_setting_value(key: str, value: str) -> None:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="password_min_length must be an integer between 8 and 64",
+            )
+    elif key == "number_system":
+        clean = value.strip().lower()
+        if clean not in _VALID_NUMBER_SYSTEMS:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="number_system must be 'international' or 'south_asian'",
             )
 
 
@@ -271,7 +284,7 @@ async def get_tenant_setting_by_key(
 
 
 # Keys surfaced to the client portal (resolved, no permission internals).
-CLIENT_FORMATTING_KEYS = ("currency", "timezone", "date_format", "time_format")
+CLIENT_FORMATTING_KEYS = ("currency", "timezone", "date_format", "time_format", "number_system")
 
 
 async def get_client_formatting_settings(

@@ -5,7 +5,6 @@ from __future__ import annotations
 import uuid
 from datetime import date, datetime
 from decimal import Decimal
-
 from typing import Any
 
 from pydantic import BaseModel
@@ -87,12 +86,16 @@ class InvoiceListItem(BaseModel):
     project_id: uuid.UUID | None
     project_name: str | None = None
     client_id: uuid.UUID | None
+    client_name: str | None = None
+    client_company: str | None = None
     is_general: bool = False
     is_auto: bool = False
     billed_to: dict[str, Any] | None = None
     issue_date: date | None
     due_date: date | None
     total: str
+    paid_amount: str = "0.00"
+    balance_due: str = "0.00"
     created_at: datetime
 
 

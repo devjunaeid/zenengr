@@ -313,3 +313,32 @@ In addition to WCAG 2.1 AA baseline (existing section):
 - **Direct Project Payments & Invoice Payments:**
   - **Direct Project Payments:** Edit dialog (amount, method, date, reference note) and Delete dialog with instant refresh of the live ledger balance summary and statement preview.
   - **Invoice Transactions:** "Delete Payment" button in invoice transactions table with confirmation dialog explaining the invoice balance and status will be updated accordingly.
+
+## FEAT-023: Invoice Table Due Column & Dynamic Amount in Words (US-068, US-069)
+
+### Main Invoice List Table (`/app/invoices`)
+- **Desktop Table:**
+  - Header: Add `Due Date` column positioned between `Total` and `Issued` (or adjacent to `Issued`).
+  - Rows: Formatted date according to tenant date preference (`formatDate(inv.due_date)`). If no due date is set, render an understated em-dash `—`.
+  - Overdue Visual State: If an invoice's due date is earlier than the current calendar date and the invoice status is not `paid` or `void`, display an amber/red subtle badge or highlighted text (e.g. `text-amber-700 font-medium` with a warning dot or `Overdue` pill) to give immediate operational clarity.
+- **Mobile Cards:**
+  - In the metadata grid at the bottom of each invoice card, include a `Due:` field alongside `Issued:` and `Created:`.
+
+### Tenant Configuration UI (`/app/settings/configuration`)
+- **Regional / Financial Settings Section:**
+  - Add setting item for **Numbering System** (`number_system`).
+  - Presentation: Native styled `<select>` with options:
+    - `international`: "International (Thousands, Millions, Billions)"
+    - `south_asian`: "South Asian (Thousands, Lakhs, Crores / Korti)"
+  - Help text & Dynamic Preview: Display an immediate visual demo below the dropdown:
+    - E.g. *Preview: 15,000,000 is written as "Fifteen million" (International) or "One crore fifty lakh" (South Asian).*
+  - "Save" button with quick saved checkmark confirmation matching existing configuration pattern.
+
+### Dynamic Amount in Words on Inputs
+- **Component Placement:** Directly below the `<label>` text for the input or as a right-aligned / subordinate tag within the label row:
+  - `<span class="block text-[11px] font-medium text-indigo-600 dark:text-indigo-400 capitalize">({words})</span>`
+- **Dynamic Interaction:**
+  - Recomputes instantly on every keystroke (`bind:value` or `oninput`).
+  - Completely hidden or renders nothing when the input is blank, `null`, `undefined`, or `0`.
+  - Handles integer and decimal values seamlessly (e.g. `150.50` -> "One hundred fifty point five zero" or "One hundred fifty and 50/100").
+  - Adheres strictly to the tenant's chosen numbering system (`tenantSettings.number_system`).

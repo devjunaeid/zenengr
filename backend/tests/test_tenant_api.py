@@ -576,6 +576,30 @@ class TestTenantSettings:
         assert resp.status_code == 422
 
     @pytest.mark.anyio
+    async def test_patch_number_system_validation(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        tenant, admin = await _create_tenant_and_admin(db_session)
+        headers = await _auth_header(admin)
+
+        for val in ("international", "south_asian", "indian"):
+            resp = await client.patch(
+                "/api/v1/tenant/settings/number_system",
+                json={"value": val},
+                headers=headers,
+            )
+            assert resp.status_code == 200
+            assert resp.json()["value"] == val
+
+        resp = await client.patch(
+            "/api/v1/tenant/settings/number_system",
+            json={"value": "invalid_system"},
+            headers=headers,
+        )
+        assert resp.status_code == 422
+
+
+    @pytest.mark.anyio
     async def test_patch_currency_allowed_and_rejected(
         self, client: AsyncClient, db_session: AsyncSession
     ):

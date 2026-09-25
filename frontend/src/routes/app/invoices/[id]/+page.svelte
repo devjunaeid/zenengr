@@ -7,6 +7,7 @@
 	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
 	import StatusBadge from '$lib/components/StatusBadge.svelte';
+	import AmountInWords from '$lib/components/AmountInWords.svelte';
 	import { auth } from '$lib/stores/auth.svelte.js';
 	import { formatDate, formatDateTime, fmtPrice, humanize } from '$lib/utils/format.js';
 
@@ -1006,8 +1007,10 @@
 				>
 					<div class="grid gap-4 sm:grid-cols-2">
 						<div>
-							<label for="pay-amount" class="block text-sm font-medium text-slate-700">Amount</label
-							>
+							<label for="pay-amount" class="block text-sm font-medium text-slate-700">
+								Amount
+								<AmountInWords value={payAmount} />
+							</label>
 							<input
 								id="pay-amount"
 								type="number"
@@ -1201,8 +1204,10 @@
 					}}
 				>
 					<div>
-						<label for="apply-amount" class="block text-sm font-medium text-slate-700">Amount</label
-						>
+						<label for="apply-amount" class="block text-sm font-medium text-slate-700">
+							Amount
+							<AmountInWords value={applyAmount} />
+						</label>
 						<input
 							id="apply-amount"
 							type="number"
@@ -1288,9 +1293,10 @@
 				>
 					<div class="grid gap-4 sm:grid-cols-2">
 						<div>
-							<label for="refund-amount" class="block text-sm font-medium text-slate-700"
-								>Amount</label
-							>
+							<label for="refund-amount" class="block text-sm font-medium text-slate-700">
+								Amount
+								<AmountInWords value={refundAmount} />
+							</label>
 							<input
 								id="refund-amount"
 								type="number"

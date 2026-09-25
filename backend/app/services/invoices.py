@@ -37,7 +37,7 @@ from app.models.ledger_entry import LedgerEntry
 from app.models.project import Project
 from app.models.project_service import ProjectService
 from app.models.tenant import Tenant
-from app.models.transaction import Transaction
+from app.models.transaction import PaymentAllocation, Transaction
 from app.services.audit import log as audit_log
 from app.services.notifications import notify_invoice_issued, safe_notify
 from app.services.settings import DEFAULT_SETTINGS, get_tenant_setting_by_key
@@ -517,7 +517,9 @@ async def list_invoices(
 ) -> dict[str, Any]:
     """List invoices for a tenant with optional status/type/date/project/client filters."""
     query = (
-        select(Invoice).options(joinedload(Invoice.project)).where(Invoice.tenant_id == tenant_id)
+        select(Invoice)
+        .options(joinedload(Invoice.project).joinedload(Project.client))
+        .where(Invoice.tenant_id == tenant_id)
     )
     count_stmt = select(Invoice).where(Invoice.tenant_id == tenant_id)
 
@@ -560,9 +562,89 @@ async def list_invoices(
     query = query.offset(offset).limit(page_size)
     result = await session.execute(query)
     invoices = list(result.unique().scalars().all())
+    invoice_ids = [inv.id for inv in invoices]
+
+    debit_map: dict[uuid.UUID, Decimal] = {}
+    adv_map: dict[uuid.UUID, Decimal] = {}
+    credit_map: dict[uuid.UUID, Decimal] = {}
+
+    if invoice_ids:
+        debit_rows = (
+            await session.execute(
+                select(Transaction.invoice_id, func.coalesce(func.sum(Transaction.amount), 0))
+                .where(
+                    Transaction.invoice_id.in_(invoice_ids),
+                    Transaction.direction == TransactionDirection.DEBIT,
+                )
+                .group_by(Transaction.invoice_id)
+            )
+        ).all()
+        debit_map = {row[0]: Decimal(row[1]) for row in debit_rows}
+
+        adv_rows = (
+            await session.execute(
+                select(
+                    InvoiceLineItem.invoice_id,
+                    func.coalesce(func.sum(PaymentAllocation.amount), 0),
+                )
+                .join(PaymentAllocation, PaymentAllocation.line_item_id == InvoiceLineItem.id)
+                .where(
+                    InvoiceLineItem.invoice_id.in_(invoice_ids),
+                    PaymentAllocation.transaction_id.is_(None),
+                    PaymentAllocation.advance_id.is_not(None),
+                )
+                .group_by(InvoiceLineItem.invoice_id)
+            )
+        ).all()
+        adv_map = {row[0]: Decimal(row[1]) for row in adv_rows}
+
+        credit_rows = (
+            await session.execute(
+                select(Transaction.invoice_id, func.coalesce(func.sum(Transaction.amount), 0))
+                .where(
+                    Transaction.invoice_id.in_(invoice_ids),
+                    Transaction.direction == TransactionDirection.CREDIT,
+                )
+                .group_by(Transaction.invoice_id)
+            )
+        ).all()
+        credit_map = {row[0]: Decimal(row[1]) for row in credit_rows}
 
     items: list[dict[str, Any]] = []
     for inv in invoices:
+        client = inv.project.client if inv.project else None
+        client_name = (
+            client.name if client else (inv.billed_to.get("name") if inv.billed_to else None)
+        )
+        client_company = (
+            client.name
+            if (
+                client
+                and hasattr(client, "client_type")
+                and getattr(client.client_type, "value", str(client.client_type)) == "company"
+            )
+            else None
+        )
+        inv_total = Decimal(inv.total) if inv.total is not None else Decimal("0")
+        if inv.status == InvoiceStatus.PAID:
+            paid = inv_total
+            balance_due = Decimal("0")
+        elif inv.status == InvoiceStatus.VOID:
+            paid = Decimal("0")
+            balance_due = Decimal("0")
+        elif inv.status == InvoiceStatus.DRAFT and not inv.is_auto:
+            paid = Decimal("0")
+            balance_due = inv_total
+        else:
+            net_paid = (
+                debit_map.get(inv.id, Decimal("0"))
+                + adv_map.get(inv.id, Decimal("0"))
+                - credit_map.get(inv.id, Decimal("0"))
+            )
+            paid = net_paid if net_paid > Decimal("0") else Decimal("0")
+            rem = inv_total - paid
+            balance_due = rem if rem > Decimal("0") else Decimal("0")
+
         items.append(
             {
                 "id": inv.id,
@@ -571,11 +653,15 @@ async def list_invoices(
                 "project_id": inv.project_id,
                 "project_name": inv.project.name if inv.project else None,
                 "client_id": inv.project.client_id if inv.project else None,
+                "client_name": client_name,
+                "client_company": client_company,
                 "is_general": inv.project_id is None,
                 "billed_to": inv.billed_to or {},
                 "issue_date": inv.issue_date,
                 "due_date": inv.due_date,
-                "total": f"{inv.total:.2f}" if inv.total is not None else "0.00",
+                "total": f"{inv_total:.2f}",
+                "paid_amount": f"{paid:.2f}",
+                "balance_due": f"{balance_due:.2f}",
                 "created_at": inv.created_at,
                 "is_auto": inv.is_auto,
             }
@@ -610,7 +696,12 @@ async def update_draft_invoice(
 
     if invoice.status != InvoiceStatus.DRAFT:
         # Issued/paid invoices: notes stay editable; everything else is locked.
-        if issue_date is not None or due_date is not None or line_items is not None or billed_to is not None:
+        if (
+            issue_date is not None
+            or due_date is not None
+            or line_items is not None
+            or billed_to is not None
+        ):
             raise InvoiceNotDraftError()
         if notes is None or notes == invoice.notes:
             return invoice
@@ -1053,15 +1144,48 @@ async def generate_statement_invoice(
     )
     direct_payments = list((await session.execute(pay_stmt)).scalars().all())
 
+    # Fetch prior original transactions on non-draft project invoices (excluding this new invoice)
+    tx_stmt = (
+        select(Transaction, Invoice)
+        .join(Invoice, Transaction.invoice_id == Invoice.id)
+        .where(
+            Invoice.project_id == project.id,
+            Invoice.id != issued.id,
+            Invoice.status != InvoiceStatus.DRAFT,
+        )
+        .order_by(Transaction.recorded_at, Transaction.created_at)
+    )
+    prior_tx_rows = list((await session.execute(tx_stmt)).all())
+
     # Tag manual adjustments
     for adj in adj_rows:
         adj.invoice_ref = issued.id
 
-    remaining_bal = Decimal(issued.total)
+    has_payments = False
+
+    # Sync prior original transactions onto the new statement invoice as regular payment entries
+    seen_prior_sigs: set[tuple[Decimal, Any, Any, Any, str]] = set()
+    for tx, _orig_inv in prior_tx_rows:
+        sig = (tx.amount, tx.direction, tx.method, tx.recorded_at, tx.reference_note)
+        if sig in seen_prior_sigs:
+            continue
+        seen_prior_sigs.add(sig)
+
+        synced_tx = Transaction(
+            invoice_id=issued.id,
+            amount=tx.amount,
+            direction=tx.direction,
+            method=tx.method,
+            reference_note=tx.reference_note or "",
+            recorded_by_id=actor_id,
+            recorded_at=tx.recorded_at,
+        )
+        session.add(synced_tx)
+        has_payments = True
+
+    # Convert unattached direct project payments into transactions on issued
     for p in direct_payments:
         tx_amount = _money(p.amount)
-        applied = min(tx_amount, remaining_bal)
-
         tx = Transaction(
             invoice_id=issued.id,
             amount=tx_amount,
@@ -1077,11 +1201,12 @@ async def generate_statement_invoice(
 
         p.invoice_ref = issued.id
         p.source_id = tx.id
-        remaining_bal = max(remaining_bal - applied, Decimal("0"))
+        has_payments = True
 
-    if direct_payments:
+    await session.flush()
+
+    if has_payments:
         await _recompute_invoice_status(session, issued)
 
     await session.commit()
     return await get_invoice(session, tenant_id=tenant_id, invoice_id=issued.id)
-

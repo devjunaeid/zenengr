@@ -8,6 +8,7 @@
 	import { ApiError } from '$lib/api/client.js';
 	import * as invoiceApi from '$lib/api/invoices.js';
 	import Spinner from '$lib/components/Spinner.svelte';
+	import AmountInWords from '$lib/components/AmountInWords.svelte';
 	import { auth } from '$lib/stores/auth.svelte.js';
 	import { fmtPrice } from '$lib/utils/format.js';
 
@@ -388,12 +389,13 @@
 									class="block w-full rounded-lg border-slate-300 px-2.5 py-1.5 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
 								/>
 							</div>
-							<div class="w-28 shrink-0">
+							<div class="w-32 sm:w-36 shrink-0">
 								<label
 									for={`li-price-${row.key}`}
 									class="mb-1 block text-[11px] font-semibold text-slate-600"
 								>
 									Unit Price *
+									<AmountInWords value={row.unit_price} />
 								</label>
 								<input
 									id={`li-price-${row.key}`}

@@ -16,6 +16,7 @@
 	import Spinner from '$lib/components/Spinner.svelte';
 	import StatusBadge from '$lib/components/StatusBadge.svelte';
 	import ClientPicker from '$lib/components/ClientPicker.svelte';
+	import AmountInWords from '$lib/components/AmountInWords.svelte';
 	import { auth } from '$lib/stores/auth.svelte.js';
 	import { fmtPrice } from '$lib/utils/format.js';
 
@@ -521,6 +522,39 @@
 						</button>
 					</div>
 				</div>
+
+				{#if projectLedger?.summary}
+					<!-- Live project financial context banner -->
+					<div
+						class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-indigo-100 bg-indigo-50/40 px-3.5 py-2.5 text-xs"
+					>
+						<span class="font-semibold text-indigo-950">Project Ledger Status:</span>
+						<div class="flex flex-wrap items-center gap-4">
+							<div>
+								<span class="text-slate-500">Total Charges:</span>
+								<span class="ml-1 font-semibold text-slate-900"
+									>{fmtPrice(projectLedger.summary.total)}</span
+								>
+							</div>
+							<div>
+								<span class="text-slate-500">Previously Paid:</span>
+								<span class="ml-1 font-semibold text-emerald-700"
+									>{fmtPrice(projectLedger.summary.paid)}</span
+								>
+							</div>
+							<div>
+								<span class="text-slate-500">Remaining Due:</span>
+								<span
+									class="ml-1 font-bold {Number(projectLedger.summary.due) > 0
+										? 'text-amber-700'
+										: 'text-emerald-700'}"
+								>
+									{fmtPrice(projectLedger.summary.due)}
+								</span>
+							</div>
+						</div>
+					</div>
+				{/if}
 			{/if}
 
 			<!-- Searchable Input & Dropdown Picker -->
@@ -890,12 +924,13 @@
 									class="block w-full rounded-lg border-slate-300 px-2.5 py-1.5 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
 								/>
 							</div>
-							<div class="w-28 shrink-0">
+							<div class="w-32 shrink-0 sm:w-36">
 								<label
 									for={`li-price-${row.key}`}
 									class="mb-1 block text-[11px] font-semibold text-slate-600"
 								>
 									Unit Price *
+									<AmountInWords value={row.unit_price} />
 								</label>
 								<input
 									id={`li-price-${row.key}`}

@@ -6,6 +6,7 @@
 	import * as serviceApi from '$lib/api/services.js';
 	import MilestoneStepEditor from '$lib/components/MilestoneStepEditor.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
+	import AmountInWords from '$lib/components/AmountInWords.svelte';
 	import { auth } from '$lib/stores/auth.svelte.js';
 
 	let { data } = $props();
@@ -150,7 +151,8 @@
 		<div class="grid gap-4 sm:grid-cols-2">
 			<div>
 				<label for="s-price" class="block text-sm font-medium text-slate-700">
-					Default price (USD)
+					Default price
+					<AmountInWords value={defaultPrice} />
 				</label>
 				<input
 					id="s-price"

@@ -25,6 +25,7 @@ function applyTenantSettings(rows) {
 		date_format: pick('date_format'),
 		time_format: pick('time_format'),
 		invoice_prefix: pick('invoice_prefix'),
-		invoice_number_format: pick('invoice_number_format')
+		invoice_number_format: pick('invoice_number_format'),
+		number_system: pick('number_system')
 	});
 }

@@ -19,6 +19,7 @@ let state = $state({
 	time_format: '24h',
 	invoice_prefix: 'INV',
 	invoice_number_format: '{PREFIX}-{YYYY}-{SEQ:04d}',
+	number_system: 'international',
 	loaded: false
 });
 
@@ -45,6 +46,9 @@ export const tenantSettings = {
 	get invoice_number_format() {
 		return state.invoice_number_format;
 	},
+	get number_system() {
+		return state.number_system;
+	},
 	get loaded() {
 		return state.loaded;
 	}
@@ -53,7 +57,7 @@ export const tenantSettings = {
 /**
  * Merge backend settings into the store. Missing keys keep their current
  * value; marks the store as loaded so callers know defaults were replaced.
- * @param {Partial<Pick<TenantSettings, 'currency'|'timezone'|'date_format'|'time_format'|'invoice_prefix'|'invoice_number_format'>>} s
+ * @param {Partial<Pick<TenantSettings, 'currency'|'timezone'|'date_format'|'time_format'|'invoice_prefix'|'invoice_number_format'|'number_system'>>} s
  */
 export function setTenantSettings(s) {
 	if (typeof s.currency === 'string' && s.currency) state.currency = s.currency;
@@ -63,5 +67,8 @@ export function setTenantSettings(s) {
 	if (typeof s.invoice_prefix === 'string' && s.invoice_prefix) state.invoice_prefix = s.invoice_prefix;
 	if (typeof s.invoice_number_format === 'string' && s.invoice_number_format)
 		state.invoice_number_format = s.invoice_number_format;
+	if (typeof s.number_system === 'string' && s.number_system)
+		state.number_system = s.number_system;
 	state.loaded = true;
 }
+

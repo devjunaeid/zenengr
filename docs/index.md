@@ -19,9 +19,9 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 
 | Area | Count | Key metric |
 | ---- | ----- | ---------- |
-| Features | 22 | approved: 21, proposed: 1 |
-| User stories | 67 | done: 25, in_progress: 4, proposed: 38 |
-| Todos | 204 | done: 193, in_progress: 0, proposed: 11 |
+| Features | 23 | approved: 22, proposed: 1 |
+| User stories | 69 | done: 27, in_progress: 4, proposed: 38 |
+| Todos | 208 | done: 197, in_progress: 0, proposed: 11 |
 | Decisions | 2 | accepted: 2 |
 
 ## Active sprint
@@ -64,6 +64,7 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | [FEAT-020](features/FEAT-020-pwa-webapp-install.md) | Progressive Web App (PWA) & Web App Install Support | approved | P1 |
 | [FEAT-021](features/FEAT-021-invoice-type-selector-and-filtering.md) | Invoice Type Selector, Billed-To Info & Advanced Filtering | approved | P1 |
 | [FEAT-022](features/FEAT-022-financial-corrections-and-ledger-management.md) | Financial Corrections, Service Price Edits & Ledger Entry Management | approved | P0 |
+| [FEAT-023](features/FEAT-023-invoice-due-column-and-amount-in-words.md) | Invoice Table Due Column & Dynamic Amount in Words with Regional Numbering Systems | approved | P1 |
 
 ### Stories
 
@@ -136,6 +137,8 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | [US-065](stories/US-065.md) | Installable Web App Shell & PWA Support | FEAT-020 | done |
 | [US-066](stories/US-066.md) | Invoice Type Selector, Billed-To Information & Advanced Directory Filtering | FEAT-021 | done |
 | [US-067](stories/US-067.md) | Financial Corrections for Services, Adjustments, and Payments | FEAT-022 | done |
+| [US-068](stories/US-068.md) | Main Invoice Table Due Date Column & Overdue Highlighting | FEAT-023 | done |
+| [US-069](stories/US-069.md) | Tenant Numbering System Setting & Dynamic Amount in Words on Inputs | FEAT-023 | done |
 
 ### Todos
 
@@ -458,10 +461,20 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | [TODO-203](todos/TODO-203.md) | Backend invoice transaction deletion and status recalculation | US-067 | done |
 | [TODO-204](todos/TODO-204.md) | Frontend financial corrections UI for services, ledger entries, and transactions | US-067 | done |
 
+#### FEAT-023 — Invoice Table Due Column & Dynamic Amount in Words
+
+| ID | Title | Story | Status |
+| -- | ----- | ----- | ------ |
+| [TODO-205](todos/TODO-205.md) | Add Due Date column to main invoices list table and mobile cards | US-068 | done |
+| [TODO-206](todos/TODO-206.md) | Backend support for number_system tenant setting and validation | US-069 | done |
+| [TODO-207](todos/TODO-207.md) | Frontend numberToWords utility, settings store update, and AmountInWords component | US-069 | done |
+| [TODO-208](todos/TODO-208.md) | Add Numbering System setting to Configuration page and integrate AmountInWords on inputs | US-069 | done |
+
 ## Recently updated
 
 | Date | Item | Change |
 | ---- | ---- | ------ |
+| 2026-09-25 | FEAT-023 Invoice Table Due Column & Dynamic Amount in Words docs drafted | docs/features/FEAT-023-invoice-due-column-and-amount-in-words.md, docs/stories/US-068.md, docs/stories/US-069.md, docs/todos/TODO-205.md..TODO-208.md, docs/ui-ux-spec.md, docs/index.md. |
 | 2026-09-12 | FEAT-022 Financial Corrections, Service Price Edits & Ledger Entry Management shipped | docs/features/FEAT-022-financial-corrections-and-ledger-management.md, docs/stories/US-067.md, docs/todos/TODO-201.md..TODO-204.md, backend/app/schemas/projects.py, backend/app/schemas/ledger.py, backend/app/services/projects.py, backend/app/services/ledger.py, backend/app/services/transactions.py, backend/app/api/v1/projects.py, backend/app/api/v1/invoices.py, backend/tests/test_financial_corrections_api.py, frontend/src/lib/api/projects.js, frontend/src/lib/api/invoices.js, frontend/src/routes/app/projects/[id]/+page.svelte, frontend/src/routes/app/invoices/[id]/+page.svelte, docs/index.md, docs/progress.md. |
 | 2026-09-09 | FEAT-021 Invoice Type Selector, Billed-To Info & Advanced Filtering shipped | docs/features/FEAT-021-invoice-type-selector-and-filtering.md, docs/stories/US-066.md, docs/todos/TODO-197.md..TODO-200.md, backend/app/models/invoice.py, backend/alembic/versions/b2d3e4f5a6b7_add_invoice_billed_to.py, backend/app/schemas/invoices.py, backend/app/services/invoices.py, backend/app/api/v1/invoices.py, backend/app/services/pdf.py, backend/tests/test_invoices_api.py, frontend/src/lib/api/invoices.js, frontend/src/routes/app/invoices/*, docs/index.md, docs/progress.md. |
 | 2026-09-08 | FEAT-020 PWA & Web App Install Support docs drafted | docs/features/FEAT-020-pwa-webapp-install.md, docs/stories/US-065.md, docs/todos/TODO-194.md..TODO-196.md, docs/index.md. |

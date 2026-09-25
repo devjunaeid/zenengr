@@ -32,7 +32,8 @@ async function loadTenantSettings(fetch) {
 			currency: s?.currency,
 			timezone: s?.timezone,
 			date_format: s?.date_format,
-			time_format: s?.time_format
+			time_format: s?.time_format,
+			number_system: s?.number_system
 		});
 	} catch {
 		// Settings unreachable — keep store defaults.

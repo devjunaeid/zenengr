@@ -4,15 +4,18 @@
 	import check from '@iconify-icons/mdi/check';
 	import { formatProjectCode } from '$lib/utils/format.js';
 
-	let { value, label = null, class: extraClass = '' } = $props();
+	let { value, label = null, copyValue = null, class: extraClass = '' } = $props();
 
 	let copied = $state(false);
 	let timeoutId = null;
 
+	const displayText = $derived(label ?? (value ? formatProjectCode(value) : '—'));
+	const textToCopy = $derived(copyValue ?? label ?? (value ? formatProjectCode(value) : ''));
+
 	async function copy() {
-		if (!value) return;
+		if (!textToCopy) return;
 		try {
-			await navigator.clipboard.writeText(String(value));
+			await navigator.clipboard.writeText(String(textToCopy));
 			copied = true;
 			if (timeoutId) clearTimeout(timeoutId);
 			timeoutId = setTimeout(() => {
@@ -21,7 +24,7 @@
 		} catch {
 			// fallback if navigator.clipboard is unavailable
 			const el = document.createElement('textarea');
-			el.value = String(value);
+			el.value = String(textToCopy);
 			document.body.appendChild(el);
 			el.select();
 			document.execCommand('copy');
@@ -38,11 +41,11 @@
 <button
 	type="button"
 	onclick={copy}
-	title={`Click to copy Project ID: ${value}`}
-	aria-label={`Copy Project ID ${value}`}
-	class="group inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-slate-200 bg-slate-100 px-2.5 py-0.5 font-mono text-xs font-semibold text-slate-700 shadow-2xs transition-all hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none {extraClass}"
+	title={`Click to copy: ${textToCopy}`}
+	aria-label={`Copy ${textToCopy}`}
+	class="group inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-slate-200 bg-slate-100 px-2 py-0.5 font-mono text-xs font-semibold text-slate-700 shadow-2xs transition-all hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none {extraClass}"
 >
-	<span>{label ?? (value ? formatProjectCode(value) : '—')}</span>
+	<span>{displayText}</span>
 	{#if copied}
 		<span
 			class="inline-flex items-center gap-0.5 font-sans text-[10px] font-medium text-emerald-600"

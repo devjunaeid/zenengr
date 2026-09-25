@@ -187,7 +187,9 @@ async def add_project_payment(
     project = await _get_project(session, tenant_id, project_id)
 
     formatted_method = method.value.replace("_", " ").title()
-    desc = f"{formatted_method} - {reference_note}".strip(" -") if reference_note else formatted_method
+    desc = (
+        f"{formatted_method} - {reference_note}".strip(" -") if reference_note else formatted_method
+    )
 
     entry = LedgerEntry(
         project_id=project.id,
@@ -246,9 +248,13 @@ async def update_manual_adjustment(
     if entry.invoice_ref is not None:
         inv = await session.get(Invoice, entry.invoice_ref)
         if inv and inv.status != InvoiceStatus.DRAFT:
+            inv_num = inv.invoice_number or entry.invoice_ref
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail=f"Adjustment cannot be modified: already included on issued invoice {inv.invoice_number or entry.invoice_ref}. Void the invoice first.",
+                detail=(
+                    f"Adjustment cannot be modified: already included on issued invoice {inv_num}. "
+                    "Void the invoice first."
+                ),
             )
 
     old_amount = entry.amount
@@ -306,9 +312,13 @@ async def delete_manual_adjustment(
     if entry.invoice_ref is not None:
         inv = await session.get(Invoice, entry.invoice_ref)
         if inv and inv.status != InvoiceStatus.DRAFT:
+            inv_num = inv.invoice_number or entry.invoice_ref
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail=f"Adjustment cannot be deleted: already included on issued invoice {inv.invoice_number or entry.invoice_ref}. Void the invoice first.",
+                detail=(
+                    f"Adjustment cannot be deleted: already included on issued invoice {inv_num}. "
+                    "Void the invoice first."
+                ),
             )
 
     await audit_log(
@@ -358,9 +368,10 @@ async def update_project_payment(
     if entry.invoice_ref is not None:
         inv = await session.get(Invoice, entry.invoice_ref)
         if inv and inv.status != InvoiceStatus.DRAFT:
+            inv_num = inv.invoice_number or entry.invoice_ref
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail=f"Payment cannot be modified: already included on issued invoice {inv.invoice_number or entry.invoice_ref}.",
+                detail=f"Payment cannot be modified: already included on issued invoice {inv_num}.",
             )
 
     if amount is not None:
@@ -375,7 +386,9 @@ async def update_project_payment(
         entry.entry_date = entry_date
 
     if method is not None or reference_note is not None:
-        cur_method = entry.description.split(" - ")[0] if " - " in entry.description else entry.description
+        cur_method = (
+            entry.description.split(" - ")[0] if " - " in entry.description else entry.description
+        )
         cur_note = entry.description.split(" - ", 1)[1] if " - " in entry.description else ""
         m = method.value.replace("_", " ").title() if method is not None else cur_method
         note = reference_note if reference_note is not None else cur_note
@@ -425,9 +438,10 @@ async def delete_project_payment(
     if entry.invoice_ref is not None:
         inv = await session.get(Invoice, entry.invoice_ref)
         if inv and inv.status != InvoiceStatus.DRAFT:
+            inv_num = inv.invoice_number or entry.invoice_ref
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail=f"Payment cannot be deleted: already included on issued invoice {inv.invoice_number or entry.invoice_ref}.",
+                detail=f"Payment cannot be deleted: already included on issued invoice {inv_num}.",
             )
 
     await audit_log(
@@ -504,9 +518,28 @@ async def get_project_ledger(
             }
         )
 
+    seen_tx_sigs: set[tuple[Decimal, TransactionDirection, date]] = {
+        (
+            _money(ch.amount),
+            TransactionDirection.DEBIT
+            if ch.type == LedgerEntryType.PAYMENT
+            else TransactionDirection.CREDIT,
+            ch.entry_date,
+        )
+        for ch in charges
+        if ch.type in (LedgerEntryType.PAYMENT, LedgerEntryType.REFUND)
+        and ch.entry_date is not None
+    }
     for tx, invoice in tx_rows:
         if tx.id in known_tx_ids:
             continue
+        if tx.reference_note and "synced" in tx.reference_note.lower():
+            continue
+        sig = (_money(tx.amount), tx.direction, tx.recorded_at.date())
+        if sig in seen_tx_sigs:
+            continue
+        seen_tx_sigs.add(sig)
+
         if tx.direction == TransactionDirection.DEBIT:
             entry_type = LedgerEntryType.PAYMENT
             amount_str = f"{_money(tx.amount):.2f}"
@@ -565,9 +598,28 @@ async def get_project_ledger(
         elif ch.type == LedgerEntryType.REFUND:
             refunds += _money(ch.amount)
 
+    seen_summary_sigs: set[tuple[Decimal, TransactionDirection, date]] = {
+        (
+            _money(ch.amount),
+            TransactionDirection.DEBIT
+            if ch.type == LedgerEntryType.PAYMENT
+            else TransactionDirection.CREDIT,
+            ch.entry_date,
+        )
+        for ch in charges
+        if ch.type in (LedgerEntryType.PAYMENT, LedgerEntryType.REFUND)
+        and ch.entry_date is not None
+    }
     for tx, _invoice in tx_rows:
         if tx.id in known_tx_ids:
             continue
+        if tx.reference_note and "synced" in tx.reference_note.lower():
+            continue
+        sig = (_money(tx.amount), tx.direction, tx.recorded_at.date())
+        if sig in seen_summary_sigs:
+            continue
+        seen_summary_sigs.add(sig)
+
         if tx.direction == TransactionDirection.DEBIT:
             payments += _money(tx.amount)
         else:

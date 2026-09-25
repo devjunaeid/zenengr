@@ -9,7 +9,6 @@ Covers:
 
 from __future__ import annotations
 
-import uuid
 from decimal import Decimal
 
 import pytest
@@ -20,7 +19,11 @@ from app.core.security import create_access_token, hash_password
 from app.models.admin_user import AdminUser
 from app.models.client import Client
 from app.models.client_user import ClientUser
-from app.models.enums import AdminUserRole, ClientStatus, ClientType, InvoiceStatus, ProjectStatus, TenantStatus
+from app.models.enums import (
+    AdminUserRole,
+    ClientType,
+    ProjectStatus,
+)
 from app.models.plan import Plan
 from app.models.project import Project
 from app.models.project_service import ProjectService
@@ -31,7 +34,9 @@ from app.services import ledger as ledger_service
 _TEST_PWD = "testpass123!"
 
 
-async def _make_setup(db_session: AsyncSession) -> tuple[Tenant, Client, Project, AdminUser, ClientUser]:
+async def _make_setup(
+    db_session: AsyncSession,
+) -> tuple[Tenant, Client, Project, AdminUser, ClientUser]:
     plan = Plan(
         name="StatementPlan",
         max_admin_users=2,
@@ -118,14 +123,30 @@ async def test_live_statement_preview_and_advance_math(
     db_session.add_all([svc1, svc2])
     await db_session.commit()
 
-    ps1 = ProjectService(project_id=project.id, service_id=svc1.id, price_at_attachment=Decimal("100.00"))
-    ps2 = ProjectService(project_id=project.id, service_id=svc2.id, price_at_attachment=Decimal("200.00"))
+    ps1 = ProjectService(
+        project_id=project.id, service_id=svc1.id, price_at_attachment=Decimal("100.00")
+    )
+    ps2 = ProjectService(
+        project_id=project.id, service_id=svc2.id, price_at_attachment=Decimal("200.00")
+    )
     db_session.add_all([ps1, ps2])
     await db_session.commit()
 
     # Add ledger charge hooks
-    await ledger_service.add_service_charge(db_session, project_id=project.id, project_service_id=ps1.id, amount=Decimal("100.00"), description="Design")
-    await ledger_service.add_service_charge(db_session, project_id=project.id, project_service_id=ps2.id, amount=Decimal("200.00"), description="Development")
+    await ledger_service.add_service_charge(
+        db_session,
+        project_id=project.id,
+        project_service_id=ps1.id,
+        amount=Decimal("100.00"),
+        description="Design",
+    )
+    await ledger_service.add_service_charge(
+        db_session,
+        project_id=project.id,
+        project_service_id=ps2.id,
+        amount=Decimal("200.00"),
+        description="Development",
+    )
     await db_session.commit()
 
     # 2. Check statement endpoint
@@ -140,7 +161,9 @@ async def test_live_statement_preview_and_advance_math(
     assert len(data["entries"]) == 2
 
     # 3. Check live statement PDF
-    pdf_res = await client.get(f"/api/v1/tenant/projects/{project.id}/statement/pdf", headers=headers)
+    pdf_res = await client.get(
+        f"/api/v1/tenant/projects/{project.id}/statement/pdf", headers=headers
+    )
     assert pdf_res.status_code == 200
     assert pdf_res.headers["content-type"] == "application/pdf"
     assert pdf_res.content.startswith(b"%PDF")
@@ -161,17 +184,35 @@ async def test_generate_statement_invoice_and_subsequent_flow(
     db_session.add_all([svc1, svc2])
     await db_session.commit()
 
-    ps1 = ProjectService(project_id=project.id, service_id=svc1.id, price_at_attachment=Decimal("150.00"))
-    ps2 = ProjectService(project_id=project.id, service_id=svc2.id, price_at_attachment=Decimal("250.00"))
+    ps1 = ProjectService(
+        project_id=project.id, service_id=svc1.id, price_at_attachment=Decimal("150.00")
+    )
+    ps2 = ProjectService(
+        project_id=project.id, service_id=svc2.id, price_at_attachment=Decimal("250.00")
+    )
     db_session.add_all([ps1, ps2])
     await db_session.commit()
 
-    await ledger_service.add_service_charge(db_session, project_id=project.id, project_service_id=ps1.id, amount=Decimal("150.00"), description="Audit")
-    await ledger_service.add_service_charge(db_session, project_id=project.id, project_service_id=ps2.id, amount=Decimal("250.00"), description="Implementation")
+    await ledger_service.add_service_charge(
+        db_session,
+        project_id=project.id,
+        project_service_id=ps1.id,
+        amount=Decimal("150.00"),
+        description="Audit",
+    )
+    await ledger_service.add_service_charge(
+        db_session,
+        project_id=project.id,
+        project_service_id=ps2.id,
+        amount=Decimal("250.00"),
+        description="Implementation",
+    )
     await db_session.commit()
 
     # Issue Invoice #1 via Generate Statement Invoice
-    gen_res = await client.post(f"/api/v1/tenant/projects/{project.id}/generate-statement-invoice", headers=admin_headers)
+    gen_res = await client.post(
+        f"/api/v1/tenant/projects/{project.id}/generate-statement-invoice", headers=admin_headers
+    )
     assert gen_res.status_code == 201
     inv1 = gen_res.json()
     assert inv1["status"] == "issued"
@@ -188,7 +229,9 @@ async def test_generate_statement_invoice_and_subsequent_flow(
     assert pay_res.status_code == 201
 
     # Check project statement: Paid = $200, Due = $200, Advance = $0
-    stmt_res = await client.get(f"/api/v1/tenant/projects/{project.id}/statement", headers=admin_headers)
+    stmt_res = await client.get(
+        f"/api/v1/tenant/projects/{project.id}/statement", headers=admin_headers
+    )
     assert stmt_res.status_code == 200
     stmt_data = stmt_res.json()
     assert stmt_data["summary"]["total"] == "400.00"
@@ -201,30 +244,54 @@ async def test_generate_statement_invoice_and_subsequent_flow(
     db_session.add(svc3)
     await db_session.commit()
 
-    ps3 = ProjectService(project_id=project.id, service_id=svc3.id, price_at_attachment=Decimal("300.00"))
+    ps3 = ProjectService(
+        project_id=project.id, service_id=svc3.id, price_at_attachment=Decimal("300.00")
+    )
     db_session.add(ps3)
     await db_session.commit()
-    await ledger_service.add_service_charge(db_session, project_id=project.id, project_service_id=ps3.id, amount=Decimal("300.00"), description="Deployment")
+    await ledger_service.add_service_charge(
+        db_session,
+        project_id=project.id,
+        project_service_id=ps3.id,
+        amount=Decimal("300.00"),
+        description="Deployment",
+    )
     await db_session.commit()
 
     # Statement now reflects: Total Charges = $700, Paid = $200, Due = $500
-    stmt_res2 = await client.get(f"/api/v1/tenant/projects/{project.id}/statement", headers=admin_headers)
+    stmt_res2 = await client.get(
+        f"/api/v1/tenant/projects/{project.id}/statement", headers=admin_headers
+    )
     stmt_data2 = stmt_res2.json()
     assert stmt_data2["summary"]["total"] == "700.00"
     assert stmt_data2["summary"]["paid"] == "200.00"
     assert stmt_data2["summary"]["due"] == "500.00"
 
-    # Issue Invoice #2 (Cumulative statement invoice including all 3 services)
-    gen_res2 = await client.post(f"/api/v1/tenant/projects/{project.id}/generate-statement-invoice", headers=admin_headers)
+    # Issue Invoice #2 (Cumulative statement invoice including all 3 services + synced $200 payment)
+    gen_res2 = await client.post(
+        f"/api/v1/tenant/projects/{project.id}/generate-statement-invoice", headers=admin_headers
+    )
     assert gen_res2.status_code == 201
     inv2 = gen_res2.json()
-    assert inv2["status"] == "issued"
+    assert inv2["status"] == "partially_paid"
     assert inv2["total"] == "700.00"
     assert len(inv2["line_items"]) == 3
     assert inv2["invoice_number"] != inv1["invoice_number"]
 
+    # Verify inv2 transactions include the synced $200 payment from inv1
+    tx_res2 = await client.get(
+        f"/api/v1/tenant/invoices/{inv2['id']}/transactions", headers=admin_headers
+    )
+    assert tx_res2.status_code == 200
+    txs2 = tx_res2.json()
+    assert len(txs2) == 1
+    assert txs2[0]["amount"] == "200.00"
+    assert txs2[0]["reference_note"] == "Deposit"
+
     # 3. Client Portal can view and download client statement PDF
-    client_pdf_res = await client.get(f"/api/v1/client/projects/{project.id}/statement/pdf", headers=client_headers)
+    client_pdf_res = await client.get(
+        f"/api/v1/client/projects/{project.id}/statement/pdf", headers=client_headers
+    )
     assert client_pdf_res.status_code == 200
     assert client_pdf_res.headers["content-type"] == "application/pdf"
     assert client_pdf_res.content.startswith(b"%PDF")
@@ -243,10 +310,18 @@ async def test_generate_statement_invoice_includes_prior_direct_payments(
     db_session.add(svc)
     await db_session.commit()
 
-    ps = ProjectService(project_id=project.id, service_id=svc.id, price_at_attachment=Decimal("300.00"))
+    ps = ProjectService(
+        project_id=project.id, service_id=svc.id, price_at_attachment=Decimal("300.00")
+    )
     db_session.add(ps)
     await db_session.commit()
-    await ledger_service.add_service_charge(db_session, project_id=project.id, project_service_id=ps.id, amount=Decimal("300.00"), description="Design System")
+    await ledger_service.add_service_charge(
+        db_session,
+        project_id=project.id,
+        project_service_id=ps.id,
+        amount=Decimal("300.00"),
+        description="Design System",
+    )
     await db_session.commit()
 
     # 2. Record a direct payment on the project ($100) before any invoice is generated
@@ -258,7 +333,9 @@ async def test_generate_statement_invoice_includes_prior_direct_payments(
     assert pay_res.status_code == 201
 
     # 3. Generate statement invoice for the project
-    gen_res = await client.post(f"/api/v1/tenant/projects/{project.id}/generate-statement-invoice", headers=admin_headers)
+    gen_res = await client.post(
+        f"/api/v1/tenant/projects/{project.id}/generate-statement-invoice", headers=admin_headers
+    )
     assert gen_res.status_code == 201
     inv = gen_res.json()
     assert inv["total"] == "300.00"
@@ -266,17 +343,20 @@ async def test_generate_statement_invoice_includes_prior_direct_payments(
     assert inv["status"] == "partially_paid"
 
     # Fetch invoice transactions to confirm payment transaction is attached
-    tx_res = await client.get(f"/api/v1/tenant/invoices/{inv['id']}/transactions", headers=admin_headers)
+    tx_res = await client.get(
+        f"/api/v1/tenant/invoices/{inv['id']}/transactions", headers=admin_headers
+    )
     assert tx_res.status_code == 200
     tx_list = tx_res.json()
     assert len(tx_list) == 1
     assert tx_list[0]["amount"] == "100.00"
 
     # Ledger summary check: Total = 300, Paid = 100, Due = 200
-    stmt_res = await client.get(f"/api/v1/tenant/projects/{project.id}/statement", headers=admin_headers)
+    stmt_res = await client.get(
+        f"/api/v1/tenant/projects/{project.id}/statement", headers=admin_headers
+    )
     assert stmt_res.status_code == 200
     stmt_data = stmt_res.json()
     assert stmt_data["summary"]["total"] == "300.00"
     assert stmt_data["summary"]["paid"] == "100.00"
     assert stmt_data["summary"]["due"] == "200.00"
-
