@@ -768,10 +768,9 @@ async def update_project_service_price(
     )
     await session.commit()
     await session.refresh(ps)
-    # Ensure ps.service is loaded for schema response
-    if ps.service is None:
-        svc = await session.get(Service, ps.service_id)
-        ps.service = svc
+    # Eagerly load the service relationship — lazy loading is not allowed in
+    # async SQLAlchemy after a commit (session attributes are expired).
+    ps.service = await session.get(Service, ps.service_id)
     return ps
 
 
