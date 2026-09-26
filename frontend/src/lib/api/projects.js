@@ -181,13 +181,17 @@ export function attachService(fetchFn, token, projectId, body) {
  * @returns {Promise<ProjectServiceItem>}
  */
 export function updateProjectServicePrice(fetchFn, token, projectId, projectServiceId, price) {
+	const payload =
+		typeof price === 'object' && price !== null && 'price' in price
+			? { price: String(price.price) }
+			: { price: String(price) };
 	return apiFetch(
 		fetchFn,
 		`/tenant/projects/${encodeURIComponent(projectId)}/services/${encodeURIComponent(projectServiceId)}`,
 		{
 			method: 'PATCH',
 			token,
-			body: { price }
+			body: payload
 		}
 	);
 }

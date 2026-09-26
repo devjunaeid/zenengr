@@ -14,7 +14,7 @@ from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.enums import (
@@ -26,9 +26,10 @@ from app.models.enums import (
     PaymentMethod,
     TransactionDirection,
 )
-from app.models.invoice import Invoice
+from app.models.invoice import Invoice, InvoiceLineItem
 from app.models.ledger_entry import LedgerEntry
 from app.models.project import Project
+from app.models.project_service import ProjectService
 from app.models.transaction import Transaction
 from app.services.audit import log as audit_log
 
@@ -465,6 +466,153 @@ async def delete_project_payment(
 # ── Ledger read (TODO-180) ─────────────────────────────────────────────────
 
 
+async def compute_project_ledger_summary(
+    session: AsyncSession,
+    *,
+    project_id: uuid.UUID,
+    project: Project | None = None,
+    charges: list[LedgerEntry] | None = None,
+    tx_rows: list[Any] | None = None,
+) -> dict[str, Any]:
+    """Compute the single source of truth project financial summary from the ledger.
+
+    Includes all attached services, manual adjustments, project discounts,
+    and deduplicated payment/refund streams.
+    """
+    if project is None:
+        project = await session.get(Project, project_id)
+    if project is None:
+        return {
+            "subtotal": "0.00",
+            "discount_type": None,
+            "discount_value": None,
+            "discount_amount": "0.00",
+            "total": "0.00",
+            "paid": "0.00",
+            "due": "0.00",
+            "advance_balance": "0.00",
+            "total_billed": "0.00",
+            "total_paid": "0.00",
+            "balance_due": "0.00",
+            "total_invoiced": "0.00",
+            "total_outstanding": "0.00",
+        }
+
+    if charges is None:
+        charge_q = (
+            select(LedgerEntry)
+            .where(LedgerEntry.project_id == project.id)
+            .order_by(LedgerEntry.entry_date, LedgerEntry.created_at)
+        )
+        charges = list((await session.execute(charge_q)).scalars().all())
+
+    if tx_rows is None:
+        tx_q = (
+            select(Transaction)
+            .join(Invoice, Transaction.invoice_id == Invoice.id)
+            .where(
+                Invoice.project_id == project.id,
+                Invoice.status != InvoiceStatus.DRAFT,
+            )
+            .order_by(Transaction.recorded_at, Transaction.created_at)
+        )
+        tx_rows = list((await session.execute(tx_q)).scalars().all())
+
+    # Check for custom line items on non-draft, non-statement project invoices
+    custom_li_q = (
+        select(func.coalesce(func.sum(InvoiceLineItem.amount), 0))
+        .join(Invoice, InvoiceLineItem.invoice_id == Invoice.id)
+        .where(
+            Invoice.project_id == project.id,
+            Invoice.status != InvoiceStatus.DRAFT,
+            Invoice.is_auto.is_(False),
+            InvoiceLineItem.project_service_id.is_(None),
+        )
+    )
+    custom_amount = Decimal((await session.execute(custom_li_q)).scalar_one())
+
+    # Fallback for attached services in case ProjectService rows exist without LedgerEntry
+    ps_fallback = Decimal("0")
+    if len(charges) == 0:
+        ps_q = select(func.coalesce(func.sum(ProjectService.price_at_attachment), 0)).where(
+            ProjectService.project_id == project.id
+        )
+        ps_fallback = Decimal((await session.execute(ps_q)).scalar_one())
+
+    subtotal = _money(
+        sum((ch.amount for ch in charges if ch.type == LedgerEntryType.CHARGE), Decimal("0"))
+        + custom_amount
+        + ps_fallback
+    )
+    discount_type = project.discount_type
+    discount_value = project.discount_value
+    discount_amount = Decimal("0")
+    if subtotal > 0 and discount_type is not None and discount_value is not None:
+        if discount_type == DiscountType.PERCENTAGE:
+            discount_amount = _money(subtotal * discount_value / Decimal("100"))
+        else:
+            discount_amount = min(_money(discount_value), subtotal)
+    total = _money(subtotal - discount_amount)
+
+    payments = Decimal("0")
+    refunds = Decimal("0")
+    for ch in charges:
+        if ch.type == LedgerEntryType.PAYMENT:
+            payments += _money(ch.amount)
+        elif ch.type == LedgerEntryType.REFUND:
+            refunds += _money(ch.amount)
+
+    known_tx_ids = {ch.source_id for ch in charges if ch.source_id is not None}
+    seen_summary_sigs: set[tuple[Decimal, TransactionDirection, date]] = {
+        (
+            _money(ch.amount),
+            TransactionDirection.DEBIT
+            if ch.type == LedgerEntryType.PAYMENT
+            else TransactionDirection.CREDIT,
+            ch.entry_date,
+        )
+        for ch in charges
+        if ch.type in (LedgerEntryType.PAYMENT, LedgerEntryType.REFUND)
+        and ch.entry_date is not None
+    }
+    for item in tx_rows:
+        tx = item[0] if isinstance(item, (tuple, list)) else item
+        if tx.id in known_tx_ids:
+            continue
+        if tx.reference_note and "synced" in tx.reference_note.lower():
+            continue
+        sig = (_money(tx.amount), tx.direction, tx.recorded_at.date())
+        if sig in seen_summary_sigs:
+            continue
+        seen_summary_sigs.add(sig)
+
+        if tx.direction == TransactionDirection.DEBIT:
+            payments += _money(tx.amount)
+        else:
+            refunds += _money(tx.amount)
+
+    paid = _money(payments - refunds)
+    due = _money(max(total - paid, Decimal("0")))
+    advance_balance = _money(max(paid - total, Decimal("0")))
+
+    return {
+        "subtotal": f"{subtotal:.2f}",
+        "discount_type": discount_type,
+        "discount_value": f"{discount_value:.2f}" if discount_value is not None else None,
+        "discount_amount": f"{discount_amount:.2f}",
+        "total": f"{total:.2f}",
+        "paid": f"{paid:.2f}",
+        "due": f"{due:.2f}",
+        "advance_balance": f"{advance_balance:.2f}",
+        # Aliases for simplified terminology and compatibility
+        "total_billed": f"{total:.2f}",
+        "total_paid": f"{paid:.2f}",
+        "balance_due": f"{due:.2f}",
+        "total_invoiced": f"{total:.2f}",
+        "total_outstanding": f"{due:.2f}",
+    }
+
+
 async def get_project_ledger(
     session: AsyncSession,
     *,
@@ -577,67 +725,9 @@ async def get_project_ledger(
             e["invoice_number"] = number_map.get(e["invoice_ref"])
 
     # ── Live summary (FR-18.4) ──────────────────────────────────────────────
-    subtotal = _money(
-        sum((ch.amount for ch in charges if ch.type == LedgerEntryType.CHARGE), Decimal("0"))
+    summary = await compute_project_ledger_summary(
+        session, project_id=project.id, project=project, charges=charges, tx_rows=tx_rows
     )
-    discount_type = project.discount_type
-    discount_value = project.discount_value
-    discount_amount = Decimal("0")
-    if subtotal > 0 and discount_type is not None and discount_value is not None:
-        if discount_type == DiscountType.PERCENTAGE:
-            discount_amount = _money(subtotal * discount_value / Decimal("100"))
-        else:
-            discount_amount = min(_money(discount_value), subtotal)
-    total = _money(subtotal - discount_amount)
-
-    payments = Decimal("0")
-    refunds = Decimal("0")
-    for ch in charges:
-        if ch.type == LedgerEntryType.PAYMENT:
-            payments += _money(ch.amount)
-        elif ch.type == LedgerEntryType.REFUND:
-            refunds += _money(ch.amount)
-
-    seen_summary_sigs: set[tuple[Decimal, TransactionDirection, date]] = {
-        (
-            _money(ch.amount),
-            TransactionDirection.DEBIT
-            if ch.type == LedgerEntryType.PAYMENT
-            else TransactionDirection.CREDIT,
-            ch.entry_date,
-        )
-        for ch in charges
-        if ch.type in (LedgerEntryType.PAYMENT, LedgerEntryType.REFUND)
-        and ch.entry_date is not None
-    }
-    for tx, _invoice in tx_rows:
-        if tx.id in known_tx_ids:
-            continue
-        if tx.reference_note and "synced" in tx.reference_note.lower():
-            continue
-        sig = (_money(tx.amount), tx.direction, tx.recorded_at.date())
-        if sig in seen_summary_sigs:
-            continue
-        seen_summary_sigs.add(sig)
-
-        if tx.direction == TransactionDirection.DEBIT:
-            payments += _money(tx.amount)
-        else:
-            refunds += _money(tx.amount)
-    paid = _money(payments - refunds)
-    due = _money(max(total - paid, Decimal("0")))
-    advance_balance = _money(max(paid - total, Decimal("0")))
-
-    summary: dict[str, Any] = {
-        "subtotal": f"{subtotal:.2f}",
-        "discount_type": discount_type,
-        "discount_value": f"{discount_value:.2f}" if discount_value is not None else None,
-        "discount_amount": f"{discount_amount:.2f}",
-        "total": f"{total:.2f}",
-        "paid": f"{paid:.2f}",
-        "due": f"{due:.2f}",
-        "advance_balance": f"{advance_balance:.2f}",
-    }
 
     entries.sort(key=lambda e: (e["entry_date"], e["created_at"]))
     return {"entries": entries, "summary": summary}

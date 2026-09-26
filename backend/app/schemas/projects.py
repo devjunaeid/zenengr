@@ -245,8 +245,13 @@ class ProjectOverviewResponse(BaseModel):
     milestone_total: int
     milestone_completed: int
     milestone_completion_pct: float
+    total_billed: str = "0.00"
     total_invoiced: str = "0.00"
     total_paid: str = "0.00"
     balance_due: str = "0.00"
+    total: str = "0.00"
+    paid: str = "0.00"
+    due: str = "0.00"
+    advance_balance: str = "0.00"
     linked_invoices: list[LinkedInvoiceItem] = []
     service_breakdown: list[ProjectServiceFinancialItem] = []

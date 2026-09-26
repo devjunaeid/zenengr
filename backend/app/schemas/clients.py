@@ -58,7 +58,10 @@ class ClientListItem(BaseModel):
     created_at: datetime
     updated_at: datetime
     active_projects: int = 0
+    total_billed: str = "0.00"
     total_invoiced: str = "0.00"
+    total_paid: str = "0.00"
+    total_due: str = "0.00"
     total_outstanding: str = "0.00"
 
 
@@ -87,8 +90,10 @@ class ClientDetailResponse(BaseModel):
     client_users: list[ClientUserSummary]
     recent_activity: list[dict[str, Any]] = Field(default_factory=list)
     active_projects: int = 0
+    total_billed: str = "0.00"
     total_invoiced: str = "0.00"
     total_paid: str = "0.00"
+    total_due: str = "0.00"
     total_outstanding: str = "0.00"
 
 

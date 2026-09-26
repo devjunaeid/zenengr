@@ -49,6 +49,7 @@ async def get_company_ledger_endpoint(
     client_id: str | None = Query(default=None),
     project_id: str | None = Query(default=None),
     granularity: str = Query(default="month", pattern="^(month|day)$"),
+    tab: str = Query(default="all", pattern="^(all|timeline|projects|clients)$"),
     session: AsyncSession = Depends(get_session),
     user: AdminUser = Depends(require_permission("view", "financial_reports")),
 ) -> CompanyLedgerResponse:
@@ -68,5 +69,6 @@ async def get_company_ledger_endpoint(
         client_id=parsed_client_id,
         project_id=parsed_project_id,
         granularity=granularity,
+        tab=tab,
     )
     return CompanyLedgerResponse(**data)

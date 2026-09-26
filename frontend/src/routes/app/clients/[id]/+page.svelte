@@ -377,28 +377,28 @@
 			</div>
 			<div class="rounded-xl border border-slate-100 bg-slate-50/60 p-3">
 				<p class="text-[11px] font-semibold tracking-wider text-slate-500 uppercase">
-					Total Invoiced
+					Total Billed
 				</p>
 				<p class="mt-1 text-base font-bold text-slate-900">
-					{fmtPrice(data.client.total_invoiced)}
+					{fmtPrice(data.client.total_billed || data.client.total_invoiced)}
 				</p>
 			</div>
 			<div class="rounded-xl border border-slate-100 bg-slate-50/60 p-3">
-				<p class="text-[11px] font-semibold tracking-wider text-slate-500 uppercase">Total Paid</p>
+				<p class="text-[11px] font-semibold tracking-wider text-slate-500 uppercase">Paid</p>
 				<p class="mt-1 text-base font-bold text-emerald-600">
 					{fmtPrice(data.client.total_paid || 0)}
 				</p>
 			</div>
 			<div class="rounded-xl border border-slate-100 bg-slate-50/60 p-3">
-				<p class="text-[11px] font-semibold tracking-wider text-slate-500 uppercase">
-					Outstanding Due
-				</p>
+				<p class="text-[11px] font-semibold tracking-wider text-slate-500 uppercase">Due</p>
 				<p
-					class="mt-1 text-base font-bold {Number(data.client.total_outstanding) > 0
+					class="mt-1 text-base font-bold {Number(
+						data.client.total_due || data.client.total_outstanding
+					) > 0
 						? 'text-amber-600'
 						: 'text-slate-900'}"
 				>
-					{fmtPrice(data.client.total_outstanding)}
+					{fmtPrice(data.client.total_due || data.client.total_outstanding)}
 				</p>
 			</div>
 			<div class="rounded-xl border border-slate-100 bg-slate-50/60 p-3">

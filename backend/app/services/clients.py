@@ -251,8 +251,10 @@ async def get_client_detail(
         "created_at": client.created_at,
         "updated_at": client.updated_at,
         "client_users": client.client_users,
+        "total_billed": financials.get("total_billed", financials["total_invoiced"]),
         "total_invoiced": financials["total_invoiced"],
         "total_paid": financials["total_paid"],
+        "total_due": financials.get("total_due", financials["total_outstanding"]),
         "total_outstanding": financials["total_outstanding"],
         "active_projects": active_projects,
     }
@@ -311,7 +313,10 @@ async def list_clients(
                 "created_at": c.created_at,
                 "updated_at": c.updated_at,
                 "active_projects": active_counts.get(c.id, 0),
+                "total_billed": fin.get("total_billed", fin.get("total_invoiced", "0.00")),
                 "total_invoiced": fin.get("total_invoiced", "0.00"),
+                "total_paid": fin.get("total_paid", "0.00"),
+                "total_due": fin.get("total_due", fin.get("total_outstanding", "0.00")),
                 "total_outstanding": fin.get("total_outstanding", "0.00"),
             }
         )

@@ -362,9 +362,14 @@ async def get_project_overview_endpoint(
         milestone_total=data["milestone_total"],
         milestone_completed=data["milestone_completed"],
         milestone_completion_pct=data["milestone_completion_pct"],
+        total_billed=data["financials"].get("total_billed", data["financials"]["total_invoiced"]),
         total_invoiced=data["financials"]["total_invoiced"],
         total_paid=data["financials"]["total_paid"],
         balance_due=data["financials"]["balance_due"],
+        total=data["financials"].get("total", data["financials"]["total_invoiced"]),
+        paid=data["financials"].get("paid", data["financials"]["total_paid"]),
+        due=data["financials"].get("due", data["financials"]["balance_due"]),
+        advance_balance=data["financials"].get("advance_balance", "0.00"),
         linked_invoices=[LinkedInvoiceItem(**inv) for inv in data["invoices"]],
         service_breakdown=[
             ProjectServiceFinancialItem(**item) for item in data["service_breakdown"]

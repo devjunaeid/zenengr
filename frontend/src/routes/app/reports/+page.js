@@ -74,6 +74,7 @@ export async function load({ fetch, url }) {
 	const clientId = url.searchParams.get('client_id') || '';
 	const projectId = url.searchParams.get('project_id') || '';
 	const granularity = url.searchParams.get('granularity') === 'day' ? 'day' : 'month';
+	const tab = url.searchParams.get('tab') || 'timeline';
 
 	/** @type {import('$lib/api/reports.js').CompanyLedgerResponse} */
 	let ledgerData = {
@@ -102,7 +103,8 @@ export async function load({ fetch, url }) {
 			...(dateTo && { date_to: dateTo }),
 			...(clientId && { client_id: clientId }),
 			...(projectId && { project_id: projectId }),
-			granularity
+			granularity,
+			tab: 'all' // Backend warm execution now takes ~300ms for all tabs, or tab can be used
 		});
 	} catch (err) {
 		console.error('Failed to load company ledger:', err);
@@ -118,7 +120,8 @@ export async function load({ fetch, url }) {
 			date_to: dateTo,
 			client_id: clientId,
 			project_id: projectId,
-			granularity
+			granularity,
+			tab
 		}
 	};
 }

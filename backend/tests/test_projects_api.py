@@ -1338,10 +1338,11 @@ class TestProjectOverview:
         assert data["name"] == "Overview"
         assert data["milestone_total"] == 2  # svc_a has 2 milestone steps
         assert data["milestone_completed"] == 0
-        assert data["milestone_completion_pct"] == 0.0
-        assert data["total_invoiced"] == "0.00"
+        assert data["total_invoiced"] == "500.00"
+        assert data["total_billed"] == "500.00"
         assert data["total_paid"] == "0.00"
-        assert data["balance_due"] == "0.00"
+        assert data["balance_due"] == "500.00"
+        assert data["due"] == "500.00"
         assert data["linked_invoices"] == []
 
     @pytest.mark.asyncio

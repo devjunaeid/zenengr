@@ -649,9 +649,7 @@
 				token,
 				data.project.id,
 				editServiceTarget.id,
-				{
-					price: String(n)
-				}
+				String(n)
 			);
 			editServicePriceOpen = false;
 			toast.success('Service price updated successfully.');
@@ -1822,66 +1820,68 @@
 
 			<div class="mt-4 grid gap-4 sm:grid-cols-3">
 				<div class="rounded-lg border border-slate-100 bg-slate-50 p-4">
-					<dt class="text-xs font-medium tracking-wider text-slate-500 uppercase">Project Total</dt>
+					<dt class="text-xs font-medium tracking-wider text-slate-500 uppercase">Total Billed</dt>
 					<dd class="mt-1 text-xl font-bold text-slate-900">
 						{ledgerSummary
 							? fmtPrice(ledgerSummary.total)
-							: currentOverview?.financials
-								? fmtPrice(currentOverview.financials.total)
+							: currentOverview
+								? fmtPrice(
+										currentOverview.total_billed ??
+											currentOverview.total ??
+											currentOverview.total_invoiced
+									)
 								: '—'}
 					</dd>
 				</div>
 				<div class="rounded-lg border border-emerald-100 bg-emerald-50/60 p-4">
-					<dt class="text-xs font-medium tracking-wider text-emerald-700 uppercase">Total Paid</dt>
+					<dt class="text-xs font-medium tracking-wider text-emerald-700 uppercase">Paid</dt>
 					<dd class="mt-1 text-xl font-bold text-emerald-700">
 						{ledgerSummary
 							? fmtPrice(ledgerSummary.paid)
-							: currentOverview?.financials
-								? fmtPrice(currentOverview.financials.paid)
+							: currentOverview
+								? fmtPrice(currentOverview.paid ?? currentOverview.total_paid)
 								: '—'}
 					</dd>
 				</div>
 				<div
 					class="rounded-lg border p-4 {Number(
-						ledgerSummary?.due ?? currentOverview?.financials?.due
+						ledgerSummary?.due ?? currentOverview?.due ?? currentOverview?.balance_due
 					) > 0
 						? 'border-amber-200 bg-amber-50/60'
 						: 'border-slate-100 bg-slate-50'}"
 				>
 					<dt
 						class="text-xs font-medium tracking-wider {Number(
-							ledgerSummary?.due ?? currentOverview?.financials?.due
+							ledgerSummary?.due ?? currentOverview?.due ?? currentOverview?.balance_due
 						) > 0
 							? 'text-amber-800'
 							: 'text-slate-500'} uppercase"
 					>
-						Outstanding Due
+						Due
 					</dt>
 					<dd
 						class="mt-1 text-xl font-bold {Number(
-							ledgerSummary?.due ?? currentOverview?.financials?.due
+							ledgerSummary?.due ?? currentOverview?.due ?? currentOverview?.balance_due
 						) > 0
 							? 'text-amber-800'
 							: 'text-emerald-700'}"
 					>
 						{ledgerSummary
 							? fmtPrice(ledgerSummary.due)
-							: currentOverview?.financials
-								? fmtPrice(currentOverview.financials.due)
+							: currentOverview
+								? fmtPrice(currentOverview.due ?? currentOverview.balance_due)
 								: '—'}
 					</dd>
 				</div>
 			</div>
 
-			{#if Number(ledgerSummary?.advance_balance ?? currentOverview?.financials?.advance_balance) > 0}
+			{#if Number(ledgerSummary?.advance_balance ?? currentOverview?.advance_balance) > 0}
 				<div
 					class="mt-3 flex items-center justify-between rounded-lg border border-indigo-100 bg-indigo-50 p-3 text-xs text-indigo-900"
 				>
 					<span>Advance Credit Available:</span>
 					<span class="text-sm font-bold text-indigo-700"
-						>{fmtPrice(
-							ledgerSummary?.advance_balance ?? currentOverview?.financials?.advance_balance
-						)}</span
+						>{fmtPrice(ledgerSummary?.advance_balance ?? currentOverview?.advance_balance)}</span
 					>
 				</div>
 			{/if}

@@ -110,10 +110,6 @@
 			err = 'Pick a client.';
 			return;
 		}
-		if (selectedServiceIds.length === 0) {
-			err = 'Pick at least one service.';
-			return;
-		}
 		for (const sid of selectedServiceIds) {
 			if (priceError(sid)) {
 				err = 'Enter a valid price (greater than 0) or clear it to use the default.';
@@ -235,14 +231,17 @@
 		aria-labelledby="services-h"
 	>
 		<div class="flex flex-wrap items-center justify-between gap-3">
-			<h2 id="services-h" class="text-base font-semibold text-slate-900">Services *</h2>
+			<h2 id="services-h" class="text-base font-semibold text-slate-900">
+				Services <span class="text-xs font-normal text-slate-400">(Optional)</span>
+			</h2>
 			<span class="text-sm text-slate-500">
 				Selected: <span class="font-medium text-slate-700">{selectedServiceCount}</span>
 				{selectedServiceCount === 1 ? 'service' : 'services'}
 			</span>
 		</div>
 		<p class="mt-1 text-sm text-slate-500">
-			Pick one or more services. Each one creates its milestones on save.
+			Pick one or more services, or leave empty and attach services later. Each attached service
+			creates its milestones on save.
 		</p>
 
 		{#if data.services.length === 0}

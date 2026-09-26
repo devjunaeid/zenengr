@@ -80,6 +80,7 @@ import { apiFetch } from './client.js';
  * @param {string} [params.client_id]
  * @param {string} [params.project_id]
  * @param {'month'|'day'} [params.granularity]
+ * @param {'all'|'timeline'|'projects'|'clients'} [params.tab]
  * @returns {Promise<CompanyLedgerResponse>}
  */
 export function getCompanyLedger(fetchFn, token, params = {}) {
@@ -89,6 +90,7 @@ export function getCompanyLedger(fetchFn, token, params = {}) {
 	if (params.client_id) sp.set('client_id', params.client_id);
 	if (params.project_id) sp.set('project_id', params.project_id);
 	if (params.granularity) sp.set('granularity', params.granularity);
+	if (params.tab) sp.set('tab', params.tab);
 
 	const qs = sp.toString();
 	const path = qs ? `/tenant/reports/company-ledger?${qs}` : '/tenant/reports/company-ledger';
