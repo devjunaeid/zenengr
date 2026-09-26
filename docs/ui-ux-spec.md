@@ -342,3 +342,51 @@ In addition to WCAG 2.1 AA baseline (existing section):
   - Completely hidden or renders nothing when the input is blank, `null`, `undefined`, or `0`.
   - Handles integer and decimal values seamlessly (e.g. `150.50` -> "One hundred fifty point five zero" or "One hundred fifty and 50/100").
   - Adheres strictly to the tenant's chosen numbering system (`tenantSettings.number_system`).
+
+## FEAT-025: Company Global Ledger & Operational Analytics Dashboard (`/app/reports`)
+
+### Route & Navigation
+- **Path:** `/app/reports`
+- **Sidebar Nav:** Added below Files/Settings or in main navigation group. Labeled **Reports** with a poll/chart icon.
+- **Permission Gate:** Visible only to users with `view/financial_reports` permission (Tenant Admin and Manager roles).
+
+### Header & Filter Toolbar
+- **Page Header:** Clean title ("Company Reports & Analytics") and subtitle ("Organization-wide financial and operational intelligence in a single place").
+- **Date Presets Segmented Control:**
+  - Quick pills: *This Month* (default), *Last Month*, *This Quarter*, *Year to Date (YTD)*, *Last 30 Days*, *Last 90 Days*, *All Time*, *Custom*.
+  - When *Custom* is selected, inline Start Date and End Date datepicker inputs appear.
+- **Entity Slicers:**
+  - Client Picker: Filter entire dashboard to a specific client.
+  - Project Picker: Filter entire dashboard to a specific project.
+  - Reset Button: Instantly clears filters back to *This Month*.
+  - Export CSV Button: One-click download of the active tab view as a `.csv` spreadsheet.
+
+### Executive KPI Summary Cards
+7 responsive summary cards with distinct color accents:
+1. **New Projects:** Count of projects created in the window (with completed/active pill).
+2. **New Services:** Count and total monetary value of attached project services.
+3. **New Clients:** Count of clients onboarded in the period.
+4. **Total Invoiced:** Sum of invoices issued in the period (with formatPrice).
+5. **Payments Collected:** Net payments received in the period (emerald highlight).
+6. **Outstanding Due:** Net unpaid receivables (amber highlight if > 0).
+7. **Advance Credits:** Unused advance client deposits currently held (indigo highlight).
+
+### Tabbed Multi-Dimensional Views
+1. **Timeline (Month / Date-wise):**
+   - Chronological table showing monthly or daily intervals.
+   - Shows New Projects, New Clients, New Services, Invoiced Amount, Collected Amount, Net Due Generated.
+   - Visual comparison bars: side-by-side or stacked visual meter showing Invoiced vs Collected volume.
+   - Table summary footer with grand totals.
+2. **Project-wise Breakdown:**
+   - Client-side search bar ("Search by project name, short ID, or client...").
+   - Sort dropdown: Highest Due First, Highest Invoiced First, Most Services, Name.
+   - Table columns: Project (Name + Short ID), Client, Status, Services Count, Total Value, Invoiced, Paid, Balance Due.
+   - Direct clickable row/link opening `/app/projects/[id]`.
+3. **Client-wise Breakdown:**
+   - Client-side search bar ("Search client name...").
+   - Sort dropdown: Highest Due First, Highest Invoiced First, Most Active Projects, Name.
+   - Table columns: Client Name, Type, Active Projects, Services Count, Total Invoiced, Total Paid, Balance Due, Advance Credit.
+   - Direct clickable row/link opening `/app/clients/[id]`.
+
+### Read-Only Guarantee
+- Zero mutation triggers, modals, or creation forms. Designed purely for high-speed administrative reporting, cashflow analysis, and stakeholder reviews.

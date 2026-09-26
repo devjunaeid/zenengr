@@ -9,6 +9,7 @@
 	import accountMultiple from '@iconify-icons/mdi/account-multiple';
 	import folderMultiple from '@iconify-icons/mdi/folder-multiple';
 	import receiptText from '@iconify-icons/mdi/receipt-text';
+	import chartBoxOutline from '@iconify-icons/mdi/chart-box-outline';
 	import fileMultiple from '@iconify-icons/mdi/file-multiple';
 	import cog from '@iconify-icons/mdi/cog';
 	import accountCircle from '@iconify-icons/mdi/account-circle';
@@ -45,6 +46,13 @@
 			adminOnly: false
 		},
 		{ href: '/app/invoices', label: 'Invoices', icon: receiptText, exact: false, adminOnly: false },
+		{
+			href: '/app/reports',
+			label: 'Reports',
+			icon: chartBoxOutline,
+			exact: false,
+			perm: ['view', 'financial_reports']
+		},
 		{ href: '/app/files', label: 'Files', icon: fileMultiple, exact: false, adminOnly: false },
 		{
 			href: '/app/settings',

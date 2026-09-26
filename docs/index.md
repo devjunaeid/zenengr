@@ -19,9 +19,9 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 
 | Area | Count | Key metric |
 | ---- | ----- | ---------- |
-| Features | 24 | approved: 23, proposed: 1 |
-| User stories | 71 | done: 31, in_progress: 2, proposed: 38 |
-| Todos | 212 | done: 201, in_progress: 0, proposed: 11 |
+| Features | 25 | approved: 24, proposed: 1 |
+| User stories | 73 | done: 33, in_progress: 0, proposed: 40 |
+| Todos | 216 | done: 205, in_progress: 0, proposed: 11 |
 | Decisions | 2 | accepted: 2 |
 
 ## Active sprint
@@ -66,6 +66,7 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | [FEAT-022](features/FEAT-022-financial-corrections-and-ledger-management.md) | Financial Corrections, Service Price Edits & Ledger Entry Management | approved | P0 |
 | [FEAT-023](features/FEAT-023-invoice-due-column-and-amount-in-words.md) | Invoice Table Due Column & Dynamic Amount in Words with Regional Numbering Systems | approved | P1 |
 | [FEAT-024](features/FEAT-024-lazy-loading-tabs-and-lean-apis.md) | Lazy Loading Tabbed Views & Lean On-Demand API Architecture | approved | P1 |
+| [FEAT-025](features/FEAT-025-global-ledger-and-analytics.md) | Company Global Ledger & Operational Analytics Dashboard | approved | P1 |
 
 ### Stories
 
@@ -142,6 +143,8 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | [US-069](stories/US-069.md) | Tenant Numbering System Setting & Dynamic Amount in Words on Inputs | FEAT-023 | done |
 | [US-070](stories/US-070.md) | Lazy Loading Tab Data on Demand for Project, Client, and Portal Views | FEAT-024 | done |
 | [US-071](stories/US-071.md) | Lean API Queries, Default Scoped Payloads & On-Demand Extensions | FEAT-024 | done |
+| [US-072](stories/US-072.md) | Global Ledger & Company Analytics Backend Aggregations API | FEAT-025 | done |
+| [US-073](stories/US-073.md) | Read-Only Company Analytics & Multi-Dimensional Ledger UI (/app/reports) | FEAT-025 | done |
 
 ### Todos
 
@@ -482,10 +485,20 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | [TODO-211](todos/TODO-211.md) | Refactor Client Portal Project View (/client/projects/[id]) for lazy tab loading | US-070 | done |
 | [TODO-212](todos/TODO-212.md) | Audit and optimize backend queries and API payloads for lean default responses | US-071 | done |
 
+#### FEAT-025 — Company Global Ledger & Operational Analytics Dashboard
+
+| ID | Title | Story | Status |
+| -- | ----- | ----- | ------ |
+| [TODO-213](todos/TODO-213.md) | Backend SQL aggregation service & API endpoint (GET /tenant/reports/company-ledger) | US-072 | done |
+| [TODO-214](todos/TODO-214.md) | Frontend /app/reports page layout, KPI cards, date range & filter toolbar | US-073 | done |
+| [TODO-215](todos/TODO-215.md) | Date/Month-wise timeline view & operational trend breakdown | US-073 | done |
+| [TODO-216](todos/TODO-216.md) | Project-wise & Client-wise breakdown tables with search, sorting, and CSV export | US-073 | done |
+
 ## Recently updated
 
 | Date | Item | Change |
 | ---- | ---- | ------ |
+| 2026-09-26 | FEAT-025 Company Global Ledger & Operational Analytics Dashboard shipped | docs/features/FEAT-025-global-ledger-and-analytics.md, docs/stories/US-072.md, docs/stories/US-073.md, docs/todos/TODO-213.md..TODO-216.md, backend/app/api/v1/reports.py, backend/app/services/reports.py, frontend/src/routes/app/reports/*, docs/index.md, docs/progress.md. |
 | 2026-09-26 | FEAT-024 Lazy Loading Tabbed Views & Lean On-Demand API Architecture shipped | docs/features/FEAT-024-lazy-loading-tabs-and-lean-apis.md, docs/stories/US-070.md, docs/stories/US-071.md, docs/todos/TODO-209.md..TODO-212.md, frontend/src/routes/app/projects/[id]/*, frontend/src/routes/app/clients/[id]/*, frontend/src/routes/client/projects/[id]/*, backend/app/api/v1/clients.py, backend/app/api/v1/projects.py, docs/index.md, docs/progress.md. |
 | 2026-09-25 | FEAT-023 Invoice Table Due Column & Dynamic Amount in Words docs drafted | docs/features/FEAT-023-invoice-due-column-and-amount-in-words.md, docs/stories/US-068.md, docs/stories/US-069.md, docs/todos/TODO-205.md..TODO-208.md, docs/ui-ux-spec.md, docs/index.md. |
 | 2026-09-12 | FEAT-022 Financial Corrections, Service Price Edits & Ledger Entry Management shipped | docs/features/FEAT-022-financial-corrections-and-ledger-management.md, docs/stories/US-067.md, docs/todos/TODO-201.md..TODO-204.md, backend/app/schemas/projects.py, backend/app/schemas/ledger.py, backend/app/services/projects.py, backend/app/services/ledger.py, backend/app/services/transactions.py, backend/app/api/v1/projects.py, backend/app/api/v1/invoices.py, backend/tests/test_financial_corrections_api.py, frontend/src/lib/api/projects.js, frontend/src/lib/api/invoices.js, frontend/src/routes/app/projects/[id]/+page.svelte, frontend/src/routes/app/invoices/[id]/+page.svelte, docs/index.md, docs/progress.md. |

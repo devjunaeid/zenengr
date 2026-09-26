@@ -21,6 +21,7 @@ from app.api.v1.notifications import router as notifications_router
 from app.api.v1.projects import router as projects_router
 from app.api.v1.public import router as public_router
 from app.api.v1.purchase_entries import router as purchase_entries_router
+from app.api.v1.reports import router as reports_router
 from app.api.v1.roles import router as roles_router
 from app.api.v1.services import router as services_router
 from app.api.v1.smtp import router as smtp_router
@@ -57,4 +58,5 @@ api_router.include_router(files_router)
 api_router.include_router(smtp_router)
 api_router.include_router(notifications_router)
 api_router.include_router(notifications_client_router)
+api_router.include_router(reports_router)
 api_router.include_router(ws_router)
