@@ -294,7 +294,7 @@ async def list_projects_endpoint(
 async def get_projects_picker_endpoint(
     q: str | None = Query(default=None),
     client_id: str | None = Query(default=None),
-    limit: int = Query(default=10, ge=1, le=50),
+    limit: int = Query(default=10, ge=1, le=100),
     session: AsyncSession = Depends(get_session),
     user: AdminUser = Depends(get_current_admin_user),
 ) -> ProjectPickerResponse:

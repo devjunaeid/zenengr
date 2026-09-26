@@ -172,24 +172,142 @@ async def list_linked_invoices(
 async def get_client_financials_batch(
     session: AsyncSession, *, client_ids: list[uuid.UUID]
 ) -> dict[uuid.UUID, dict[str, str]]:
-    """Per-client financial rollups derived directly from project ledgers."""
+    """Per-client financial rollups via bulk queries (no N+1).
+
+    Runs 4 queries across all projects for the given clients instead of
+    calling compute_project_ledger_summary per project, which caused
+    asyncpg connection exhaustion under load.
+    """
     result: dict[uuid.UUID, dict[str, str]] = {}
     if not client_ids:
         return result
 
-    from app.services.ledger import compute_project_ledger_summary
+    from app.models.enums import DiscountType, LedgerEntryType, TransactionDirection
+    from app.models.ledger_entry import LedgerEntry
+    from app.models.transaction import Transaction
 
-    # Projects for these clients
+    # ── 1. Fetch all projects for these clients ──────────────────────────────
     proj_stmt = select(Project).where(Project.client_id.in_(client_ids))
     projects = list((await session.execute(proj_stmt)).scalars().all())
+
+    if not projects:
+        for cid in client_ids:
+            result[cid] = {
+                "total_billed": "0.00",
+                "total_paid": "0.00",
+                "total_due": "0.00",
+                "total_invoiced": "0.00",
+                "total_outstanding": "0.00",
+            }
+        return result
+
+    project_ids = [p.id for p in projects]
+
+    # ── 2. Bulk fetch ledger charges for all projects ────────────────────────
+    charge_stmt = select(LedgerEntry).where(LedgerEntry.project_id.in_(project_ids))
+    all_charges = list((await session.execute(charge_stmt)).scalars().all())
+    charges_by_proj: dict[uuid.UUID, list] = {pid: [] for pid in project_ids}
+    for ch in all_charges:
+        charges_by_proj[ch.project_id].append(ch)
+
+    # ── 3. Bulk fetch transactions on non-draft invoices ─────────────────────
+    tx_stmt = (
+        select(Transaction)
+        .join(Invoice, Transaction.invoice_id == Invoice.id)
+        .where(
+            Invoice.project_id.in_(project_ids),
+            Invoice.status != InvoiceStatus.DRAFT,
+        )
+    )
+    all_txs = list((await session.execute(tx_stmt)).scalars().all())
+
+    # Need project_id per transaction — fetch via invoice map
+    inv_stmt = select(Invoice.id, Invoice.project_id).where(
+        Invoice.project_id.in_(project_ids),
+        Invoice.status != InvoiceStatus.DRAFT,
+    )
+    inv_proj_map: dict[uuid.UUID, uuid.UUID] = {}
+    for inv_id, proj_id in (await session.execute(inv_stmt)).all():
+        inv_proj_map[inv_id] = proj_id
+
+    txs_by_proj: dict[uuid.UUID, list] = {pid: [] for pid in project_ids}
+    for tx in all_txs:
+        pid = inv_proj_map.get(tx.invoice_id)
+        if pid is not None:
+            txs_by_proj[pid].append(tx)
+
+    # ── 4. Bulk fetch custom line-item amounts (non-auto invoices) ───────────
+    custom_stmt = (
+        select(Invoice.project_id, func.coalesce(func.sum(InvoiceLineItem.amount), 0))
+        .join(InvoiceLineItem, InvoiceLineItem.invoice_id == Invoice.id)
+        .where(
+            Invoice.project_id.in_(project_ids),
+            Invoice.status != InvoiceStatus.DRAFT,
+            Invoice.is_auto.is_(False),
+            InvoiceLineItem.project_service_id.is_(None),
+        )
+        .group_by(Invoice.project_id)
+    )
+    custom_by_proj: dict[uuid.UUID, Decimal] = {}
+    for proj_id, amt in (await session.execute(custom_stmt)).all():
+        custom_by_proj[proj_id] = Decimal(amt)
+
+    # ── 5. Aggregate per project → roll up per client ────────────────────────
+    from decimal import ROUND_HALF_UP
+
+    def _m(v: Decimal) -> Decimal:
+        return v.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
     client_billed: dict[uuid.UUID, Decimal] = {cid: Decimal("0") for cid in client_ids}
     client_paid: dict[uuid.UUID, Decimal] = {cid: Decimal("0") for cid in client_ids}
 
     for p in projects:
-        summary = await compute_project_ledger_summary(session, project_id=p.id, project=p)
-        client_billed[p.client_id] += Decimal(summary["total"])
-        client_paid[p.client_id] += Decimal(summary["paid"])
+        pid = p.id
+        charges = charges_by_proj.get(pid, [])
+        txs = txs_by_proj.get(pid, [])
+        custom_amount = custom_by_proj.get(pid, Decimal("0"))
+
+        # Subtotal from CHARGE entries + custom lines
+        charge_subtotal = sum(
+            (_m(ch.amount) for ch in charges if ch.type == LedgerEntryType.CHARGE),
+            Decimal("0"),
+        )
+        subtotal = _m(charge_subtotal + custom_amount)
+
+        # Apply project discount
+        discount_amount = Decimal("0")
+        if subtotal > 0 and p.discount_type is not None and p.discount_value is not None:
+            if p.discount_type == DiscountType.PERCENTAGE:
+                discount_amount = _m(subtotal * p.discount_value / Decimal("100"))
+            else:
+                discount_amount = min(_m(p.discount_value), subtotal)
+        total = _m(subtotal - discount_amount)
+
+        # Payments/refunds from ledger entries
+        payments = sum(
+            (_m(ch.amount) for ch in charges if ch.type == LedgerEntryType.PAYMENT),
+            Decimal("0"),
+        )
+        refunds = sum(
+            (_m(ch.amount) for ch in charges if ch.type == LedgerEntryType.REFUND),
+            Decimal("0"),
+        )
+
+        # Supplement with transactions not already in ledger
+        known_tx_ids = {ch.source_id for ch in charges if ch.source_id is not None}
+        for tx in txs:
+            if tx.id in known_tx_ids:
+                continue
+            if tx.reference_note and "synced" in tx.reference_note.lower():
+                continue
+            if tx.direction == TransactionDirection.DEBIT:
+                payments += _m(tx.amount)
+            else:
+                refunds += _m(tx.amount)
+
+        paid = _m(payments - refunds)
+        client_billed[p.client_id] += total
+        client_paid[p.client_id] += paid
 
     for cid in client_ids:
         billed = client_billed.get(cid, Decimal("0"))
@@ -203,6 +321,7 @@ async def get_client_financials_batch(
             "total_outstanding": _fmt(due),
         }
     return result
+
 
 
 async def get_client_financials(session: AsyncSession, *, client_id: uuid.UUID) -> dict[str, str]:

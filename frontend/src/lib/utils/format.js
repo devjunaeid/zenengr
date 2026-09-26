@@ -245,7 +245,18 @@ export function fmtPrice(v, currency) {
  * Format a byte count as a human-readable size, e.g. "1.2 MB".
  * @param {number|string|null|undefined} bytes
  */
+/**
+ * Format a plain integer/count for display. Returns '—' for null/undefined.
+ * @param {number|null|undefined} v
+ * @returns {string}
+ */
+export function fmtNumber(v) {
+	if (v == null) return '—';
+	return Number(v).toLocaleString();
+}
+
 export function fmtBytes(bytes) {
+
 	if (bytes == null || bytes === '') return '—';
 	const n = Number(bytes);
 	if (Number.isNaN(n) || n < 0) return '—';
