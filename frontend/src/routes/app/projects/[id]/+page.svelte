@@ -61,6 +61,7 @@
 
 	let ledgerLoading = $state(false);
 	let ledgerLoaded = $state(Boolean(data.ledger));
+	let ledgerError = $state(null);
 
 	let invoicesLoading = $state(false);
 	let invoicesLoaded = $state(Boolean(data.invoices?.items?.length));
@@ -83,6 +84,7 @@
 	async function loadLedgerTab(force = false) {
 		if (ledgerLoading || (ledgerLoaded && !force)) return;
 		ledgerLoading = true;
+		ledgerError = null;
 		try {
 			const res = await projectApi.getProjectLedger(fetch, token, data.project.id);
 			if (res) {
@@ -91,6 +93,7 @@
 			}
 		} catch (e) {
 			console.error('Failed to load ledger', e);
+			ledgerError = e?.message || 'Failed to load ledger data';
 		} finally {
 			ledgerLoading = false;
 		}
@@ -174,7 +177,10 @@
 	}
 
 	$effect(() => {
-		ensureTabData(activeTab);
+		const tab = activeTab;
+		untrack(() => {
+			ensureTabData(tab);
+		});
 	});
 
 	async function refreshFinancials() {
@@ -190,6 +196,7 @@
 			if (freshLedger) {
 				liveLedgerOverride = freshLedger;
 				ledgerLoaded = true;
+				ledgerError = null;
 			}
 			if (freshOverview) liveOverviewOverride = freshOverview;
 			if (freshProject) liveProjectOverride = freshProject;
@@ -2165,6 +2172,20 @@
 			class="mt-6 flex items-center justify-center rounded-lg border border-slate-200 bg-white p-16 shadow-xs"
 		>
 			<Spinner class="h-8 w-8 text-indigo-600" />
+		</div>
+	{:else if ledgerError && !ledgerLoaded}
+		<div
+			class="mt-6 rounded-lg border border-red-200 bg-red-50 p-6 text-center text-sm text-red-700"
+		>
+			<p class="font-medium">Failed to load ledger &amp; financials</p>
+			<p class="mt-1 text-xs text-red-600">{ledgerError}</p>
+			<button
+				type="button"
+				onclick={() => loadLedgerTab(true)}
+				class="mt-3 inline-flex items-center rounded-md bg-red-600 px-3 py-1.5 text-xs font-medium text-white shadow-xs hover:bg-red-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600"
+			>
+				Retry
+			</button>
 		</div>
 	{:else}
 		{#if canManage}

@@ -576,7 +576,14 @@ async def compute_project_ledger_summary(
         and ch.entry_date is not None
     }
     for item in tx_rows:
-        tx = item[0] if isinstance(item, (tuple, list)) else item
+        if isinstance(item, Transaction):
+            tx = item
+        elif hasattr(item, "Transaction"):
+            tx = item.Transaction
+        elif hasattr(item, "__getitem__"):
+            tx = item[0]
+        else:
+            tx = item
         if tx.id in known_tx_ids:
             continue
         if tx.reference_note and "synced" in tx.reference_note.lower():

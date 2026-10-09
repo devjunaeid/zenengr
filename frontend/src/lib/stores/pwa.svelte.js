@@ -1,4 +1,4 @@
-import { browser } from '$app/environment';
+import { browser, dev } from '$app/environment';
 
 let isOnline = $state(true);
 let isStandalone = $state(false);
@@ -77,11 +77,19 @@ export const pwa = {
 			isStandalone = true;
 		});
 
-		// Register Service Worker
+		// Register Service Worker in production only; unregister in development to prevent dev server intercept traps
 		if ('serviceWorker' in navigator) {
-			navigator.serviceWorker.register('/service-worker.js').catch((err) => {
-				console.warn('Service worker registration failed:', err);
-			});
+			if (dev) {
+				navigator.serviceWorker.getRegistrations().then((registrations) => {
+					for (const r of registrations) {
+						r.unregister();
+					}
+				});
+			} else {
+				navigator.serviceWorker.register('/service-worker.js').catch((err) => {
+					console.warn('Service worker registration failed:', err);
+				});
+			}
 		}
 	}
 };

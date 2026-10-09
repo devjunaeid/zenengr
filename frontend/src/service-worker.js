@@ -32,6 +32,9 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
 	const { request } = event;
 
+	// In development, do not intercept fetch requests to avoid interfering with Vite HMR
+	if (import.meta.env.DEV) return;
+
 	// Only handle GET requests
 	if (request.method !== 'GET') return;
 
@@ -78,10 +81,13 @@ self.addEventListener('fetch', (event) => {
 					(await cache.match('/')) ||
 					(await cache.match('/index.html'));
 				if (cached) return cached;
-				return new Response('You are offline and this page has not yet been cached.', {
-					status: 503,
-					headers: { 'Content-Type': 'text/plain; charset=utf-8' }
-				});
+				return new Response(
+					`<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Offline — ZenEngr</title><style>body{font-family:system-ui,-apple-system,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;background:#f8fafc;color:#1e293b;padding:1rem}.card{background:#fff;padding:2rem;border-radius:1rem;box-shadow:0 10px 15px -3px rgb(0 0 0/0.05);max-width:24rem;text-align:center;border:1px solid #e2e8f0}h1{font-size:1.25rem;font-weight:700;margin:0 0 .5rem}p{font-size:.875rem;color:#64748b;margin:0 0 1.5rem;line-height:1.5}button{background:#4f46e5;color:#fff;border:none;padding:.625rem 1.25rem;font-size:.875rem;font-weight:600;border-radius:.5rem;cursor:pointer;min-height:44px;width:100%}button:hover{background:#4338ca}</style></head><body><div class="card"><h1>You're Offline</h1><p>You appear to be offline and this page has not yet been cached. Check your internet connection and try again.</p><button onclick="window.location.reload()">Try Again</button></div></body></html>`,
+					{
+						status: 503,
+						headers: { 'Content-Type': 'text/html; charset=utf-8' }
+					}
+				);
 			})
 		);
 		return;
