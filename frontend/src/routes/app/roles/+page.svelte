@@ -467,13 +467,14 @@
 				>
 					{#each visibleRoles as r (r.id)}
 						<option value={r.id}>
-							{r.name} {r.name === 'admin' ? '(Full Access)' : ''}
+							{r.name}
+							{r.name === 'admin' ? '(Full Access)' : ''}
 						</option>
 					{/each}
 				</select>
 			</div>
 
-			<ul class="divide-y divide-slate-100 max-h-64 overflow-y-auto lg:max-h-none">
+			<ul class="max-h-64 divide-y divide-slate-100 overflow-y-auto lg:max-h-none">
 				{#each visibleRoles as r (r.id)}
 					{@const active = r.id === selectedId}
 					<li>
@@ -1044,10 +1045,12 @@
 				</div>
 
 				<!-- Sticky Modal Footer -->
-				<div class="flex shrink-0 justify-end gap-2.5 border-t border-slate-100 bg-slate-50/50 p-4">
+				<div
+					class="safe-bottom flex shrink-0 flex-col-reverse justify-end gap-2.5 border-t border-slate-100 bg-slate-50/50 p-4 sm:flex-row"
+				>
 					<Dialog.Close
 						type="button"
-						class="rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-2xs transition-colors hover:bg-slate-50"
+						class="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 shadow-2xs transition-colors hover:bg-slate-50"
 					>
 						Cancel
 					</Dialog.Close>
@@ -1055,7 +1058,7 @@
 						type="submit"
 						disabled={newBusy}
 						aria-busy={newBusy}
-						class="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-2xs transition-colors hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:opacity-60"
+						class="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-lg bg-indigo-600 px-5 py-2 text-xs font-semibold text-white shadow-2xs transition-colors hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:opacity-60"
 					>
 						{#if newBusy}
 							<Spinner class="h-3.5 w-3.5 text-white" />

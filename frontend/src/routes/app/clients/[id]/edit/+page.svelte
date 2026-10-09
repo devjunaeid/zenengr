@@ -21,15 +21,23 @@
 	let phone = $state(client.phone ?? '');
 	let taxId = $state(client.tax_id ?? '');
 	let addressFields = $state(addressToFields(client.billing_address));
-	let tags = $state([...client.tags]);
+	let tags = $state(Array.isArray(client?.tags) ? [...client.tags] : []);
 	let tagInput = $state('');
 	let busy = $state(false);
 	let err = $state(null);
 
 	function addTag() {
-		const t = tagInput.trim();
-		if (!t) return;
-		if (!tags.includes(t)) tags = [...tags, t];
+		const raw = tagInput.trim();
+		if (!raw) return;
+		const parts = raw
+			.split(',')
+			.map((s) => s.trim())
+			.filter(Boolean);
+		for (const p of parts) {
+			if (!tags.some((x) => x.toLowerCase() === p.toLowerCase())) {
+				tags = [...tags, p];
+			}
+		}
 		tagInput = '';
 	}
 
@@ -38,15 +46,25 @@
 	}
 
 	function onTagKeydown(e) {
-		if (e.key === 'Enter' || e.key === ',') {
+		if (e.key === 'Enter' || e.keyCode === 13 || e.key === ',') {
 			e.preventDefault();
+			e.stopPropagation();
 			addTag();
 		} else if (e.key === 'Backspace' && !tagInput && tags.length) {
 			tags = tags.slice(0, -1);
 		}
 	}
 
+	function onTagInput() {
+		if (tagInput.includes(',')) {
+			addTag();
+		}
+	}
+
 	async function submit() {
+		if (tagInput.trim()) {
+			addTag();
+		}
 		busy = true;
 		err = null;
 		try {
@@ -118,6 +136,8 @@
 			bind:value={name}
 			required
 			maxlength="255"
+			autocomplete="organization"
+			enterkeyhint="next"
 			class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
 		/>
 	</div>
@@ -157,6 +177,9 @@
 				id="c-email"
 				type="email"
 				bind:value={email}
+				autocomplete="email"
+				inputmode="email"
+				enterkeyhint="next"
 				class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
 			/>
 		</div>
@@ -164,8 +187,11 @@
 			<label for="c-phone" class="block text-sm font-medium text-slate-700">Phone</label>
 			<input
 				id="c-phone"
-				type="text"
+				type="tel"
 				bind:value={phone}
+				autocomplete="tel"
+				inputmode="tel"
+				enterkeyhint="next"
 				class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
 			/>
 		</div>
@@ -177,6 +203,7 @@
 			id="c-tax"
 			type="text"
 			bind:value={taxId}
+			enterkeyhint="next"
 			class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
 		/>
 	</div>
@@ -191,18 +218,29 @@
 
 	<div>
 		<label for="c-tags" class="block text-sm font-medium text-slate-700">Tags</label>
-		<input
-			id="c-tags"
-			type="text"
-			bind:value={tagInput}
-			onkeydown={onTagKeydown}
-			onblur={addTag}
-			placeholder="Type and press Enter or comma"
-			class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-		/>
+		<div class="mt-1 flex gap-2">
+			<input
+				id="c-tags"
+				type="text"
+				bind:value={tagInput}
+				onkeydown={onTagKeydown}
+				oninput={onTagInput}
+				onblur={addTag}
+				enterkeyhint="done"
+				placeholder="Type tag name and press Enter, comma, or Add..."
+				class="block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+			/>
+			<button
+				type="button"
+				onclick={addTag}
+				class="inline-flex shrink-0 items-center rounded-md border border-slate-300 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 focus:ring-2 focus:ring-indigo-500"
+			>
+				Add
+			</button>
+		</div>
 		{#if tags.length}
 			<div class="mt-2 flex flex-wrap gap-1">
-				{#each tags as t (t)}
+				{#each tags as t, i (t + '-' + i)}
 					<span
 						class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700 ring-1 ring-slate-300 ring-inset"
 					>
@@ -219,24 +257,26 @@
 				{/each}
 			</div>
 		{/if}
-		<p class="mt-1 text-xs text-slate-500">Press Enter or comma to add a tag.</p>
+		<p class="mt-1 text-xs text-slate-500">Press Enter, comma, or Add to add a tag.</p>
 	</div>
 
-	<div class="flex flex-wrap items-center gap-3 pt-2">
+	<div
+		class="sticky bottom-0 -mx-4 -mb-8 mt-6 flex items-center justify-end gap-3 border-t border-slate-200 bg-white/95 px-4 py-3 backdrop-blur-xs safe-bottom sm:static sm:mx-0 sm:mb-0 sm:mt-0 sm:border-0 sm:bg-transparent sm:px-0 sm:pt-4"
+	>
+		<a
+			href={resolve('/app/clients/[id]', { id: client.id })}
+			class="inline-flex min-h-[44px] items-center justify-center rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-2xs hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+		>
+			Cancel
+		</a>
 		<button
 			type="submit"
 			disabled={busy}
 			aria-busy={busy}
-			class="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+			class="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md bg-indigo-600 px-5 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
 		>
 			{#if busy}<Spinner class="h-4 w-4 text-white" />{/if}
 			Save changes
 		</button>
-		<a
-			href={resolve('/app/clients/[id]', { id: client.id })}
-			class="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
-		>
-			Cancel
-		</a>
 	</div>
 </form>

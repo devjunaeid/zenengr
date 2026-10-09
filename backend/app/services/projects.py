@@ -245,6 +245,7 @@ async def create_project(
     name: str,
     client_id: uuid.UUID,
     start_date: date | None = None,
+    due_date: date | None = None,
     owner_id: uuid.UUID | None = None,
     service_ids: list[uuid.UUID] | None = None,
     service_prices: dict[uuid.UUID, Decimal] | None = None,
@@ -289,6 +290,7 @@ async def create_project(
         name=name,
         client_id=client_id,
         start_date=start_date,
+        due_date=due_date,
         owner_id=owner_id,
     )
     project.auto_invoice = auto_invoice

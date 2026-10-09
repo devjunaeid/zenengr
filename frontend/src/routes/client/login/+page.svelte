@@ -178,6 +178,8 @@
 							bind:value={email}
 							required
 							autocomplete="email"
+							inputmode="email"
+							enterkeyhint="next"
 							placeholder="you@example.com"
 							class="input-field"
 						/>
@@ -204,6 +206,7 @@
 							bind:value={password}
 							required
 							autocomplete="current-password"
+							enterkeyhint="done"
 							placeholder="••••••••"
 							class="input-field"
 						/>

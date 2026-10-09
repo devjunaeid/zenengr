@@ -19,9 +19,9 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 
 | Area | Count | Key metric |
 | ---- | ----- | ---------- |
-| Features | 25 | approved: 24, proposed: 1 |
-| User stories | 73 | done: 33, in_progress: 0, proposed: 40 |
-| Todos | 216 | done: 205, in_progress: 0, proposed: 11 |
+| Features | 26 | approved: 24, proposed: 2 |
+| User stories | 75 | done: 33, in_progress: 0, proposed: 42 |
+| Todos | 220 | done: 205, in_progress: 0, proposed: 15 |
 | Decisions | 2 | accepted: 2 |
 
 ## Active sprint
@@ -67,6 +67,7 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | [FEAT-023](features/FEAT-023-invoice-due-column-and-amount-in-words.md) | Invoice Table Due Column & Dynamic Amount in Words with Regional Numbering Systems | approved | P1 |
 | [FEAT-024](features/FEAT-024-lazy-loading-tabs-and-lean-apis.md) | Lazy Loading Tabbed Views & Lean On-Demand API Architecture | approved | P1 |
 | [FEAT-025](features/FEAT-025-global-ledger-and-analytics.md) | Company Global Ledger & Operational Analytics Dashboard | approved | P1 |
+| [FEAT-026](features/FEAT-026-mobile-performance-and-slow-network-ux.md) | Mobile Performance, Slow 3G Network Efficiency & Touch UX Optimization | proposed | P1 |
 
 ### Stories
 
@@ -145,6 +146,8 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | [US-071](stories/US-071.md) | Lean API Queries, Default Scoped Payloads & On-Demand Extensions | FEAT-024 | done |
 | [US-072](stories/US-072.md) | Global Ledger & Company Analytics Backend Aggregations API | FEAT-025 | done |
 | [US-073](stories/US-073.md) | Read-Only Company Analytics & Multi-Dimensional Ledger UI (/app/reports) | FEAT-025 | done |
+| [US-074](stories/US-074.md) | Mobile & Slow-3G Network Performance Optimization | FEAT-026 | proposed |
+| [US-075](stories/US-075.md) | Mobile-First Ergonomic Touch UX & Flow Optimization | FEAT-026 | proposed |
 
 ### Todos
 
@@ -494,10 +497,20 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | [TODO-215](todos/TODO-215.md) | Date/Month-wise timeline view & operational trend breakdown | US-073 | done |
 | [TODO-216](todos/TODO-216.md) | Project-wise & Client-wise breakdown tables with search, sorting, and CSV export | US-073 | done |
 
+#### FEAT-026 — Mobile Performance, Slow 3G Network Efficiency & Touch UX
+
+| ID | Title | Story | Status |
+| -- | ----- | ----- | ------ |
+| [TODO-217](todos/TODO-217.md) | Search and Filter Debouncing Across All Listing Views | US-074 | proposed |
+| [TODO-218](todos/TODO-218.md) | Progressive Skeleton Placeholders for Slow 3G Connections | US-074 | proposed |
+| [TODO-219](todos/TODO-219.md) | Mobile Sticky Action Bars and Touch Target Hardening | US-075 | proposed |
+| [TODO-220](todos/TODO-220.md) | Service Worker Cache & Image/Icon Performance Optimization | US-074 | proposed |
+
 ## Recently updated
 
 | Date | Item | Change |
 | ---- | ---- | ------ |
+| 2026-10-09 | FEAT-026 Mobile Performance, Slow 3G Network Efficiency & Touch UX docs drafted | docs/features/FEAT-026-mobile-performance-and-slow-network-ux.md, docs/stories/US-074.md, docs/stories/US-075.md, docs/todos/TODO-217.md..TODO-220.md, docs/ui-ux-spec.md, docs/index.md. |
 | 2026-09-26 | FEAT-025 Company Global Ledger & Operational Analytics Dashboard shipped | docs/features/FEAT-025-global-ledger-and-analytics.md, docs/stories/US-072.md, docs/stories/US-073.md, docs/todos/TODO-213.md..TODO-216.md, backend/app/api/v1/reports.py, backend/app/services/reports.py, frontend/src/routes/app/reports/*, docs/index.md, docs/progress.md. |
 | 2026-09-26 | FEAT-024 Lazy Loading Tabbed Views & Lean On-Demand API Architecture shipped | docs/features/FEAT-024-lazy-loading-tabs-and-lean-apis.md, docs/stories/US-070.md, docs/stories/US-071.md, docs/todos/TODO-209.md..TODO-212.md, frontend/src/routes/app/projects/[id]/*, frontend/src/routes/app/clients/[id]/*, frontend/src/routes/client/projects/[id]/*, backend/app/api/v1/clients.py, backend/app/api/v1/projects.py, docs/index.md, docs/progress.md. |
 | 2026-09-25 | FEAT-023 Invoice Table Due Column & Dynamic Amount in Words docs drafted | docs/features/FEAT-023-invoice-due-column-and-amount-in-words.md, docs/stories/US-068.md, docs/stories/US-069.md, docs/todos/TODO-205.md..TODO-208.md, docs/ui-ux-spec.md, docs/index.md. |

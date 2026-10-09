@@ -69,10 +69,10 @@
 		<StatusBadge status={data.service.is_active ? 'active' : 'inactive'} />
 	</div>
 	{#if canManage}
-		<div class="flex items-center gap-2">
+		<div class="flex flex-wrap items-center gap-2">
 			<a
 				href={resolve('/app/settings/services/[id]/edit', { id: data.service.id })}
-				class="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+				class="inline-flex min-h-[44px] items-center justify-center rounded-md border border-slate-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none sm:min-h-[36px]"
 			>
 				Edit
 			</a>
@@ -80,7 +80,7 @@
 				<button
 					type="button"
 					onclick={() => (toggleAction = 'deactivate')}
-					class="rounded-md border border-amber-300 bg-white px-3 py-1.5 text-sm font-medium text-amber-800 hover:bg-amber-50 focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:outline-none"
+					class="inline-flex min-h-[44px] items-center justify-center rounded-md border border-amber-300 bg-white px-3.5 py-2 text-sm font-medium text-amber-800 hover:bg-amber-50 focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:outline-none sm:min-h-[36px]"
 				>
 					Deactivate
 				</button>
@@ -88,7 +88,7 @@
 				<button
 					type="button"
 					onclick={() => (toggleAction = 'activate')}
-					class="rounded-md border border-green-300 bg-white px-3 py-1.5 text-sm font-medium text-green-700 hover:bg-green-50 focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:outline-none"
+					class="inline-flex min-h-[44px] items-center justify-center rounded-md border border-green-300 bg-white px-3.5 py-2 text-sm font-medium text-green-700 hover:bg-green-50 focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:outline-none sm:min-h-[36px]"
 				>
 					Activate
 				</button>
@@ -96,7 +96,7 @@
 			<button
 				type="button"
 				onclick={() => (deleteOpen = true)}
-				class="rounded-md border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none"
+				class="inline-flex min-h-[44px] items-center justify-center rounded-md border border-red-300 bg-white px-3.5 py-2 text-sm font-medium text-red-700 hover:bg-red-50 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none sm:min-h-[36px]"
 			>
 				Delete
 			</button>

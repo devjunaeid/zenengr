@@ -145,9 +145,11 @@
 							bind:value={businessName}
 							required
 							maxlength="255"
+							autocomplete="organization"
+							enterkeyhint="next"
 							disabled={!isAdmin}
 							placeholder="e.g. ZenEngr Solutions Inc."
-							class="mt-1.5 block w-full rounded-lg border-slate-300 px-3 py-2.5 text-sm shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 disabled:bg-slate-50 disabled:text-slate-500"
+							class="mt-1.5 block min-h-[44px] w-full rounded-lg border-slate-300 px-3 py-2.5 text-sm shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 disabled:bg-slate-50 disabled:text-slate-500 sm:min-h-[38px]"
 						/>
 					</div>
 
@@ -160,11 +162,14 @@
 						</label>
 						<input
 							id="sp-phone"
-							type="text"
+							type="tel"
+							autocomplete="tel"
+							inputmode="tel"
+							enterkeyhint="next"
 							bind:value={contactPhone}
 							disabled={!isAdmin}
 							placeholder="+1 (555) 000-0000"
-							class="mt-1.5 block w-full rounded-lg border-slate-300 px-3 py-2.5 text-sm shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 disabled:bg-slate-50 disabled:text-slate-500"
+							class="mt-1.5 block min-h-[44px] w-full rounded-lg border-slate-300 px-3 py-2.5 text-sm shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 disabled:bg-slate-50 disabled:text-slate-500 sm:min-h-[38px]"
 						/>
 					</div>
 
@@ -180,15 +185,16 @@
 								type="color"
 								bind:value={brandingColor}
 								disabled={!isAdmin}
-								class="h-10 w-12 cursor-pointer rounded-lg border border-slate-300 bg-white p-1 shadow-2xs"
+								class="h-11 min-h-[44px] w-12 cursor-pointer rounded-lg border border-slate-300 bg-white p-1 shadow-2xs"
 							/>
 							<input
 								id="sp-color"
 								type="text"
 								bind:value={brandingColor}
 								placeholder="#4F46E5"
+								enterkeyhint="done"
 								disabled={!isAdmin}
-								class="block w-full rounded-lg border-slate-300 px-3 py-2.5 font-mono text-sm uppercase shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 disabled:bg-slate-50 disabled:text-slate-500"
+								class="block min-h-[44px] w-full rounded-lg border-slate-300 px-3 py-2.5 font-mono text-sm uppercase shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 disabled:bg-slate-50 disabled:text-slate-500 sm:min-h-[38px]"
 							/>
 						</div>
 					</div>
@@ -200,7 +206,7 @@
 							type="submit"
 							disabled={profileBusy}
 							aria-busy={profileBusy}
-							class="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-xs font-semibold text-white shadow-2xs transition-colors hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+							class="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-2xs transition-colors hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
 						>
 							{#if profileBusy}<Spinner class="h-3.5 w-3.5 text-white" />{/if}
 							Save Profile Changes
@@ -293,7 +299,7 @@
 									disabled={logoBusy}
 									aria-busy={logoBusy}
 									onclick={uploadLogo}
-									class="w-full sm:w-auto inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-2xs transition-colors hover:bg-indigo-700 disabled:opacity-60 shrink-0"
+									class="inline-flex min-h-[44px] w-full shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-2xs transition-colors hover:bg-indigo-700 disabled:opacity-60 sm:w-auto"
 								>
 									{#if logoBusy}<Spinner class="h-3 w-3 text-white" />{/if}
 									Upload Logo

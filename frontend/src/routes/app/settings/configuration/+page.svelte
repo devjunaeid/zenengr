@@ -229,7 +229,7 @@
 					{#each sectionSettings as s (s.key)}
 						{@const meta = SETTING_LABELS[s.key] || { label: s.key, description: '' }}
 						<div
-							class="flex flex-col gap-4 p-4 sm:p-6 transition-colors hover:bg-slate-50/30 sm:flex-row sm:items-center sm:justify-between"
+							class="flex flex-col gap-4 p-4 transition-colors hover:bg-slate-50/30 sm:flex-row sm:items-center sm:justify-between sm:p-6"
 						>
 							<!-- Label & Info -->
 							<div class="max-w-md">
@@ -259,7 +259,7 @@
 												<select
 													id="set-{s.key}"
 													bind:value={drafts[s.key]}
-													class="block w-full rounded-lg border-slate-300 py-2 text-xs font-medium text-slate-800 shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 sm:w-64"
+													class="block min-h-[44px] w-full rounded-lg border-slate-300 py-2 text-xs font-medium text-slate-800 shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 sm:min-h-[38px] sm:w-64"
 												>
 													{#each DATE_FORMATS as fmt (fmt)}
 														<option value={fmt}>
@@ -271,7 +271,7 @@
 												<select
 													id="set-{s.key}"
 													bind:value={drafts[s.key]}
-													class="block w-full rounded-lg border-slate-300 py-2 text-xs font-medium text-slate-800 shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 sm:w-56"
+													class="block min-h-[44px] w-full rounded-lg border-slate-300 py-2 text-xs font-medium text-slate-800 shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 sm:min-h-[38px] sm:w-56"
 												>
 													<option value="24h">24h — 14:30 (24-hour)</option>
 													<option value="12h">12h — 2:30 PM (12-hour)</option>
@@ -281,7 +281,7 @@
 													<select
 														id="set-{s.key}"
 														bind:value={drafts[s.key]}
-														class="block w-full sm:w-80 rounded-lg border-slate-300 py-2 text-xs font-medium text-slate-800 shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
+														class="block min-h-[44px] w-full rounded-lg border-slate-300 py-2 text-xs font-medium text-slate-800 shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 sm:min-h-[38px] sm:w-80"
 													>
 														<option value="international">
 															International (Millions, Billions, Thousands)
@@ -291,14 +291,18 @@
 														</option>
 													</select>
 													<p class="text-[11px] text-slate-500">
-														Preview: 15,000,000 → <strong class="text-indigo-600 font-semibold">{drafts[s.key] === 'south_asian' || drafts[s.key] === 'indian' ? 'One crore fifty lakh' : 'Fifteen million'}</strong>
+														Preview: 15,000,000 → <strong class="font-semibold text-indigo-600"
+															>{drafts[s.key] === 'south_asian' || drafts[s.key] === 'indian'
+																? 'One crore fifty lakh'
+																: 'Fifteen million'}</strong
+														>
 													</p>
 												</div>
 											{:else if s.key === 'invoice_number_format'}
 												<select
 													id="set-{s.key}"
 													bind:value={drafts[s.key]}
-													class="block w-full rounded-lg border-slate-300 py-2 text-xs font-medium text-slate-800 shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 sm:w-72"
+													class="block min-h-[44px] w-full rounded-lg border-slate-300 py-2 text-xs font-medium text-slate-800 shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 sm:min-h-[38px] sm:w-72"
 												>
 													{#if !INVOICE_NUMBER_FORMAT_OPTIONS.some((o) => o.value === drafts[s.key]) && drafts[s.key]}
 														<option value={drafts[s.key]}>
@@ -316,9 +320,11 @@
 													id="set-{s.key}"
 													type="text"
 													maxlength="10"
+													autocapitalize="characters"
+													enterkeyhint="done"
 													bind:value={drafts[s.key]}
 													placeholder="INV"
-													class="block w-full sm:w-28 rounded-lg border-slate-300 py-2 font-mono text-xs font-bold uppercase shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
+													class="block min-h-[44px] w-full rounded-lg border-slate-300 py-2 font-mono text-xs font-bold uppercase shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 sm:min-h-[38px] sm:w-28"
 												/>
 											{:else if s.key === 'timezone'}
 												<div class="w-full sm:w-64">
@@ -329,23 +335,29 @@
 													id="set-{s.key}"
 													type="text"
 													maxlength="3"
+													autocapitalize="characters"
+													enterkeyhint="done"
 													bind:value={drafts[s.key]}
 													placeholder="USD"
-													class="block w-full sm:w-28 rounded-lg border-slate-300 py-2 font-mono text-xs font-bold uppercase shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
+													class="block min-h-[44px] w-full rounded-lg border-slate-300 py-2 font-mono text-xs font-bold uppercase shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 sm:min-h-[38px] sm:w-28"
 												/>
 											{:else}
 												<input
 													id="set-{s.key}"
 													type="text"
+													inputmode={s.key.includes('length') || s.key.includes('count')
+														? 'numeric'
+														: 'text'}
+													enterkeyhint="done"
 													bind:value={drafts[s.key]}
 													placeholder={s.value === null ? '••••••' : ''}
-													class="block w-full sm:w-36 rounded-lg border-slate-300 py-2 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
+													class="block min-h-[44px] w-full rounded-lg border-slate-300 py-2 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 sm:min-h-[38px] sm:w-36"
 												/>
 											{/if}
 										</div>
 
 										<!-- Save Button & Status -->
-										<div class="flex items-center justify-end sm:justify-start gap-2 shrink-0">
+										<div class="flex shrink-0 items-center justify-end gap-2 sm:justify-start">
 											{#if savedKeys[s.key]}
 												<span
 													role="status"
@@ -359,7 +371,7 @@
 												disabled={savingKey === s.key}
 												aria-busy={savingKey === s.key}
 												onclick={() => saveSetting(s.key)}
-												class="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-2 text-xs font-semibold text-white shadow-2xs transition-colors hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+												class="inline-flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-2xs transition-colors hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60 sm:min-h-[38px] sm:w-auto"
 											>
 												{#if savingKey === s.key}<Spinner class="h-3 w-3 text-white" />{/if}
 												Save

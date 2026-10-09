@@ -182,7 +182,9 @@
 							bind:value={host}
 							placeholder="smtp.mailgun.org or host.docker.internal"
 							required={enabled}
-							class="mt-1.5 block w-full rounded-lg border-slate-300 px-3 py-2.5 font-mono text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
+							autocapitalize="none"
+							enterkeyhint="next"
+							class="mt-1.5 block min-h-[44px] w-full rounded-lg border-slate-300 px-3 py-2.5 font-mono text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 sm:min-h-[38px]"
 						/>
 					</div>
 
@@ -199,7 +201,9 @@
 							bind:value={port}
 							min="1"
 							max="65535"
-							class="mt-1.5 block w-full rounded-lg border-slate-300 px-3 py-2.5 font-mono text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
+							inputmode="numeric"
+							enterkeyhint="next"
+							class="mt-1.5 block min-h-[44px] w-full rounded-lg border-slate-300 px-3 py-2.5 font-mono text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 sm:min-h-[38px]"
 						/>
 					</div>
 
@@ -213,7 +217,7 @@
 						<select
 							id="smtp-mode"
 							bind:value={mode}
-							class="mt-1.5 block w-full max-w-sm rounded-lg border-slate-300 px-3 py-2.5 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
+							class="mt-1.5 block min-h-[44px] w-full max-w-sm rounded-lg border-slate-300 px-3 py-2.5 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 sm:min-h-[38px]"
 						>
 							<option value="none">None (Plaintext / Local Dev)</option>
 							<option value="starttls">STARTTLS (Port 587 / Modern Standard)</option>
@@ -256,8 +260,10 @@
 							type="text"
 							bind:value={username}
 							autocomplete="off"
+							autocapitalize="none"
+							enterkeyhint="next"
 							placeholder="postmaster@yourdomain.com"
-							class="mt-1.5 block w-full rounded-lg border-slate-300 px-3 py-2.5 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
+							class="mt-1.5 block min-h-[44px] w-full rounded-lg border-slate-300 px-3 py-2.5 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 sm:min-h-[38px]"
 						/>
 					</div>
 
@@ -275,16 +281,17 @@
 							disabled={clearPassword}
 							placeholder={hasPassword ? '•••••••• (saved and encrypted)' : 'Enter password'}
 							autocomplete="new-password"
-							class="mt-1.5 block w-full rounded-lg border-slate-300 px-3 py-2.5 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 disabled:bg-slate-50 disabled:text-slate-400"
+							enterkeyhint="next"
+							class="mt-1.5 block min-h-[44px] w-full rounded-lg border-slate-300 px-3 py-2.5 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 disabled:bg-slate-50 disabled:text-slate-400 sm:min-h-[38px]"
 						/>
 						{#if hasPassword}
 							<label
-								class="mt-2 inline-flex cursor-pointer items-center gap-2 text-xs text-slate-600"
+								class="mt-2 inline-flex min-h-[44px] cursor-pointer items-center gap-2 text-xs text-slate-600"
 							>
 								<input
 									type="checkbox"
 									bind:checked={clearPassword}
-									class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+									class="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
 								/>
 								Clear saved password
 							</label>
@@ -304,7 +311,10 @@
 							bind:value={fromEmail}
 							placeholder="billing@yourdomain.com"
 							required={enabled}
-							class="mt-1.5 block w-full rounded-lg border-slate-300 px-3 py-2.5 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
+							inputmode="email"
+							autocapitalize="none"
+							enterkeyhint="next"
+							class="mt-1.5 block min-h-[44px] w-full rounded-lg border-slate-300 px-3 py-2.5 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 sm:min-h-[38px]"
 						/>
 					</div>
 
@@ -320,20 +330,21 @@
 							type="text"
 							bind:value={fromName}
 							placeholder="ZenEngr Billing"
-							class="mt-1.5 block w-full rounded-lg border-slate-300 px-3 py-2.5 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
+							enterkeyhint="done"
+							class="mt-1.5 block min-h-[44px] w-full rounded-lg border-slate-300 px-3 py-2.5 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 sm:min-h-[38px]"
 						/>
 					</div>
 				</div>
 
 				<div
-					class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-t border-slate-100 pt-5"
+					class="flex flex-col gap-3 border-t border-slate-100 pt-5 sm:flex-row sm:items-center sm:justify-between"
 				>
 					<button
 						type="button"
 						disabled={testing}
 						aria-busy={testing}
 						onclick={sendTest}
-						class="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 sm:py-2 text-xs font-semibold text-slate-700 shadow-2xs transition-colors hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:opacity-60"
+						class="inline-flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 shadow-2xs transition-colors hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:opacity-60 sm:w-auto sm:py-2"
 					>
 						{#if testing}<Spinner class="h-3 w-3" />{/if}
 						<Icon icon={sendOutline} class="h-3.5 w-3.5 text-slate-500" />
@@ -344,7 +355,7 @@
 						type="submit"
 						disabled={saving}
 						aria-busy={saving}
-						class="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-5 py-2.5 sm:py-2 text-xs font-semibold text-white shadow-2xs transition-colors hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:opacity-60"
+						class="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-5 py-2.5 text-xs font-semibold text-white shadow-2xs transition-colors hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:opacity-60 sm:w-auto sm:py-2"
 					>
 						{#if saving}<Spinner class="h-3.5 w-3.5 text-white" />{/if}
 						Save SMTP Configuration

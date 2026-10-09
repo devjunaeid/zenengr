@@ -43,6 +43,7 @@ class Project(TimestampMixin, Base):
     # that is auto-created / auto-appended as services are attached.
     auto_invoice: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     owner_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid, ForeignKey("admin_users.id"), nullable=True
     )

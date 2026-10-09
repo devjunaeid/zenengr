@@ -62,6 +62,21 @@ class ClientUserNotFoundError(HTTPException):
 # ── CRUD ─────────────────────────────────────────────────────────────────────
 
 
+def _clean_tags(tags: list[str] | None) -> list[str]:
+    """Sanitize and deduplicate tags case-insensitively."""
+    if not tags:
+        return []
+    cleaned: list[str] = []
+    seen: set[str] = set()
+    for t in tags:
+        if isinstance(t, str):
+            val = t.strip()
+            if val and val.lower() not in seen:
+                seen.add(val.lower())
+                cleaned.append(val)
+    return cleaned
+
+
 async def create_client(
     session: AsyncSession,
     *,
@@ -94,7 +109,7 @@ async def create_client(
         phone=phone,
         billing_address=billing_address,
         tax_id=tax_id,
-        tags=tags,
+        tags=_clean_tags(tags),
     )
 
     await audit_log(
@@ -344,6 +359,8 @@ async def update_client(
 
     # Filter out None values
     filtered = {k: v for k, v in updates.items() if v is not None}
+    if "tags" in filtered:
+        filtered["tags"] = _clean_tags(filtered["tags"])
 
     if not filtered:
         return client

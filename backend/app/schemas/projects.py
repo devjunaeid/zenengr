@@ -56,6 +56,7 @@ class ProjectCreateRequest(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     client_id: uuid.UUID
     start_date: date | None = None
+    due_date: date | None = None
     owner_id: uuid.UUID | None = None
     service_ids: list[uuid.UUID] = Field(default_factory=list)
     service_prices: dict[uuid.UUID, Annotated[Decimal, Field(gt=0)]] | None = None
@@ -68,6 +69,7 @@ class ProjectUpdateRequest(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=255)
     status: ProjectStatus | None = None
     start_date: date | None = None
+    due_date: date | None = None
     owner_id: uuid.UUID | None = None
     auto_invoice: bool | None = None
 
@@ -83,6 +85,7 @@ class ProjectListItem(BaseModel):
     client_id: uuid.UUID
     status: ProjectStatus
     start_date: date | None
+    due_date: date | None = None
     owner_id: uuid.UUID | None
     auto_invoice: bool = False
     service_count: int = 0
@@ -157,6 +160,7 @@ class ProjectDetailResponse(BaseModel):
     client_id: uuid.UUID
     status: ProjectStatus
     start_date: date | None
+    due_date: date | None = None
     owner_id: uuid.UUID | None
     auto_invoice: bool = False
     created_at: datetime
@@ -180,6 +184,7 @@ class ProjectCreateResponse(BaseModel):
     client_id: uuid.UUID
     status: ProjectStatus
     start_date: date | None
+    due_date: date | None = None
     owner_id: uuid.UUID | None
     auto_invoice: bool = False
     service_count: int

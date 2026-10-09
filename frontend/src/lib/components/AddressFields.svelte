@@ -42,8 +42,10 @@
 				id="{idPrefix}-addr-{key}"
 				type="text"
 				autocomplete={AUTOCOMPLETE[key]}
+				inputmode={key === 'postal_code' ? 'numeric' : 'text'}
+				enterkeyhint={key === 'country' ? 'done' : 'next'}
 				bind:value={fields[key]}
-				class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+				class="mt-1 block min-h-[44px] w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:min-h-[38px]"
 			/>
 		</div>
 	{/each}

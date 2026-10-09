@@ -537,7 +537,7 @@
 						<dd>
 							{#if data.client.tags && data.client.tags.length}
 								<div class="flex flex-wrap gap-1.5">
-									{#each data.client.tags as t (t)}
+									{#each data.client.tags as t, i (t + '-' + i)}
 										<span
 											class="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700"
 										>
@@ -1010,8 +1010,9 @@
 						required
 						minlength="10"
 						autocomplete="new-password"
+						enterkeyhint="next"
 						placeholder="Minimum 10 characters"
-						class="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs shadow-2xs focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+						class="block min-h-[44px] w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs shadow-2xs focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none sm:min-h-[38px]"
 					/>
 				</div>
 				<div>
@@ -1028,8 +1029,9 @@
 						required
 						minlength="10"
 						autocomplete="new-password"
+						enterkeyhint="done"
 						placeholder="Re-enter password"
-						class="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs shadow-2xs focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+						class="block min-h-[44px] w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs shadow-2xs focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none sm:min-h-[38px]"
 					/>
 				</div>
 
@@ -1037,14 +1039,16 @@
 					<p role="alert" class="text-xs font-medium text-red-600">Passwords do not match.</p>
 				{/if}
 
-				<div class="mt-6 flex justify-end gap-2.5 border-t border-slate-100 pt-3">
+				<div
+					class="safe-bottom mt-6 flex flex-col-reverse justify-end gap-2.5 border-t border-slate-100 pt-3 sm:flex-row"
+				>
 					<Dialog.Close
 						type="button"
 						onclick={() => {
 							userErr = null;
 							passwordUser = null;
 						}}
-						class="rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-2xs transition-colors hover:bg-slate-50"
+						class="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 shadow-2xs transition-colors hover:bg-slate-50"
 					>
 						Cancel
 					</Dialog.Close>
@@ -1052,7 +1056,7 @@
 						type="submit"
 						disabled={passwordBusy || !newPassword || newPassword !== confirmPassword}
 						aria-busy={passwordBusy}
-						class="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-2xs transition-colors hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:opacity-60"
+						class="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-lg bg-indigo-600 px-5 py-2 text-xs font-semibold text-white shadow-2xs transition-colors hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:opacity-60"
 					>
 						{#if passwordBusy}<Spinner class="h-3.5 w-3.5 text-white" />{/if}
 						Update Password

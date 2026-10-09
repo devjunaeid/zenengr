@@ -33,9 +33,17 @@
 	let err = $state(null);
 
 	function addTag() {
-		const t = tagInput.trim();
-		if (!t) return;
-		if (!tags.includes(t)) tags = [...tags, t];
+		const raw = tagInput.trim();
+		if (!raw) return;
+		const parts = raw
+			.split(',')
+			.map((s) => s.trim())
+			.filter(Boolean);
+		for (const p of parts) {
+			if (!tags.some((x) => x.toLowerCase() === p.toLowerCase())) {
+				tags = [...tags, p];
+			}
+		}
 		tagInput = '';
 	}
 
@@ -44,11 +52,18 @@
 	}
 
 	function onTagKeydown(e) {
-		if (e.key === 'Enter' || e.key === ',') {
+		if (e.key === 'Enter' || e.keyCode === 13 || e.key === ',') {
 			e.preventDefault();
+			e.stopPropagation();
 			addTag();
 		} else if (e.key === 'Backspace' && !tagInput && tags.length) {
 			tags = tags.slice(0, -1);
+		}
+	}
+
+	function onTagInput() {
+		if (tagInput.includes(',')) {
+			addTag();
 		}
 	}
 
@@ -63,6 +78,9 @@
 	}
 
 	async function submit() {
+		if (tagInput.trim()) {
+			addTag();
+		}
 		busy = true;
 		err = null;
 		try {
@@ -72,7 +90,7 @@
 				...(email.trim() && { email: email.trim() }),
 				...(phone.trim() && { phone: phone.trim() }),
 				...(taxId.trim() && { tax_id: taxId.trim() }),
-				...(tags.length && { tags }),
+				...(tags.length ? { tags } : {}),
 				...(clientUserEmail.trim() && { client_user_email: clientUserEmail.trim() }),
 				...(clientUserPassword && { client_user_password: clientUserPassword })
 			};
@@ -188,6 +206,8 @@
 						placeholder="Acme Corporation or John Doe"
 						required
 						maxlength="255"
+						autocomplete="organization"
+						enterkeyhint="next"
 						class="mt-1.5 block w-full rounded-lg border-slate-300 text-sm shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
 					/>
 				</div>
@@ -284,6 +304,9 @@
 							type="email"
 							bind:value={email}
 							placeholder="billing@client.com"
+							autocomplete="email"
+							inputmode="email"
+							enterkeyhint="next"
 							class="mt-1.5 block w-full rounded-lg border-slate-300 text-sm shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
 						/>
 					</div>
@@ -296,9 +319,12 @@
 						</label>
 						<input
 							id="c-phone"
-							type="text"
+							type="tel"
 							bind:value={phone}
 							placeholder="+1 (555) 000-0000"
+							autocomplete="tel"
+							inputmode="tel"
+							enterkeyhint="next"
 							class="mt-1.5 block w-full rounded-lg border-slate-300 text-sm shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
 						/>
 					</div>
@@ -317,6 +343,7 @@
 						type="text"
 						bind:value={taxId}
 						placeholder="e.g. EU123456789 or EIN-1234567"
+						enterkeyhint="next"
 						class="mt-1.5 block w-full rounded-lg border-slate-300 text-sm shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
 					/>
 				</div>
@@ -391,20 +418,29 @@
 					class="block text-xs font-semibold tracking-wider text-slate-700 uppercase"
 					>Add Tags</label
 				>
-				<div class="mt-1.5">
+				<div class="mt-1.5 flex gap-2">
 					<input
 						id="c-tags"
 						type="text"
 						bind:value={tagInput}
 						onkeydown={onTagKeydown}
+						oninput={onTagInput}
 						onblur={addTag}
-						placeholder="Type tag name and press Enter or comma..."
+						enterkeyhint="done"
+						placeholder="Type tag name and press Enter, comma, or Add..."
 						class="block w-full rounded-lg border-slate-300 text-sm shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
 					/>
+					<button
+						type="button"
+						onclick={addTag}
+						class="inline-flex shrink-0 items-center rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 focus:ring-2 focus:ring-indigo-500"
+					>
+						Add
+					</button>
 				</div>
 				{#if tags.length}
 					<div class="mt-3 flex flex-wrap gap-1.5">
-						{#each tags as t (t)}
+						{#each tags as t, i (t + '-' + i)}
 							<span
 								class="inline-flex items-center gap-1.5 rounded-md bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 ring-1 ring-indigo-200"
 							>
@@ -522,10 +558,12 @@
 		</section>
 
 		<!-- ── Form Actions ────────────────────────────────────────────────────── -->
-		<div class="flex flex-wrap items-center justify-end gap-3 border-t border-slate-200 pt-4">
+		<div
+			class="sticky bottom-0 -mx-4 -mb-12 mt-6 flex items-center justify-end gap-3 border-t border-slate-200 bg-white/95 px-4 py-3 backdrop-blur-xs safe-bottom sm:static sm:mx-0 sm:mb-0 sm:mt-0 sm:border-t sm:bg-transparent sm:px-0 sm:pt-4"
+		>
 			<a
 				href={resolve('/app/clients')}
-				class="rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 shadow-2xs transition-colors hover:bg-slate-50 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+				class="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 shadow-2xs transition-colors hover:bg-slate-50 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
 			>
 				Cancel
 			</a>
@@ -533,7 +571,7 @@
 				type="submit"
 				disabled={busy}
 				aria-busy={busy}
-				class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-500 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+				class="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-500 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
 			>
 				{#if busy}<Spinner class="h-4 w-4 text-white" />{/if}
 				Create Client

@@ -35,9 +35,9 @@
 			{#if description}
 				<Dialog.Description class="mt-2 text-sm text-slate-600">{description}</Dialog.Description>
 			{/if}
-			<div class="mt-6 flex justify-end gap-3">
+			<div class="safe-bottom mt-6 flex flex-col-reverse justify-end gap-3 sm:flex-row">
 				<Dialog.Close
-					class="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+					class="inline-flex min-h-[44px] items-center justify-center rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
 				>
 					Cancel
 				</Dialog.Close>
@@ -46,7 +46,7 @@
 					disabled={busy}
 					aria-busy={busy}
 					onclick={() => onconfirm()}
-					class="inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium text-white focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60 {destructive
+					class="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-medium text-white focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60 {destructive
 						? 'bg-red-600 hover:bg-red-700'
 						: 'bg-indigo-600 hover:bg-indigo-700'}"
 				>

@@ -390,3 +390,25 @@ In addition to WCAG 2.1 AA baseline (existing section):
 
 ### Read-Only Guarantee
 - Zero mutation triggers, modals, or creation forms. Designed purely for high-speed administrative reporting, cashflow analysis, and stakeholder reviews.
+
+---
+
+## FEAT-026: Mobile Performance, Slow 3G Network Efficiency & Touch UX Spec
+
+### 1. Slow 3G Network Resilience & Progressive Skeleton UX
+- **Data Table & Card Skeletons:** Listing views (`/app/clients`, `/app/projects`, `/app/invoices`, `/app/reports`) render animated shimmer skeletons during initial load and filter updates, eliminating blank screens and Cumulative Layout Shift (CLS < 0.1).
+- **Search Debouncing:** Text search inputs across all modules utilize 250-300ms debouncing, preventing rapid-fire network requests on high-latency 3G connections.
+- **Link & Route Prefetching:** SvelteKit route prefetching (`data-sveltekit-preload-data="hover"`) combined with touchstart prefetching enables near-instantaneous client-side transitions.
+
+### 2. Ergonomic Mobile Touch Flows & Sticky Action Bars
+- **Sticky Mobile Actions:** Long creation and editing forms (`/app/clients/new`, `/app/invoices/new`, `/app/projects/new`, etc.) feature a sticky bottom action bar on mobile (`< sm`):
+  - Fixed above the mobile home indicator with `safe-bottom` padding.
+  - Backdrop blur (`bg-white/95 backdrop-blur-xs border-t border-slate-200`).
+  - Displays primary submit and cancel buttons prominently within easy thumb reach.
+  - Gracefully switches to inline static button placement on desktop screens (`sm:static`).
+- **Thumb-Friendly Touch Targets:** All interactive triggers (table view details, pagination numbers, tab items, dropdown toggles, modal closes) enforce minimum 44×44px touch hit-boxes on mobile.
+
+### 3. Virtual Keyboard & Mobile Input Attributes
+- **Numeric Inputs:** Currency amounts, discount values, and tax fields specify `inputmode="decimal"` or `inputmode="numeric"`.
+- **Form Progression:** Fields include `enterkeyhint="next"` on sequential inputs and `enterkeyhint="done"` on trailing fields to facilitate smooth keyboard progression without accidental form submission.
+- **Auto-Capitalization & Autocomplete:** Semantic inputs carry `autocomplete="name"`, `autocomplete="email"`, `autocomplete="tel"`, `autocapitalize="words"` for rapid browser autofill.

@@ -754,7 +754,9 @@
 						bind:value={addName}
 						placeholder="Jane Doe"
 						required
-						class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+						autocomplete="name"
+						enterkeyhint="next"
+						class="mt-1 block min-h-[44px] w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:min-h-[38px]"
 					/>
 				</div>
 
@@ -768,7 +770,10 @@
 						bind:value={addEmail}
 						placeholder="jane@company.com"
 						required
-						class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+						autocomplete="email"
+						inputmode="email"
+						enterkeyhint="next"
+						class="mt-1 block min-h-[44px] w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:min-h-[38px]"
 					/>
 				</div>
 
@@ -777,7 +782,7 @@
 					<select
 						id="add-role"
 						bind:value={addRoleId}
-						class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+						class="mt-1 block min-h-[44px] w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:min-h-[38px]"
 					>
 						{#each roleOptions as r (r.id)}
 							<option value={r.id}>{r.name}</option>
@@ -806,7 +811,9 @@
 							placeholder="Minimum 8 characters"
 							required
 							minlength="8"
-							class="block w-full rounded-md border-slate-300 pr-10 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+							autocomplete="new-password"
+							enterkeyhint="done"
+							class="block min-h-[44px] w-full rounded-md border-slate-300 pr-10 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:min-h-[38px]"
 						/>
 						<button
 							type="button"
@@ -818,18 +825,20 @@
 					</div>
 				</div>
 
-				<div class="mt-6 flex items-center justify-end gap-3 pt-2">
+				<div
+					class="safe-bottom mt-6 flex flex-col-reverse items-stretch justify-end gap-3 pt-2 sm:flex-row sm:items-center"
+				>
 					<button
 						type="button"
 						onclick={() => (showAddModal = false)}
-						class="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+						class="inline-flex min-h-[44px] items-center justify-center rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
 					>
 						Cancel
 					</button>
 					<button
 						type="submit"
 						disabled={addBusy}
-						class="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+						class="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
 					>
 						{#if addBusy}<Spinner class="h-4 w-4 text-white" />{/if}
 						Create Employee
@@ -913,7 +922,9 @@
 							placeholder="Enter new password"
 							required
 							minlength="8"
-							class="block w-full rounded-md border-slate-300 pr-10 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+							autocomplete="new-password"
+							enterkeyhint="done"
+							class="block min-h-[44px] w-full rounded-md border-slate-300 pr-10 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:min-h-[38px]"
 						/>
 						<button
 							type="button"
@@ -925,18 +936,20 @@
 					</div>
 				</div>
 
-				<div class="mt-6 flex items-center justify-end gap-3 pt-2">
+				<div
+					class="safe-bottom mt-6 flex flex-col-reverse items-stretch justify-end gap-3 pt-2 sm:flex-row sm:items-center"
+				>
 					<button
 						type="button"
 						onclick={() => (passwordTarget = null)}
-						class="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+						class="inline-flex min-h-[44px] items-center justify-center rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
 					>
 						Cancel
 					</button>
 					<button
 						type="submit"
 						disabled={setPasswordBusy}
-						class="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+						class="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
 					>
 						{#if setPasswordBusy}<Spinner class="h-4 w-4 text-white" />{/if}
 						Update Password

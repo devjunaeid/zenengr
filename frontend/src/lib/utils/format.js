@@ -104,6 +104,21 @@ function getLocalDateParts() {
 }
 
 /**
+ * Safari-safe ISO date parser. Safari returns Invalid Date for "YYYY-MM-DD HH:mm:ss"
+ * without 'T' separator, whereas other browsers accept it.
+ * @param {any} iso
+ * @returns {Date|null}
+ */
+function parseIsoDate(iso) {
+	if (!iso) return null;
+	if (typeof iso === 'string') {
+		const normalized = iso.trim().replace(/^(\d{4}-\d{2}-\d{2})\s+(\d{2}:)/, '$1T$2');
+		return new Date(normalized);
+	}
+	return new Date(iso);
+}
+
+/**
  * Format a date-only ISO string or datetime into a tenant template.
  * Tokens: YYYY, YY, MMMM, MMM, MM, M, DD, D.
  *
@@ -113,14 +128,14 @@ function getLocalDateParts() {
  */
 export function formatDate(iso, overrides = {}) {
 	if (!iso) return '—';
-	const dateOnly = typeof iso === 'string' && DATE_ONLY_RE.test(iso);
+	const dateOnly = typeof iso === 'string' && DATE_ONLY_RE.test(iso.trim());
 	const d = dateOnly
 		? (() => {
-				const [y, m, day] = iso.split('-').map(Number);
+				const [y, m, day] = iso.trim().split('-').map(Number);
 				return new Date(y, m - 1, day);
 			})()
-		: new Date(iso);
-	if (Number.isNaN(d.getTime())) return '';
+		: parseIsoDate(iso);
+	if (!d || Number.isNaN(d.getTime())) return '';
 	const settings = tenantSettings;
 	const template = overrides.date_format ?? settings.date_format;
 	const timeZone = overrides.timezone ?? settings.timezone;
@@ -172,9 +187,9 @@ export function formatDate(iso, overrides = {}) {
  */
 export function formatTime(iso, overrides = {}) {
 	if (!iso) return '—';
-	if (typeof iso === 'string' && DATE_ONLY_RE.test(iso)) return '';
-	const d = new Date(iso);
-	if (Number.isNaN(d.getTime())) return '';
+	if (typeof iso === 'string' && DATE_ONLY_RE.test(iso.trim())) return '';
+	const d = parseIsoDate(iso);
+	if (!d || Number.isNaN(d.getTime())) return '';
 	const settings = tenantSettings;
 	const timeZone = overrides.timezone ?? settings.timezone;
 	const hour12 = (overrides.time_format ?? settings.time_format) !== '24h';
@@ -235,10 +250,18 @@ export function fmtPrice(v, currency) {
 	let fmt = priceFormatters.get(cur);
 	if (!fmt) {
 		if (!/^[A-Z]{3}$/.test(cur)) return fmtPrice(v, 'USD');
-		fmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: cur });
-		priceFormatters.set(cur, fmt);
+		try {
+			fmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: cur });
+			priceFormatters.set(cur, fmt);
+		} catch {
+			return fmtPrice(v, 'USD');
+		}
 	}
-	return fmt.format(n);
+	try {
+		return fmt.format(n);
+	} catch {
+		return `${n} ${cur}`;
+	}
 }
 
 /**
@@ -256,7 +279,6 @@ export function fmtNumber(v) {
 }
 
 export function fmtBytes(bytes) {
-
 	if (bytes == null || bytes === '') return '—';
 	const n = Number(bytes);
 	if (Number.isNaN(n) || n < 0) return '—';
@@ -282,7 +304,9 @@ export function fmtBytes(bytes) {
  */
 export function timeAgo(iso) {
 	if (!iso) return '';
-	const then = new Date(iso).getTime();
+	const d = parseIsoDate(iso);
+	if (!d) return '';
+	const then = d.getTime();
 	if (Number.isNaN(then)) return '';
 	const seconds = Math.max(0, Math.round((Date.now() - then) / 1000));
 	if (seconds < 60) return 'just now';
@@ -316,6 +340,9 @@ export function slugify(value) {
  */
 export function formatProjectCode(id) {
 	if (!id) return '';
-	const clean = String(id).replace(/[^a-zA-Z0-9]/g, '').slice(0, 6).toUpperCase();
+	const clean = String(id)
+		.replace(/[^a-zA-Z0-9]/g, '')
+		.slice(0, 6)
+		.toUpperCase();
 	return `#${clean}`;
 }

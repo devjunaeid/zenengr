@@ -3,6 +3,30 @@ import * as authApi from '$lib/api/auth.js';
 
 const TOKEN_KEY = 'zenengr.token';
 
+function safeGetItem(key) {
+	try {
+		return browser && typeof window !== 'undefined' ? localStorage.getItem(key) : null;
+	} catch {
+		return null;
+	}
+}
+
+function safeSetItem(key, val) {
+	try {
+		if (browser && typeof window !== 'undefined') localStorage.setItem(key, val);
+	} catch (e) {
+		void e;
+	}
+}
+
+function safeRemoveItem(key) {
+	try {
+		if (browser && typeof window !== 'undefined') localStorage.removeItem(key);
+	} catch (e) {
+		void e;
+	}
+}
+
 /** @type {import('$lib/api/auth.js').AuthUser|null} */
 let user = $state(null);
 /**
@@ -86,7 +110,7 @@ export const auth = {
 		token = res.access_token;
 		setUser(res.user);
 		initialized = true;
-		if (browser) localStorage.setItem(TOKEN_KEY, res.access_token);
+		if (browser) safeSetItem(TOKEN_KEY, res.access_token);
 		return res.user;
 	},
 
@@ -102,7 +126,7 @@ export const auth = {
 		token = res.access_token;
 		setUser(res.user);
 		initialized = true;
-		if (browser) localStorage.setItem(TOKEN_KEY, res.access_token);
+		if (browser) safeSetItem(TOKEN_KEY, res.access_token);
 		return res.user;
 	},
 
@@ -110,7 +134,7 @@ export const auth = {
 		user = null;
 		perms = null;
 		token = null;
-		if (browser) localStorage.removeItem(TOKEN_KEY);
+		if (browser) safeRemoveItem(TOKEN_KEY);
 	}
 };
 
@@ -118,13 +142,13 @@ export const auth = {
  * @param {typeof fetch} fetchFn
  */
 async function restore(fetchFn) {
-	const saved = browser ? localStorage.getItem(TOKEN_KEY) : null;
+	const saved = browser ? safeGetItem(TOKEN_KEY) : null;
 	if (saved) {
 		try {
 			setUser(await authApi.me(fetchFn, saved));
 			token = saved;
 		} catch {
-			if (browser) localStorage.removeItem(TOKEN_KEY);
+			if (browser) safeRemoveItem(TOKEN_KEY);
 		}
 	}
 	initialized = true;

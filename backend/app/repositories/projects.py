@@ -241,6 +241,7 @@ async def create_project(
     name: str,
     client_id: uuid.UUID,
     start_date: Any = None,
+    due_date: Any = None,
     owner_id: uuid.UUID | None = None,
 ) -> Project:
     """Insert a new project row in Draft status."""
@@ -250,6 +251,7 @@ async def create_project(
         client_id=client_id,
         status=ProjectStatus.DRAFT,
         start_date=start_date,
+        due_date=due_date,
         owner_id=owner_id,
     )
     session.add(project)

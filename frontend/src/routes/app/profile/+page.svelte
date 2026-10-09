@@ -180,7 +180,7 @@
 		<div class="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
 			<div class="flex items-center gap-4">
 				<!-- Avatar / Initials with quick upload trigger -->
-				<div class="relative group">
+				<div class="group relative">
 					<div
 						class="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-600 text-xl font-bold text-white shadow-sm ring-4 ring-slate-50"
 					>
@@ -201,7 +201,7 @@
 						disabled={uploadingAvatar}
 						aria-label="Change profile picture"
 						title="Change profile picture"
-						class="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-sm transition-colors hover:bg-slate-50 hover:text-indigo-600 focus-visible:ring-2 focus-visible:ring-indigo-500"
+						class="absolute -right-1 -bottom-1 flex h-6 w-6 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-sm transition-colors hover:bg-slate-50 hover:text-indigo-600 focus-visible:ring-2 focus-visible:ring-indigo-500"
 					>
 						{#if uploadingAvatar}
 							<Spinner class="h-3 w-3 text-indigo-600" />
@@ -246,7 +246,10 @@
 						? 'bg-indigo-600 text-white shadow-2xs'
 						: 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}"
 				>
-					<Icon icon={accountCircle} class="h-4 w-4 shrink-0 {activeSection === 'details' ? 'text-white' : 'text-slate-400'}" />
+					<Icon
+						icon={accountCircle}
+						class="h-4 w-4 shrink-0 {activeSection === 'details' ? 'text-white' : 'text-slate-400'}"
+					/>
 					<span>Account Details</span>
 				</button>
 				<button
@@ -257,7 +260,12 @@
 						? 'bg-indigo-600 text-white shadow-2xs'
 						: 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}"
 				>
-					<Icon icon={lockOutline} class="h-4 w-4 shrink-0 {activeSection === 'security' ? 'text-white' : 'text-slate-400'}" />
+					<Icon
+						icon={lockOutline}
+						class="h-4 w-4 shrink-0 {activeSection === 'security'
+							? 'text-white'
+							: 'text-slate-400'}"
+					/>
 					<span>Password &amp; Security</span>
 				</button>
 			</ScrollableTabs>
@@ -330,7 +338,9 @@
 								{/if}
 							</div>
 							<div>
-								<h3 class="text-xs font-bold tracking-wide text-slate-700 uppercase">Profile Photo</h3>
+								<h3 class="text-xs font-bold tracking-wide text-slate-700 uppercase">
+									Profile Photo
+								</h3>
 								<p class="mt-0.5 text-xs text-slate-500">
 									Upload a PNG, JPEG, WebP, or GIF (max 5MB).
 								</p>
@@ -402,7 +412,8 @@
 								bind:value={fullName}
 								required
 								autocomplete="name"
-								class="mt-1.5 block w-full rounded-lg border-slate-300 px-3 py-2.5 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
+								enterkeyhint="next"
+								class="mt-1.5 block min-h-[44px] w-full rounded-lg border-slate-300 px-3 py-2.5 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 sm:min-h-[38px]"
 							/>
 						</div>
 
@@ -419,7 +430,9 @@
 								bind:value={email}
 								required
 								autocomplete="email"
-								class="mt-1.5 block w-full rounded-lg border-slate-300 px-3 py-2.5 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
+								inputmode="email"
+								enterkeyhint="next"
+								class="mt-1.5 block min-h-[44px] w-full rounded-lg border-slate-300 px-3 py-2.5 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 sm:min-h-[38px]"
 							/>
 						</div>
 
@@ -435,8 +448,10 @@
 								type="tel"
 								bind:value={phone}
 								autocomplete="tel"
+								inputmode="tel"
+								enterkeyhint="next"
 								placeholder="+1 (555) 000-0000"
-								class="mt-1.5 block w-full rounded-lg border-slate-300 px-3 py-2.5 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
+								class="mt-1.5 block min-h-[44px] w-full rounded-lg border-slate-300 px-3 py-2.5 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 sm:min-h-[38px]"
 							/>
 						</div>
 
@@ -464,7 +479,8 @@
 								type="text"
 								bind:value={language}
 								placeholder="en"
-								class="mt-1.5 block w-full rounded-lg border-slate-300 px-3 py-2.5 text-xs uppercase shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
+								enterkeyhint="done"
+								class="mt-1.5 block min-h-[44px] w-full rounded-lg border-slate-300 px-3 py-2.5 text-xs uppercase shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 sm:min-h-[38px]"
 							/>
 						</div>
 					</div>
@@ -474,7 +490,7 @@
 							type="submit"
 							disabled={saving}
 							aria-busy={saving}
-							class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-xs font-semibold text-white shadow-2xs transition-colors hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:opacity-60"
+							class="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-5 py-2.5 text-xs font-semibold text-white shadow-2xs transition-colors hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:opacity-60 sm:w-auto"
 						>
 							{#if saving}<Spinner class="h-3.5 w-3.5 text-white" />{/if}
 							Save Profile Changes
@@ -540,8 +556,9 @@
 							bind:value={currentPassword}
 							required
 							autocomplete="current-password"
+							enterkeyhint="next"
 							placeholder="••••••••"
-							class="mt-1.5 block w-full rounded-lg border-slate-300 px-3 py-2.5 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
+							class="mt-1.5 block min-h-[44px] w-full rounded-lg border-slate-300 px-3 py-2.5 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 sm:min-h-[38px]"
 						/>
 					</div>
 
@@ -559,8 +576,9 @@
 							required
 							minlength="8"
 							autocomplete="new-password"
+							enterkeyhint="next"
 							placeholder="••••••••"
-							class="mt-1.5 block w-full rounded-lg border-slate-300 px-3 py-2.5 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
+							class="mt-1.5 block min-h-[44px] w-full rounded-lg border-slate-300 px-3 py-2.5 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 sm:min-h-[38px]"
 						/>
 					</div>
 
@@ -578,8 +596,9 @@
 							required
 							minlength="8"
 							autocomplete="new-password"
+							enterkeyhint="done"
 							placeholder="••••••••"
-							class="mt-1.5 block w-full rounded-lg border-slate-300 px-3 py-2.5 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
+							class="mt-1.5 block min-h-[44px] w-full rounded-lg border-slate-300 px-3 py-2.5 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 sm:min-h-[38px]"
 						/>
 					</div>
 
@@ -588,7 +607,7 @@
 							type="submit"
 							disabled={changing}
 							aria-busy={changing}
-							class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-xs font-semibold text-white shadow-2xs transition-colors hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:opacity-60"
+							class="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-5 py-2.5 text-xs font-semibold text-white shadow-2xs transition-colors hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:opacity-60 sm:w-auto"
 						>
 							{#if changing}<Spinner class="h-3.5 w-3.5 text-white" />{/if}
 							Update Password

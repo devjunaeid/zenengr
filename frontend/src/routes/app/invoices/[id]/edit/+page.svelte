@@ -478,21 +478,23 @@
 		</dl>
 	</section>
 
-	<div class="flex flex-wrap items-center gap-3 pt-2">
+	<div
+		class="sticky bottom-0 -mx-4 -mb-8 mt-6 flex items-center justify-end gap-3 border-t border-slate-200 bg-white/95 px-4 py-3 backdrop-blur-xs safe-bottom sm:static sm:mx-0 sm:mb-0 sm:mt-0 sm:border-0 sm:bg-transparent sm:px-0 sm:pt-4"
+	>
+		<a
+			href={resolve('/app/invoices/[id]', { id: initial.id })}
+			class="inline-flex min-h-[44px] items-center justify-center rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-2xs hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+		>
+			Cancel
+		</a>
 		<button
 			type="submit"
 			disabled={busy}
 			aria-busy={busy}
-			class="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+			class="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md bg-indigo-600 px-5 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
 		>
 			{#if busy}<Spinner class="h-4 w-4 text-white" />{/if}
 			Save changes
 		</button>
-		<a
-			href={resolve('/app/invoices/[id]', { id: initial.id })}
-			class="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
-		>
-			Cancel
-		</a>
 	</div>
 </form>

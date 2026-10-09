@@ -1711,7 +1711,7 @@
 					<dt class="text-xs font-medium tracking-wider text-slate-500 uppercase">Tags</dt>
 					<dd class="mt-1 flex flex-wrap gap-1">
 						{#if data.client?.tags && data.client.tags.length > 0}
-							{#each data.client.tags as tag (tag)}
+							{#each data.client.tags as tag, i (tag + '-' + i)}
 								<span class="rounded-md bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
 									{tag}
 								</span>

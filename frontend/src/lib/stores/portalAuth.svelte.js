@@ -3,6 +3,30 @@ import * as portalApi from '$lib/api/portal.js';
 
 const TOKEN_KEY = 'zenengr.portal_token';
 
+function safeGetItem(key) {
+	try {
+		return browser && typeof window !== 'undefined' ? localStorage.getItem(key) : null;
+	} catch {
+		return null;
+	}
+}
+
+function safeSetItem(key, val) {
+	try {
+		if (browser && typeof window !== 'undefined') localStorage.setItem(key, val);
+	} catch (e) {
+		void e;
+	}
+}
+
+function safeRemoveItem(key) {
+	try {
+		if (browser && typeof window !== 'undefined') localStorage.removeItem(key);
+	} catch (e) {
+		void e;
+	}
+}
+
 /** @type {import('$lib/api/portal.js').PortalUser|null} */
 let user = $state(null);
 /** @type {import('$lib/api/portal.js').PortalClient|null} */
@@ -74,7 +98,7 @@ export const portalAuth = {
 		tenantLogoUrl = me.tenant_logo_url ?? null;
 		user = me;
 		initialized = true;
-		if (browser) localStorage.setItem(TOKEN_KEY, res.access_token);
+		if (browser) safeSetItem(TOKEN_KEY, res.access_token);
 		return res.user;
 	},
 
@@ -93,7 +117,7 @@ export const portalAuth = {
 		tenantLogoUrl = me.tenant_logo_url ?? null;
 		user = me;
 		initialized = true;
-		if (browser) localStorage.setItem(TOKEN_KEY, res.access_token);
+		if (browser) safeSetItem(TOKEN_KEY, res.access_token);
 		return res.user;
 	},
 
@@ -103,7 +127,7 @@ export const portalAuth = {
 		tenantName = '';
 		tenantLogoUrl = null;
 		token = null;
-		if (browser) localStorage.removeItem(TOKEN_KEY);
+		if (browser) safeRemoveItem(TOKEN_KEY);
 	}
 };
 
@@ -111,7 +135,7 @@ export const portalAuth = {
  * @param {typeof fetch} fetchFn
  */
 async function restore(fetchFn) {
-	const saved = browser ? localStorage.getItem(TOKEN_KEY) : null;
+	const saved = browser ? safeGetItem(TOKEN_KEY) : null;
 	if (saved) {
 		try {
 			const me = await portalApi.me(fetchFn, saved);
@@ -121,7 +145,7 @@ async function restore(fetchFn) {
 			tenantLogoUrl = me.tenant_logo_url ?? null;
 			token = saved;
 		} catch {
-			if (browser) localStorage.removeItem(TOKEN_KEY);
+			if (browser) safeRemoveItem(TOKEN_KEY);
 		}
 	}
 	initialized = true;

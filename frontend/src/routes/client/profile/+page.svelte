@@ -377,7 +377,9 @@
 							{/if}
 						</div>
 						<div>
-							<h3 class="text-xs font-bold tracking-wide text-slate-700 uppercase">Profile Photo</h3>
+							<h3 class="text-xs font-bold tracking-wide text-slate-700 uppercase">
+								Profile Photo
+							</h3>
 							<p class="mt-0.5 text-xs text-slate-500">
 								Upload a PNG, JPEG, WebP, or GIF (max 5MB).
 							</p>
@@ -442,7 +444,9 @@
 						type="text"
 						bind:value={accountFullName}
 						required
-						class="mt-1 block w-full rounded-lg border-slate-300 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
+						autocomplete="name"
+						enterkeyhint="next"
+						class="mt-1 block min-h-[44px] w-full rounded-lg border-slate-300 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 sm:min-h-[38px]"
 					/>
 				</div>
 
@@ -454,7 +458,10 @@
 							type="email"
 							bind:value={accountEmail}
 							required
-							class="mt-1 block w-full rounded-lg border-slate-300 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
+							autocomplete="email"
+							inputmode="email"
+							enterkeyhint="next"
+							class="mt-1 block min-h-[44px] w-full rounded-lg border-slate-300 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 sm:min-h-[38px]"
 						/>
 						{#if pendingEmail}
 							<p class="mt-1 text-[11px] font-medium text-amber-600">
@@ -469,8 +476,11 @@
 							id="acc-phone"
 							type="tel"
 							bind:value={accountPhone}
+							autocomplete="tel"
+							inputmode="tel"
+							enterkeyhint="next"
 							placeholder="+1..."
-							class="mt-1 block w-full rounded-lg border-slate-300 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
+							class="mt-1 block min-h-[44px] w-full rounded-lg border-slate-300 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 sm:min-h-[38px]"
 						/>
 					</div>
 				</div>
@@ -490,7 +500,7 @@
 						<select
 							id="acc-lang"
 							bind:value={accountLanguage}
-							class="mt-1 block w-full rounded-lg border-slate-300 py-2 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
+							class="mt-1 block min-h-[44px] w-full rounded-lg border-slate-300 py-2 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 sm:min-h-[38px]"
 						>
 							<option value="en">English (US)</option>
 							<option value="es">Español</option>
@@ -504,7 +514,7 @@
 					<button
 						type="submit"
 						disabled={savingAccount}
-						class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-2xs transition-colors hover:bg-indigo-700 disabled:opacity-60"
+						class="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-5 py-2 text-xs font-semibold text-white shadow-2xs transition-colors hover:bg-indigo-700 disabled:opacity-60 sm:w-auto"
 					>
 						{#if savingAccount}
 							<Spinner class="h-4 w-4 text-white" />
@@ -588,8 +598,10 @@
 							<input
 								id="comp-email"
 								type="email"
+								inputmode="email"
+								enterkeyhint="next"
 								bind:value={companyEmail}
-								class="mt-1 block w-full rounded-lg border-slate-300 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
+								class="mt-1 block min-h-[44px] w-full rounded-lg border-slate-300 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 sm:min-h-[38px]"
 							/>
 						</div>
 						<div>
@@ -599,8 +611,11 @@
 							<input
 								id="comp-phone"
 								type="tel"
+								autocomplete="tel"
+								inputmode="tel"
+								enterkeyhint="done"
 								bind:value={companyPhone}
-								class="mt-1 block w-full rounded-lg border-slate-300 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
+								class="mt-1 block min-h-[44px] w-full rounded-lg border-slate-300 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 sm:min-h-[38px]"
 							/>
 						</div>
 					</div>
@@ -609,7 +624,7 @@
 						<button
 							type="submit"
 							disabled={savingCompany}
-							class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-2xs transition-colors hover:bg-indigo-700 disabled:opacity-60"
+							class="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-5 py-2 text-xs font-semibold text-white shadow-2xs transition-colors hover:bg-indigo-700 disabled:opacity-60 sm:w-auto"
 						>
 							{#if savingCompany}
 								<Spinner class="h-4 w-4 text-white" />
@@ -661,7 +676,9 @@
 						type="password"
 						bind:value={currentPassword}
 						required
-						class="mt-1 block w-full rounded-lg border-slate-300 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
+						autocomplete="current-password"
+						enterkeyhint="next"
+						class="mt-1 block min-h-[44px] w-full rounded-lg border-slate-300 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 sm:min-h-[38px]"
 					/>
 				</div>
 
@@ -673,7 +690,9 @@
 						bind:value={newPassword}
 						required
 						minlength="8"
-						class="mt-1 block w-full rounded-lg border-slate-300 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
+						autocomplete="new-password"
+						enterkeyhint="next"
+						class="mt-1 block min-h-[44px] w-full rounded-lg border-slate-300 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 sm:min-h-[38px]"
 					/>
 					<p class="mt-1 text-[11px] text-slate-400">Must be at least 8 characters long</p>
 				</div>
@@ -688,7 +707,9 @@
 						bind:value={confirmPassword}
 						required
 						minlength="8"
-						class="mt-1 block w-full rounded-lg border-slate-300 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
+						autocomplete="new-password"
+						enterkeyhint="done"
+						class="mt-1 block min-h-[44px] w-full rounded-lg border-slate-300 text-xs shadow-2xs focus:border-indigo-500 focus:ring-indigo-500 sm:min-h-[38px]"
 					/>
 				</div>
 
@@ -696,7 +717,7 @@
 					<button
 						type="submit"
 						disabled={changing}
-						class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-2xs transition-colors hover:bg-indigo-700 disabled:opacity-60"
+						class="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-5 py-2 text-xs font-semibold text-white shadow-2xs transition-colors hover:bg-indigo-700 disabled:opacity-60 sm:w-auto"
 					>
 						{#if changing}
 							<Spinner class="h-4 w-4 text-white" />

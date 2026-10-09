@@ -77,7 +77,7 @@
 									aria-label={`Move step ${index + 1} up`}
 									disabled={index === 0}
 									onclick={() => moveStepUp(index)}
-									class="rounded p-2 text-slate-500 hover:bg-slate-200 hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
+									class="inline-flex min-h-[32px] min-w-[32px] items-center justify-center rounded p-1.5 text-slate-500 hover:bg-slate-200 hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
 								>
 									<svg
 										xmlns="http://www.w3.org/2000/svg"
@@ -98,7 +98,7 @@
 									aria-label={`Move step ${index + 1} down`}
 									disabled={index === steps.length - 1}
 									onclick={() => moveStepDown(index)}
-									class="rounded p-2 text-slate-500 hover:bg-slate-200 hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
+									class="inline-flex min-h-[32px] min-w-[32px] items-center justify-center rounded p-1.5 text-slate-500 hover:bg-slate-200 hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
 								>
 									<svg
 										xmlns="http://www.w3.org/2000/svg"
@@ -128,8 +128,9 @@
 									required
 									maxlength="255"
 									placeholder="Step name"
+									enterkeyhint="next"
 									disabled={readonly}
-									class="block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:bg-slate-100"
+									class="block min-h-[44px] w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:bg-slate-100 sm:min-h-[38px]"
 								/>
 							</div>
 							<div>
@@ -141,10 +142,12 @@
 									type="number"
 									min="0"
 									step="1"
+									inputmode="numeric"
+									enterkeyhint="next"
 									bind:value={step.expected_duration_days}
 									placeholder="Days"
 									disabled={readonly}
-									class="block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:bg-slate-100"
+									class="block min-h-[44px] w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:bg-slate-100 sm:min-h-[38px]"
 								/>
 							</div>
 						</div>
@@ -156,7 +159,7 @@
 								bind:value={step.description}
 								placeholder="Optional description"
 								disabled={readonly}
-								class="block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:bg-slate-100"
+								class="block min-h-[44px] w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:bg-slate-100 sm:min-h-[38px]"
 							/>
 						</div>
 					</div>
@@ -166,7 +169,7 @@
 								type="button"
 								aria-label={`Remove step ${index + 1}`}
 								onclick={() => removeStep(step._key)}
-								class="rounded p-2 text-slate-400 hover:bg-red-50 hover:text-red-600 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none"
+								class="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded p-2 text-slate-400 hover:bg-red-50 hover:text-red-600 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none"
 							>
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
@@ -192,7 +195,7 @@
 		<button
 			type="button"
 			onclick={addStep}
-			class="inline-flex items-center gap-2 rounded-md border border-dashed border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+			class="inline-flex min-h-[44px] items-center gap-2 rounded-md border border-dashed border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
 		>
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
