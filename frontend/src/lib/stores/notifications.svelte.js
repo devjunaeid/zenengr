@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars, no-unused-private-class-members */
 import { browser } from '$app/environment';
 import { SvelteMap } from 'svelte/reactivity';
 import {
@@ -76,18 +77,15 @@ class NotificationStore {
 		this.realm = realm;
 	}
 
+	/** @type {boolean} */
+	loadingList = $state(false);
+	/** @type {boolean} */
+	listLoaded = $state(false);
+
 	/**
-	 * Fetch the initial list + unread count, then open the WebSocket.
-	 * Idempotent per realm: exactly one socket, and the REST fetch runs only
-	 * on the first successful init for a token.
+	 * Defered initialization: fetch unread count for badge, then start polling.
+	 * Full notification list is loaded lazily via loadList() when opened.
 	 *
-	 * - Already initialized for the same token with an open/connecting
-	 *   socket → no-op (no fetch, no reconnect).
-	 * - Already initialized for the same token but the socket is closed
-	 *   (stale, reconnect budget exhausted, or a graceful close) → this call
-	 *   acts as a manual re-init: reset the budget and reconnect, WITHOUT
-	 *   re-fetching.
-	 * - Token changed → tear down first, then fetch + connect.
 	 * @param {typeof fetch} fetchFn
 	 * @param {string} token
 	 * @param {NotificationRealm} realm
@@ -99,23 +97,41 @@ class NotificationStore {
 		this.#token = token;
 		this.#initInFlight = true;
 		try {
-			const [list, count] = await Promise.all([
-				listNotifications(fetchFn, token, { page: 1, page_size: 20 }, realm),
-				unreadCount(fetchFn, token, realm)
-			]);
+			const count = await unreadCount(fetchFn, token, realm);
 			// Torn down (logout / token change) while the fetch was in flight.
 			if (this.#token !== token) return;
-			this.items = list?.items ?? [];
-			this.unread = count?.count ?? list?.unread ?? 0;
+			this.unread = count?.count ?? 0;
 		} catch {
-			// Initial fetch failed (offline / 401) — still attempt the socket;
-			// items then arrive from pushes once it opens.
+			// Initial fetch failed (offline / 401)
 		} finally {
 			this.#initInFlight = false;
 		}
 		if (this.#token !== token) return;
 		this.initialized = true;
 		this.#startPolling(fetchFn, realm);
+	}
+
+	/**
+	 * Lazily fetch the full notification list on demand (e.g. when opening dropdown).
+	 * @param {typeof fetch} [fetchFn]
+	 */
+	async loadList(fetchFn = fetch) {
+		if (!this.#token || this.loadingList) return;
+		this.loadingList = true;
+		try {
+			const list = await listNotifications(fetchFn, this.#token, { page: 1, page_size: 20 }, this.realm);
+			if (this.#token) {
+				this.items = list?.items ?? [];
+				if (typeof list?.unread === 'number') {
+					this.unread = list.unread;
+				}
+				this.listLoaded = true;
+			}
+		} catch {
+			// ignore
+		} finally {
+			this.loadingList = false;
+		}
 	}
 
 	/**
@@ -130,6 +146,8 @@ class NotificationStore {
 		this.#stopReconnectTimer();
 		this.items = [];
 		this.unread = 0;
+		this.loadingList = false;
+		this.listLoaded = false;
 		this.wsState = 'idle';
 		this.initialized = false;
 		this.#token = null;

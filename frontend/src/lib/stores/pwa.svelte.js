@@ -86,9 +86,17 @@ export const pwa = {
 					}
 				});
 			} else {
-				navigator.serviceWorker.register('/service-worker.js').catch((err) => {
-					console.warn('Service worker registration failed:', err);
-				});
+				const register = () => {
+					navigator.serviceWorker.register('/service-worker.js').catch((err) => {
+						console.warn('Service worker registration failed:', err);
+					});
+				};
+
+				if (document.readyState === 'complete') {
+					register();
+				} else {
+					window.addEventListener('load', register, { once: true });
+				}
 			}
 		}
 	}

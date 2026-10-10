@@ -4,14 +4,15 @@ import { build, files, version } from '$service-worker';
 // Unique cache key keyed by release version
 const CACHE = `cache-zenengr-${version}`;
 
-// App shell and static assets to pre-cache on install
-const ASSETS = [...build, ...files];
+// Known build artifacts and static assets
+const ASSETS = new Set([...build, ...files]);
+// Core shell to precache on install (avoid mass network flooding on initial visit)
+const CORE_PRECACHE = ['/', '/index.html'];
 
 self.addEventListener('install', (event) => {
 	async function addFilesToCache() {
 		const cache = await caches.open(CACHE);
-		// Precache assets. Use Promise.allSettled so a single missing optional file doesn't block install.
-		await Promise.allSettled(ASSETS.map((asset) => cache.add(asset)));
+		await Promise.allSettled(CORE_PRECACHE.map((asset) => cache.add(asset)));
 	}
 
 	event.waitUntil(addFilesToCache().then(() => self.skipWaiting()));
@@ -51,7 +52,7 @@ self.addEventListener('fetch', (event) => {
 	}
 
 	// Immutable build artifacts (/_app/immutable/*) and known static assets: Cache-First
-	if (url.pathname.startsWith('/_app/') || ASSETS.includes(url.pathname)) {
+	if (url.pathname.startsWith('/_app/') || ASSETS.has(url.pathname)) {
 		event.respondWith(
 			caches.match(request).then(async (cachedResponse) => {
 				if (cachedResponse) return cachedResponse;

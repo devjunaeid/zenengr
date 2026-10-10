@@ -113,6 +113,7 @@ def _to_list_item(
     )
 
 
+@router.get("", response_model=ClientProjectListResponse, include_in_schema=False)
 @router.get("/", response_model=ClientProjectListResponse)
 async def list_client_projects_endpoint(
     page: int = Query(default=1, ge=1),

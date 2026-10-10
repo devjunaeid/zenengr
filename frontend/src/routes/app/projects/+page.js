@@ -12,23 +12,18 @@ export async function load({ fetch, url }) {
 	const tag = url.searchParams.get('tag') ?? '';
 	const page = Math.max(1, Number(url.searchParams.get('page') ?? '1') || 1);
 
-	/** @type {string[]} */
-	let tags = [];
-	try {
-		const tagsRes = await clientApi.listTags(fetch, token);
-		tags = Array.isArray(tagsRes?.tags) ? tagsRes.tags : [];
-	} catch {
-		tags = [];
-	}
+	const [tagsRes, projects] = await Promise.all([
+		clientApi.listTags(fetch, token).catch(() => ({ tags: [] })),
+		projectApi.listProjects(fetch, token, {
+			page,
+			page_size: 20,
+			...(status && { status }),
+			...(clientId && { client_id: clientId }),
+			...(tag && { tag }),
+			...(q && { q })
+		})
+	]);
 
-	const projects = await projectApi.listProjects(fetch, token, {
-		page,
-		page_size: 20,
-		...(status && { status }),
-		...(clientId && { client_id: clientId }),
-		...(tag && { tag }),
-		...(q && { q })
-	});
-
+	const tags = Array.isArray(tagsRes?.tags) ? tagsRes.tags : [];
 	return { projects, tags, filters: { q, status, client_id: clientId, tag, page } };
 }

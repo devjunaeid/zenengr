@@ -107,7 +107,7 @@ import { apiFetch, ApiError, BASE_URL } from './client.js';
  * @returns {Promise<{ items: ProjectListItem[], total: number, page: number, page_size: number }>}
  */
 export function listProjects(fetchFn, token, params = {}) {
-	return apiFetch(fetchFn, '/tenant/projects', { token, params });
+	return apiFetch(fetchFn, '/tenant/projects/', { token, params });
 }
 
 /**
@@ -140,7 +140,7 @@ export function getProject(fetchFn, token, id) {
  * @returns {Promise<ProjectCreateResponse>}
  */
 export function createProject(fetchFn, token, body) {
-	return apiFetch(fetchFn, '/tenant/projects', { method: 'POST', token, body });
+	return apiFetch(fetchFn, '/tenant/projects/', { method: 'POST', token, body });
 }
 
 /**

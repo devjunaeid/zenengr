@@ -107,6 +107,7 @@ def _client_invoice_scope(user: ClientUser) -> tuple[Any, Any]:
     )
 
 
+@router.get("", response_model=ClientInvoiceListResponse, include_in_schema=False)
 @router.get("/", response_model=ClientInvoiceListResponse)
 async def list_client_invoices_endpoint(
     page: int = Query(default=1, ge=1),

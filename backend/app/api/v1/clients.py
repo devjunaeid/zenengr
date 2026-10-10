@@ -59,6 +59,12 @@ def _get_tenant_id(user: AdminUser) -> uuid.UUID:
 
 
 @router.post(
+    "",
+    response_model=ClientListItem,
+    status_code=status.HTTP_201_CREATED,
+    include_in_schema=False,
+)
+@router.post(
     "/",
     response_model=ClientListItem,
     status_code=status.HTTP_201_CREATED,
@@ -97,6 +103,7 @@ async def create_client_endpoint(
     )
 
 
+@router.get("", response_model=ClientListResponse, include_in_schema=False)
 @router.get("/", response_model=ClientListResponse)
 async def list_clients_endpoint(
     page: int = Query(default=1, ge=1),

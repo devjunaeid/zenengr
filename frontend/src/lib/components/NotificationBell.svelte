@@ -34,7 +34,23 @@
 	$effect(() => {
 		const token = authStore.token;
 		if (token) {
-			store.init(fetch, token, realm);
+			let handle;
+			let timer;
+			if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+				handle = window.requestIdleCallback(() => {
+					store.init(fetch, token, realm);
+				}, { timeout: 1200 });
+			} else if (typeof window !== 'undefined') {
+				timer = setTimeout(() => {
+					store.init(fetch, token, realm);
+				}, 600);
+			}
+			return () => {
+				if (handle && typeof window !== 'undefined' && 'cancelIdleCallback' in window) {
+					window.cancelIdleCallback(handle);
+				}
+				if (timer) clearTimeout(timer);
+			};
 		} else {
 			store.reset();
 		}
@@ -110,6 +126,13 @@
 		}
 	}
 
+	function toggleOpen() {
+		open = !open;
+		if (open && !store.listLoaded) {
+			store.loadList(fetch);
+		}
+	}
+
 	function handleMarkAllRead() {
 		store.markAllRead();
 	}
@@ -118,7 +141,7 @@
 <div bind:this={rootEl} class="relative">
 	<button
 		type="button"
-		onclick={() => (open = !open)}
+		onclick={toggleOpen}
 		aria-label={store.unread > 0 ? `Notifications, ${store.unread} unread` : 'Notifications'}
 		aria-haspopup="true"
 		aria-expanded={open}
@@ -196,7 +219,11 @@
 				</div>
 			</div>
 			<div class="max-h-[calc(100vh-10rem)] sm:max-h-96 overflow-y-auto divide-y divide-slate-100">
-				{#if store.items.length === 0}
+				{#if store.loadingList && store.items.length === 0}
+					<div class="px-4 py-10 text-center">
+						<p class="text-xs font-medium text-slate-500">Loading notifications...</p>
+					</div>
+				{:else if store.items.length === 0}
 					<div class="px-4 py-10 text-center">
 						<svg
 							class="mx-auto h-8 w-8 text-slate-300"

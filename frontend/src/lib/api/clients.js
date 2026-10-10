@@ -83,7 +83,7 @@ import { apiFetch } from './client.js';
  * @returns {Promise<{ items: ClientListItem[], total: number, page: number, page_size: number }>}
  */
 export function listClients(fetchFn, token, params = {}) {
-	return apiFetch(fetchFn, '/tenant/clients', { token, params });
+	return apiFetch(fetchFn, '/tenant/clients/', { token, params });
 }
 
 /**
@@ -172,7 +172,7 @@ export function getClient(fetchFn, token, id) {
  * @returns {Promise<ClientListItem>}
  */
 export function createClient(fetchFn, token, body) {
-	return apiFetch(fetchFn, '/tenant/clients', { method: 'POST', token, body });
+	return apiFetch(fetchFn, '/tenant/clients/', { method: 'POST', token, body });
 }
 
 /**

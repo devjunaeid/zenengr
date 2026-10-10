@@ -44,6 +44,7 @@ def _parse_uuid(value: str, *, kind: str) -> uuid.UUID:
         ) from exc
 
 
+@router.get("", response_model=TenantSmtpConfigResponse, include_in_schema=False)
 @router.get("/", response_model=TenantSmtpConfigResponse)
 async def get_smtp_config_endpoint(
     session: AsyncSession = Depends(get_session),
@@ -55,6 +56,7 @@ async def get_smtp_config_endpoint(
     return TenantSmtpConfigResponse(**data)
 
 
+@router.patch("", response_model=TenantSmtpConfigResponse, include_in_schema=False)
 @router.patch("/", response_model=TenantSmtpConfigResponse)
 async def upsert_smtp_config_endpoint(
     body: TenantSmtpConfigUpdateRequest,

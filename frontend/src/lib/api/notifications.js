@@ -52,15 +52,27 @@ export function listNotifications(fetchFn, token, params = {}, realm = 'admin') 
 	return apiFetch(fetchFn, notificationsPath(realm), { token, params });
 }
 
+/** @type {Map<string, Promise<{ count: number }>>} */
+const unreadInFlight = new Map();
+
 /**
- * Count of unread notifications.
+ * Count of unread notifications. Deduplicates identical in-flight requests.
  * @param {typeof fetch} fetchFn
  * @param {string} token
  * @param {NotificationRealm} [realm]
  * @returns {Promise<{ count: number }>}
  */
 export function unreadCount(fetchFn, token, realm = 'admin') {
-	return apiFetch(fetchFn, `${notificationsPath(realm)}/unread-count`, { token });
+	const key = `${realm}:${token}`;
+	const existing = unreadInFlight.get(key);
+	if (existing) return existing;
+
+	const promise = apiFetch(fetchFn, `${notificationsPath(realm)}/unread-count`, { token })
+		.finally(() => {
+			unreadInFlight.delete(key);
+		});
+	unreadInFlight.set(key, promise);
+	return promise;
 }
 
 /**

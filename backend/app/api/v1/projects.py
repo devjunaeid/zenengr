@@ -209,6 +209,12 @@ def _to_comment_response(comment: Any) -> CommentResponse:
 
 
 @router.post(
+    "",
+    response_model=ProjectCreateResponse,
+    status_code=status.HTTP_201_CREATED,
+    include_in_schema=False,
+)
+@router.post(
     "/",
     response_model=ProjectCreateResponse,
     status_code=status.HTTP_201_CREATED,
@@ -236,6 +242,7 @@ async def create_project_endpoint(
     return _to_create_response(project)
 
 
+@router.get("", response_model=ProjectListResponse, include_in_schema=False)
 @router.get("/", response_model=ProjectListResponse)
 async def list_projects_endpoint(
     page: int = Query(default=1, ge=1),
