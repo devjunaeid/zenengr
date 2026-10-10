@@ -17,6 +17,7 @@
 	import alertCircleOutline from '@iconify-icons/mdi/alert-circle-outline';
 	import walletOutline from '@iconify-icons/mdi/wallet-outline';
 	import magnify from '@iconify-icons/mdi/magnify';
+	import tagOutline from '@iconify-icons/mdi/tag-outline';
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
 
 	let { data } = $props();
@@ -28,6 +29,7 @@
 	// Search & sort states for sub-tables
 	let projectSearch = $state('');
 	let projectSort = $state('due_desc'); // 'due_desc' | 'invoiced_desc' | 'name_asc'
+	let projectTag = $state('');
 	let clientSearch = $state('');
 	let clientSort = $state('due_desc'); // 'due_desc' | 'invoiced_desc' | 'name_asc'
 
@@ -132,6 +134,19 @@
 		goto(url, { keepFocus: true, noScroll: true });
 	}
 
+	// Available tags across reporting projects
+	let availableProjectTags = $derived.by(() => {
+		const set = new Set();
+		for (const p of data.ledgerData.projects || []) {
+			if (Array.isArray(p.client_tags)) {
+				for (const t of p.client_tags) {
+					if (t) set.add(t);
+				}
+			}
+		}
+		return Array.from(set).sort();
+	});
+
 	// Filtered & sorted projects
 	let filteredProjects = $derived.by(() => {
 		let list = data.ledgerData.projects || [];
@@ -142,6 +157,12 @@
 					p.name.toLowerCase().includes(q) ||
 					p.short_id.toLowerCase().includes(q) ||
 					p.client_name.toLowerCase().includes(q)
+			);
+		}
+		if (projectTag) {
+			const pt = projectTag.toLowerCase();
+			list = list.filter(
+				(p) => Array.isArray(p.client_tags) && p.client_tags.some((t) => t.toLowerCase() === pt)
 			);
 		}
 		return [...list].sort((a, b) => {
@@ -675,19 +696,48 @@
 			<!-- Tab 2: Projects Breakdown -->
 			{#if activeTab === 'projects'}
 				<div class="space-y-4 p-4 sm:p-6">
-					<!-- Search and Sort Bar -->
+					<!-- Search, Tag Filter, and Sort Bar -->
 					<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-						<div class="relative w-full max-w-sm">
-							<Icon
-								icon={magnify}
-								class="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-slate-400"
-							/>
-							<input
-								type="text"
-								bind:value={projectSearch}
-								placeholder="Search by project name, ID, or client..."
-								class="w-full rounded-lg border border-slate-200 bg-white py-1.5 pr-3 pl-9 text-xs text-slate-800 shadow-2xs focus:border-indigo-500 focus:outline-hidden"
-							/>
+						<div class="flex flex-1 flex-wrap items-center gap-2">
+							<div class="relative w-full max-w-xs">
+								<Icon
+									icon={magnify}
+									class="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-slate-400"
+								/>
+								<input
+									type="text"
+									bind:value={projectSearch}
+									placeholder="Search project, ID, or client..."
+									class="w-full rounded-lg border border-slate-200 bg-white py-1.5 pr-3 pl-9 text-xs text-slate-800 shadow-2xs focus:border-indigo-500 focus:outline-hidden"
+								/>
+							</div>
+
+							<div class="flex items-center gap-1.5">
+								<label for="rep-proj-tag" class="text-xs font-medium text-slate-500">Tag:</label>
+								<select
+									id="rep-proj-tag"
+									bind:value={projectTag}
+									class="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-800 shadow-2xs focus:border-indigo-500 focus:outline-hidden"
+								>
+									<option value="">All Tags</option>
+									{#each availableProjectTags as t (t)}
+										<option value={t}>{t}</option>
+									{/each}
+								</select>
+							</div>
+
+							{#if projectSearch || projectTag}
+								<button
+									type="button"
+									onclick={() => {
+										projectSearch = '';
+										projectTag = '';
+									}}
+									class="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-medium text-slate-500 hover:bg-slate-100"
+								>
+									Reset filters
+								</button>
+							{/if}
 						</div>
 
 						<div class="flex items-center gap-2">
@@ -741,12 +791,29 @@
 											</td>
 											<td class="py-3 text-slate-700">
 												{#if proj.client_id}
-													<a
-														href={resolve('/app/clients/[id]', { id: proj.client_id })}
-														class="hover:text-indigo-600 hover:underline"
-													>
-														{proj.client_name}
-													</a>
+													<div>
+														<a
+															href={resolve('/app/clients/[id]', { id: proj.client_id })}
+															class="hover:text-indigo-600 hover:underline"
+														>
+															{proj.client_name}
+														</a>
+														{#if proj.client_tags && proj.client_tags.length > 0}
+															<div class="mt-0.5 flex flex-wrap items-center gap-1">
+																{#each proj.client_tags as ct (ct)}
+																	<button
+																		type="button"
+																		onclick={() => (projectTag = ct)}
+																		title={`Filter by tag "${ct}"`}
+																		class="py-0.2 inline-flex items-center gap-0.5 rounded bg-indigo-50 px-1.5 text-[10px] font-medium text-indigo-700 hover:bg-indigo-100"
+																	>
+																		<Icon icon={tagOutline} class="h-2.5 w-2.5 text-indigo-500" />
+																		<span>{ct}</span>
+																	</button>
+																{/each}
+															</div>
+														{/if}
+													</div>
 												{:else}
 													<span class="text-slate-400">—</span>
 												{/if}

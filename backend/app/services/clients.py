@@ -607,6 +607,123 @@ async def get_distinct_tags(
     return sorted(all_tags)
 
 
+async def get_tags_summary(
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+) -> list[dict[str, Any]]:
+    """Get all distinct tags with client counts for a tenant."""
+    stmt = select(Client.tags).where(Client.tenant_id == tenant_id)
+    result = await session.execute(stmt)
+    counts: dict[str, int] = {}
+    for row in result.scalars().all():
+        if row:
+            for t in row:
+                counts[t] = counts.get(t, 0) + 1
+    return [
+        {"name": t, "client_count": counts[t]}
+        for t in sorted(counts.keys(), key=lambda s: s.lower())
+    ]
+
+
+async def rename_tag(
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    old_name: str,
+    new_name: str,
+    actor_id: uuid.UUID,
+) -> int:
+    """Rename a tag across all clients for a tenant. Returns number of updated clients."""
+    clean_old = old_name.strip()
+    clean_new = new_name.strip().replace("#", "")
+    if not clean_old or not clean_new:
+        return 0
+
+    stmt = select(Client).where(Client.tenant_id == tenant_id)
+    clients = list((await session.execute(stmt)).scalars().all())
+
+    updated_count = 0
+    norm_old = clean_old.lower()
+
+    for c in clients:
+        if not c.tags:
+            continue
+        has_tag = any(t.lower() == norm_old for t in c.tags)
+        if has_tag:
+            new_tags = []
+            for t in c.tags:
+                if t.lower() == norm_old:
+                    new_tags.append(clean_new)
+                else:
+                    new_tags.append(t)
+            c.tags = _clean_tags(new_tags)
+            updated_count += 1
+
+    if updated_count > 0:
+        await session.flush()
+        await audit_log(
+            session,
+            tenant_id=tenant_id,
+            actor_id=actor_id,
+            actor_type=ActorType.ADMIN_USER,
+            action="tag.renamed",
+            entity_type="tag",
+            entity_id=clean_new,
+            details={
+                "old_name": clean_old,
+                "new_name": clean_new,
+                "affected_clients": updated_count,
+            },
+        )
+        await session.commit()
+
+    return updated_count
+
+
+async def delete_tag(
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    tag_name: str,
+    actor_id: uuid.UUID,
+) -> int:
+    """Remove a tag from all clients for a tenant. Returns number of updated clients."""
+    clean_tag = tag_name.strip()
+    if not clean_tag:
+        return 0
+
+    stmt = select(Client).where(Client.tenant_id == tenant_id)
+    clients = list((await session.execute(stmt)).scalars().all())
+
+    updated_count = 0
+    norm = clean_tag.lower()
+
+    for c in clients:
+        if not c.tags:
+            continue
+        has_tag = any(t.lower() == norm for t in c.tags)
+        if has_tag:
+            c.tags = [t for t in c.tags if t.lower() != norm]
+            updated_count += 1
+
+    if updated_count > 0:
+        await session.flush()
+        await audit_log(
+            session,
+            tenant_id=tenant_id,
+            actor_id=actor_id,
+            actor_type=ActorType.ADMIN_USER,
+            action="tag.deleted",
+            entity_type="tag",
+            entity_id=clean_tag,
+            details={"tag": clean_tag, "affected_clients": updated_count},
+        )
+        await session.commit()
+
+    return updated_count
+
+
 # ── Client Profile Self-Update ───────────────────────────────────────────────
 
 

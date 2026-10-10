@@ -243,6 +243,7 @@ async def list_projects_endpoint(
     q: str | None = Query(default=None),
     status_val: str | None = Query(default=None, alias="status"),
     client_id: str | None = Query(default=None),
+    tag: str | None = Query(default=None),
     sort: str | None = Query(default=None),
     session: AsyncSession = Depends(get_session),
     user: AdminUser = Depends(get_current_admin_user),
@@ -280,6 +281,7 @@ async def list_projects_endpoint(
         page_size=page_size,
         status_filter=status_filter,
         client_id=parsed_client_id,
+        tag=tag,
         q=q,
         sort=sort,
     )

@@ -376,6 +376,44 @@ class TestProjectCRUD:
         assert res_id.json()["items"][0]["id"] == pid
 
     @pytest.mark.asyncio
+    async def test_list_projects_filter_by_tag(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        ctx = await _bootstrap(db_session)
+        admin_headers = await _admin_auth_header(ctx["admin"])
+        # Give client tags
+        ctx["client"].tags = ["enterprise", "vip-tier"]
+        await db_session.commit()
+
+        create_resp = await client.post(
+            "/api/v1/tenant/projects/",
+            json={"name": "Tagged Project", "client_id": str(ctx["client"].id)},
+            headers=admin_headers,
+        )
+        assert create_resp.status_code == 201
+        pid = create_resp.json()["id"]
+
+        # Filter by matching tag
+        res_tag = await client.get("/api/v1/tenant/projects/?tag=enterprise", headers=admin_headers)
+        assert res_tag.status_code == 200
+        assert res_tag.json()["total"] == 1
+        item = res_tag.json()["items"][0]
+        assert item["id"] == pid
+        assert item["client_name"] == ctx["client"].name
+        assert "enterprise" in item["client_tags"]
+        assert "vip-tier" in item["client_tags"]
+
+        # Filter by other tag
+        res_tag2 = await client.get("/api/v1/tenant/projects/?tag=vip-tier", headers=admin_headers)
+        assert res_tag2.status_code == 200
+        assert res_tag2.json()["total"] == 1
+
+        # Filter by non-existent tag
+        res_none = await client.get("/api/v1/tenant/projects/?tag=nonexistent", headers=admin_headers)
+        assert res_none.status_code == 200
+        assert res_none.json()["total"] == 0
+
+    @pytest.mark.asyncio
     async def test_get_detail_returns_services_and_milestones(
         self, client: AsyncClient, db_session: AsyncSession
     ):

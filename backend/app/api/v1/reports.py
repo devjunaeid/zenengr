@@ -48,6 +48,7 @@ async def get_company_ledger_endpoint(
     date_to: date | None = Query(default=None),
     client_id: str | None = Query(default=None),
     project_id: str | None = Query(default=None),
+    tag: str | None = Query(default=None),
     granularity: str = Query(default="month", pattern="^(month|day)$"),
     tab: str = Query(default="all", pattern="^(all|timeline|projects|clients)$"),
     session: AsyncSession = Depends(get_session),
@@ -68,6 +69,7 @@ async def get_company_ledger_endpoint(
         date_to=date_to,
         client_id=parsed_client_id,
         project_id=parsed_project_id,
+        tag=tag,
         granularity=granularity,
         tab=tab,
     )

@@ -3,6 +3,9 @@
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import Icon from '@iconify/svelte';
+	import tagOutline from '@iconify-icons/mdi/tag-outline';
+	import close from '@iconify-icons/mdi/close';
 	import EmptyState from '$lib/components/EmptyState.svelte';
 	import Pagination from '$lib/components/Pagination.svelte';
 	import StatusBadge from '$lib/components/StatusBadge.svelte';
@@ -13,18 +16,22 @@
 
 	let canManage = $derived(auth.can('manage', 'projects'));
 	let hasFilter = $derived(
-		Boolean(untrack(() => data.filters.q)) || Boolean(untrack(() => data.filters.status))
+		Boolean(untrack(() => data.filters.q)) ||
+			Boolean(untrack(() => data.filters.status)) ||
+			Boolean(untrack(() => data.filters.tag))
 	);
 
 	let q = $state(untrack(() => data.filters.q));
 	let status = $state(untrack(() => data.filters.status));
+	let tag = $state(untrack(() => data.filters.tag ?? ''));
 
 	const statusOptions = ['', 'draft', 'active', 'on_hold', 'completed', 'cancelled'];
 
-	function buildUrl(p) {
+	function buildUrl(p, newTag = tag) {
 		const params = new SvelteURLSearchParams();
 		if (q) params.set('q', q);
 		if (status) params.set('status', status);
+		if (newTag) params.set('tag', newTag);
 		if (p > 1) params.set('page', String(p));
 		const qs = params.toString();
 		return qs ? `${resolve('/app/projects')}?${qs}` : resolve('/app/projects');
@@ -33,6 +40,19 @@
 	function applyFilters() {
 		// eslint-disable-next-line svelte/no-navigation-without-resolve -- query string appended to a resolved route
 		goto(buildUrl(1));
+	}
+
+	function filterByTag(selectedTag) {
+		tag = selectedTag;
+		// eslint-disable-next-line svelte/no-navigation-without-resolve -- query string appended to a resolved route
+		goto(buildUrl(1, selectedTag));
+	}
+
+	function clearFilters() {
+		q = '';
+		status = '';
+		tag = '';
+		goto(resolve('/app/projects'));
 	}
 
 	function gotoPage(p) {
@@ -91,7 +111,20 @@
 			class="mt-1 block rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
 		>
 			{#each statusOptions as opt (opt)}
-				<option value={opt}>{opt === '' ? 'All' : humanize(opt)}</option>
+				<option value={opt}>{opt === '' ? 'All Statuses' : humanize(opt)}</option>
+			{/each}
+		</select>
+	</div>
+	<div>
+		<label for="f-tag" class="block text-xs font-medium text-slate-600">Tag</label>
+		<select
+			id="f-tag"
+			bind:value={tag}
+			class="mt-1 block rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+		>
+			<option value="">All Tags</option>
+			{#each data.tags as t (t)}
+				<option value={t}>{t}</option>
 			{/each}
 		</select>
 	</div>
@@ -101,6 +134,16 @@
 	>
 		Apply
 	</button>
+	{#if hasFilter}
+		<button
+			type="button"
+			onclick={clearFilters}
+			class="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+		>
+			<Icon icon={close} class="h-3.5 w-3.5 text-slate-500" />
+			<span>Clear</span>
+		</button>
+	{/if}
 </form>
 
 <div class="mt-6 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
@@ -126,9 +169,11 @@
 		{/if}
 	{:else}
 		<!-- Mobile & Tablet cards (< lg): responsive grid -->
-		<div class="grid grid-cols-1 gap-3.5 p-3 bg-slate-50/60 sm:grid-cols-2 lg:hidden">
+		<div class="grid grid-cols-1 gap-3.5 bg-slate-50/60 p-3 sm:grid-cols-2 lg:hidden">
 			{#each data.projects.items as p (p.id)}
-				<div class="flex flex-col justify-between rounded-xl border border-slate-200/90 bg-white p-4 shadow-2xs space-y-3 transition-shadow hover:shadow-xs">
+				<div
+					class="flex flex-col justify-between space-y-3 rounded-xl border border-slate-200/90 bg-white p-4 shadow-2xs transition-shadow hover:shadow-xs"
+				>
 					<div class="space-y-3">
 						<div class="flex items-start justify-between gap-3">
 							<div class="min-w-0">
@@ -145,6 +190,26 @@
 										{p.name}
 									</a>
 								</div>
+								{#if p.client_name || (p.client_tags && p.client_tags.length > 0)}
+									<div class="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
+										{#if p.client_name}
+											<span class="font-medium text-slate-600">{p.client_name}</span>
+										{/if}
+										{#if p.client_tags && p.client_tags.length > 0}
+											{#each p.client_tags as ct (ct)}
+												<button
+													type="button"
+													onclick={() => filterByTag(ct)}
+													title={`Filter by tag "${ct}"`}
+													class="inline-flex items-center gap-1 rounded bg-indigo-50 px-1.5 py-0.5 text-[11px] font-medium text-indigo-700 hover:bg-indigo-100"
+												>
+													<Icon icon={tagOutline} class="h-2.5 w-2.5 text-indigo-500" />
+													<span>{ct}</span>
+												</button>
+											{/each}
+										{/if}
+									</div>
+								{/if}
 							</div>
 							<StatusBadge status={p.status} />
 						</div>
@@ -254,12 +319,34 @@
 								</span>
 							</td>
 							<td class="px-4 py-3 text-sm font-medium text-slate-900">
-								<a
-									href={resolve('/app/projects/[id]', { id: p.id })}
-									class="font-semibold text-indigo-600 hover:text-indigo-500"
-								>
-									{p.name}
-								</a>
+								<div class="space-y-0.5">
+									<a
+										href={resolve('/app/projects/[id]', { id: p.id })}
+										class="font-semibold text-indigo-600 hover:text-indigo-500"
+									>
+										{p.name}
+									</a>
+									{#if p.client_name || (p.client_tags && p.client_tags.length > 0)}
+										<div class="flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
+											{#if p.client_name}
+												<span class="text-slate-600">{p.client_name}</span>
+											{/if}
+											{#if p.client_tags && p.client_tags.length > 0}
+												{#each p.client_tags as ct (ct)}
+													<button
+														type="button"
+														onclick={() => filterByTag(ct)}
+														title={`Filter by tag "${ct}"`}
+														class="inline-flex items-center gap-1 rounded bg-indigo-50 px-1.5 py-0.5 text-[11px] font-medium text-indigo-700 hover:bg-indigo-100"
+													>
+														<Icon icon={tagOutline} class="h-2.5 w-2.5 text-indigo-500" />
+														<span>{ct}</span>
+													</button>
+												{/each}
+											{/if}
+										</div>
+									{/if}
+								</div>
 							</td>
 							<td class="px-4 py-3"><StatusBadge status={p.status} /></td>
 							<td class="px-4 py-3 text-right text-sm text-slate-700">{p.service_count}</td>

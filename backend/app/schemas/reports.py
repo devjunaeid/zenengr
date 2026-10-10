@@ -45,6 +45,7 @@ class CompanyLedgerProjectItem(BaseModel):
     name: str
     client_id: uuid.UUID
     client_name: str
+    client_tags: list[str] = Field(default_factory=list)
     status: str
     created_at: datetime
     services_count: int = 0

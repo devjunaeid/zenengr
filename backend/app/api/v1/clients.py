@@ -33,6 +33,8 @@ from app.schemas.clients import (
     ClientTagsResponse,
     ClientUpdateRequest,
     ClientUserSummary,
+    RenameTagRequest,
+    TagSummaryResponse,
 )
 from app.schemas.transactions import ClientLedgerResponse
 from app.services import clients as client_service
@@ -148,6 +150,52 @@ async def list_tags_endpoint(
     tenant_id = _get_tenant_id(user)
     tags = await client_service.get_distinct_tags(session, tenant_id=tenant_id)
     return ClientTagsResponse(tags=tags)
+
+
+@router.get("/tags/summary", response_model=TagSummaryResponse)
+async def get_tags_summary_endpoint(
+    session: AsyncSession = Depends(get_session),
+    user: AdminUser = Depends(get_current_admin_user),
+) -> TagSummaryResponse:
+    """Get all distinct tags with client counts for this tenant."""
+    tenant_id = _get_tenant_id(user)
+    items = await client_service.get_tags_summary(session, tenant_id=tenant_id)
+    return TagSummaryResponse(items=items)
+
+
+@router.post("/tags/rename")
+async def rename_tag_endpoint(
+    body: RenameTagRequest,
+    session: AsyncSession = Depends(get_session),
+    user: AdminUser = Depends(require_permission("manage", "clients")),
+) -> dict[str, Any]:
+    """Rename a tag across all clients for this tenant."""
+    tenant_id = _get_tenant_id(user)
+    updated = await client_service.rename_tag(
+        session,
+        tenant_id=tenant_id,
+        old_name=body.old_name,
+        new_name=body.new_name,
+        actor_id=user.id,
+    )
+    return {"success": True, "updated_clients": updated}
+
+
+@router.delete("/tags/{tag}")
+async def delete_tag_endpoint(
+    tag: str,
+    session: AsyncSession = Depends(get_session),
+    user: AdminUser = Depends(require_permission("manage", "clients")),
+) -> dict[str, Any]:
+    """Remove a tag from all clients for this tenant."""
+    tenant_id = _get_tenant_id(user)
+    deleted = await client_service.delete_tag(
+        session,
+        tenant_id=tenant_id,
+        tag_name=tag,
+        actor_id=user.id,
+    )
+    return {"success": True, "affected_clients": deleted}
 
 
 @router.get("/picker", response_model=ClientPickerResponse)

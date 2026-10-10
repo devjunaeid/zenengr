@@ -40,6 +40,8 @@ import { apiFetch, ApiError, BASE_URL } from './client.js';
  * @property {string} id
  * @property {string} name
  * @property {string} client_id
+ * @property {string|null} [client_name]
+ * @property {string[]} [client_tags]
  * @property {'draft'|'active'|'on_hold'|'completed'|'cancelled'} status
  * @property {string|null} start_date
  * @property {string|null} owner_id
@@ -101,7 +103,7 @@ import { apiFetch, ApiError, BASE_URL } from './client.js';
 /**
  * @param {typeof fetch} fetchFn
  * @param {string} token
- * @param {{ page?: number, page_size?: number, status?: string, client_id?: string, sort?: string, q?: string }} [params]
+ * @param {{ page?: number, page_size?: number, status?: string, client_id?: string, tag?: string, sort?: string, q?: string }} [params]
  * @returns {Promise<{ items: ProjectListItem[], total: number, page: number, page_size: number }>}
  */
 export function listProjects(fetchFn, token, params = {}) {

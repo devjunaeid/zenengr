@@ -428,6 +428,7 @@ async def list_projects(
     page_size: int = 20,
     status_filter: ProjectStatus | None = None,
     client_id: uuid.UUID | None = None,
+    tag: str | None = None,
     q: str | None = None,
     sort: str | None = None,
 ) -> dict[str, Any]:
@@ -439,6 +440,7 @@ async def list_projects(
         page_size=page_size,
         status=status_filter,
         client_id=client_id,
+        tag=tag,
         q=q,
         sort=sort,
     )

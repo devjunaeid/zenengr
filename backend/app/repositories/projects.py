@@ -9,7 +9,7 @@ import uuid
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import String, cast, func, or_, select
+from sqlalchemy import String, cast, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -122,21 +122,33 @@ async def list_projects_for_tenant(
     page_size: int = 20,
     status: ProjectStatus | None = None,
     client_id: uuid.UUID | None = None,
+    tag: str | None = None,
     q: str | None = None,
     sort: str | None = None,
 ) -> tuple[list[dict[str, Any]], int]:
-    """List projects for a tenant with filters + pagination using single-query SQL pushdown aggregation."""
-    count_q = select(func.count(Project.id)).where(Project.tenant_id == tenant_id)
+    """List projects for a tenant with filters and pagination.
 
+    Uses single-query SQL pushdown aggregation.
+    """
+    count_q = (
+        select(func.count(Project.id))
+        .outerjoin(Client, Client.id == Project.client_id)
+        .where(Project.tenant_id == tenant_id)
+    )
+
+    clean_tag = tag.strip().lstrip("#") if tag and tag.strip() else None
     search_filter = None
     if status is not None:
         count_q = count_q.where(Project.status == status)
     if client_id is not None:
         count_q = count_q.where(Project.client_id == client_id)
+    if clean_tag:
+        count_q = count_q.where(Client.tags.op("@>")(func.jsonb_build_array(clean_tag)))
     if q and q.strip():
         search_term = q.strip().lstrip("#")
         search_filter = or_(
             Project.name.ilike(f"%{search_term}%"),
+            Client.name.ilike(f"%{search_term}%"),
             cast(Project.id, String).ilike(f"%{search_term}%"),
         )
         count_q = count_q.where(search_filter)
@@ -174,8 +186,11 @@ async def list_projects_for_tenant(
             Project.id,
             Project.name,
             Project.client_id,
+            Client.name.label("client_name"),
+            func.coalesce(Client.tags, text("'[]'::jsonb")).label("client_tags"),
             Project.status,
             Project.start_date,
+            Project.due_date,
             Project.owner_id,
             Project.auto_invoice,
             Project.created_at,
@@ -184,6 +199,7 @@ async def list_projects_for_tenant(
             func.coalesce(ms_sub.c.milestone_total, 0).label("milestone_total"),
             func.coalesce(ms_sub.c.milestone_completed, 0).label("milestone_completed"),
         )
+        .outerjoin(Client, Client.id == Project.client_id)
         .outerjoin(svc_sub, svc_sub.c.project_id == Project.id)
         .outerjoin(ms_sub, ms_sub.c.project_id == Project.id)
         .where(Project.tenant_id == tenant_id)
@@ -193,6 +209,8 @@ async def list_projects_for_tenant(
         query = query.where(Project.status == status)
     if client_id is not None:
         query = query.where(Project.client_id == client_id)
+    if clean_tag:
+        query = query.where(Client.tags.op("@>")(func.jsonb_build_array(clean_tag)))
     if search_filter is not None:
         query = query.where(search_filter)
 
@@ -219,8 +237,11 @@ async def list_projects_for_tenant(
             "id": r["id"],
             "name": r["name"],
             "client_id": r["client_id"],
+            "client_name": r["client_name"],
+            "client_tags": r["client_tags"] or [],
             "status": r["status"],
             "start_date": r["start_date"],
+            "due_date": r["due_date"],
             "owner_id": r["owner_id"],
             "auto_invoice": r["auto_invoice"],
             "service_count": r["service_count"],

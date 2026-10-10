@@ -149,6 +149,20 @@ class ClientTagsResponse(BaseModel):
     tags: list[str]
 
 
+class TagSummaryItem(BaseModel):
+    name: str
+    client_count: int = 0
+
+
+class TagSummaryResponse(BaseModel):
+    items: list[TagSummaryItem]
+
+
+class RenameTagRequest(BaseModel):
+    old_name: str = Field(min_length=1, max_length=100)
+    new_name: str = Field(min_length=1, max_length=100)
+
+
 # ── Archive ──────────────────────────────────────────────────────────────────
 
 

@@ -1,4 +1,5 @@
 import * as projectApi from '$lib/api/projects.js';
+import * as clientApi from '$lib/api/clients.js';
 import { auth } from '$lib/stores/auth.svelte.js';
 
 export async function load({ fetch, url }) {
@@ -8,15 +9,26 @@ export async function load({ fetch, url }) {
 	const q = url.searchParams.get('q') ?? '';
 	const status = url.searchParams.get('status') ?? '';
 	const clientId = url.searchParams.get('client_id') ?? '';
+	const tag = url.searchParams.get('tag') ?? '';
 	const page = Math.max(1, Number(url.searchParams.get('page') ?? '1') || 1);
+
+	/** @type {string[]} */
+	let tags = [];
+	try {
+		const tagsRes = await clientApi.listTags(fetch, token);
+		tags = Array.isArray(tagsRes?.tags) ? tagsRes.tags : [];
+	} catch {
+		tags = [];
+	}
 
 	const projects = await projectApi.listProjects(fetch, token, {
 		page,
 		page_size: 20,
 		...(status && { status }),
 		...(clientId && { client_id: clientId }),
+		...(tag && { tag }),
 		...(q && { q })
 	});
 
-	return { projects, filters: { q, status, client_id: clientId, page } };
+	return { projects, tags, filters: { q, status, client_id: clientId, tag, page } };
 }

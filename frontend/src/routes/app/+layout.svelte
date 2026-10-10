@@ -18,6 +18,7 @@
 	import menu from '@iconify-icons/mdi/menu';
 	import logoutVariant from '@iconify-icons/mdi/logout';
 	import chevronDown from '@iconify-icons/mdi/chevron-down';
+	import tagOutline from '@iconify-icons/mdi/tag-outline';
 	import { assetUrl } from '$lib/api/client.js';
 	import NotificationBell from '$lib/components/NotificationBell.svelte';
 	import { auth } from '$lib/stores/auth.svelte.js';
@@ -35,6 +36,13 @@
 			href: '/app/clients',
 			label: 'Clients',
 			icon: accountMultiple,
+			exact: false,
+			adminOnly: false
+		},
+		{
+			href: '/app/tags',
+			label: 'Tags',
+			icon: tagOutline,
 			exact: false,
 			adminOnly: false
 		},

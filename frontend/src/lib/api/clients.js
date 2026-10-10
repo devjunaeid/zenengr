@@ -121,6 +121,43 @@ export function listTags(fetchFn, token) {
 /**
  * @param {typeof fetch} fetchFn
  * @param {string} token
+ * @returns {Promise<{ items: Array<{ name: string, client_count: number }> }>}
+ */
+export function getTagsSummary(fetchFn, token) {
+	return apiFetch(fetchFn, '/tenant/clients/tags/summary', { token });
+}
+
+/**
+ * @param {typeof fetch} fetchFn
+ * @param {string} token
+ * @param {string} old_name
+ * @param {string} new_name
+ * @returns {Promise<{ success: boolean, updated_clients: number }>}
+ */
+export function renameTag(fetchFn, token, old_name, new_name) {
+	return apiFetch(fetchFn, '/tenant/clients/tags/rename', {
+		method: 'POST',
+		token,
+		body: { old_name, new_name }
+	});
+}
+
+/**
+ * @param {typeof fetch} fetchFn
+ * @param {string} token
+ * @param {string} tag
+ * @returns {Promise<{ success: boolean, affected_clients: number }>}
+ */
+export function deleteTag(fetchFn, token, tag) {
+	return apiFetch(fetchFn, `/tenant/clients/tags/${encodeURIComponent(tag)}`, {
+		method: 'DELETE',
+		token
+	});
+}
+
+/**
+ * @param {typeof fetch} fetchFn
+ * @param {string} token
  * @param {string} id
  * @returns {Promise<ClientListItem & { tenant_id: string, billing_address: Record<string, any>|null, tax_id: string|null, client_users: ClientUserSummary[], recent_activity: ClientActivityEntry[] }>}
  */

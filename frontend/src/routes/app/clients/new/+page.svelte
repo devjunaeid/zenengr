@@ -4,6 +4,7 @@
 	import { ApiError } from '$lib/api/client.js';
 	import * as clientApi from '$lib/api/clients.js';
 	import AddressFields from '$lib/components/AddressFields.svelte';
+	import TagInput from '$lib/components/TagInput.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
 	import { auth } from '$lib/stores/auth.svelte.js';
 	import { fieldsToAddress } from '$lib/utils/address.js';
@@ -27,45 +28,9 @@
 		country: ''
 	});
 	let tags = $state([]);
-	let tagInput = $state('');
 	let busy = $state(false);
 	/** @type {string|null} */
 	let err = $state(null);
-
-	function addTag() {
-		const raw = tagInput.trim();
-		if (!raw) return;
-		const parts = raw
-			.split(',')
-			.map((s) => s.trim())
-			.filter(Boolean);
-		for (const p of parts) {
-			if (!tags.some((x) => x.toLowerCase() === p.toLowerCase())) {
-				tags = [...tags, p];
-			}
-		}
-		tagInput = '';
-	}
-
-	function removeTag(t) {
-		tags = tags.filter((x) => x !== t);
-	}
-
-	function onTagKeydown(e) {
-		if (e.key === 'Enter' || e.keyCode === 13 || e.key === ',') {
-			e.preventDefault();
-			e.stopPropagation();
-			addTag();
-		} else if (e.key === 'Backspace' && !tagInput && tags.length) {
-			tags = tags.slice(0, -1);
-		}
-	}
-
-	function onTagInput() {
-		if (tagInput.includes(',')) {
-			addTag();
-		}
-	}
 
 	function generatePortalPassword() {
 		const chars = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%^&*';
@@ -78,9 +43,6 @@
 	}
 
 	async function submit() {
-		if (tagInput.trim()) {
-			addTag();
-		}
 		busy = true;
 		err = null;
 		try {
@@ -415,56 +377,14 @@
 			<div class="mt-5">
 				<label
 					for="c-tags"
-					class="block text-xs font-semibold tracking-wider text-slate-700 uppercase"
-					>Add Tags</label
+					class="block text-xs font-semibold tracking-wider text-slate-700 uppercase">Tags</label
 				>
-				<div class="mt-1.5 flex gap-2">
-					<input
-						id="c-tags"
-						type="text"
-						bind:value={tagInput}
-						onkeydown={onTagKeydown}
-						oninput={onTagInput}
-						onblur={addTag}
-						enterkeyhint="done"
-						placeholder="Type tag name and press Enter, comma, or Add..."
-						class="block w-full rounded-lg border-slate-300 text-sm shadow-2xs focus:border-indigo-500 focus:ring-indigo-500"
-					/>
-					<button
-						type="button"
-						onclick={addTag}
-						class="inline-flex shrink-0 items-center rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 focus:ring-2 focus:ring-indigo-500"
-					>
-						Add
-					</button>
+				<p class="mt-0.5 text-xs text-slate-500">
+					Search and select existing tags or type to create new reusable tags.
+				</p>
+				<div class="mt-2">
+					<TagInput id="c-tags" bind:tags />
 				</div>
-				{#if tags.length}
-					<div class="mt-3 flex flex-wrap gap-1.5">
-						{#each tags as t, i (t + '-' + i)}
-							<span
-								class="inline-flex items-center gap-1.5 rounded-md bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 ring-1 ring-indigo-200"
-							>
-								{t}
-								<button
-									type="button"
-									onclick={() => removeTag(t)}
-									aria-label={`Remove tag ${t}`}
-									class="text-indigo-400 transition-colors hover:text-indigo-700"
-								>
-									<svg
-										class="h-3 w-3"
-										fill="none"
-										viewBox="0 0 24 24"
-										stroke="currentColor"
-										stroke-width="2"
-									>
-										<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-									</svg>
-								</button>
-							</span>
-						{/each}
-					</div>
-				{/if}
 			</div>
 		</section>
 
@@ -559,7 +479,7 @@
 
 		<!-- ── Form Actions ────────────────────────────────────────────────────── -->
 		<div
-			class="sticky bottom-0 -mx-4 -mb-12 mt-6 flex items-center justify-end gap-3 border-t border-slate-200 bg-white/95 px-4 py-3 backdrop-blur-xs safe-bottom sm:static sm:mx-0 sm:mb-0 sm:mt-0 sm:border-t sm:bg-transparent sm:px-0 sm:pt-4"
+			class="safe-bottom sticky bottom-0 -mx-4 mt-6 -mb-12 flex items-center justify-end gap-3 border-t border-slate-200 bg-white/95 px-4 py-3 backdrop-blur-xs sm:static sm:mx-0 sm:mt-0 sm:mb-0 sm:border-t sm:bg-transparent sm:px-0 sm:pt-4"
 		>
 			<a
 				href={resolve('/app/clients')}

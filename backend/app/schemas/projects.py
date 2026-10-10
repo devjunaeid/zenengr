@@ -83,6 +83,8 @@ class ProjectListItem(BaseModel):
     id: uuid.UUID
     name: str
     client_id: uuid.UUID
+    client_name: str | None = None
+    client_tags: list[str] = Field(default_factory=list)
     status: ProjectStatus
     start_date: date | None
     due_date: date | None = None

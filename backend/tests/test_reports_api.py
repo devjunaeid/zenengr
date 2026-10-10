@@ -18,10 +18,15 @@ from app.models.enums import (
     ClientStatus,
     ClientType,
     InvoiceStatus,
+    LedgerEntryType,
+    LedgerSourceType,
+    PaymentKind,
     PaymentMethod,
     TenantStatus,
 )
 from app.models.invoice import Invoice, InvoiceLineItem
+from app.models.ledger_entry import LedgerEntry
+from app.models.payment import Payment
 from app.models.plan import Plan
 from app.models.project import Project
 from app.models.project_service import ProjectService
@@ -258,3 +263,130 @@ async def test_company_ledger_aggregations_and_slicing(
     c_data = res_client.json()
     assert len(c_data["clients"]) == 1
     assert c_data["clients"][0]["name"] == "Acme Corp"
+
+
+@pytest.mark.asyncio
+async def test_company_ledger_sourced_from_ledger_not_invoice(
+    client: AsyncClient, db_session: AsyncSession
+):
+    """Verifies reports source billing and receivables from LedgerEntry & Payment, not invoices.
+
+    1. Ledger charges exist without any invoice -> report shows correct billed and due.
+    2. Invoices (including multiple/statement invoices) do NOT inflate or alter ledger truth.
+    """
+    plan = await _create_plan(db_session)
+    tenant = await _create_tenant(db_session, plan.id)
+    admin = await _create_admin(
+        db_session, f"admin-{uuid.uuid4().hex[:6]}@test.com", AdminUserRole.ADMIN, tenant.id
+    )
+    headers = await _auth_header(admin)
+
+    # 1. Create client & project
+    c = Client(
+        tenant_id=tenant.id,
+        name="Nexus Engineering",
+        client_type=ClientType.COMPANY,
+        status=ClientStatus.ACTIVE,
+    )
+    db_session.add(c)
+    await db_session.commit()
+    await db_session.refresh(c)
+
+    p = Project(
+        tenant_id=tenant.id,
+        name="Harbor Bridge Inspection",
+        client_id=c.id,
+    )
+    db_session.add(p)
+    await db_session.commit()
+    await db_session.refresh(p)
+
+    # 2. Add LedgerEntry charge of $2000.00 directly to ledger (NO invoice)
+    ch1 = LedgerEntry(
+        project_id=p.id,
+        type=LedgerEntryType.CHARGE,
+        amount=Decimal("2000.00"),
+        description="Core Structural Inspection",
+        source_type=LedgerSourceType.PROJECT_SERVICE,
+        entry_date=date.today(),
+    )
+    # Add manual ledger adjustment of $500.00
+    adj1 = LedgerEntry(
+        project_id=p.id,
+        type=LedgerEntryType.CHARGE,
+        amount=Decimal("500.00"),
+        description="Hazardous Access Surcharge",
+        source_type=LedgerSourceType.MANUAL_ADJUSTMENT,
+        entry_date=date.today(),
+    )
+    db_session.add_all([ch1, adj1])
+    await db_session.commit()
+
+    # 3. Add direct Payment of $1000.00
+    pay1 = Payment(
+        tenant_id=tenant.id,
+        client_id=c.id,
+        project_id=p.id,
+        kind=PaymentKind.RECEIPT,
+        amount=Decimal("1000.00"),
+        method=PaymentMethod.BANK_TRANSFER,
+        paid_on=date.today(),
+        recorded_by_id=admin.id,
+    )
+    db_session.add(pay1)
+    await db_session.commit()
+
+    # 4. Query report with ZERO invoices created
+    res = await client.get("/api/v1/tenant/reports/company-ledger", headers=headers)
+    assert res.status_code == 200
+    data = res.json()
+
+    # Summary: Billed $2500, Paid $1000, Due $1500 from ledger
+    assert data["summary"]["total_invoiced"] == "2500.00"
+    assert data["summary"]["total_collected"] == "1000.00"
+    assert data["summary"]["total_due"] == "1500.00"
+
+    # Project rollup
+    proj_report = next((item for item in data["projects"] if item["project_id"] == str(p.id)), None)
+    assert proj_report is not None
+    assert proj_report["total_invoiced"] == "2500.00"
+    assert proj_report["total_paid"] == "1000.00"
+    assert proj_report["balance_due"] == "1500.00"
+
+    # Client rollup
+    cli_report = next((item for item in data["clients"] if item["client_id"] == str(c.id)), None)
+    assert cli_report is not None
+    assert cli_report["total_invoiced"] == "2500.00"
+    assert cli_report["total_paid"] == "1000.00"
+    assert cli_report["total_due"] == "1500.00"
+
+    # 5. Now create multiple invoices (e.g. regular invoice + statement invoice) totaling $5000.00
+    inv_reg = Invoice(
+        tenant_id=tenant.id,
+        project_id=p.id,
+        invoice_number="INV-REG-001",
+        status=InvoiceStatus.ISSUED,
+        issue_date=date.today(),
+        subtotal=Decimal("2500.00"),
+        total=Decimal("2500.00"),
+    )
+    inv_stmt = Invoice(
+        tenant_id=tenant.id,
+        project_id=p.id,
+        invoice_number="INV-STMT-002",
+        status=InvoiceStatus.ISSUED,
+        issue_date=date.today(),
+        subtotal=Decimal("2500.00"),
+        total=Decimal("2500.00"),
+    )
+    db_session.add_all([inv_reg, inv_stmt])
+    await db_session.commit()
+
+    # 6. Re-query report: must NOT double-count to $5000; stays faithful to ledger!
+    res_after = await client.get("/api/v1/tenant/reports/company-ledger", headers=headers)
+    assert res_after.status_code == 200
+    data_after = res_after.json()
+
+    assert data_after["summary"]["total_invoiced"] == "2500.00"
+    assert data_after["summary"]["total_due"] == "1500.00"
+

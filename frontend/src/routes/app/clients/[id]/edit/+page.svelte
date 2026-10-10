@@ -5,6 +5,7 @@
 	import { ApiError } from '$lib/api/client.js';
 	import * as clientApi from '$lib/api/clients.js';
 	import AddressFields from '$lib/components/AddressFields.svelte';
+	import TagInput from '$lib/components/TagInput.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
 	import { auth } from '$lib/stores/auth.svelte.js';
 	import { addressToFields, fieldsToAddress } from '$lib/utils/address.js';
@@ -22,49 +23,10 @@
 	let taxId = $state(client.tax_id ?? '');
 	let addressFields = $state(addressToFields(client.billing_address));
 	let tags = $state(Array.isArray(client?.tags) ? [...client.tags] : []);
-	let tagInput = $state('');
 	let busy = $state(false);
 	let err = $state(null);
 
-	function addTag() {
-		const raw = tagInput.trim();
-		if (!raw) return;
-		const parts = raw
-			.split(',')
-			.map((s) => s.trim())
-			.filter(Boolean);
-		for (const p of parts) {
-			if (!tags.some((x) => x.toLowerCase() === p.toLowerCase())) {
-				tags = [...tags, p];
-			}
-		}
-		tagInput = '';
-	}
-
-	function removeTag(t) {
-		tags = tags.filter((x) => x !== t);
-	}
-
-	function onTagKeydown(e) {
-		if (e.key === 'Enter' || e.keyCode === 13 || e.key === ',') {
-			e.preventDefault();
-			e.stopPropagation();
-			addTag();
-		} else if (e.key === 'Backspace' && !tagInput && tags.length) {
-			tags = tags.slice(0, -1);
-		}
-	}
-
-	function onTagInput() {
-		if (tagInput.includes(',')) {
-			addTag();
-		}
-	}
-
 	async function submit() {
-		if (tagInput.trim()) {
-			addTag();
-		}
 		busy = true;
 		err = null;
 		try {
@@ -218,50 +180,16 @@
 
 	<div>
 		<label for="c-tags" class="block text-sm font-medium text-slate-700">Tags</label>
-		<div class="mt-1 flex gap-2">
-			<input
-				id="c-tags"
-				type="text"
-				bind:value={tagInput}
-				onkeydown={onTagKeydown}
-				oninput={onTagInput}
-				onblur={addTag}
-				enterkeyhint="done"
-				placeholder="Type tag name and press Enter, comma, or Add..."
-				class="block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-			/>
-			<button
-				type="button"
-				onclick={addTag}
-				class="inline-flex shrink-0 items-center rounded-md border border-slate-300 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 focus:ring-2 focus:ring-indigo-500"
-			>
-				Add
-			</button>
+		<p class="mt-0.5 text-xs text-slate-500">
+			Search and select existing tags or type to create new reusable tags.
+		</p>
+		<div class="mt-2">
+			<TagInput id="c-tags" bind:tags />
 		</div>
-		{#if tags.length}
-			<div class="mt-2 flex flex-wrap gap-1">
-				{#each tags as t, i (t + '-' + i)}
-					<span
-						class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700 ring-1 ring-slate-300 ring-inset"
-					>
-						{t}
-						<button
-							type="button"
-							onclick={() => removeTag(t)}
-							aria-label={`Remove tag ${t}`}
-							class="text-slate-500 hover:text-slate-700"
-						>
-							×
-						</button>
-					</span>
-				{/each}
-			</div>
-		{/if}
-		<p class="mt-1 text-xs text-slate-500">Press Enter, comma, or Add to add a tag.</p>
 	</div>
 
 	<div
-		class="sticky bottom-0 -mx-4 -mb-8 mt-6 flex items-center justify-end gap-3 border-t border-slate-200 bg-white/95 px-4 py-3 backdrop-blur-xs safe-bottom sm:static sm:mx-0 sm:mb-0 sm:mt-0 sm:border-0 sm:bg-transparent sm:px-0 sm:pt-4"
+		class="safe-bottom sticky bottom-0 -mx-4 mt-6 -mb-8 flex items-center justify-end gap-3 border-t border-slate-200 bg-white/95 px-4 py-3 backdrop-blur-xs sm:static sm:mx-0 sm:mt-0 sm:mb-0 sm:border-0 sm:bg-transparent sm:px-0 sm:pt-4"
 	>
 		<a
 			href={resolve('/app/clients/[id]', { id: client.id })}
