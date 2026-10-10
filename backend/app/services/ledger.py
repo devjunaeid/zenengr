@@ -23,11 +23,13 @@ from app.models.enums import (
     InvoiceStatus,
     LedgerEntryType,
     LedgerSourceType,
+    PaymentKind,
     PaymentMethod,
     TransactionDirection,
 )
 from app.models.invoice import Invoice, InvoiceLineItem
 from app.models.ledger_entry import LedgerEntry
+from app.models.payment import Payment
 from app.models.project import Project
 from app.models.project_service import ProjectService
 from app.models.transaction import Transaction
@@ -192,12 +194,27 @@ async def add_project_payment(
         f"{formatted_method} - {reference_note}".strip(" -") if reference_note else formatted_method
     )
 
+    payment = Payment(
+        tenant_id=tenant_id,
+        client_id=project.client_id,
+        project_id=project.id,
+        kind=PaymentKind.RECEIPT,
+        amount=_money(amount),
+        method=method,
+        paid_on=entry_date or date.today(),
+        reference_note=reference_note.strip(),
+        recorded_by_id=actor_id,
+    )
+    session.add(payment)
+    await session.flush()
+
     entry = LedgerEntry(
         project_id=project.id,
         type=LedgerEntryType.PAYMENT,
         amount=_money(amount),
         description=desc,
         source_type=LedgerSourceType.TRANSACTION,
+        source_id=payment.id,
         entry_date=entry_date or date.today(),
         created_by_id=actor_id,
     )
@@ -212,6 +229,7 @@ async def add_project_payment(
         entity_type="project",
         entity_id=str(project.id),
         details={
+            "payment_id": str(payment.id),
             "amount": f"{_money(amount):.2f}",
             "method": method.value,
             "reference_note": reference_note,
@@ -540,7 +558,7 @@ async def compute_project_ledger_summary(
         ps_fallback = Decimal((await session.execute(ps_q)).scalar_one())
 
     subtotal = _money(
-        sum((ch.amount for ch in charges if ch.type == LedgerEntryType.CHARGE), Decimal("0"))
+        sum((ch.amount for ch in charges if ch.type == LedgerEntryType.CHARGE and ch.voided_at is None), Decimal("0"))
         + custom_amount
         + ps_fallback
     )
@@ -554,53 +572,86 @@ async def compute_project_ledger_summary(
             discount_amount = min(_money(discount_value), subtotal)
     total = _money(subtotal - discount_amount)
 
+    # Check for unified Payment rows for this project
+    pay_stmt = select(Payment).where(
+        Payment.project_id == project.id,
+        Payment.voided_at.is_(None),
+    )
+    direct_payments = list((await session.execute(pay_stmt)).scalars().all())
+
     payments = Decimal("0")
     refunds = Decimal("0")
-    for ch in charges:
-        if ch.type == LedgerEntryType.PAYMENT:
-            payments += _money(ch.amount)
-        elif ch.type == LedgerEntryType.REFUND:
-            refunds += _money(ch.amount)
 
-    known_tx_ids = {ch.source_id for ch in charges if ch.source_id is not None}
-    seen_summary_sigs: set[tuple[Decimal, TransactionDirection, date]] = {
-        (
-            _money(ch.amount),
-            TransactionDirection.DEBIT
-            if ch.type == LedgerEntryType.PAYMENT
-            else TransactionDirection.CREDIT,
-            ch.entry_date,
-        )
-        for ch in charges
-        if ch.type in (LedgerEntryType.PAYMENT, LedgerEntryType.REFUND)
-        and ch.entry_date is not None
-    }
-    for item in tx_rows:
-        if isinstance(item, Transaction):
-            tx = item
-        elif hasattr(item, "Transaction"):
-            tx = item.Transaction
-        elif hasattr(item, "__getitem__"):
-            tx = item[0]
-        else:
-            tx = item
-        if tx.id in known_tx_ids:
-            continue
-        if tx.reference_note and "synced" in tx.reference_note.lower():
-            continue
-        sig = (_money(tx.amount), tx.direction, tx.recorded_at.date())
-        if sig in seen_summary_sigs:
-            continue
-        seen_summary_sigs.add(sig)
+    if direct_payments:
+        for p in direct_payments:
+            if p.kind == PaymentKind.RECEIPT:
+                payments += _money(p.amount)
+            else:
+                refunds += _money(p.amount)
+    else:
+        for ch in charges:
+            if ch.voided_at is not None:
+                continue
+            if ch.type == LedgerEntryType.PAYMENT:
+                payments += _money(ch.amount)
+            elif ch.type == LedgerEntryType.REFUND:
+                refunds += _money(ch.amount)
 
-        if tx.direction == TransactionDirection.DEBIT:
-            payments += _money(tx.amount)
-        else:
-            refunds += _money(tx.amount)
+        known_tx_ids = {ch.source_id for ch in charges if ch.source_id is not None and ch.voided_at is None}
+        seen_summary_sigs: set[tuple[Decimal, TransactionDirection, date]] = {
+            (
+                _money(ch.amount),
+                TransactionDirection.DEBIT
+                if ch.type == LedgerEntryType.PAYMENT
+                else TransactionDirection.CREDIT,
+                ch.entry_date,
+            )
+            for ch in charges
+            if ch.type in (LedgerEntryType.PAYMENT, LedgerEntryType.REFUND)
+            and ch.entry_date is not None
+            and ch.voided_at is None
+        }
+        for item in tx_rows:
+            if isinstance(item, Transaction):
+                tx = item
+            elif hasattr(item, "Transaction"):
+                tx = item.Transaction
+            elif hasattr(item, "__getitem__"):
+                tx = item[0]
+            else:
+                tx = item
+            if tx.id in known_tx_ids or tx.voided_at is not None:
+                continue
+            if tx.reference_note and "synced" in tx.reference_note.lower():
+                continue
+            sig = (_money(tx.amount), tx.direction, tx.recorded_at.date())
+            if sig in seen_summary_sigs:
+                continue
+            seen_summary_sigs.add(sig)
+
+            if tx.direction == TransactionDirection.DEBIT:
+                payments += _money(tx.amount)
+            else:
+                refunds += _money(tx.amount)
 
     paid = _money(payments - refunds)
     due = _money(max(total - paid, Decimal("0")))
     advance_balance = _money(max(paid - total, Decimal("0")))
+
+    # Cost rollup from purchase entries
+    from app.models.purchase_entry import PurchaseEntry
+
+    cost_stmt = select(func.coalesce(func.sum(PurchaseEntry.grand_total), 0)).where(
+        PurchaseEntry.project_id == project.id
+    )
+    total_cost_dec = Decimal((await session.execute(cost_stmt)).scalar() or 0)
+    gross_profit = total - total_cost_dec
+    net_profit = paid - total_cost_dec
+    margin_pct = (
+        round(float(gross_profit / total * Decimal("100")), 2)
+        if total > Decimal("0")
+        else 0.0
+    )
 
     return {
         "subtotal": f"{subtotal:.2f}",
@@ -611,6 +662,10 @@ async def compute_project_ledger_summary(
         "paid": f"{paid:.2f}",
         "due": f"{due:.2f}",
         "advance_balance": f"{advance_balance:.2f}",
+        "total_cost": f"{total_cost_dec:.2f}",
+        "gross_profit": f"{gross_profit:.2f}",
+        "net_profit": f"{net_profit:.2f}",
+        "profit_margin_pct": margin_pct,
         # Aliases for simplified terminology and compatibility
         "total_billed": f"{total:.2f}",
         "total_paid": f"{paid:.2f}",
@@ -626,15 +681,10 @@ async def get_project_ledger(
     tenant_id: uuid.UUID,
     project_id: uuid.UUID,
 ) -> dict[str, Any]:
-    """Build the project ledger: merged chronological entries + live summary.
-
-    Entries combine persisted charges (LedgerEntry rows) with the derived
-    payment stream (Transactions on the project's non-draft invoices).
-    Summary math per FR-18.4. 404 if the project is not in the tenant.
-    """
+    """Build the project ledger: merged chronological entries + live summary."""
     project = await _get_project(session, tenant_id, project_id)
 
-    # ── Persisted charges (append-only) ─────────────────────────────────────
+    # ── Persisted charges ──────────────────────────────────────────────────
     charge_q = (
         select(LedgerEntry)
         .where(LedgerEntry.project_id == project.id)
@@ -642,13 +692,14 @@ async def get_project_ledger(
     )
     charges = list((await session.execute(charge_q)).scalars().all())
 
-    # ── Derived payment stream (FR-18.2; no mirror writes) ──────────────────
+    # ── Derived payment stream ─────────────────────────────────────────────
     tx_q = (
         select(Transaction, Invoice)
         .join(Invoice, Transaction.invoice_id == Invoice.id)
         .where(
             Invoice.project_id == project.id,
             Invoice.status != InvoiceStatus.DRAFT,
+            Transaction.voided_at.is_(None),
         )
         .order_by(Transaction.recorded_at, Transaction.created_at)
     )
@@ -670,6 +721,8 @@ async def get_project_ledger(
                 "invoice_number": None,
                 "entry_date": ch.entry_date,
                 "created_at": ch.created_at,
+                "voided_at": ch.voided_at,
+                "void_reason": ch.void_reason,
             }
         )
 

@@ -267,26 +267,24 @@ async def test_generate_statement_invoice_and_subsequent_flow(
     assert stmt_data2["summary"]["paid"] == "200.00"
     assert stmt_data2["summary"]["due"] == "500.00"
 
-    # Issue Invoice #2 (Cumulative statement invoice including all 3 services + synced $200 payment)
+    # Issue Invoice #2 (Bill-once: only unbilled services are included; prior payment remains on inv1)
     gen_res2 = await client.post(
         f"/api/v1/tenant/projects/{project.id}/generate-statement-invoice", headers=admin_headers
     )
     assert gen_res2.status_code == 201
     inv2 = gen_res2.json()
-    assert inv2["status"] == "partially_paid"
-    assert inv2["total"] == "700.00"
-    assert len(inv2["line_items"]) == 3
+    assert inv2["status"] == "issued"
+    assert inv2["total"] == "300.00"
+    assert len(inv2["line_items"]) == 1
     assert inv2["invoice_number"] != inv1["invoice_number"]
 
-    # Verify inv2 transactions include the synced $200 payment from inv1
+    # Verify inv2 has no duplicated transactions from inv1
     tx_res2 = await client.get(
         f"/api/v1/tenant/invoices/{inv2['id']}/transactions", headers=admin_headers
     )
     assert tx_res2.status_code == 200
     txs2 = tx_res2.json()
-    assert len(txs2) == 1
-    assert txs2[0]["amount"] == "200.00"
-    assert txs2[0]["reference_note"] == "Deposit"
+    assert len(txs2) == 0
 
     # 3. Client Portal can view and download client statement PDF
     client_pdf_res = await client.get(

@@ -40,6 +40,7 @@ class PurchaseEntry(TimestampMixin, Base):
         Uuid, ForeignKey("projects.id", ondelete="CASCADE"), index=True, nullable=False
     )
     title: Mapped[str] = mapped_column(String(255), default="", nullable=False)
+    vendor_name: Mapped[str | None] = mapped_column(String(255), nullable=True, default=None)
     notes: Mapped[str] = mapped_column(Text, default="", nullable=False)
     entry_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     grand_total: Mapped[Decimal] = mapped_column(
@@ -73,9 +74,11 @@ class PurchaseEntryItem(TimestampMixin, Base):
     )
     item_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     description: Mapped[str] = mapped_column(String(500), nullable=False)
+    category: Mapped[str] = mapped_column(String(50), default="materials", nullable=False)
     quantity: Mapped[Decimal] = mapped_column(
         Numeric(12, 2), default=Decimal("1"), nullable=False
     )
+    unit: Mapped[str] = mapped_column(String(50), default="unit", nullable=False)
     rate: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     total: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
 

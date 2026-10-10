@@ -151,8 +151,15 @@ class LedgerSourceType(enum.StrEnum):
     PROJECT_SERVICE = "project_service"
     TRANSACTION = "transaction"
     MANUAL_ADJUSTMENT = "manual_adjustment"
+    INVOICE_LINE = "invoice_line"
+
+
+class PaymentKind(enum.StrEnum):
+    RECEIPT = "receipt"
+    REFUND = "refund"
 
 
 class DiscountType(enum.StrEnum):
     PERCENTAGE = "percentage"
     FIXED = "fixed"
+

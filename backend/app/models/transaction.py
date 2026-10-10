@@ -10,6 +10,7 @@ transaction_id = NULL and an advance_id reference instead.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 import uuid
 from datetime import datetime
 from decimal import Decimal
@@ -22,6 +23,9 @@ from app.models.base import TimestampMixin
 from app.models.enums import PaymentMethod, TransactionDirection
 from app.models.invoice import Invoice
 
+if TYPE_CHECKING:
+    from app.models.payment import Payment
+
 
 class Transaction(TimestampMixin, Base):
     __tablename__ = "transactions"
@@ -29,6 +33,9 @@ class Transaction(TimestampMixin, Base):
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     invoice_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("invoices.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    payment_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("payments.id", ondelete="CASCADE"), index=True, nullable=True
     )
     amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     direction: Mapped[TransactionDirection] = mapped_column(
@@ -42,8 +49,10 @@ class Transaction(TimestampMixin, Base):
     recorded_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+    voided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     invoice: Mapped[Invoice] = relationship("Invoice")
+    payment: Mapped[Payment | None] = relationship("Payment")
     allocations: Mapped[list[PaymentAllocation]] = relationship(
         "PaymentAllocation",
         back_populates="transaction",
@@ -56,6 +65,9 @@ class PaymentAllocation(TimestampMixin, Base):
     __tablename__ = "payment_allocations"
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    payment_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("payments.id", ondelete="CASCADE"), index=True, nullable=True
+    )
     # NULL for advance-backed allocations (advance_id set instead).
     transaction_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid, ForeignKey("transactions.id", ondelete="CASCADE"), index=True, nullable=True
@@ -70,5 +82,8 @@ class PaymentAllocation(TimestampMixin, Base):
     advance_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid, ForeignKey("advances.id", ondelete="CASCADE"), nullable=True
     )
+    voided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    transaction: Mapped[Transaction] = relationship("Transaction", back_populates="allocations")
+    transaction: Mapped[Transaction | None] = relationship("Transaction", back_populates="allocations")
+    payment: Mapped[Payment | None] = relationship("Payment", back_populates="allocations")
+

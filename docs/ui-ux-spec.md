@@ -412,3 +412,22 @@ In addition to WCAG 2.1 AA baseline (existing section):
 - **Numeric Inputs:** Currency amounts, discount values, and tax fields specify `inputmode="decimal"` or `inputmode="numeric"`.
 - **Form Progression:** Fields include `enterkeyhint="next"` on sequential inputs and `enterkeyhint="done"` on trailing fields to facilitate smooth keyboard progression without accidental form submission.
 - **Auto-Capitalization & Autocomplete:** Semantic inputs carry `autocomplete="name"`, `autocomplete="email"`, `autocomplete="tel"`, `autocapitalize="words"` for rapid browser autofill.
+## FEAT-027: Financial Accuracy - UI Impact (US-076..US-078)
+
+- **Ledger timeline payment rows:** show `Allocated to INV-xxx (amount)` chips; unallocated remainder shown as an indigo `Advance x` chip.
+- **Deleted (voided) rows:** remain in the timeline, amount struck through, slate `Deleted` badge with a `Restore` link; expand shows reason (if given), actor, timestamp. Excluded from totals.
+- **Delete dialog:** "Delete this payment?" + optional reason field + copy "You can restore it later from the timeline." Rose button "Delete".
+- **Undo toast:** after create/edit/delete, bottom toast "Payment deleted · Undo" for ~8 s.
+- **Payment edit dialog:** all fields editable including allocations; amber inline warning when amount exceeds due: "BDT X extra will be kept as client advance."
+- **History drawer:** "History" link on each financial record; list of changes (who, when, field: before -> after).
+- **Generate invoice:** when nothing is unbilled, show an empty state "Everything is already billed. Add a service, adjustment or cost to bill." instead of an error toast.
+- Accessibility: deleted badge has `aria-label="Deleted: <reason>"`; Undo toast uses `role="status"`; dialogs trap focus; reason field linked via `aria-describedby`.
+
+## FEAT-028..031: Finance Roadmap UX Principles
+
+- Plain-language labels: "Client owes", "We owe", "Profit", "Received", "Paid out" (no AR/AP/debit/credit).
+- Three primary actions per project finance view: `+ Add cost`, `Receive payment`, `Create invoice`; everything else under `More`.
+- Colour semantics: emerald = received/good, rose = client overdue, amber = we owe/at risk, indigo = advance/info.
+- Every KPI is clickable and drills down to the entries that compose it.
+- Inline creation (vendor, category) without leaving forms; smart defaults (today, last used category/vendor).
+- Detailed wireframes are added when each feature's stories are drafted.

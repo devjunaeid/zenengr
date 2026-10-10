@@ -922,6 +922,28 @@ async def void_invoice(
         raise InvoiceVoidSourceError()
 
     invoice.status = InvoiceStatus.VOID
+
+    # Untag ledger entries so charges return to unbilled state
+    await session.execute(
+        update(LedgerEntry)
+        .where(LedgerEntry.invoice_ref == invoice.id)
+        .values(invoice_ref=None)
+    )
+
+    now = datetime.now(UTC)
+    await session.execute(
+        update(Transaction)
+        .where(Transaction.invoice_id == invoice.id)
+        .values(voided_at=now)
+    )
+
+    li_subq = select(InvoiceLineItem.id).where(InvoiceLineItem.invoice_id == invoice.id)
+    await session.execute(
+        update(PaymentAllocation)
+        .where(PaymentAllocation.line_item_id.in_(li_subq))
+        .values(voided_at=now)
+    )
+
     await audit_log(
         session,
         tenant_id=tenant_id,
@@ -996,7 +1018,7 @@ async def generate_invoice_number(
     )
 
 
-# ── Cumulative Statement Invoice Generation (FEAT-019, TODO-189) ────────────
+# ── Cumulative Statement Invoice Generation (FEAT-019, TODO-189, FEAT-027, TODO-224) ──
 
 
 async def generate_statement_invoice(
@@ -1008,36 +1030,69 @@ async def generate_statement_invoice(
 ) -> Invoice:
     """Generate and immediately issue an official cumulative statement invoice for a project.
 
-    Gathers all project services (and project discounts if configured). Creates the
-    invoice, line items, issues the invoice with a sequential number, tags ledger entries,
-    and returns the issued Invoice.
+    Bills unbilled project services and manual adjustments (Bill-Once rule).
+    Auto-allocates unallocated project payments FIFO without duplicating transactions.
     """
+    from app.models.payment import Payment
+    from app.services.payments import _allocate_to_invoice
+
     project = await _get_project_for_tenant(session, tenant_id, project_id)
     if project is None:
         raise InvoiceProjectNotFoundError()
 
-    # Fetch project services with service relationship
-    ps_stmt = (
-        select(ProjectService)
-        .options(selectinload(ProjectService.service))
-        .where(ProjectService.project_id == project.id)
-        .order_by(ProjectService.created_at)
+    # Find unbilled project services via LedgerEntry
+    ps_charge_stmt = (
+        select(LedgerEntry)
+        .where(
+            LedgerEntry.project_id == project.id,
+            LedgerEntry.source_type == LedgerSourceType.PROJECT_SERVICE,
+            LedgerEntry.invoice_ref.is_(None),
+            LedgerEntry.voided_at.is_(None),
+        )
+        .order_by(LedgerEntry.entry_date, LedgerEntry.created_at)
     )
-    ps_rows = list((await session.execute(ps_stmt)).scalars().all())
+    unbilled_ps_charges = list((await session.execute(ps_charge_stmt)).scalars().all())
 
-    # Fetch manual adjustments from LedgerEntry if any
+    # Fallback: if no ledger charges exist yet for attached services, check ProjectService
+    fallback_ps_rows = []
+    if not unbilled_ps_charges:
+        ps_stmt = (
+            select(ProjectService)
+            .options(selectinload(ProjectService.service))
+            .where(ProjectService.project_id == project.id)
+            .order_by(ProjectService.created_at)
+        )
+        all_ps = list((await session.execute(ps_stmt)).scalars().all())
+        invoiced_ps_ids_q = (
+            select(InvoiceLineItem.project_service_id)
+            .join(Invoice, InvoiceLineItem.invoice_id == Invoice.id)
+            .where(
+                Invoice.project_id == project.id,
+                Invoice.status != InvoiceStatus.VOID,
+                InvoiceLineItem.project_service_id.is_not(None),
+            )
+        )
+        invoiced_ps_ids = set((await session.execute(invoiced_ps_ids_q)).scalars().all())
+        fallback_ps_rows = [ps for ps in all_ps if ps.id not in invoiced_ps_ids]
+
+    # Fetch unbilled manual adjustments
     adj_stmt = (
         select(LedgerEntry)
         .where(
             LedgerEntry.project_id == project.id,
             LedgerEntry.source_type == LedgerSourceType.MANUAL_ADJUSTMENT,
+            LedgerEntry.invoice_ref.is_(None),
+            LedgerEntry.voided_at.is_(None),
         )
         .order_by(LedgerEntry.entry_date, LedgerEntry.created_at)
     )
     adj_rows = list((await session.execute(adj_stmt)).scalars().all())
 
-    if not ps_rows and not adj_rows:
-        raise InvoiceEmptyError()
+    if not unbilled_ps_charges and not fallback_ps_rows and not adj_rows:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="All project charges are already billed. Nothing new to invoice.",
+        )
 
     invoice = Invoice(
         tenant_id=tenant_id,
@@ -1053,28 +1108,45 @@ async def generate_statement_invoice(
     line_items_data: list[dict[str, Any]] = []
     subtotal = Decimal("0")
 
-    for ps in ps_rows:
-        price = ps.price_at_attachment
-        if price is None and ps.service is not None:
-            price = ps.service.default_price
-        price = _money(price or Decimal("0"))
-        qty = Decimal("1")
-        amount = _money(price * qty)
-        desc = ps.service.name if ps.service is not None else "Project Service"
-        entry_date = ps.created_at.date() if ps.created_at is not None else date.today()
-        subtotal += amount
-        line_items_data.append(
-            {
-                "invoice_id": invoice.id,
-                "description": desc,
-                "entry_date": entry_date,
-                "quantity": qty,
-                "unit_price": price,
-                "amount": amount,
-                "service_id": ps.service_id,
-                "project_service_id": ps.id,
-            }
-        )
+    if unbilled_ps_charges:
+        for ch in unbilled_ps_charges:
+            amount = _money(ch.amount)
+            subtotal += amount
+            line_items_data.append(
+                {
+                    "invoice_id": invoice.id,
+                    "description": ch.description or "Project Service",
+                    "entry_date": ch.entry_date or date.today(),
+                    "quantity": Decimal("1"),
+                    "unit_price": amount,
+                    "amount": amount,
+                    "service_id": None,
+                    "project_service_id": ch.source_id,
+                }
+            )
+    elif fallback_ps_rows:
+        for ps in fallback_ps_rows:
+            price = ps.price_at_attachment
+            if price is None and ps.service is not None:
+                price = ps.service.default_price
+            price = _money(price or Decimal("0"))
+            qty = Decimal("1")
+            amount = _money(price * qty)
+            desc = ps.service.name if ps.service is not None else "Project Service"
+            entry_date = ps.created_at.date() if ps.created_at is not None else date.today()
+            subtotal += amount
+            line_items_data.append(
+                {
+                    "invoice_id": invoice.id,
+                    "description": desc,
+                    "entry_date": entry_date,
+                    "quantity": qty,
+                    "unit_price": price,
+                    "amount": amount,
+                    "service_id": ps.service_id,
+                    "project_service_id": ps.id,
+                }
+            )
 
     for adj in adj_rows:
         amount = _money(adj.amount)
@@ -1132,81 +1204,37 @@ async def generate_statement_invoice(
         actor_id=actor_id,
     )
 
-    # Attach all direct project payments made to the project till this invoice generation
-    pay_stmt = (
-        select(LedgerEntry)
-        .where(
-            LedgerEntry.project_id == project.id,
-            LedgerEntry.type == LedgerEntryType.PAYMENT,
-            LedgerEntry.invoice_ref.is_(None),
-        )
-        .order_by(LedgerEntry.entry_date, LedgerEntry.created_at)
-    )
-    direct_payments = list((await session.execute(pay_stmt)).scalars().all())
-
-    # Fetch prior original transactions on non-draft project invoices (excluding this new invoice)
-    tx_stmt = (
-        select(Transaction, Invoice)
-        .join(Invoice, Transaction.invoice_id == Invoice.id)
-        .where(
-            Invoice.project_id == project.id,
-            Invoice.id != issued.id,
-            Invoice.status != InvoiceStatus.DRAFT,
-        )
-        .order_by(Transaction.recorded_at, Transaction.created_at)
-    )
-    prior_tx_rows = list((await session.execute(tx_stmt)).all())
-
-    # Tag manual adjustments
+    # Tag the newly billed charges
+    if unbilled_ps_charges:
+        for ch in unbilled_ps_charges:
+            ch.invoice_ref = issued.id
     for adj in adj_rows:
         adj.invoice_ref = issued.id
 
-    has_payments = False
-
-    # Sync prior original transactions onto the new statement invoice as regular payment entries
-    seen_prior_sigs: set[tuple[Decimal, Any, Any, Any, str]] = set()
-    for tx, _orig_inv in prior_tx_rows:
-        sig = (tx.amount, tx.direction, tx.method, tx.recorded_at, tx.reference_note)
-        if sig in seen_prior_sigs:
-            continue
-        seen_prior_sigs.add(sig)
-
-        synced_tx = Transaction(
-            invoice_id=issued.id,
-            amount=tx.amount,
-            direction=tx.direction,
-            method=tx.method,
-            reference_note=tx.reference_note or "",
-            recorded_by_id=actor_id,
-            recorded_at=tx.recorded_at,
+    # Auto-allocate unallocated project payments onto the newly issued invoice
+    pay_stmt = (
+        select(Payment)
+        .where(
+            Payment.project_id == project.id,
+            Payment.voided_at.is_(None),
         )
-        session.add(synced_tx)
-        has_payments = True
-
-    # Convert unattached direct project payments into transactions on issued
-    for p in direct_payments:
-        tx_amount = _money(p.amount)
-        tx = Transaction(
-            invoice_id=issued.id,
-            amount=tx_amount,
-            direction=TransactionDirection.DEBIT,
-            method=PaymentMethod.BANK_TRANSFER,
-            reference_note=p.description or "Project payment",
-            recorded_by_id=actor_id,
+        .options(selectinload(Payment.allocations))
+        .order_by(Payment.paid_on.asc(), Payment.created_at.asc())
+    )
+    payments = list((await session.execute(pay_stmt)).scalars().all())
+    for p in payments:
+        unallocated = p.amount - sum(
+            (a.amount for a in p.allocations if a.voided_at is None), Decimal("0")
         )
-        if p.entry_date is not None:
-            tx.recorded_at = datetime.combine(p.entry_date, datetime.min.time(), tzinfo=UTC)
-        session.add(tx)
-        await session.flush()
-
-        p.invoice_ref = issued.id
-        p.source_id = tx.id
-        has_payments = True
-
-    await session.flush()
-
-    if has_payments:
-        await _recompute_invoice_status(session, issued)
+        if unallocated > Decimal("0"):
+            await _allocate_to_invoice(
+                session,
+                payment=p,
+                invoice=issued,
+                amount_to_allocate=unallocated,
+                actor_id=actor_id,
+            )
 
     await session.commit()
     return await get_invoice(session, tenant_id=tenant_id, invoice_id=issued.id)
+

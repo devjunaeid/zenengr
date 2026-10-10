@@ -9,10 +9,10 @@ derived from the existing Transaction stream at read time (no mirror writes).
 from __future__ import annotations
 
 import uuid
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import Date, ForeignKey, Index, Numeric, Text, Uuid
+from sqlalchemy import Date, DateTime, ForeignKey, Index, Numeric, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -21,8 +21,8 @@ from app.models.enums import LedgerEntryType, LedgerSourceType
 
 
 class LedgerEntry(TimestampMixin, Base):
-    """Append-only project ledger entry (FEAT-018). Immutable; corrections
-    are new offsetting entries, never edits/deletes."""
+    """Project ledger entry (FEAT-018, FEAT-027). Supports soft-delete
+    (void) with restore per ADR-004."""
 
     __tablename__ = "ledger_entries"
     __table_args__ = (
@@ -46,3 +46,11 @@ class LedgerEntry(TimestampMixin, Base):
     created_by_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid, ForeignKey("admin_users.id", ondelete="SET NULL"), nullable=True
     )
+
+    # Soft-delete / Void with Restore (ADR-004)
+    voided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    voided_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("admin_users.id", ondelete="SET NULL"), nullable=True
+    )
+    void_reason: Mapped[str] = mapped_column(Text, default="", nullable=False)
+

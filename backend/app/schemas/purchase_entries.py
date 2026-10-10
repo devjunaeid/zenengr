@@ -12,7 +12,9 @@ from pydantic import BaseModel, field_validator
 class PurchaseEntryItemInput(BaseModel):
     item_date: date | None = None
     description: str
+    category: str = "materials"
     quantity: Decimal = Decimal("1")
+    unit: str = "unit"
     rate: Decimal
 
     @field_validator("quantity")
@@ -32,6 +34,7 @@ class PurchaseEntryItemInput(BaseModel):
 
 class PurchaseEntryCreateRequest(BaseModel):
     title: str | None = None
+    vendor_name: str | None = None
     notes: str | None = None
     entry_date: date | None = None
     items: list[PurchaseEntryItemInput] = []
@@ -42,7 +45,9 @@ class PurchaseEntryItemUpdateInput(BaseModel):
     id: uuid.UUID | None = None  # existing item id; None = new row
     item_date: date | None = None
     description: str | None = None
+    category: str | None = None
     quantity: Decimal | None = None
+    unit: str | None = None
     rate: Decimal | None = None
 
     @field_validator("quantity")
@@ -62,6 +67,7 @@ class PurchaseEntryItemUpdateInput(BaseModel):
 
 class PurchaseEntryUpdateRequest(BaseModel):
     title: str | None = None
+    vendor_name: str | None = None
     notes: str | None = None
     entry_date: date | None = None
     items: list[PurchaseEntryItemUpdateInput] | None = None
@@ -75,7 +81,9 @@ class PurchaseEntryItemResponse(BaseModel):
     id: uuid.UUID
     item_date: date | None
     description: str
+    category: str = "materials"
     quantity: str
+    unit: str = "unit"
     rate: str
     total: str
 
@@ -84,6 +92,7 @@ class PurchaseEntryResponse(BaseModel):
     id: uuid.UUID
     project_id: uuid.UUID
     title: str
+    vendor_name: str | None = None
     notes: str
     entry_date: date | None
     grand_total: str
@@ -97,6 +106,7 @@ class PurchaseEntryListItem(BaseModel):
     id: uuid.UUID
     project_id: uuid.UUID
     title: str
+    vendor_name: str | None = None
     entry_date: date | None
     grand_total: str
     item_count: int

@@ -97,7 +97,9 @@ def _item_to_response(item: PurchaseEntryItem) -> PurchaseEntryItemResponse:
         id=item.id,
         item_date=item.item_date,
         description=item.description,
+        category=item.category or "materials",
         quantity=f"{item.quantity:.2f}",
+        unit=item.unit or "unit",
         rate=f"{item.rate:.2f}",
         total=f"{item.total:.2f}",
     )
@@ -109,6 +111,7 @@ def _entry_to_response(entry: PurchaseEntry) -> PurchaseEntryResponse:
         id=entry.id,
         project_id=entry.project_id,
         title=entry.title,
+        vendor_name=entry.vendor_name,
         notes=entry.notes,
         entry_date=entry.entry_date,
         grand_total=f"{entry.grand_total:.2f}",
@@ -154,6 +157,7 @@ async def create_purchase_entry(
         tenant_id=tenant_id,
         project_id=pid,
         title=body.title or "",
+        vendor_name=body.vendor_name,
         notes=body.notes or "",
         entry_date=body.entry_date,
         grand_total=Decimal("0"),
@@ -169,7 +173,9 @@ async def create_purchase_entry(
             purchase_entry_id=entry.id,
             item_date=row.item_date,
             description=row.description,
+            category=row.category or "materials",
             quantity=row.quantity,
+            unit=row.unit or "unit",
             rate=row.rate,
             total=total,
         )
@@ -239,6 +245,7 @@ async def list_purchase_entries(
             id=r.id,
             project_id=r.project_id,
             title=r.title,
+            vendor_name=r.vendor_name,
             entry_date=r.entry_date,
             grand_total=f"{r.grand_total:.2f}",
             item_count=counts.get(r.id, 0),
@@ -282,6 +289,8 @@ async def update_purchase_entry(
 
     if body.title is not None:
         entry.title = body.title
+    if body.vendor_name is not None:
+        entry.vendor_name = body.vendor_name
     if body.notes is not None:
         entry.notes = body.notes
     if body.entry_date is not None:
@@ -303,7 +312,9 @@ async def update_purchase_entry(
                 purchase_entry_id=entry.id,
                 item_date=row.item_date,
                 description=desc,
+                category=row.category or "materials",
                 quantity=qty,
+                unit=row.unit or "unit",
                 rate=rate,
                 total=total,
             )

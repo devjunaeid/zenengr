@@ -27,6 +27,9 @@ class LedgerEntryResponse(BaseModel):
     invoice_number: str | None
     entry_date: date
     created_at: datetime
+    voided_at: datetime | None = None
+    void_reason: str = ""
+
 
 
 class SummaryResponse(BaseModel):
@@ -38,6 +41,10 @@ class SummaryResponse(BaseModel):
     paid: str
     due: str
     advance_balance: str = "0.00"
+    total_cost: str = "0.00"
+    gross_profit: str = "0.00"
+    net_profit: str = "0.00"
+    profit_margin_pct: float = 0.0
 
 
 class ProjectLedgerResponse(BaseModel):

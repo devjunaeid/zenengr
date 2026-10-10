@@ -43,15 +43,47 @@ def _clamp_non_negative(value: Decimal) -> Decimal:
     return value if value >= Decimal("0") else Decimal("0")
 
 
-async def get_project_financials(session: AsyncSession, *, project_id: uuid.UUID) -> dict[str, str]:
-    """Project financial rollup derived directly from the project ledger.
+async def get_project_financials(session: AsyncSession, *, project_id: uuid.UUID) -> dict[str, Any]:
+    """Project financial rollup derived directly from the project ledger and project costs.
 
     Avoids summing duplicate or on-demand invoices, returning exact
-    total billed, paid, and balance due.
+    total billed, paid, balance due, total costs, and live profit/loss.
     """
+    from app.models.purchase_entry import PurchaseEntry, PurchaseEntryItem
     from app.services.ledger import compute_project_ledger_summary
 
     summary = await compute_project_ledger_summary(session, project_id=project_id)
+
+    # Cost rollup from purchase entries
+    cost_stmt = select(func.coalesce(func.sum(PurchaseEntry.grand_total), 0)).where(
+        PurchaseEntry.project_id == project_id
+    )
+    total_cost_dec = (await session.execute(cost_stmt)).scalar() or Decimal("0")
+
+    total_billed_dec = Decimal(str(summary.get("total") or summary.get("total_billed") or "0"))
+    total_paid_dec = Decimal(str(summary.get("paid") or summary.get("total_paid") or "0"))
+
+    gross_profit = total_billed_dec - total_cost_dec
+    net_profit = total_paid_dec - total_cost_dec
+    profit_margin_pct = (
+        round(float(gross_profit / total_billed_dec * 100), 2)
+        if total_billed_dec > Decimal("0")
+        else 0.0
+    )
+
+    # Category breakdown (materials, labour, subcontract, etc.)
+    cat_stmt = (
+        select(
+            PurchaseEntryItem.category,
+            func.coalesce(func.sum(PurchaseEntryItem.total), 0),
+        )
+        .join(PurchaseEntry, PurchaseEntryItem.purchase_entry_id == PurchaseEntry.id)
+        .where(PurchaseEntry.project_id == project_id)
+        .group_by(PurchaseEntryItem.category)
+    )
+    cat_rows = (await session.execute(cat_stmt)).all()
+    cost_by_category = {cat: f"{amt:.2f}" for cat, amt in cat_rows}
+
     return {
         "total_billed": summary["total_billed"],
         "total_paid": summary["total_paid"],
@@ -62,6 +94,11 @@ async def get_project_financials(session: AsyncSession, *, project_id: uuid.UUID
         "total_invoiced": summary["total_invoiced"],
         "total_outstanding": summary["total_outstanding"],
         "advance_balance": summary["advance_balance"],
+        "total_cost": f"{total_cost_dec:.2f}",
+        "gross_profit": f"{gross_profit:.2f}",
+        "net_profit": f"{net_profit:.2f}",
+        "profit_margin_pct": profit_margin_pct,
+        "cost_by_category": cost_by_category,
     }
 
 

@@ -8,6 +8,7 @@
 	import { ApiError } from '$lib/api/client.js';
 	import { toast } from 'svelte-sonner';
 	import * as invoiceApi from '$lib/api/invoices.js';
+	import * as paymentsApi from '$lib/api/payments.js';
 	import * as projectApi from '$lib/api/projects.js';
 	import * as serviceApi from '$lib/api/services.js';
 	import * as purchaseApi from '$lib/api/purchaseEntries.js';
@@ -34,6 +35,7 @@
 	import apps from '@iconify-icons/mdi/apps';
 	import arrowDown from '@iconify-icons/mdi/arrow-down';
 	import arrowUp from '@iconify-icons/mdi/arrow-up';
+	import chevronDown from '@iconify-icons/mdi/chevron-down';
 	import comment from '@iconify-icons/mdi/comment';
 	import emailOutline from '@iconify-icons/mdi/email-outline';
 	import fileMultiple from '@iconify-icons/mdi/file-multiple';
@@ -62,6 +64,7 @@
 	let ledgerLoading = $state(false);
 	let ledgerLoaded = $state(Boolean(data.ledger));
 	let ledgerError = $state(null);
+	let moreLedgerActionsOpen = $state(false);
 
 	let invoicesLoading = $state(false);
 	let invoicesLoaded = $state(Boolean(data.invoices?.items?.length));
@@ -1050,6 +1053,7 @@
 	let paymentMethod = $state('bank_transfer');
 	let paymentDate = $state(new Date().toISOString().slice(0, 10));
 	let paymentNote = $state('');
+	let paymentTargetInvoiceId = $state('');
 
 	function openPaymentDialog() {
 		paymentErr = null;
@@ -1057,6 +1061,10 @@
 		paymentMethod = 'bank_transfer';
 		paymentDate = new Date().toISOString().slice(0, 10);
 		paymentNote = '';
+		paymentTargetInvoiceId = '';
+		if (!invoicesLoaded) {
+			loadInvoicesTab();
+		}
 		paymentOpen = true;
 	}
 
@@ -1069,11 +1077,14 @@
 		}
 		paymentBusy = true;
 		try {
-			await projectApi.recordProjectPayment(fetch, token, data.project.id, {
+			await paymentsApi.recordPayment(fetch, token, {
+				project_id: data.project.id,
 				amount: String(n),
 				method: paymentMethod,
-				entry_date: paymentDate || null,
-				reference_note: paymentNote.trim()
+				paid_on: paymentDate || null,
+				reference_note: paymentNote.trim(),
+				invoice_id: paymentTargetInvoiceId || null,
+				auto_allocate: !paymentTargetInvoiceId
 			});
 			paymentOpen = false;
 			toast.success('Payment recorded successfully.');
@@ -1086,7 +1097,7 @@
 		}
 	}
 
-	// ── Project Payment Edit & Delete ────────────────────────────────────────
+	// ── Project Payment Edit & Void (ADR-004) ────────────────────────────────
 	let editPaymentTarget = $state(null);
 	let editPaymentOpen = $state(false);
 	let editPaymentBusy = $state(false);
@@ -1116,10 +1127,11 @@
 		}
 		editPaymentBusy = true;
 		try {
-			await projectApi.updateProjectPayment(fetch, token, data.project.id, editPaymentTarget.id, {
+			const paymentId = editPaymentTarget.source_id || editPaymentTarget.id;
+			await paymentsApi.updatePayment(fetch, token, paymentId, {
 				amount: String(n),
 				method: editPaymentMethod,
-				entry_date: editPaymentDate || null,
+				paid_on: editPaymentDate || null,
 				reference_note: editPaymentNote.trim()
 			});
 			editPaymentOpen = false;
@@ -1146,15 +1158,43 @@
 		if (!deletePaymentTarget) return;
 		deletePaymentBusy = true;
 		try {
-			await projectApi.deleteProjectPayment(fetch, token, data.project.id, deletePaymentTarget.id);
+			const paymentId = deletePaymentTarget.source_id || deletePaymentTarget.id;
+			await paymentsApi.voidPayment(fetch, token, paymentId, 'Voided from project ledger');
 			deletePaymentOpen = false;
-			toast.success('Payment deleted successfully.');
+			toast.success('Payment voided.', {
+				duration: 8000,
+				action: {
+					label: 'Undo',
+					onClick: async () => {
+						try {
+							await paymentsApi.restorePayment(fetch, token, paymentId);
+							toast.success('Payment restored.');
+							await refreshFinancials();
+							invalidateAll();
+						} catch (e) {
+							toast.error(e?.message || 'Could not restore payment.');
+						}
+					}
+				}
+			});
 			await refreshFinancials();
 			invalidateAll();
 		} catch (e) {
-			toast.error(e instanceof ApiError ? e.message : 'Could not delete payment.');
+			toast.error(e instanceof ApiError ? e.message : 'Could not void payment.');
 		} finally {
 			deletePaymentBusy = false;
+		}
+	}
+
+	async function handleRestorePayment(entry) {
+		try {
+			const paymentId = entry.source_id || entry.id;
+			await paymentsApi.restorePayment(fetch, token, paymentId);
+			toast.success('Payment restored successfully.');
+			await refreshFinancials();
+			invalidateAll();
+		} catch (e) {
+			toast.error(e instanceof ApiError ? e.message : 'Could not restore payment.');
 		}
 	}
 	// ── Purchase Entries State ───────────────────────────────────────────────
@@ -1174,9 +1214,10 @@
 	/** @type {import('$lib/api/purchaseEntries.js').PurchaseEntry|null} */
 	let purchaseEditTarget = $state(null); // null = create new
 	let purchaseTitle = $state('');
+	let purchaseVendor = $state('');
 	let purchaseNotes = $state('');
 	let purchaseEntryDate = $state('');
-	/** @type {{ id: string|null, item_date: string, description: string, quantity: string, rate: string }[]} */
+	/** @type {{ id: string|null, item_date: string, category: string, description: string, quantity: string, unit: string, rate: string }[]} */
 	let purchaseRows = $state([]);
 
 	function purchaseRowTotal(row) {
@@ -1196,7 +1237,7 @@
 	function addPurchaseRow() {
 		purchaseRows = [
 			...purchaseRows,
-			{ id: null, item_date: '', description: '', quantity: '1', rate: '' }
+			{ id: null, item_date: '', category: 'materials', description: '', quantity: '1', unit: 'unit', rate: '' }
 		];
 	}
 
@@ -1222,9 +1263,10 @@
 	function openNewPurchaseModal() {
 		purchaseEditTarget = null;
 		purchaseTitle = '';
+		purchaseVendor = '';
 		purchaseNotes = '';
 		purchaseEntryDate = new Date().toISOString().slice(0, 10);
-		purchaseRows = [{ id: null, item_date: '', description: '', quantity: '1', rate: '' }];
+		purchaseRows = [{ id: null, item_date: '', category: 'materials', description: '', quantity: '1', unit: 'unit', rate: '' }];
 		purchaseModalErr = null;
 		purchaseModalOpen = true;
 	}
@@ -1233,13 +1275,16 @@
 	function openEditPurchaseModal(entry) {
 		purchaseEditTarget = entry;
 		purchaseTitle = entry.title;
+		purchaseVendor = entry.vendor_name || '';
 		purchaseNotes = entry.notes;
 		purchaseEntryDate = entry.entry_date ?? '';
 		purchaseRows = entry.items.map((item) => ({
 			id: item.id,
 			item_date: item.item_date ?? '',
+			category: item.category || 'materials',
 			description: item.description,
 			quantity: item.quantity,
+			unit: item.unit || 'unit',
 			rate: item.rate
 		}));
 		purchaseModalErr = null;
@@ -1271,12 +1316,15 @@
 		purchaseModalBusy = true;
 		const body = {
 			title: purchaseTitle.trim(),
+			vendor_name: purchaseVendor.trim() || null,
 			notes: purchaseNotes.trim(),
 			entry_date: purchaseEntryDate || null,
 			items: purchaseRows.map((r) => ({
 				item_date: r.item_date || null,
+				category: r.category || 'materials',
 				description: r.description.trim(),
 				quantity: r.quantity,
+				unit: r.unit || 'unit',
 				rate: r.rate
 			}))
 		};
@@ -2200,40 +2248,78 @@
 				</button>
 				<button
 					type="button"
-					onclick={openStatementPreview}
-					class="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
-				>
-					Preview statement
-				</button>
-				<button
-					type="button"
-					onclick={openGenerateDialog}
-					class="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
-				>
-					Generate invoice
-				</button>
-				<button
-					type="button"
 					onclick={openAdjustDialog}
-					class="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+					class="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
 				>
 					Add adjustment
 				</button>
 				<button
 					type="button"
-					onclick={openDiscountDialog}
-					class="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+					onclick={openGenerateDialog}
+					class="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
 				>
-					Edit discount
+					<Icon icon={receiptText} class="h-4 w-4" />
+					Create invoice
 				</button>
-				<!-- eslint-disable svelte/no-navigation-without-resolve -- query string appended to a resolved route -->
-				<a
-					href={resolve('/app/invoices/new') + '?project_id=' + data.project.id}
-					class="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
-				>
-					Custom invoice
-				</a>
-				<!-- eslint-enable svelte/no-navigation-without-resolve -->
+
+				<!-- More actions dropdown -->
+				<div class="relative inline-block text-left">
+					<button
+						type="button"
+						onclick={() => (moreLedgerActionsOpen = !moreLedgerActionsOpen)}
+						class="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+						aria-expanded={moreLedgerActionsOpen}
+						aria-haspopup="true"
+					>
+						<span>More actions</span>
+						<Icon icon={chevronDown} class="h-4 w-4 text-slate-500" />
+					</button>
+
+					{#if moreLedgerActionsOpen}
+						<div
+							class="fixed inset-0 z-40"
+							onclick={() => (moreLedgerActionsOpen = false)}
+							aria-hidden="true"
+						></div>
+						<div
+							class="absolute left-0 z-50 mt-1.5 w-52 origin-top-left rounded-lg border border-slate-200 bg-white p-1 shadow-lg ring-1 ring-black/5 focus:outline-none"
+							role="menu"
+						>
+							<button
+								type="button"
+								onclick={() => {
+									moreLedgerActionsOpen = false;
+									openStatementPreview();
+								}}
+								class="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+								role="menuitem"
+							>
+								Preview statement PDF
+							</button>
+							<button
+								type="button"
+								onclick={() => {
+									moreLedgerActionsOpen = false;
+									openDiscountDialog();
+								}}
+								class="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+								role="menuitem"
+							>
+								Edit project discount
+							</button>
+							<!-- eslint-disable svelte/no-navigation-without-resolve -->
+							<a
+								href={resolve('/app/invoices/new') + '?project_id=' + data.project.id}
+								onclick={() => (moreLedgerActionsOpen = false)}
+								class="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+								role="menuitem"
+							>
+								Create custom invoice
+							</a>
+							<!-- eslint-enable svelte/no-navigation-without-resolve -->
+						</div>
+					{/if}
+				</div>
 			</div>
 		{/if}
 
@@ -2299,6 +2385,49 @@
 						</p>
 					</div>
 				{/if}
+
+				<!-- Internal Profit & Loss (P&L) strip -->
+				{@const grossProfit = Number(ledgerSummary?.gross_profit) || 0}
+				{@const margin = Number(ledgerSummary?.profit_margin_pct) || 0}
+				<div class="mt-6 border-t border-slate-200 pt-5">
+					<div class="flex items-center justify-between">
+						<div>
+							<h3 class="text-xs font-semibold tracking-wide text-slate-500 uppercase">
+								Internal Profit &amp; Loss (P&amp;L)
+							</h3>
+							<p class="text-xs text-slate-400">
+								Confidential internal margin based on project costs and billed revenue. Hidden from client portal.
+							</p>
+						</div>
+						<span
+							class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium {grossProfit >= 0 ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/20' : 'bg-rose-50 text-rose-700 ring-1 ring-rose-600/20'}"
+						>
+							{margin.toFixed(1)}% Margin
+						</span>
+					</div>
+					<dl class="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-4">
+						<div class="rounded-lg bg-slate-50 p-3">
+							<dt class="text-xs text-slate-500">Billed Revenue</dt>
+							<dd class="mt-0.5 text-base font-semibold text-slate-900">{fmtPrice(ledgerSummary?.total)}</dd>
+						</div>
+						<div class="rounded-lg bg-slate-50 p-3">
+							<dt class="text-xs text-slate-500">Total Project Costs</dt>
+							<dd class="mt-0.5 text-base font-semibold text-slate-900">{fmtPrice(ledgerSummary?.total_cost)}</dd>
+						</div>
+						<div class="rounded-lg bg-slate-50 p-3">
+							<dt class="text-xs text-slate-500">Gross Profit</dt>
+							<dd class="mt-0.5 text-base font-semibold {grossProfit >= 0 ? 'text-emerald-600' : 'text-rose-600'}">
+								{fmtPrice(ledgerSummary?.gross_profit)}
+							</dd>
+						</div>
+						<div class="rounded-lg bg-slate-50 p-3">
+							<dt class="text-xs text-slate-500">Net Cash In Hand</dt>
+							<dd class="mt-0.5 text-base font-semibold {(Number(ledgerSummary?.net_profit) || 0) >= 0 ? 'text-indigo-600' : 'text-amber-600'}">
+								{fmtPrice(ledgerSummary?.net_profit)}
+							</dd>
+						</div>
+					</dl>
+				</div>
 			{/if}
 		</section>
 
@@ -2327,18 +2456,30 @@
 					{#each ledgerEntries as e (e.id)}
 						{@const meta = entryMeta(e)}
 						{@const price = entryPrice(e)}
-						<li class="flex items-center justify-between gap-3 px-4 py-3 sm:px-6">
+						{@const isVoided = Boolean(e.voided_at)}
+						<li class="flex items-center justify-between gap-3 px-4 py-3 sm:px-6 {isVoided ? 'bg-slate-50/70 opacity-60' : ''}">
 							<div class="flex min-w-0 flex-1 items-center gap-3">
 								<span
-									class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full {meta.bg}"
+									class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full {isVoided ? 'bg-slate-100 text-slate-400' : meta.bg}"
 									aria-hidden="true"
 								>
-									<Icon icon={meta.icon} class="h-4 w-4 {meta.text}" />
+									<Icon icon={meta.icon} class="h-4 w-4 {isVoided ? 'text-slate-400' : meta.text}" />
 								</span>
 								<div class="min-w-0 flex-1">
-									<p class="truncate text-sm font-medium text-slate-900" title={entryLabel(e)}>
-										{entryLabel(e)}
-									</p>
+									<div class="flex items-center gap-2">
+										<p class="truncate text-sm font-medium {isVoided ? 'line-through text-slate-400' : 'text-slate-900'}" title={entryLabel(e)}>
+											{entryLabel(e)}
+										</p>
+										{#if isVoided}
+											<span class="inline-flex items-center rounded-md bg-rose-50 px-2 py-0.5 text-xs font-semibold text-rose-700 ring-1 ring-inset ring-rose-600/20" title={`Voided on ${formatDateTime(e.voided_at)}`}>
+												Voided
+											</span>
+										{:else if e.type === 'payment' && !e.invoice_ref}
+											<span class="inline-flex items-center rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-inset ring-emerald-600/20">
+												Advance Credit
+											</span>
+										{/if}
+									</div>
 									<p
 										class="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-500"
 									>
@@ -2356,13 +2497,29 @@
 											>
 												Included in {e.invoice_number}
 											</a>
+										{:else if (e.type === 'payment' || e.type === 'refund') && e.invoice_ref && e.invoice_number}
+											<a
+												href={resolve('/app/invoices/[id]', { id: e.invoice_ref })}
+												class="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-200"
+											>
+												Invoice {e.invoice_number}
+											</a>
 										{/if}
 									</p>
 								</div>
 							</div>
 							<div class="flex shrink-0 items-center gap-2">
-								<p class="text-sm font-semibold whitespace-nowrap {meta.text}">{price}</p>
-								{#if canManage && e.source_type === 'manual_adjustment'}
+								<p class="text-sm font-semibold whitespace-nowrap {isVoided ? 'line-through text-slate-400' : meta.text}">{price}</p>
+								{#if isVoided && canManage && (e.type === 'payment' || e.source_type === 'transaction')}
+									<button
+										type="button"
+										onclick={() => handleRestorePayment(e)}
+										class="inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-50 hover:text-indigo-800 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+										title="Restore voided payment"
+									>
+										Restore
+									</button>
+								{:else if canManage && e.source_type === 'manual_adjustment'}
 									<div class="flex items-center gap-0.5">
 										<button
 											type="button"
@@ -2381,7 +2538,7 @@
 											<Icon icon={trashCanOutline} class="h-4 w-4" />
 										</button>
 									</div>
-								{:else if canManage && e.type === 'payment' && !e.invoice_ref && e.source_type === 'transaction'}
+								{:else if canManage && e.type === 'payment' && !isVoided}
 									<div class="flex items-center gap-0.5">
 										<button
 											type="button"
@@ -2395,7 +2552,7 @@
 											type="button"
 											onclick={() => openDeletePaymentModal(e)}
 											class="rounded p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600 focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:outline-none"
-											title="Delete payment"
+											title="Void payment"
 										>
 											<Icon icon={trashCanOutline} class="h-4 w-4" />
 										</button>
@@ -2882,9 +3039,16 @@
 							class="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 p-4"
 						>
 							<div class="min-w-0 flex-1">
-								<p class="truncate text-sm font-semibold text-slate-900">
-									{entry.title || 'Untitled Entry'}
-								</p>
+								<div class="flex items-center gap-2">
+									<p class="truncate text-sm font-semibold text-slate-900">
+										{entry.title || 'Untitled Entry'}
+									</p>
+									{#if entry.vendor_name}
+										<span class="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 ring-1 ring-inset ring-slate-500/10">
+											{entry.vendor_name}
+										</span>
+									{/if}
+								</div>
 								<p class="mt-0.5 text-xs text-slate-400">
 									{#if entry.entry_date}{formatDate(entry.entry_date)} ·{/if}
 									{entry.item_count}
@@ -2969,7 +3133,7 @@
 
 			<div class="space-y-5 px-6 py-5">
 				<!-- Header fields -->
-				<div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+				<div class="grid grid-cols-1 gap-4 sm:grid-cols-4">
 					<div class="sm:col-span-2">
 						<label for="pe-title" class="mb-1 block text-xs font-medium text-slate-600"
 							>Entry Title</label
@@ -2978,13 +3142,25 @@
 							id="pe-title"
 							type="text"
 							bind:value={purchaseTitle}
-							placeholder="e.g. Raw materials — August"
+							placeholder="e.g. Foundation materials, Printing stock, Site labour"
+							class="w-full rounded-lg border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+						/>
+					</div>
+					<div>
+						<label for="pe-vendor" class="mb-1 block text-xs font-medium text-slate-600"
+							>Supplier / Vendor <span class="text-slate-400">(optional)</span></label
+						>
+						<input
+							id="pe-vendor"
+							type="text"
+							bind:value={purchaseVendor}
+							placeholder="e.g. Holcim Cement, City Print"
 							class="w-full rounded-lg border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
 						/>
 					</div>
 					<div>
 						<label for="pe-date" class="mb-1 block text-xs font-medium text-slate-600"
-							>Entry Date</label
+							>Date</label
 						>
 						<input
 							id="pe-date"
@@ -3003,7 +3179,7 @@
 						id="pe-notes"
 						bind:value={purchaseNotes}
 						rows="2"
-						placeholder="Additional notes…"
+						placeholder="Additional notes, invoice reference, delivery receipt…"
 						class="w-full resize-none rounded-lg border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
 					></textarea>
 				</div>
@@ -3011,25 +3187,18 @@
 				<!-- Line items table -->
 				<div>
 					<div class="mb-2 flex items-center justify-between">
-						<span class="text-xs font-semibold tracking-wider text-slate-700 uppercase">Items</span>
+						<span class="text-xs font-semibold tracking-wider text-slate-700 uppercase">Items / Expenses</span>
 					</div>
 					<div class="relative overflow-x-auto rounded-lg border border-slate-200">
 						<table class="w-full text-sm">
 							<thead class="border-b border-slate-200 bg-slate-50">
 								<tr>
-									<th class="w-28 px-3 py-2 text-left text-xs font-semibold text-slate-500">Date</th
-									>
-									<th class="px-3 py-2 text-left text-xs font-semibold text-slate-500"
-										>Description</th
-									>
-									<th class="w-24 px-3 py-2 text-right text-xs font-semibold text-slate-500">Qty</th
-									>
-									<th class="w-28 px-3 py-2 text-right text-xs font-semibold text-slate-500"
-										>Rate</th
-									>
-									<th class="w-28 px-3 py-2 text-right text-xs font-semibold text-slate-500"
-										>Total</th
-									>
+									<th class="w-32 px-3 py-2 text-left text-xs font-semibold text-slate-500">Category</th>
+									<th class="px-3 py-2 text-left text-xs font-semibold text-slate-500">Description</th>
+									<th class="w-20 px-3 py-2 text-right text-xs font-semibold text-slate-500">Qty</th>
+									<th class="w-24 px-3 py-2 text-left text-xs font-semibold text-slate-500">Unit</th>
+									<th class="w-24 px-3 py-2 text-right text-xs font-semibold text-slate-500">Rate</th>
+									<th class="w-24 px-3 py-2 text-right text-xs font-semibold text-slate-500">Total</th>
 									<th class="w-10 px-3 py-2"></th>
 								</tr>
 							</thead>
@@ -3038,19 +3207,24 @@
 									{@const rt = purchaseRowTotal(row)}
 									<tr class="transition-colors hover:bg-slate-50/60">
 										<td class="px-2 py-1.5">
-											<input
-												type="date"
-												id={`pe-row-date-${i}`}
-												bind:value={purchaseRows[i].item_date}
+											<select
+												id={`pe-row-cat-${i}`}
+												bind:value={purchaseRows[i].category}
 												class="w-full rounded border-slate-200 text-xs focus:border-indigo-400 focus:ring-indigo-400"
-											/>
+											>
+												<option value="materials">Materials</option>
+												<option value="labour">Labour</option>
+												<option value="subcontract">Subcontract</option>
+												<option value="equipment">Equipment</option>
+												<option value="other">Other</option>
+											</select>
 										</td>
 										<td class="px-2 py-1.5">
 											<input
 												type="text"
 												id={`pe-row-desc-${i}`}
 												bind:value={purchaseRows[i].description}
-												placeholder="Item description"
+												placeholder="Item or worker description"
 												class="w-full rounded border-slate-200 text-xs focus:border-indigo-400 focus:ring-indigo-400"
 											/>
 										</td>
@@ -3062,6 +3236,15 @@
 												step="0.01"
 												bind:value={purchaseRows[i].quantity}
 												class="w-full rounded border-slate-200 text-right text-xs focus:border-indigo-400 focus:ring-indigo-400"
+											/>
+										</td>
+										<td class="px-2 py-1.5">
+											<input
+												type="text"
+												id={`pe-row-unit-${i}`}
+												bind:value={purchaseRows[i].unit}
+												placeholder="bag, day, copy..."
+												class="w-full rounded border-slate-200 text-xs focus:border-indigo-400 focus:ring-indigo-400"
 											/>
 										</td>
 										<td class="px-2 py-1.5">
@@ -4301,6 +4484,27 @@
 				</div>
 
 				<div>
+					<label for="pay-target-inv" class="block text-sm font-medium text-slate-700">
+						Apply to invoice
+					</label>
+					<select
+						id="pay-target-inv"
+						bind:value={paymentTargetInvoiceId}
+						class="mt-1 block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+					>
+						<option value="">Automatic (Apply to unpaid invoices, or save as credit)</option>
+						{#each invoiceList.filter((inv) => inv.status !== 'void') as inv (inv.id)}
+							<option value={inv.id}>
+								{inv.invoice_number || 'Invoice'} · Due: {inv.currency || '$'}{inv.amount_due ?? inv.total_amount} ({inv.status})
+							</option>
+						{/each}
+					</select>
+					<p class="mt-1 text-xs text-slate-500">
+						Any payment beyond the invoice total is automatically saved as advance credit for future work.
+					</p>
+				</div>
+
+				<div>
 					<label for="pay-note" class="block text-sm font-medium text-slate-700"
 						>Reference / Note (optional)</label
 					>
@@ -5000,7 +5204,7 @@
 	</Dialog.Portal>
 </Dialog.Root>
 
-<!-- Delete project payment confirm dialog -->
+<!-- Delete/Void project payment confirm dialog -->
 <ConfirmDialog
 	bind:open={
 		() => deletePaymentOpen,
@@ -5009,11 +5213,11 @@
 			if (!v) deletePaymentTarget = null;
 		}
 	}
-	title="Delete Project Payment"
+	title="Void Project Payment"
 	description={deletePaymentTarget
-		? `Permanently delete this payment of ${fmtPrice(deletePaymentTarget.amount)}? The ledger balance and client advance credit will be recalculated.`
+		? `Void this payment of ${fmtPrice(deletePaymentTarget.amount)}? The ledger balance and invoice balances will be recalculated. You can restore this payment at any time.`
 		: ''}
-	confirmLabel="Delete"
+	confirmLabel="Void payment"
 	destructive
 	busy={deletePaymentBusy}
 	onconfirm={handleConfirmDeletePayment}

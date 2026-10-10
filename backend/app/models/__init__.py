@@ -26,6 +26,7 @@ from app.models.enums import (
     MilestoneStatus,
     NotificationChannel,
     NotificationEventType,
+    PaymentKind,
     PaymentMethod,
     PermissionLevel,
     ProjectMemberRole,
@@ -46,6 +47,7 @@ from app.models.milestone_step_template import MilestoneStepTemplate
 from app.models.notification import Notification
 from app.models.notification_preference import NotificationPreference
 from app.models.password_reset_token import PasswordResetToken
+from app.models.payment import Payment
 from app.models.plan import Plan
 from app.models.plan_feature_default import PlanFeatureDefault
 from app.models.project import Project, ProjectMember
@@ -117,6 +119,8 @@ __all__ = [
     "MilestoneStatus",
     "NotificationChannel",
     "NotificationEventType",
+    "Payment",
+    "PaymentKind",
     "PaymentMethod",
     "PermissionLevel",
     "ProjectServiceStatus",

@@ -10,7 +10,7 @@ import uuid
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import ForeignKey, Numeric, UniqueConstraint, Uuid
+from sqlalchemy import ForeignKey, Numeric, String, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -42,6 +42,12 @@ class ProjectService(TimestampMixin, Base):
     )
     status: Mapped[ProjectServiceStatus] = mapped_column(
         default=ProjectServiceStatus.ACTIVE, nullable=False
+    )
+    quantity: Mapped[Decimal] = mapped_column(
+        Numeric(12, 2), default=Decimal("1"), nullable=False
+    )
+    unit: Mapped[str] = mapped_column(
+        String(50), default="unit", nullable=False
     )
     price_at_attachment: Mapped[Decimal | None] = mapped_column(
         Numeric(12, 2), nullable=True

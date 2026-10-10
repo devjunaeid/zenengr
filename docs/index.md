@@ -68,6 +68,11 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | [FEAT-024](features/FEAT-024-lazy-loading-tabs-and-lean-apis.md) | Lazy Loading Tabbed Views & Lean On-Demand API Architecture | approved | P1 |
 | [FEAT-025](features/FEAT-025-global-ledger-and-analytics.md) | Company Global Ledger & Operational Analytics Dashboard | approved | P1 |
 | [FEAT-026](features/FEAT-026-mobile-performance-and-slow-network-ux.md) | Mobile Performance, Slow 3G Network Efficiency & Touch UX Optimization | proposed | P1 |
+| [FEAT-027](features/FEAT-027-financial-accuracy-single-payment-source.md) | Financial Accuracy - Single Payment Source, Bill-Once Invoicing & Auditable Corrections | proposed | P0 |
+| [FEAT-028](features/FEAT-028-project-costs-and-profit.md) | Project Costs (Money Out), Vendors & Profit/Loss | proposed | P1 |
+| [FEAT-029](features/FEAT-029-flexible-client-billing.md) | Flexible Client Billing - Contract Items, Invoice Wizard, Tax & Credit Notes | proposed | P1 |
+| [FEAT-030](features/FEAT-030-project-finance-hub.md) | Project Finance Hub - Unified Money In / Money Out / Result | proposed | P1 |
+| [FEAT-031](features/FEAT-031-budgets-controls-insights.md) | Budgets, Financial Controls & Company Insights | proposed | P2 |
 
 ### Stories
 
@@ -148,6 +153,9 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | [US-073](stories/US-073.md) | Read-Only Company Analytics & Multi-Dimensional Ledger UI (/app/reports) | FEAT-025 | done |
 | [US-074](stories/US-074.md) | Mobile & Slow-3G Network Performance Optimization | FEAT-026 | proposed |
 | [US-075](stories/US-075.md) | Mobile-First Ergonomic Touch UX & Flow Optimization | FEAT-026 | proposed |
+| [US-076](stories/US-076.md) | Single source of truth for client payments and advances | FEAT-027 | proposed |
+| [US-077](stories/US-077.md) | Bill each charge once and keep company reports exact | FEAT-027 | proposed |
+| [US-078](stories/US-078.md) | Flexible, mistake-tolerant and auditable corrections | FEAT-027 | proposed |
 
 ### Todos
 
@@ -506,10 +514,28 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | [TODO-219](todos/TODO-219.md) | Mobile Sticky Action Bars and Touch Target Hardening | US-075 | proposed |
 | [TODO-220](todos/TODO-220.md) | Service Worker Cache & Image/Icon Performance Optimization | US-074 | proposed |
 
+#### FEAT-027 — Financial Accuracy Foundation
+
+| ID | Title | Story | Status |
+| -- | ----- | ----- | ------ |
+| [TODO-221](todos/TODO-221.md) | Payment model, payment_id on transactions, void columns & migration (schema) | US-076 | proposed |
+| [TODO-222](todos/TODO-222.md) | Payments service & API (record, allocate, auto-allocate, void, edit) | US-076 | proposed |
+| [TODO-223](todos/TODO-223.md) | Ledger summary & timeline on payments (remove heuristic dedup) | US-076 | proposed |
+| [TODO-224](todos/TODO-224.md) | Bill-once invoice generation & explicit charges for custom lines | US-077 | proposed |
+| [TODO-225](todos/TODO-225.md) | Data migration with dry-run reconciliation report | US-076 | proposed |
+| [TODO-226](todos/TODO-226.md) | Company reports on payments & non-duplicated invoices | US-077 | proposed |
+| [TODO-227](todos/TODO-227.md) | Soft delete + restore, record history API & audit for purchases | US-078 | proposed |
+| [TODO-228](todos/TODO-228.md) | Frontend: allocation display, edit/delete with undo & restore, history panel | US-078 | proposed |
+| [TODO-229](todos/TODO-229.md) | FEAT-027 end-to-end reconciliation verification | US-077 | proposed |
+
+> Open decisions resolved in [ADR-004](decisions/ADR-004-project-finance-principles.md). FEAT-028..031 stories/todos are derived after FEAT-027 ships.
+
 ## Recently updated
 
 | Date | Item | Change |
 | ---- | ---- | ------ |
+| 2026-10-10 | Seamless Financial Engine Master Plan authored | [seamless_financial_engine_master_plan.md](file:///Users/blue/.gemini/antigravity-ide/brain/eb35c4fc-2777-4b5c-b820-9903a18b0003/seamless_financial_engine_master_plan.md), docs/features/FEAT-027..FEAT-031, docs/decisions/ADR-004-project-finance-principles.md. |
+| 2026-10-10 | Financial system review + FEAT-027..031 docs drafted | docs/features/FEAT-027..FEAT-031, docs/stories/US-076..US-078, docs/todos/TODO-221..TODO-229, docs/ui-ux-spec.md, docs/index.md, docs/progress.md. |
 | 2026-10-09 | FEAT-026 Mobile Performance, Slow 3G Network Efficiency & Touch UX docs drafted | docs/features/FEAT-026-mobile-performance-and-slow-network-ux.md, docs/stories/US-074.md, docs/stories/US-075.md, docs/todos/TODO-217.md..TODO-220.md, docs/ui-ux-spec.md, docs/index.md. |
 | 2026-09-26 | FEAT-025 Company Global Ledger & Operational Analytics Dashboard shipped | docs/features/FEAT-025-global-ledger-and-analytics.md, docs/stories/US-072.md, docs/stories/US-073.md, docs/todos/TODO-213.md..TODO-216.md, backend/app/api/v1/reports.py, backend/app/services/reports.py, frontend/src/routes/app/reports/*, docs/index.md, docs/progress.md. |
 | 2026-09-26 | FEAT-024 Lazy Loading Tabbed Views & Lean On-Demand API Architecture shipped | docs/features/FEAT-024-lazy-loading-tabs-and-lean-apis.md, docs/stories/US-070.md, docs/stories/US-071.md, docs/todos/TODO-209.md..TODO-212.md, frontend/src/routes/app/projects/[id]/*, frontend/src/routes/app/clients/[id]/*, frontend/src/routes/client/projects/[id]/*, backend/app/api/v1/clients.py, backend/app/api/v1/projects.py, docs/index.md, docs/progress.md. |

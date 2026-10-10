@@ -74,6 +74,7 @@ class InvoiceLineItem(TimestampMixin, Base):
     description: Mapped[str] = mapped_column(String(255), nullable=False)
     entry_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     quantity: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=Decimal("1"), nullable=False)
+    unit: Mapped[str] = mapped_column(String(50), default="unit", nullable=False)
     unit_price: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     service_id: Mapped[uuid.UUID | None] = mapped_column(

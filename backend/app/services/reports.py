@@ -19,8 +19,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.advance import Advance
 from app.models.client import Client
-from app.models.enums import InvoiceStatus, TransactionDirection
+from app.models.enums import InvoiceStatus, PaymentKind, TransactionDirection
 from app.models.invoice import Invoice, InvoiceLineItem
+from app.models.payment import Payment
 from app.models.project import Project
 from app.models.project_service import ProjectService
 from app.models.transaction import PaymentAllocation, Transaction
@@ -134,8 +135,36 @@ async def get_company_ledger(
     if date_to:
         inv_range_q = inv_range_q.where(inv_date_col <= date_to)
 
-    # Collections in range
-    tx_range_q = (
+    # Collections in range: unified Payment table
+    pay_range_q = (
+        select(
+            func.coalesce(
+                func.sum(
+                    case(
+                        (Payment.kind == PaymentKind.RECEIPT, Payment.amount),
+                        (Payment.kind == PaymentKind.REFUND, -Payment.amount),
+                        else_=0,
+                    )
+                ),
+                0,
+            )
+        )
+        .where(
+            Payment.tenant_id == tenant_id,
+            Payment.voided_at.is_(None),
+        )
+    )
+    if project_id:
+        pay_range_q = pay_range_q.where(Payment.project_id == project_id)
+    elif client_id:
+        pay_range_q = pay_range_q.where(Payment.client_id == client_id)
+    if date_from:
+        pay_range_q = pay_range_q.where(Payment.paid_on >= date_from)
+    if date_to:
+        pay_range_q = pay_range_q.where(Payment.paid_on <= date_to)
+
+    # Legacy unmigrated transaction collections fallback
+    tx_legacy_range_q = (
         select(
             func.coalesce(
                 func.sum(
@@ -152,18 +181,20 @@ async def get_company_ledger(
         .where(
             Invoice.tenant_id == tenant_id,
             Invoice.status.in_(_MONEY_STATUSES),
+            Transaction.payment_id.is_(None),
+            Transaction.voided_at.is_(None),
         )
     )
     if project_id:
-        tx_range_q = tx_range_q.where(Invoice.project_id == project_id)
+        tx_legacy_range_q = tx_legacy_range_q.where(Invoice.project_id == project_id)
     elif client_id:
-        tx_range_q = tx_range_q.join(Project, Invoice.project_id == Project.id).where(
+        tx_legacy_range_q = tx_legacy_range_q.join(Project, Invoice.project_id == Project.id).where(
             Project.client_id == client_id
         )
     if date_from:
-        tx_range_q = tx_range_q.where(cast(Transaction.recorded_at, Date) >= date_from)
+        tx_legacy_range_q = tx_legacy_range_q.where(cast(Transaction.recorded_at, Date) >= date_from)
     if date_to:
-        tx_range_q = tx_range_q.where(cast(Transaction.recorded_at, Date) <= date_to)
+        tx_legacy_range_q = tx_legacy_range_q.where(cast(Transaction.recorded_at, Date) <= date_to)
 
     # Lifetime invoiced
     life_inv_q = select(func.coalesce(func.sum(Invoice.total), 0)).where(
@@ -177,36 +208,64 @@ async def get_company_ledger(
             Project.client_id == client_id
         )
 
-    # Lifetime payments
-    life_alloc_q = (
+    # Lifetime payments: unified Payment table
+    life_pay_q = (
+        select(
+            func.coalesce(
+                func.sum(
+                    case(
+                        (Payment.kind == PaymentKind.RECEIPT, Payment.amount),
+                        (Payment.kind == PaymentKind.REFUND, -Payment.amount),
+                        else_=0,
+                    )
+                ),
+                0,
+            )
+        )
+        .where(
+            Payment.tenant_id == tenant_id,
+            Payment.voided_at.is_(None),
+        )
+    )
+    if project_id:
+        life_pay_q = life_pay_q.where(Payment.project_id == project_id)
+    elif client_id:
+        life_pay_q = life_pay_q.where(Payment.client_id == client_id)
+
+    # Legacy unmigrated allocations fallback
+    life_alloc_legacy_q = (
         select(func.coalesce(func.sum(PaymentAllocation.amount), 0))
         .join(InvoiceLineItem, PaymentAllocation.line_item_id == InvoiceLineItem.id)
         .join(Invoice, InvoiceLineItem.invoice_id == Invoice.id)
         .where(
             Invoice.tenant_id == tenant_id,
             Invoice.status.in_(_MONEY_STATUSES),
+            PaymentAllocation.payment_id.is_(None),
+            PaymentAllocation.voided_at.is_(None),
         )
     )
     if project_id:
-        life_alloc_q = life_alloc_q.where(Invoice.project_id == project_id)
+        life_alloc_legacy_q = life_alloc_legacy_q.where(Invoice.project_id == project_id)
     elif client_id:
-        life_alloc_q = life_alloc_q.join(Project, Invoice.project_id == Project.id).where(
+        life_alloc_legacy_q = life_alloc_legacy_q.join(Project, Invoice.project_id == Project.id).where(
             Project.client_id == client_id
         )
 
-    life_ref_q = (
+    life_ref_legacy_q = (
         select(func.coalesce(func.sum(Transaction.amount), 0))
         .join(Invoice, Transaction.invoice_id == Invoice.id)
         .where(
             Invoice.tenant_id == tenant_id,
             Invoice.status.in_(_MONEY_STATUSES),
             Transaction.direction == TransactionDirection.CREDIT,
+            Transaction.payment_id.is_(None),
+            Transaction.voided_at.is_(None),
         )
     )
     if project_id:
-        life_ref_q = life_ref_q.where(Invoice.project_id == project_id)
+        life_ref_legacy_q = life_ref_legacy_q.where(Invoice.project_id == project_id)
     elif client_id:
-        life_ref_q = life_ref_q.join(Project, Invoice.project_id == Project.id).where(
+        life_ref_legacy_q = life_ref_legacy_q.join(Project, Invoice.project_id == Project.id).where(
             Project.client_id == client_id
         )
 
@@ -229,10 +288,12 @@ async def get_company_ledger(
         select(svc_q.subquery().c.cnt).scalar_subquery().label("new_services"),
         select(svc_q.subquery().c.val).scalar_subquery().label("new_services_val"),
         inv_range_q.scalar_subquery().label("invoiced_range"),
-        tx_range_q.scalar_subquery().label("collected_range"),
+        pay_range_q.scalar_subquery().label("payment_range"),
+        tx_legacy_range_q.scalar_subquery().label("tx_legacy_range"),
         life_inv_q.scalar_subquery().label("life_inv"),
-        life_alloc_q.scalar_subquery().label("life_alloc"),
-        life_ref_q.scalar_subquery().label("life_ref"),
+        life_pay_q.scalar_subquery().label("life_pay"),
+        life_alloc_legacy_q.scalar_subquery().label("life_alloc_legacy"),
+        life_ref_legacy_q.scalar_subquery().label("life_ref_legacy"),
         adv_q.scalar_subquery().label("advances"),
     )
     s_row = (await session.execute(summary_stmt)).one()
@@ -242,9 +303,13 @@ async def get_company_ledger(
     new_services_count = int(s_row.new_services or 0)
     new_services_value = Decimal(s_row.new_services_val or 0)
     total_invoiced_in_range = Decimal(s_row.invoiced_range or 0)
-    net_collected_in_range = _clamp(Decimal(s_row.collected_range or 0))
+    net_collected_in_range = _clamp(Decimal(s_row.payment_range or 0) + Decimal(s_row.tx_legacy_range or 0))
     lifetime_invoiced = Decimal(s_row.life_inv or 0)
-    lifetime_paid = _clamp(Decimal(s_row.life_alloc or 0) - Decimal(s_row.life_ref or 0))
+    lifetime_paid = _clamp(
+        Decimal(s_row.life_pay or 0)
+        + Decimal(s_row.life_alloc_legacy or 0)
+        - Decimal(s_row.life_ref_legacy or 0)
+    )
     total_due = _clamp(lifetime_invoiced - lifetime_paid)
     total_advance_balance = Decimal(s_row.advances or 0)
 
@@ -292,7 +357,36 @@ async def get_company_ledger(
         q1 = q1.group_by("p")
 
         # 2. Transactions
-        q2 = (
+        # 2a. Unified Payments
+        pay_date_col = func.coalesce(Payment.paid_on, cast(Payment.created_at, Date))
+        q2a = (
+            select(
+                func.to_char(pay_date_col, time_fmt).label("p"),
+                literal("tx").label("kind"),
+                func.coalesce(func.sum(Payment.amount), 0).label("num1"),
+                case(
+                    (Payment.kind == PaymentKind.RECEIPT, 1),
+                    (Payment.kind == PaymentKind.REFUND, -1),
+                    else_=0,
+                ).label("num2"),
+            )
+            .where(
+                Payment.tenant_id == tenant_id,
+                Payment.voided_at.is_(None),
+            )
+        )
+        if project_id:
+            q2a = q2a.where(Payment.project_id == project_id)
+        elif client_id:
+            q2a = q2a.where(Payment.client_id == client_id)
+        if date_from:
+            q2a = q2a.where(pay_date_col >= date_from)
+        if date_to:
+            q2a = q2a.where(pay_date_col <= date_to)
+        q2a = q2a.group_by("p", "num2")
+
+        # 2b. Legacy Unmigrated Transactions
+        q2b = (
             select(
                 func.to_char(cast(Transaction.recorded_at, Date), time_fmt).label("p"),
                 literal("tx").label("kind"),
@@ -307,19 +401,21 @@ async def get_company_ledger(
             .where(
                 Invoice.tenant_id == tenant_id,
                 Invoice.status.in_(_MONEY_STATUSES),
+                Transaction.payment_id.is_(None),
+                Transaction.voided_at.is_(None),
             )
         )
         if project_id:
-            q2 = q2.where(Invoice.project_id == project_id)
+            q2b = q2b.where(Invoice.project_id == project_id)
         elif client_id:
-            q2 = q2.join(Project, Invoice.project_id == Project.id).where(
+            q2b = q2b.join(Project, Invoice.project_id == Project.id).where(
                 Project.client_id == client_id
             )
         if date_from:
-            q2 = q2.where(cast(Transaction.recorded_at, Date) >= date_from)
+            q2b = q2b.where(cast(Transaction.recorded_at, Date) >= date_from)
         if date_to:
-            q2 = q2.where(cast(Transaction.recorded_at, Date) <= date_to)
-        q2 = q2.group_by("p", "num2")
+            q2b = q2b.where(cast(Transaction.recorded_at, Date) <= date_to)
+        q2b = q2b.group_by("p", "num2")
 
         # 3. Projects
         q3 = (
@@ -383,7 +479,7 @@ async def get_company_ledger(
             q5 = q5.where(cast(ProjectService.created_at, Date) <= date_to)
         q5 = q5.group_by("p")
 
-        all_queries = [q1, q2, q3, q5]
+        all_queries = [q1, q2a, q2b, q3, q5]
         if q4 is not None:
             all_queries.append(q4)
 
@@ -449,6 +545,28 @@ async def get_company_ledger(
         if project_id:
             p_filter.append(Project.id == project_id)
 
+        pay_sub = (
+            select(
+                Payment.project_id,
+                func.coalesce(
+                    func.sum(
+                        case(
+                            (Payment.kind == PaymentKind.RECEIPT, Payment.amount),
+                            (Payment.kind == PaymentKind.REFUND, -Payment.amount),
+                            else_=0,
+                        )
+                    ),
+                    0,
+                ).label("paid_amt"),
+            )
+            .where(
+                Payment.tenant_id == tenant_id,
+                Payment.voided_at.is_(None),
+            )
+            .group_by(Payment.project_id)
+            .cte("p_pay_sub")
+        )
+
         inv_sub = (
             select(
                 Invoice.project_id,
@@ -472,6 +590,8 @@ async def get_company_ledger(
             .where(
                 Invoice.tenant_id == tenant_id,
                 Invoice.status.in_(_MONEY_STATUSES),
+                PaymentAllocation.payment_id.is_(None),
+                PaymentAllocation.voided_at.is_(None),
             )
             .group_by(Invoice.project_id)
             .cte("p_alloc_sub")
@@ -487,6 +607,8 @@ async def get_company_ledger(
                 Invoice.tenant_id == tenant_id,
                 Invoice.status.in_(_MONEY_STATUSES),
                 Transaction.direction == TransactionDirection.CREDIT,
+                Transaction.payment_id.is_(None),
+                Transaction.voided_at.is_(None),
             )
             .group_by(Invoice.project_id)
             .cte("p_ref_sub")
@@ -515,6 +637,7 @@ async def get_company_ledger(
                 Project.discount_value,
                 func.coalesce(Client.name, "").label("client_name"),
                 func.coalesce(inv_sub.c.invoiced, 0).label("total_invoiced"),
+                func.coalesce(pay_sub.c.paid_amt, 0).label("direct_paid"),
                 func.coalesce(alloc_sub.c.allocated, 0).label("total_alloc"),
                 func.coalesce(ref_sub.c.refunded, 0).label("total_ref"),
                 func.coalesce(svc_sub.c.svc_cnt, 0).label("services_count"),
@@ -522,6 +645,7 @@ async def get_company_ledger(
             )
             .outerjoin(Client, Project.client_id == Client.id)
             .outerjoin(inv_sub, Project.id == inv_sub.c.project_id)
+            .outerjoin(pay_sub, Project.id == pay_sub.c.project_id)
             .outerjoin(alloc_sub, Project.id == alloc_sub.c.project_id)
             .outerjoin(ref_sub, Project.id == ref_sub.c.project_id)
             .outerjoin(svc_sub, Project.id == svc_sub.c.project_id)
@@ -532,7 +656,7 @@ async def get_company_ledger(
         proj_rows = (await session.execute(p_stmt)).all()
         for p in proj_rows:
             inv = Decimal(p.total_invoiced)
-            paid = _clamp(Decimal(p.total_alloc) - Decimal(p.total_ref))
+            paid = _clamp(Decimal(p.direct_paid) + Decimal(p.total_alloc) - Decimal(p.total_ref))
             val = Decimal(p.services_value)
             if p.discount_type and p.discount_value:
                 if p.discount_type.value == "fixed":
@@ -574,6 +698,28 @@ async def get_company_ledger(
                 == select(Project.client_id).where(Project.id == project_id).scalar_subquery()
             )
 
+        cpay_sub = (
+            select(
+                Payment.client_id,
+                func.coalesce(
+                    func.sum(
+                        case(
+                            (Payment.kind == PaymentKind.RECEIPT, Payment.amount),
+                            (Payment.kind == PaymentKind.REFUND, -Payment.amount),
+                            else_=0,
+                        )
+                    ),
+                    0,
+                ).label("paid_amt"),
+            )
+            .where(
+                Payment.tenant_id == tenant_id,
+                Payment.voided_at.is_(None),
+            )
+            .group_by(Payment.client_id)
+            .cte("c_pay_sub")
+        )
+
         cp_sub = (
             select(Project.client_id, func.count(Project.id).label("active_projects"))
             .where(Project.tenant_id == tenant_id)
@@ -608,7 +754,12 @@ async def get_company_ledger(
             .join(InvoiceLineItem, PaymentAllocation.line_item_id == InvoiceLineItem.id)
             .join(Invoice, InvoiceLineItem.invoice_id == Invoice.id)
             .join(Project, Invoice.project_id == Project.id)
-            .where(Invoice.tenant_id == tenant_id, Invoice.status.in_(_MONEY_STATUSES))
+            .where(
+                Invoice.tenant_id == tenant_id,
+                Invoice.status.in_(_MONEY_STATUSES),
+                PaymentAllocation.payment_id.is_(None),
+                PaymentAllocation.voided_at.is_(None),
+            )
             .group_by(Project.client_id)
             .cte("calloc_sub")
         )
@@ -623,6 +774,8 @@ async def get_company_ledger(
                 Invoice.tenant_id == tenant_id,
                 Invoice.status.in_(_MONEY_STATUSES),
                 Transaction.direction == TransactionDirection.CREDIT,
+                Transaction.payment_id.is_(None),
+                Transaction.voided_at.is_(None),
             )
             .group_by(Project.client_id)
             .cte("cref_sub")
@@ -647,6 +800,7 @@ async def get_company_ledger(
                 func.coalesce(cs_sub.c.services_count, 0).label("total_services_count"),
                 func.coalesce(cs_sub.c.services_val, 0).label("services_val"),
                 func.coalesce(cinv_sub.c.invoiced, 0).label("total_invoiced"),
+                func.coalesce(cpay_sub.c.paid_amt, 0).label("direct_paid"),
                 func.coalesce(calloc_sub.c.allocated, 0).label("total_allocated"),
                 func.coalesce(cref_sub.c.refunded, 0).label("total_refunded"),
                 func.coalesce(cadv_sub.c.advances, 0).label("advance_balance"),
@@ -654,6 +808,7 @@ async def get_company_ledger(
             .outerjoin(cp_sub, Client.id == cp_sub.c.client_id)
             .outerjoin(cs_sub, Client.id == cs_sub.c.client_id)
             .outerjoin(cinv_sub, Client.id == cinv_sub.c.client_id)
+            .outerjoin(cpay_sub, Client.id == cpay_sub.c.client_id)
             .outerjoin(calloc_sub, Client.id == calloc_sub.c.client_id)
             .outerjoin(cref_sub, Client.id == cref_sub.c.client_id)
             .outerjoin(cadv_sub, Client.id == cadv_sub.c.client_id)
@@ -666,7 +821,7 @@ async def get_company_ledger(
             s_val = Decimal(c.services_val)
             inv = Decimal(c.total_invoiced)
             billed = s_val if s_val > 0 else inv
-            paid = _clamp(Decimal(c.total_allocated) - Decimal(c.total_refunded))
+            paid = _clamp(Decimal(c.direct_paid) + Decimal(c.total_allocated) - Decimal(c.total_refunded))
             due = _clamp(billed - paid)
             clients_list.append(
                 {
