@@ -685,26 +685,6 @@ async def update_project_service_price(
             detail="Cannot update price of a cancelled service",
         )
 
-    # Check if this service is already billed on an issued/paid invoice
-    issued_li_q = (
-        select(Invoice.invoice_number)
-        .join(InvoiceLineItem, InvoiceLineItem.invoice_id == Invoice.id)
-        .where(
-            InvoiceLineItem.project_service_id == project_service_id,
-            Invoice.status != InvoiceStatus.DRAFT,
-        )
-        .limit(1)
-    )
-    issued_inv_num = (await session.execute(issued_li_q)).scalar_one_or_none()
-    if issued_inv_num:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=(
-                "Service price cannot be updated: already billed on issued invoice "
-                f"{issued_inv_num}. Void the invoice first to edit."
-            ),
-        )
-
     old_price = ps.price_at_attachment
     new_price = _money(price)
     ps.price_at_attachment = new_price
@@ -718,17 +698,6 @@ async def update_project_service_price(
     )
     ledger_entry = (await session.execute(ch_q)).scalar_one_or_none()
     if ledger_entry is not None:
-        if ledger_entry.invoice_ref is not None:
-            inv = await session.get(Invoice, ledger_entry.invoice_ref)
-            if inv and inv.status != InvoiceStatus.DRAFT:
-                inv_ref = inv.invoice_number or ledger_entry.invoice_ref
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail=(
-                        "Service price cannot be updated: already covered by issued invoice "
-                        f"{inv_ref}. Void the invoice first to edit."
-                    ),
-                )
         ledger_entry.amount = new_price
     else:
         svc = await session.get(Service, ps.service_id)

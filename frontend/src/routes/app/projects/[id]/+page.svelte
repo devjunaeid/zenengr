@@ -29,6 +29,7 @@
 	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
 	import AmountInWords from '$lib/components/AmountInWords.svelte';
 	import Icon from '@iconify/svelte';
+	import alertCircleOutline from '@iconify-icons/mdi/alert-circle-outline';
 	import cartOutline from '@iconify-icons/mdi/cart-outline';
 	import cart from '@iconify-icons/mdi/cart';
 	import account from '@iconify-icons/mdi/account';
@@ -1237,7 +1238,15 @@
 	function addPurchaseRow() {
 		purchaseRows = [
 			...purchaseRows,
-			{ id: null, item_date: '', category: 'materials', description: '', quantity: '1', unit: 'unit', rate: '' }
+			{
+				id: null,
+				item_date: '',
+				category: 'materials',
+				description: '',
+				quantity: '1',
+				unit: 'unit',
+				rate: ''
+			}
 		];
 	}
 
@@ -1254,7 +1263,10 @@
 			purchaseList = res.items;
 			purchaseListLoaded = true;
 		} catch (e) {
-			purchaseListErr = e instanceof ApiError ? e.message : 'Could not load purchase entries.';
+			purchaseListErr =
+				e instanceof ApiError
+					? e.message
+					: e?.message || 'Could not load purchase entries. Please refresh and try again.';
 		} finally {
 			purchaseListLoading = false;
 		}
@@ -1266,7 +1278,17 @@
 		purchaseVendor = '';
 		purchaseNotes = '';
 		purchaseEntryDate = new Date().toISOString().slice(0, 10);
-		purchaseRows = [{ id: null, item_date: '', category: 'materials', description: '', quantity: '1', unit: 'unit', rate: '' }];
+		purchaseRows = [
+			{
+				id: null,
+				item_date: '',
+				category: 'materials',
+				description: '',
+				quantity: '1',
+				unit: 'unit',
+				rate: ''
+			}
+		];
 		purchaseModalErr = null;
 		purchaseModalOpen = true;
 	}
@@ -1294,38 +1316,50 @@
 	async function savePurchaseEntry() {
 		purchaseModalErr = null;
 		if (purchaseRows.length === 0) {
-			purchaseModalErr = 'Add at least one item.';
+			purchaseModalErr = 'Please add at least one line item row to this purchase entry.';
 			return;
 		}
-		for (const row of purchaseRows) {
-			if (!row.description.trim()) {
-				purchaseModalErr = 'All rows must have a description.';
+		for (let i = 0; i < purchaseRows.length; i++) {
+			const row = purchaseRows[i];
+			const rowNum = i + 1;
+			const descLabel = row.description?.trim() ? `"${row.description.trim()}"` : `Row ${rowNum}`;
+
+			if (!row.description || !row.description.trim()) {
+				purchaseModalErr = `Row ${rowNum}: Description is required.`;
+				return;
+			}
+			if (row.quantity === '' || row.quantity === null || row.quantity === undefined) {
+				purchaseModalErr = `Row ${rowNum} (${descLabel}): Quantity is required.`;
 				return;
 			}
 			const q = Number(row.quantity);
-			const r = Number(row.rate);
 			if (!Number.isFinite(q) || q <= 0) {
-				purchaseModalErr = 'Quantity must be a positive number.';
+				purchaseModalErr = `Row ${rowNum} (${descLabel}): Quantity must be a valid positive number greater than 0.`;
 				return;
 			}
+			if (row.rate === '' || row.rate === null || row.rate === undefined) {
+				purchaseModalErr = `Row ${rowNum} (${descLabel}): Rate / unit price is required.`;
+				return;
+			}
+			const r = Number(row.rate);
 			if (!Number.isFinite(r) || r < 0) {
-				purchaseModalErr = 'Rate must be 0 or more.';
+				purchaseModalErr = `Row ${rowNum} (${descLabel}): Rate must be a valid number of 0 or more.`;
 				return;
 			}
 		}
 		purchaseModalBusy = true;
 		const body = {
-			title: purchaseTitle.trim(),
+			title: purchaseTitle.trim() || null,
 			vendor_name: purchaseVendor.trim() || null,
-			notes: purchaseNotes.trim(),
+			notes: purchaseNotes.trim() || null,
 			entry_date: purchaseEntryDate || null,
 			items: purchaseRows.map((r) => ({
 				item_date: r.item_date || null,
 				category: r.category || 'materials',
 				description: r.description.trim(),
-				quantity: r.quantity,
-				unit: r.unit || 'unit',
-				rate: r.rate
+				quantity: String(r.quantity).trim(),
+				unit: r.unit?.trim() || 'unit',
+				rate: String(r.rate).trim()
 			}))
 		};
 		try {
@@ -1346,7 +1380,24 @@
 			purchaseListLoaded = false;
 			await loadPurchaseEntries();
 		} catch (e) {
-			purchaseModalErr = e instanceof ApiError ? e.message : 'Could not save purchase entry.';
+			console.error('Failed to save purchase entry:', e);
+			if (e?.status === 403) {
+				purchaseModalErr =
+					'Access Denied: You do not have permission to manage purchase entries on this project. Only users with Admin or Manager permissions can save purchases.';
+			} else if (e?.status === 401) {
+				purchaseModalErr = 'Authentication expired. Please refresh the page and sign in again.';
+			} else if (e?.status === 404) {
+				purchaseModalErr = 'Project not found. It may have been archived or deleted.';
+			} else if (e?.status === 422) {
+				purchaseModalErr =
+					e.message ||
+					'Validation error: Please verify that all items have valid descriptions, quantities, and rates.';
+			} else if (e?.message) {
+				purchaseModalErr = e.message;
+			} else {
+				purchaseModalErr =
+					'Could not save purchase entry due to a network or server issue. Please try again.';
+			}
 		} finally {
 			purchaseModalBusy = false;
 		}
@@ -1371,7 +1422,10 @@
 				listItem.id
 			);
 		} catch (e) {
-			purchaseViewErr = e instanceof ApiError ? e.message : 'Could not load entry.';
+			purchaseViewErr =
+				e instanceof ApiError
+					? e.message
+					: e?.message || 'Could not load entry details. Please try again.';
 		} finally {
 			purchaseViewLoading = false;
 		}
@@ -1392,7 +1446,13 @@
 			purchaseListLoaded = false;
 			await loadPurchaseEntries();
 		} catch (e) {
-			toast.error(e instanceof ApiError ? e.message : 'Could not delete entry.');
+			const msg =
+				e?.status === 403
+					? 'Access Denied: Admin or Manager permission required to delete purchase entries.'
+					: e instanceof ApiError
+						? e.message
+						: e?.message || 'Could not delete entry.';
+			toast.error(msg);
 		} finally {
 			purchaseDeleteBusy = false;
 		}
@@ -2396,11 +2456,15 @@
 								Internal Profit &amp; Loss (P&amp;L)
 							</h3>
 							<p class="text-xs text-slate-400">
-								Confidential internal margin based on project costs and billed revenue. Hidden from client portal.
+								Confidential internal margin based on project costs and billed revenue. Hidden from
+								client portal.
 							</p>
 						</div>
 						<span
-							class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium {grossProfit >= 0 ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/20' : 'bg-rose-50 text-rose-700 ring-1 ring-rose-600/20'}"
+							class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium {grossProfit >=
+							0
+								? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/20'
+								: 'bg-rose-50 text-rose-700 ring-1 ring-rose-600/20'}"
 						>
 							{margin.toFixed(1)}% Margin
 						</span>
@@ -2408,21 +2472,33 @@
 					<dl class="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-4">
 						<div class="rounded-lg bg-slate-50 p-3">
 							<dt class="text-xs text-slate-500">Billed Revenue</dt>
-							<dd class="mt-0.5 text-base font-semibold text-slate-900">{fmtPrice(ledgerSummary?.total)}</dd>
+							<dd class="mt-0.5 text-base font-semibold text-slate-900">
+								{fmtPrice(ledgerSummary?.total)}
+							</dd>
 						</div>
 						<div class="rounded-lg bg-slate-50 p-3">
 							<dt class="text-xs text-slate-500">Total Project Costs</dt>
-							<dd class="mt-0.5 text-base font-semibold text-slate-900">{fmtPrice(ledgerSummary?.total_cost)}</dd>
+							<dd class="mt-0.5 text-base font-semibold text-slate-900">
+								{fmtPrice(ledgerSummary?.total_cost)}
+							</dd>
 						</div>
 						<div class="rounded-lg bg-slate-50 p-3">
 							<dt class="text-xs text-slate-500">Gross Profit</dt>
-							<dd class="mt-0.5 text-base font-semibold {grossProfit >= 0 ? 'text-emerald-600' : 'text-rose-600'}">
+							<dd
+								class="mt-0.5 text-base font-semibold {grossProfit >= 0
+									? 'text-emerald-600'
+									: 'text-rose-600'}"
+							>
 								{fmtPrice(ledgerSummary?.gross_profit)}
 							</dd>
 						</div>
 						<div class="rounded-lg bg-slate-50 p-3">
 							<dt class="text-xs text-slate-500">Net Cash In Hand</dt>
-							<dd class="mt-0.5 text-base font-semibold {(Number(ledgerSummary?.net_profit) || 0) >= 0 ? 'text-indigo-600' : 'text-amber-600'}">
+							<dd
+								class="mt-0.5 text-base font-semibold {(Number(ledgerSummary?.net_profit) || 0) >= 0
+									? 'text-indigo-600'
+									: 'text-amber-600'}"
+							>
 								{fmtPrice(ledgerSummary?.net_profit)}
 							</dd>
 						</div>
@@ -2457,25 +2533,44 @@
 						{@const meta = entryMeta(e)}
 						{@const price = entryPrice(e)}
 						{@const isVoided = Boolean(e.voided_at)}
-						<li class="flex items-center justify-between gap-3 px-4 py-3 sm:px-6 {isVoided ? 'bg-slate-50/70 opacity-60' : ''}">
+						<li
+							class="flex items-center justify-between gap-3 px-4 py-3 sm:px-6 {isVoided
+								? 'bg-slate-50/70 opacity-60'
+								: ''}"
+						>
 							<div class="flex min-w-0 flex-1 items-center gap-3">
 								<span
-									class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full {isVoided ? 'bg-slate-100 text-slate-400' : meta.bg}"
+									class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full {isVoided
+										? 'bg-slate-100 text-slate-400'
+										: meta.bg}"
 									aria-hidden="true"
 								>
-									<Icon icon={meta.icon} class="h-4 w-4 {isVoided ? 'text-slate-400' : meta.text}" />
+									<Icon
+										icon={meta.icon}
+										class="h-4 w-4 {isVoided ? 'text-slate-400' : meta.text}"
+									/>
 								</span>
 								<div class="min-w-0 flex-1">
 									<div class="flex items-center gap-2">
-										<p class="truncate text-sm font-medium {isVoided ? 'line-through text-slate-400' : 'text-slate-900'}" title={entryLabel(e)}>
+										<p
+											class="truncate text-sm font-medium {isVoided
+												? 'text-slate-400 line-through'
+												: 'text-slate-900'}"
+											title={entryLabel(e)}
+										>
 											{entryLabel(e)}
 										</p>
 										{#if isVoided}
-											<span class="inline-flex items-center rounded-md bg-rose-50 px-2 py-0.5 text-xs font-semibold text-rose-700 ring-1 ring-inset ring-rose-600/20" title={`Voided on ${formatDateTime(e.voided_at)}`}>
+											<span
+												class="inline-flex items-center rounded-md bg-rose-50 px-2 py-0.5 text-xs font-semibold text-rose-700 ring-1 ring-rose-600/20 ring-inset"
+												title={`Voided on ${formatDateTime(e.voided_at)}`}
+											>
 												Voided
 											</span>
 										{:else if e.type === 'payment' && !e.invoice_ref}
-											<span class="inline-flex items-center rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-inset ring-emerald-600/20">
+											<span
+												class="inline-flex items-center rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-emerald-600/20 ring-inset"
+											>
 												Advance Credit
 											</span>
 										{/if}
@@ -2509,7 +2604,13 @@
 								</div>
 							</div>
 							<div class="flex shrink-0 items-center gap-2">
-								<p class="text-sm font-semibold whitespace-nowrap {isVoided ? 'line-through text-slate-400' : meta.text}">{price}</p>
+								<p
+									class="text-sm font-semibold whitespace-nowrap {isVoided
+										? 'text-slate-400 line-through'
+										: meta.text}"
+								>
+									{price}
+								</p>
 								{#if isVoided && canManage && (e.type === 'payment' || e.source_type === 'transaction')}
 									<button
 										type="button"
@@ -3044,7 +3145,9 @@
 										{entry.title || 'Untitled Entry'}
 									</p>
 									{#if entry.vendor_name}
-										<span class="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 ring-1 ring-inset ring-slate-500/10">
+										<span
+											class="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 ring-1 ring-slate-500/10 ring-inset"
+										>
 											{entry.vendor_name}
 										</span>
 									{/if}
@@ -3159,9 +3262,7 @@
 						/>
 					</div>
 					<div>
-						<label for="pe-date" class="mb-1 block text-xs font-medium text-slate-600"
-							>Date</label
-						>
+						<label for="pe-date" class="mb-1 block text-xs font-medium text-slate-600">Date</label>
 						<input
 							id="pe-date"
 							type="date"
@@ -3187,18 +3288,30 @@
 				<!-- Line items table -->
 				<div>
 					<div class="mb-2 flex items-center justify-between">
-						<span class="text-xs font-semibold tracking-wider text-slate-700 uppercase">Items / Expenses</span>
+						<span class="text-xs font-semibold tracking-wider text-slate-700 uppercase"
+							>Items / Expenses</span
+						>
 					</div>
 					<div class="relative overflow-x-auto rounded-lg border border-slate-200">
 						<table class="w-full text-sm">
 							<thead class="border-b border-slate-200 bg-slate-50">
 								<tr>
-									<th class="w-32 px-3 py-2 text-left text-xs font-semibold text-slate-500">Category</th>
-									<th class="px-3 py-2 text-left text-xs font-semibold text-slate-500">Description</th>
-									<th class="w-20 px-3 py-2 text-right text-xs font-semibold text-slate-500">Qty</th>
-									<th class="w-24 px-3 py-2 text-left text-xs font-semibold text-slate-500">Unit</th>
-									<th class="w-24 px-3 py-2 text-right text-xs font-semibold text-slate-500">Rate</th>
-									<th class="w-24 px-3 py-2 text-right text-xs font-semibold text-slate-500">Total</th>
+									<th class="w-32 px-3 py-2 text-left text-xs font-semibold text-slate-500"
+										>Category</th
+									>
+									<th class="px-3 py-2 text-left text-xs font-semibold text-slate-500"
+										>Description</th
+									>
+									<th class="w-20 px-3 py-2 text-right text-xs font-semibold text-slate-500">Qty</th
+									>
+									<th class="w-24 px-3 py-2 text-left text-xs font-semibold text-slate-500">Unit</th
+									>
+									<th class="w-24 px-3 py-2 text-right text-xs font-semibold text-slate-500"
+										>Rate</th
+									>
+									<th class="w-24 px-3 py-2 text-right text-xs font-semibold text-slate-500"
+										>Total</th
+									>
 									<th class="w-10 px-3 py-2"></th>
 								</tr>
 							</thead>
@@ -3312,12 +3425,16 @@
 				</div>
 
 				{#if purchaseModalErr}
-					<p
+					<div
 						role="alert"
-						class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+						class="flex items-start gap-2.5 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800"
 					>
-						{purchaseModalErr}
-					</p>
+						<Icon icon={alertCircleOutline} class="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
+						<div class="flex-1 leading-relaxed">
+							<span class="font-semibold">Unable to save entry:</span>
+							{purchaseModalErr}
+						</div>
+					</div>
 				{/if}
 			</div>
 
@@ -4495,12 +4612,14 @@
 						<option value="">Automatic (Apply to unpaid invoices, or save as credit)</option>
 						{#each invoiceList.filter((inv) => inv.status !== 'void') as inv (inv.id)}
 							<option value={inv.id}>
-								{inv.invoice_number || 'Invoice'} · Due: {inv.currency || '$'}{inv.amount_due ?? inv.total_amount} ({inv.status})
+								{inv.invoice_number || 'Invoice'} · Due: {inv.currency || '$'}{inv.amount_due ??
+									inv.total_amount} ({inv.status})
 							</option>
 						{/each}
 					</select>
 					<p class="mt-1 text-xs text-slate-500">
-						Any payment beyond the invoice total is automatically saved as advance credit for future work.
+						Any payment beyond the invoice total is automatically saved as advance credit for future
+						work.
 					</p>
 				</div>
 

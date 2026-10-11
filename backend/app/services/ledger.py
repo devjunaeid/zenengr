@@ -377,12 +377,20 @@ async def update_project_payment(
         entry is None
         or entry.project_id != project.id
         or entry.type != LedgerEntryType.PAYMENT
-        or entry.source_id is not None
     ):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Project payment not found",
         )
+
+    payment: Payment | None = None
+    if entry.source_id is not None:
+        payment = await session.get(Payment, entry.source_id)
+        if payment is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Project payment not found",
+            )
 
     if entry.invoice_ref is not None:
         inv = await session.get(Invoice, entry.invoice_ref)
@@ -400,9 +408,13 @@ async def update_project_payment(
                 detail="Payment amount must be greater than 0",
             )
         entry.amount = _money(amount)
+        if payment is not None:
+            payment.amount = _money(amount)
 
     if entry_date is not None:
         entry.entry_date = entry_date
+        if payment is not None:
+            payment.paid_on = entry_date
 
     if method is not None or reference_note is not None:
         cur_method = (
@@ -412,6 +424,11 @@ async def update_project_payment(
         m = method.value.replace("_", " ").title() if method is not None else cur_method
         note = reference_note if reference_note is not None else cur_note
         entry.description = f"{m} - {note}".strip(" -") if note else m
+        if payment is not None:
+            if method is not None:
+                payment.method = method
+            if reference_note is not None:
+                payment.reference_note = reference_note.strip()
 
     await audit_log(
         session,
@@ -447,12 +464,20 @@ async def delete_project_payment(
         entry is None
         or entry.project_id != project.id
         or entry.type != LedgerEntryType.PAYMENT
-        or entry.source_id is not None
     ):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Project payment not found",
         )
+
+    payment: Payment | None = None
+    if entry.source_id is not None:
+        payment = await session.get(Payment, entry.source_id)
+        if payment is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Project payment not found",
+            )
 
     if entry.invoice_ref is not None:
         inv = await session.get(Invoice, entry.invoice_ref)
@@ -477,6 +502,8 @@ async def delete_project_payment(
             "description": entry.description,
         },
     )
+    if payment is not None:
+        await session.delete(payment)
     await session.delete(entry)
     await session.commit()
 
@@ -557,11 +584,15 @@ async def compute_project_ledger_summary(
         )
         ps_fallback = Decimal((await session.execute(ps_q)).scalar_one())
 
-    subtotal = _money(
-        sum((ch.amount for ch in charges if ch.type == LedgerEntryType.CHARGE and ch.voided_at is None), Decimal("0"))
-        + custom_amount
-        + ps_fallback
+    charge_sum = sum(
+        (
+            ch.amount
+            for ch in charges
+            if ch.type == LedgerEntryType.CHARGE and ch.voided_at is None
+        ),
+        Decimal("0"),
     )
+    subtotal = _money(charge_sum + custom_amount + ps_fallback)
     discount_type = project.discount_type
     discount_value = project.discount_value
     discount_amount = Decimal("0")
@@ -582,57 +613,51 @@ async def compute_project_ledger_summary(
     payments = Decimal("0")
     refunds = Decimal("0")
 
-    if direct_payments:
-        for p in direct_payments:
-            if p.kind == PaymentKind.RECEIPT:
-                payments += _money(p.amount)
-            else:
-                refunds += _money(p.amount)
-    else:
-        for ch in charges:
-            if ch.voided_at is not None:
-                continue
-            if ch.type == LedgerEntryType.PAYMENT:
-                payments += _money(ch.amount)
-            elif ch.type == LedgerEntryType.REFUND:
-                refunds += _money(ch.amount)
+    known_payment_ids = set()
+    for p in direct_payments:
+        known_payment_ids.add(p.id)
+        if p.kind == PaymentKind.RECEIPT:
+            payments += _money(p.amount)
+        else:
+            refunds += _money(p.amount)
 
-        known_tx_ids = {ch.source_id for ch in charges if ch.source_id is not None and ch.voided_at is None}
-        seen_summary_sigs: set[tuple[Decimal, TransactionDirection, date]] = {
-            (
-                _money(ch.amount),
-                TransactionDirection.DEBIT
-                if ch.type == LedgerEntryType.PAYMENT
-                else TransactionDirection.CREDIT,
-                ch.entry_date,
-            )
-            for ch in charges
-            if ch.type in (LedgerEntryType.PAYMENT, LedgerEntryType.REFUND)
-            and ch.entry_date is not None
-            and ch.voided_at is None
-        }
-        for item in tx_rows:
-            if isinstance(item, Transaction):
-                tx = item
-            elif hasattr(item, "Transaction"):
-                tx = item.Transaction
-            elif hasattr(item, "__getitem__"):
-                tx = item[0]
-            else:
-                tx = item
-            if tx.id in known_tx_ids or tx.voided_at is not None:
-                continue
-            if tx.reference_note and "synced" in tx.reference_note.lower():
-                continue
-            sig = (_money(tx.amount), tx.direction, tx.recorded_at.date())
-            if sig in seen_summary_sigs:
-                continue
-            seen_summary_sigs.add(sig)
+    for ch in charges:
+        if ch.voided_at is not None:
+            continue
+        # If this charge entry was created as a mirror of an already counted Payment, skip it
+        if ch.source_id is not None and ch.source_id in known_payment_ids:
+            continue
+        if ch.type == LedgerEntryType.PAYMENT:
+            payments += _money(ch.amount)
+        elif ch.type == LedgerEntryType.REFUND:
+            refunds += _money(ch.amount)
 
-            if tx.direction == TransactionDirection.DEBIT:
-                payments += _money(tx.amount)
-            else:
-                refunds += _money(tx.amount)
+    known_source_ids = {
+        ch.source_id for ch in charges if ch.source_id is not None and ch.voided_at is None
+    } | known_payment_ids
+
+    for item in tx_rows:
+        if isinstance(item, Transaction):
+            tx = item
+        elif hasattr(item, "Transaction"):
+            tx = item.Transaction
+        elif hasattr(item, "__getitem__"):
+            tx = item[0]
+        else:
+            tx = item
+        if tx.voided_at is not None:
+            continue
+        if tx.id in known_source_ids:
+            continue
+        if tx.payment_id is not None and tx.payment_id in known_source_ids:
+            continue
+        if tx.reference_note and "synced" in tx.reference_note.lower():
+            continue
+
+        if tx.direction == TransactionDirection.DEBIT:
+            payments += _money(tx.amount)
+        else:
+            refunds += _money(tx.amount)
 
     paid = _money(payments - refunds)
     due = _money(max(total - paid, Decimal("0")))
@@ -705,48 +730,40 @@ async def get_project_ledger(
     )
     tx_rows = (await session.execute(tx_q)).all()
 
-    known_tx_ids = {ch.source_id for ch in charges if ch.source_id is not None}
+    known_source_ids = {ch.source_id for ch in charges if ch.source_id is not None}
 
     entries: list[dict[str, Any]] = []
-    for ch in charges:
-        entries.append(
-            {
-                "id": ch.id,
-                "type": ch.type,
-                "amount": f"{ch.amount:.2f}",
-                "description": ch.description,
-                "source_type": ch.source_type,
-                "source_id": ch.source_id,
-                "invoice_ref": ch.invoice_ref,
-                "invoice_number": None,
-                "entry_date": ch.entry_date,
-                "created_at": ch.created_at,
-                "voided_at": ch.voided_at,
-                "void_reason": ch.void_reason,
-            }
-        )
+    charge_by_source_id: dict[uuid.UUID, dict[str, Any]] = {}
 
-    seen_tx_sigs: set[tuple[Decimal, TransactionDirection, date]] = {
-        (
-            _money(ch.amount),
-            TransactionDirection.DEBIT
-            if ch.type == LedgerEntryType.PAYMENT
-            else TransactionDirection.CREDIT,
-            ch.entry_date,
-        )
-        for ch in charges
-        if ch.type in (LedgerEntryType.PAYMENT, LedgerEntryType.REFUND)
-        and ch.entry_date is not None
-    }
+    for ch in charges:
+        entry_dict = {
+            "id": ch.id,
+            "type": ch.type,
+            "amount": f"{ch.amount:.2f}",
+            "description": ch.description,
+            "source_type": ch.source_type,
+            "source_id": ch.source_id,
+            "invoice_ref": ch.invoice_ref,
+            "invoice_number": None,
+            "entry_date": ch.entry_date,
+            "created_at": ch.created_at,
+            "voided_at": ch.voided_at,
+            "void_reason": ch.void_reason,
+        }
+        entries.append(entry_dict)
+        if ch.source_id is not None:
+            charge_by_source_id[ch.source_id] = entry_dict
+
     for tx, invoice in tx_rows:
-        if tx.id in known_tx_ids:
+        if tx.id in known_source_ids:
+            continue
+        if tx.payment_id is not None and tx.payment_id in known_source_ids:
+            matched_entry = charge_by_source_id.get(tx.payment_id)
+            if matched_entry and matched_entry.get("invoice_ref") is None:
+                matched_entry["invoice_ref"] = invoice.id
             continue
         if tx.reference_note and "synced" in tx.reference_note.lower():
             continue
-        sig = (_money(tx.amount), tx.direction, tx.recorded_at.date())
-        if sig in seen_tx_sigs:
-            continue
-        seen_tx_sigs.add(sig)
 
         if tx.direction == TransactionDirection.DEBIT:
             entry_type = LedgerEntryType.PAYMENT

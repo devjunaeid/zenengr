@@ -1,6 +1,9 @@
 import { PUBLIC_API_URL } from '$env/static/public';
 
-export const BASE_URL = (PUBLIC_API_URL || 'https://api-zenengr.synafeia.com/api/v1').replace(/\/$/, '');
+export const BASE_URL = (PUBLIC_API_URL || 'https://api-zenengr.synafeia.com/api/v1').replace(
+	/\/$/,
+	''
+);
 
 /**
  * Resolve a backend-relative asset URL (e.g. /uploads/logo.png) to an absolute URL on the API origin.
@@ -129,7 +132,13 @@ export async function apiFetch(fetchFn, path, options = {}) {
 			if (typeof data.detail === 'string') {
 				message = data.detail;
 			} else if (Array.isArray(data.detail) && data.detail.length > 0) {
-				message = data.detail.map((d) => d.msg || d.message || JSON.stringify(d)).join(', ');
+				message = data.detail
+					.map((d) => {
+						const loc = Array.isArray(d.loc) ? d.loc.filter((x) => x !== 'body').join('.') : '';
+						const msg = d.msg || d.message || JSON.stringify(d);
+						return loc ? `${loc}: ${msg}` : msg;
+					})
+					.join('; ');
 				details = { validation: data.detail };
 			} else if (data.error && typeof data.error === 'object') {
 				code = data.error.code ?? code;

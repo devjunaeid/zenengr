@@ -171,7 +171,7 @@ async def test_update_project_service_price(client: AsyncClient, db_session: Asy
 
 
 @pytest.mark.asyncio
-async def test_update_service_price_blocked_on_issued_invoice(client: AsyncClient, db_session: AsyncSession):
+async def test_update_service_price_allowed_on_issued_invoice(client: AsyncClient, db_session: AsyncSession):
     tenant, cl, project, admin, service, ps = await _setup_data(db_session)
     headers = _admin_auth(admin)
 
@@ -195,14 +195,14 @@ async def test_update_service_price_blocked_on_issued_invoice(client: AsyncClien
     db_session.add(line_item)
     await db_session.commit()
 
-    # Attempting to update service price should be rejected with 409
+    # Per FEAT-029 / US-079: updating service price mid-project is unblocked and allowed at any time
     res = await client.patch(
         f"/api/v1/tenant/projects/{project.id}/services/{ps.id}",
         json={"price": "1500.00"},
         headers=headers,
     )
-    assert res.status_code == 409
-    assert "already billed" in res.json()["error"]["message"]
+    assert res.status_code == 200
+    assert res.json()["price_at_attachment"] == "1500.00"
 
 
 @pytest.mark.asyncio

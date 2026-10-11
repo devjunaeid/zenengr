@@ -333,7 +333,9 @@ async def get_client_financials_batch(
         # Supplement with transactions not already in ledger
         known_tx_ids = {ch.source_id for ch in charges if ch.source_id is not None}
         for tx in txs:
-            if tx.id in known_tx_ids:
+            if tx.id in known_tx_ids or (
+                tx.payment_id is not None and tx.payment_id in known_tx_ids
+            ):
                 continue
             if tx.reference_note and "synced" in tx.reference_note.lower():
                 continue

@@ -32,6 +32,10 @@ go through credit notes.
   "Release retention" invoice.
 - **Editable issued invoices (ADR-004):** edits keep revision history; if the new total drops below the
   amount paid, the excess becomes client advance. Voiding an issued invoice requires a reason.
+- **Dynamic price updates & contract adjustments (ADR-004):** allow service and project price
+  updates at any time in the project lifecycle, even after initial invoices are issued or payments
+  are recorded. The ledger charges adjust dynamically, historical payment records remain intact and
+  deduct directly from the updated total, and net due is guaranteed consistent.
 - **Credit notes:** numbered, linked to the original invoice, reduce charges/billed amounts.
 - **Receive payment dialog:** suggested allocation to the oldest open invoices (editable), remainder
   shown as advance.

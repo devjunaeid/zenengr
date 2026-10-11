@@ -156,6 +156,7 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | [US-076](stories/US-076.md) | Single source of truth for client payments and advances | FEAT-027 | proposed |
 | [US-077](stories/US-077.md) | Bill each charge once and keep company reports exact | FEAT-027 | proposed |
 | [US-078](stories/US-078.md) | Flexible, mistake-tolerant and auditable corrections | FEAT-027 | proposed |
+| [US-079](stories/US-079.md) | Dynamic service price updates and persistent ledger balance consistency | FEAT-029 | in_progress |
 
 ### Todos
 
@@ -527,6 +528,9 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 | [TODO-227](todos/TODO-227.md) | Soft delete + restore, record history API & audit for purchases | US-078 | proposed |
 | [TODO-228](todos/TODO-228.md) | Frontend: allocation display, edit/delete with undo & restore, history panel | US-078 | proposed |
 | [TODO-229](todos/TODO-229.md) | FEAT-027 end-to-end reconciliation verification | US-077 | proposed |
+| [TODO-230](todos/TODO-230.md) | Unblock service price updates when invoiced and synchronize ledger charges | US-079 | in_progress |
+| [TODO-231](todos/TODO-231.md) | Unify payment accounting in compute_project_ledger_summary and get_project_ledger | US-079 | proposed |
+| [TODO-232](todos/TODO-232.md) | Verification of dynamic price updates with existing payments & frontend reconciliation | US-079 | proposed |
 
 > Open decisions resolved in [ADR-004](decisions/ADR-004-project-finance-principles.md). FEAT-028..031 stories/todos are derived after FEAT-027 ships.
 
@@ -534,9 +538,11 @@ Auto-generated project dashboard. Run `/project-status` to refresh; edit individ
 
 | Date | Item | Change |
 | ---- | ---- | ------ |
+| 2026-10-11 | US-079 Dynamic service price updates and persistent ledger balance consistency drafted | docs/features/FEAT-029-flexible-client-billing.md, docs/stories/US-079.md, docs/todos/TODO-230..TODO-232.md, docs/index.md, docs/progress.md. |
 | 2026-10-10 | Seamless Financial Engine Master Plan authored | [seamless_financial_engine_master_plan.md](file:///Users/blue/.gemini/antigravity-ide/brain/eb35c4fc-2777-4b5c-b820-9903a18b0003/seamless_financial_engine_master_plan.md), docs/features/FEAT-027..FEAT-031, docs/decisions/ADR-004-project-finance-principles.md. |
 | 2026-10-10 | Financial system review + FEAT-027..031 docs drafted | docs/features/FEAT-027..FEAT-031, docs/stories/US-076..US-078, docs/todos/TODO-221..TODO-229, docs/ui-ux-spec.md, docs/index.md, docs/progress.md. |
 | 2026-10-09 | FEAT-026 Mobile Performance, Slow 3G Network Efficiency & Touch UX docs drafted | docs/features/FEAT-026-mobile-performance-and-slow-network-ux.md, docs/stories/US-074.md, docs/stories/US-075.md, docs/todos/TODO-217.md..TODO-220.md, docs/ui-ux-spec.md, docs/index.md. |
+| 2026-10-11 | FEAT-029 Dynamic Service Price Updates & Persistent Ledger Balance Consistency shipped (US-079, TODO-230..232) | docs/features/FEAT-029-flexible-client-billing.md, docs/stories/US-079.md, docs/todos/TODO-230.md..TODO-232.md, backend/app/services/projects.py, backend/app/services/ledger.py, backend/app/services/financials.py, backend/tests/test_service_price_ledger_consistency.py, backend/tests/test_financial_corrections_api.py, docs/index.md, docs/progress.md. |
 | 2026-09-26 | FEAT-025 Company Global Ledger & Operational Analytics Dashboard shipped | docs/features/FEAT-025-global-ledger-and-analytics.md, docs/stories/US-072.md, docs/stories/US-073.md, docs/todos/TODO-213.md..TODO-216.md, backend/app/api/v1/reports.py, backend/app/services/reports.py, frontend/src/routes/app/reports/*, docs/index.md, docs/progress.md. |
 | 2026-09-26 | FEAT-024 Lazy Loading Tabbed Views & Lean On-Demand API Architecture shipped | docs/features/FEAT-024-lazy-loading-tabs-and-lean-apis.md, docs/stories/US-070.md, docs/stories/US-071.md, docs/todos/TODO-209.md..TODO-212.md, frontend/src/routes/app/projects/[id]/*, frontend/src/routes/app/clients/[id]/*, frontend/src/routes/client/projects/[id]/*, backend/app/api/v1/clients.py, backend/app/api/v1/projects.py, docs/index.md, docs/progress.md. |
 | 2026-09-25 | FEAT-023 Invoice Table Due Column & Dynamic Amount in Words docs drafted | docs/features/FEAT-023-invoice-due-column-and-amount-in-words.md, docs/stories/US-068.md, docs/stories/US-069.md, docs/todos/TODO-205.md..TODO-208.md, docs/ui-ux-spec.md, docs/index.md. |
