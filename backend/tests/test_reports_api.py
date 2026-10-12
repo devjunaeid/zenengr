@@ -23,6 +23,7 @@ from app.models.enums import (
     PaymentKind,
     PaymentMethod,
     TenantStatus,
+    TransactionDirection,
 )
 from app.models.invoice import Invoice, InvoiceLineItem
 from app.models.ledger_entry import LedgerEntry
@@ -389,4 +390,154 @@ async def test_company_ledger_sourced_from_ledger_not_invoice(
 
     assert data_after["summary"]["total_invoiced"] == "2500.00"
     assert data_after["summary"]["total_due"] == "1500.00"
+
+
+@pytest.mark.asyncio
+async def test_company_ledger_dual_sourcing_project_ledger_and_individual_invoices(
+    client: AsyncClient, db_session: AsyncSession
+):
+    """Verifies dual-sourcing architecture:
+
+    - Project finances derived from project ledger (not naive invoice sums).
+    - Individual invoices not connected to a project (project_id IS NULL) derived from invoices.
+    - Company report summary and timeline accurately unify both.
+    """
+    plan = await _create_plan(db_session)
+    tenant = await _create_tenant(db_session, plan.id)
+    admin = await _create_admin(
+        db_session, f"admin-{uuid.uuid4().hex[:6]}@test.com", AdminUserRole.ADMIN, tenant.id
+    )
+    headers = await _auth_header(admin)
+
+    # 1. Project Alpha + Ledger entries:
+    c = Client(
+        tenant_id=tenant.id,
+        name="Global Dynamics",
+        client_type=ClientType.COMPANY,
+        status=ClientStatus.ACTIVE,
+    )
+    db_session.add(c)
+    await db_session.commit()
+    await db_session.refresh(c)
+
+    p = Project(
+        tenant_id=tenant.id,
+        name="Turbine Engineering Alpha",
+        client_id=c.id,
+    )
+    db_session.add(p)
+    await db_session.commit()
+    await db_session.refresh(p)
+
+    # Ledger charge $1500 on project
+    ch_p = LedgerEntry(
+        project_id=p.id,
+        type=LedgerEntryType.CHARGE,
+        amount=Decimal("1500.00"),
+        description="Turbine Diagnostics",
+        source_type=LedgerSourceType.PROJECT_SERVICE,
+        entry_date=date.today(),
+    )
+    # Payment $500 on project
+    pay_p = Payment(
+        tenant_id=tenant.id,
+        client_id=c.id,
+        project_id=p.id,
+        kind=PaymentKind.RECEIPT,
+        amount=Decimal("500.00"),
+        method=PaymentMethod.BANK_TRANSFER,
+        paid_on=date.today(),
+        recorded_by_id=admin.id,
+    )
+    db_session.add_all([ch_p, pay_p])
+    await db_session.commit()
+
+    # 2. Individual / General Invoice (project_id IS NULL) for $600 with $250 paid:
+    gen_inv = Invoice(
+        tenant_id=tenant.id,
+        project_id=None,
+        invoice_number="INV-GEN-9001",
+        status=InvoiceStatus.PARTIALLY_PAID,
+        issue_date=date.today(),
+        subtotal=Decimal("600.00"),
+        tax_total=Decimal("0.00"),
+        total=Decimal("600.00"),
+        billed_to={"name": "Independent Contractor Co."},
+    )
+    db_session.add(gen_inv)
+    await db_session.commit()
+    await db_session.refresh(gen_inv)
+
+    gen_li = InvoiceLineItem(
+        invoice_id=gen_inv.id,
+        description="Direct Consultancy Work",
+        quantity=Decimal("1.00"),
+        unit_price=Decimal("600.00"),
+        amount=Decimal("600.00"),
+    )
+    db_session.add(gen_li)
+    await db_session.commit()
+
+    # Record payment transaction of $250 on the individual invoice
+    tx_gen = Transaction(
+        invoice_id=gen_inv.id,
+        amount=Decimal("250.00"),
+        direction=TransactionDirection.DEBIT,
+        method=PaymentMethod.CASH,
+        reference_note="Cash deposit on gen inv",
+        recorded_by_id=admin.id,
+    )
+    db_session.add(tx_gen)
+    await db_session.commit()
+
+    # 3. Query Company Ledger report:
+    res = await client.get("/api/v1/tenant/reports/company-ledger", headers=headers)
+    assert res.status_code == 200
+    data = res.json()
+
+    # Summary KPI Cards:
+    # Invoiced: Project ledger ($1500) + Individual invoice ($600) = $2100.00
+    # Collected: Project payment ($500) + Individual invoice payment ($250) = $750.00
+    # Due: Project due ($1000) + Individual invoice due ($350) = $1350.00
+    summary = data["summary"]
+    assert summary["total_invoiced"] == "2100.00"
+    assert summary["total_collected"] == "750.00"
+    assert summary["total_due"] == "1350.00"
+
+    # Timeline:
+    timeline = data["timeline"]
+    assert len(timeline) >= 1
+    current_period = timeline[0]
+    assert current_period["invoiced_amount"] == "2100.00"
+    assert current_period["collected_amount"] == "750.00"
+    assert current_period["net_due_change"] == "1350.00"
+
+    # Projects Tab:
+    projects = data["projects"]
+    proj_alpha = next((proj for proj in projects if proj["project_id"] == str(p.id)), None)
+    assert proj_alpha is not None
+    assert proj_alpha["total_invoiced"] == "1500.00"
+    assert proj_alpha["total_paid"] == "500.00"
+    assert proj_alpha["balance_due"] == "1000.00"
+
+    # Slicing by project_id excludes general invoices:
+    res_proj = await client.get(
+        f"/api/v1/tenant/reports/company-ledger?project_id={p.id}", headers=headers
+    )
+    assert res_proj.status_code == 200
+    p_data = res_proj.json()
+    assert p_data["summary"]["total_invoiced"] == "1500.00"
+    assert p_data["summary"]["total_collected"] == "500.00"
+    assert p_data["summary"]["total_due"] == "1000.00"
+
+    # Slicing by client_id excludes general invoices:
+    res_client = await client.get(
+        f"/api/v1/tenant/reports/company-ledger?client_id={c.id}", headers=headers
+    )
+    assert res_client.status_code == 200
+    c_data = res_client.json()
+    assert c_data["summary"]["total_invoiced"] == "1500.00"
+    assert c_data["summary"]["total_collected"] == "500.00"
+    assert c_data["summary"]["total_due"] == "1000.00"
+
 
