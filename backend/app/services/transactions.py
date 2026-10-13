@@ -15,7 +15,7 @@ Money is Decimal internally; responses format as 2-decimal strings.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
@@ -611,7 +611,10 @@ async def delete_transaction(
         if adv.remaining_amount < adv.amount:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail="Cannot delete payment: an overpayment advance generated from this invoice has already been applied elsewhere. Undo the advance application first.",
+                detail=(
+                    "Cannot delete payment: an overpayment advance generated from this invoice has "
+                    "already been applied elsewhere. Undo the advance application first."
+                ),
             )
 
     # Clean up unapplied advances originating from this invoice
@@ -656,7 +659,6 @@ async def build_client_ledger(
     """
     from app.models.enums import LedgerEntryType
     from app.models.ledger_entry import LedgerEntry
-    from app.services.ledger import get_project_ledger
 
     entries: list[dict[str, Any]] = []
 
@@ -667,6 +669,7 @@ async def build_client_ledger(
         .where(
             Project.tenant_id == tenant_id,
             Project.client_id == client_id,
+            LedgerEntry.voided_at.is_(None),
         )
         .order_by(LedgerEntry.entry_date.asc(), LedgerEntry.created_at.asc())
     )
@@ -709,26 +712,22 @@ async def build_client_ledger(
                 }
             )
 
-    # 2. Invoice transactions (avoid double counting transactions already recorded as project ledger entries)
-    tx_rows = (
-        (
-            await session.execute(
-                select(Transaction)
-                .join(Invoice, Transaction.invoice_id == Invoice.id)
-                .join(Project, Invoice.project_id == Project.id)
-                .where(
-                    Invoice.tenant_id == tenant_id,
-                    Project.client_id == client_id,
-                )
-                .order_by(Transaction.recorded_at.asc())
-            )
+    # 2. Invoice transactions (avoid double counting transactions already
+    # recorded as project ledger entries)
+    tx_stmt = (
+        select(Transaction)
+        .join(Invoice, Transaction.invoice_id == Invoice.id)
+        .where(
+            Invoice.tenant_id == tenant_id,
+            Invoice.client_id == client_id,
+            Transaction.voided_at.is_(None),
         )
-        .unique()
-        .scalars()
-        .all()
+        .order_by(Transaction.recorded_at.asc())
     )
+    tx_rows = (await session.execute(tx_stmt)).unique().scalars().all()
+
     for tx in tx_rows:
-        if tx.id in known_tx_ids:
+        if tx.id in known_tx_ids or (tx.payment_id is not None and tx.payment_id in known_tx_ids):
             continue
         if tx.direction == TransactionDirection.CREDIT:
             entries.append(

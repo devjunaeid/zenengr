@@ -1,15 +1,14 @@
 """Tests for Project Costs (Units, Categories, Vendors) and Live Profit & Loss Engine.
 
 Covers:
-- Creating purchase entries with units (bag, sqft, copy), categories (materials, labour), and vendor_name.
+- Creating purchase entries with units (bag, sqft, copy), categories, and vendor_name.
 - Updating purchase entries with category and units.
-- Live Profit & Loss calculation (total_cost, gross_profit, net_profit, profit_margin_pct, cost_by_category).
+- Live Profit & Loss calculation (total_cost, gross_profit, net_profit, profit_margin_pct).
 - Verifying client portal isolation (costs and profit are NEVER leaked to client portal).
 """
 
 from __future__ import annotations
 
-import uuid
 from decimal import Decimal
 
 import pytest
@@ -20,7 +19,7 @@ from app.core.security import create_access_token, hash_password
 from app.models.admin_user import AdminUser
 from app.models.client import Client
 from app.models.client_user import ClientUser
-from app.models.enums import AdminUserRole, ClientStatus, ClientType, ProjectStatus
+from app.models.enums import AdminUserRole, ClientType, ProjectStatus
 from app.models.plan import Plan
 from app.models.project import Project
 from app.models.project_service import ProjectService
@@ -32,7 +31,9 @@ from app.services import ledger as ledger_service
 _TEST_PWD = "testpass123!"
 
 
-async def _make_setup(db_session: AsyncSession) -> tuple[Tenant, Client, Project, AdminUser, ClientUser]:
+async def _make_setup(
+    db_session: AsyncSession,
+) -> tuple[Tenant, Client, Project, AdminUser, ClientUser]:
     plan = Plan(
         name="CostPlan",
         max_admin_users=2,
@@ -168,7 +169,11 @@ async def test_live_project_profit_and_loss(
     headers = _admin_headers(admin)
 
     # 1. Attach contract service (billed charges: $10,000)
-    service = Service(tenant_id=tenant.id, name="Construction Contract", default_price=Decimal("10000.00"))
+    service = Service(
+        tenant_id=tenant.id,
+        name="Construction Contract",
+        default_price=Decimal("10000.00"),
+    )
     db_session.add(service)
     await db_session.commit()
 
@@ -251,7 +256,15 @@ async def test_client_portal_isolation_never_leaks_costs_or_pl(
         json={
             "title": "Confidential Costs",
             "vendor_name": "Internal Supplier",
-            "items": [{"description": "Confidential", "category": "materials", "quantity": "1.00", "unit": "unit", "rate": "5000.00"}],
+            "items": [
+                {
+                    "description": "Confidential",
+                    "category": "materials",
+                    "quantity": "1.00",
+                    "unit": "unit",
+                    "rate": "5000.00",
+                }
+            ],
         },
     )
 
@@ -272,3 +285,76 @@ async def test_client_portal_isolation_never_leaks_costs_or_pl(
     assert "net_profit" not in portal_data["financials"]
     assert "profit_margin_pct" not in portal_data["financials"]
     assert "cost_by_category" not in portal_data["financials"]
+
+
+@pytest.mark.asyncio
+async def test_employee_purchase_entry_create_view_allowed_edit_delete_forbidden(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    tenant, client_m, project, admin, _ = await _make_setup(db_session)
+
+    # Create an employee user
+    employee = AdminUser(
+        tenant_id=tenant.id,
+        email="emp@example.com",
+        hashed_password=hash_password(_TEST_PWD),
+        full_name="Test Employee",
+        role=AdminUserRole.EMPLOYEE,
+        is_active=True,
+    )
+    db_session.add(employee)
+    await db_session.commit()
+    await db_session.refresh(employee)
+
+    employee_headers = _admin_headers(employee)
+
+    # 1. Employee can create/entry purchase
+    create_res = await client.post(
+        f"/api/v1/tenant/projects/{project.id}/purchase-entries",
+        headers=employee_headers,
+        json={
+            "title": "Employee Entry",
+            "vendor_name": "Hardware Store",
+            "items": [
+                {
+                    "description": "Cement Bags",
+                    "category": "materials",
+                    "quantity": "5.00",
+                    "unit": "bag",
+                    "rate": "100.00",
+                }
+            ],
+        },
+    )
+    assert create_res.status_code == 201, create_res.text
+    entry_id = create_res.json()["id"]
+
+    # 2. Employee can view purchase list and single entry
+    list_res = await client.get(
+        f"/api/v1/tenant/projects/{project.id}/purchase-entries",
+        headers=employee_headers,
+    )
+    assert list_res.status_code == 200
+    assert len(list_res.json()["items"]) == 1
+
+    get_res = await client.get(
+        f"/api/v1/tenant/projects/{project.id}/purchase-entries/{entry_id}",
+        headers=employee_headers,
+    )
+    assert get_res.status_code == 200
+
+    # 3. Employee CANNOT edit purchase entry (403 Forbidden)
+    patch_res = await client.patch(
+        f"/api/v1/tenant/projects/{project.id}/purchase-entries/{entry_id}",
+        headers=employee_headers,
+        json={"title": "Hacked Title"},
+    )
+    assert patch_res.status_code == 403
+
+    # 4. Employee CANNOT delete purchase entry (403 Forbidden)
+    del_res = await client.delete(
+        f"/api/v1/tenant/projects/{project.id}/purchase-entries/{entry_id}",
+        headers=employee_headers,
+    )
+    assert del_res.status_code == 403
+

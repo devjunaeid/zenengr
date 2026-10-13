@@ -220,6 +220,41 @@ def require_permission(action: str, resource: str) -> type:
     return _permission_checker  # type: ignore[return-value]
 
 
+def require_any_permission(*permission_pairs: tuple[str, str]) -> type:
+    """Dependency factory: requires ANY of the given (action, resource) pairs."""
+
+    async def _permission_checker(
+        session: AsyncSession = Depends(get_session),
+        user: AdminUser = Depends(get_current_admin_user),
+    ) -> AdminUser:
+        if user.role in (AdminUserRole.SUPER_ADMIN, AdminUserRole.ADMIN):
+            return user
+
+        role: Role | None = None
+        if user.role_id is not None:
+            role = await session.get(Role, user.role_id)
+
+        if role is None:
+            for action, resource in permission_pairs:
+                if has_permission(user.role, action, resource):
+                    return user
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Insufficient permissions",
+            )
+
+        for action, resource in permission_pairs:
+            if await role_has_permission(session, role=role, action=action, resource=resource):
+                return user
+
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Insufficient permissions",
+        )
+
+    return _permission_checker  # type: ignore[return-value]
+
+
 async def require_super_admin(
     user: AdminUser = Depends(get_current_admin_user),
 ) -> AdminUser:

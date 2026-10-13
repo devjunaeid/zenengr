@@ -14,7 +14,7 @@ from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
 from fastapi import HTTPException, status
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.enums import (
@@ -557,7 +557,9 @@ async def compute_project_ledger_summary(
             .join(Invoice, Transaction.invoice_id == Invoice.id)
             .where(
                 Invoice.project_id == project.id,
-                Invoice.status != InvoiceStatus.DRAFT,
+                or_(Invoice.status != InvoiceStatus.DRAFT, Invoice.is_auto.is_(True)),
+                Invoice.status != InvoiceStatus.VOID,
+                Transaction.voided_at.is_(None),
             )
             .order_by(Transaction.recorded_at, Transaction.created_at)
         )
@@ -723,7 +725,8 @@ async def get_project_ledger(
         .join(Invoice, Transaction.invoice_id == Invoice.id)
         .where(
             Invoice.project_id == project.id,
-            Invoice.status != InvoiceStatus.DRAFT,
+            or_(Invoice.status != InvoiceStatus.DRAFT, Invoice.is_auto.is_(True)),
+            Invoice.status != InvoiceStatus.VOID,
             Transaction.voided_at.is_(None),
         )
         .order_by(Transaction.recorded_at, Transaction.created_at)

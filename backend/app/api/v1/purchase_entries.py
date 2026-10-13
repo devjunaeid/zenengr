@@ -14,7 +14,10 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.core.dependencies import get_current_admin_user, require_permission
+from app.core.dependencies import (
+    get_current_admin_user,
+    require_any_permission,
+)
 from app.db.session import get_session
 from app.models.admin_user import AdminUser
 from app.models.project import Project
@@ -146,7 +149,13 @@ async def create_purchase_entry(
     project_id: str,
     body: PurchaseEntryCreateRequest,
     session: AsyncSession = Depends(get_session),
-    user: AdminUser = Depends(require_permission("manage", "projects")),
+    user: AdminUser = Depends(
+        require_any_permission(
+            ("create", "purchases"),
+            ("manage", "purchases"),
+            ("manage", "projects"),
+        )
+    ),
 ) -> PurchaseEntryResponse:
     """Create a purchase entry with line items. Admin/Manager only."""
     tenant_id = _get_tenant_id(user)
@@ -279,7 +288,12 @@ async def update_purchase_entry(
     entry_id: str,
     body: PurchaseEntryUpdateRequest,
     session: AsyncSession = Depends(get_session),
-    user: AdminUser = Depends(require_permission("manage", "projects")),
+    user: AdminUser = Depends(
+        require_any_permission(
+            ("manage", "purchases"),
+            ("manage", "projects"),
+        )
+    ),
 ) -> PurchaseEntryResponse:
     """Replace header fields and/or all items. Admin/Manager only."""
     tenant_id = _get_tenant_id(user)
@@ -339,7 +353,12 @@ async def delete_purchase_entry(
     project_id: str,
     entry_id: str,
     session: AsyncSession = Depends(get_session),
-    user: AdminUser = Depends(require_permission("manage", "projects")),
+    user: AdminUser = Depends(
+        require_any_permission(
+            ("manage", "purchases"),
+            ("manage", "projects"),
+        )
+    ),
 ) -> Response:
     """Delete a purchase entry. Admin/Manager only."""
     tenant_id = _get_tenant_id(user)

@@ -85,6 +85,60 @@
 	let issueBusyId = $state(null);
 	let pdfBusyId = $state(null);
 
+	const token = auth.token;
+	let canManage = $derived(auth.can('manage', 'projects'));
+	let canManageMilestones = $derived(auth.can('manage', 'milestones'));
+	let isEmployee = $derived(auth.user?.role === 'employee');
+
+	// Tab-level visibility permissions
+	let canViewOverview = $derived(true);
+	let canViewServices = $derived(
+		auth.can('view', 'services') ||
+			auth.can('manage', 'services') ||
+			auth.can('view', 'milestones') ||
+			auth.can('manage', 'milestones') ||
+			canManage
+	);
+	let canViewLedger = $derived(
+		auth.can('view', 'ledger') ||
+			auth.can('manage', 'ledger') ||
+			auth.can('view', 'financial_reports') ||
+			auth.can('manage', 'invoices') ||
+			auth.can('manage', 'payments') ||
+			canManage
+	);
+	let canViewInvoices = $derived(
+		auth.can('view', 'invoices') || auth.can('manage', 'invoices') || canManage
+	);
+	let canViewFiles = $derived(
+		auth.can('view', 'files') || auth.can('manage', 'files') || canManage
+	);
+	let canViewComments = $derived(
+		auth.can('view', 'comments') ||
+			auth.can('post', 'comments') ||
+			auth.can('edit', 'comments') ||
+			canManage
+	);
+	let canViewPurchases = $derived(
+		auth.can('view', 'purchases') ||
+			auth.can('create', 'purchases') ||
+			auth.can('manage', 'purchases') ||
+			canManage
+	);
+	let canViewTeam = $derived(
+		auth.can('view', 'admin_users') ||
+			auth.can('manage', 'admin_users') ||
+			auth.can('view', 'team') ||
+			auth.can('manage', 'team') ||
+			canManage
+	);
+
+	// Tab action permissions
+	let canCreatePurchases = $derived(
+		auth.can('create', 'purchases') || auth.can('manage', 'purchases') || canManage
+	);
+	let canEditPurchases = $derived(auth.can('manage', 'purchases') || canManage);
+
 	async function loadLedgerTab(force = false) {
 		if (ledgerLoading || (ledgerLoaded && !force)) return;
 		ledgerLoading = true;
@@ -175,13 +229,32 @@
 		else if (tab === 'purchases' && !purchaseListLoaded) loadPurchaseEntries();
 	}
 
+	function canAccessTab(tabId) {
+		if (tabId === 'services') return canViewServices;
+		if (tabId === 'ledger') return canViewLedger;
+		if (tabId === 'invoices') return canViewInvoices;
+		if (tabId === 'files') return canViewFiles;
+		if (tabId === 'comments') return canViewComments;
+		if (tabId === 'purchases') return canViewPurchases;
+		if (tabId === 'team') return canViewTeam;
+		return true;
+	}
+
 	function setTab(tabId) {
+		if (!canAccessTab(tabId)) {
+			activeTab = 'overview';
+			return;
+		}
 		activeTab = tabId;
 		ensureTabData(tabId);
 	}
 
 	$effect(() => {
 		const tab = activeTab;
+		if (!canAccessTab(tab)) {
+			activeTab = 'overview';
+			return;
+		}
 		untrack(() => {
 			ensureTabData(tab);
 		});
@@ -422,12 +495,6 @@
 			pdfBusyId = null;
 		}
 	}
-
-	const token = auth.token;
-
-	let canManage = $derived(auth.can('manage', 'projects'));
-	let canManageMilestones = $derived(auth.can('manage', 'milestones'));
-	let isEmployee = $derived(auth.user?.role === 'employee');
 
 	// ── Project Member Management ──────────────────────────────────────────────
 	let memberList = $state(untrack(() => data.project?.members ?? []));
@@ -1382,8 +1449,9 @@
 		} catch (e) {
 			console.error('Failed to save purchase entry:', e);
 			if (e?.status === 403) {
-				purchaseModalErr =
-					'Access Denied: You do not have permission to manage purchase entries on this project. Only users with Admin or Manager permissions can save purchases.';
+				purchaseModalErr = purchaseEditTarget
+					? 'Access Denied: You do not have permission to edit purchase entries on this project.'
+					: 'Access Denied: You do not have permission to create purchase entries on this project.';
 			} else if (e?.status === 401) {
 				purchaseModalErr = 'Authentication expired. Please refresh the page and sign in again.';
 			} else if (e?.status === 404) {
@@ -1523,202 +1591,218 @@
 
 <div class="mt-6 max-w-full min-w-0">
 	<ScrollableTabs ariaLabel="Project tabs">
-		<button
-			type="button"
-			aria-current={activeTab === 'overview' ? 'true' : undefined}
-			onclick={() => setTab('overview')}
-			class="inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all {activeTab ===
-			'overview'
-				? 'bg-indigo-600 text-white shadow-2xs'
-				: 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}"
-		>
-			<Icon
-				icon={viewDashboard}
-				class="h-4 w-4 shrink-0 {activeTab === 'overview' ? 'text-white' : 'text-slate-400'}"
-			/>
-			<span>Overview</span>
-		</button>
-		<button
-			type="button"
-			aria-current={activeTab === 'services' ? 'true' : undefined}
-			onclick={() => setTab('services')}
-			class="inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all {activeTab ===
-			'services'
-				? 'bg-indigo-600 text-white shadow-2xs'
-				: 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}"
-		>
-			<Icon
-				icon={apps}
-				class="h-4 w-4 shrink-0 {activeTab === 'services' ? 'text-white' : 'text-slate-400'}"
-			/>
-			<span>Services & Milestones</span>
-			<span
-				class="py-0.2 rounded-full px-1.5 text-[10px] font-bold {activeTab === 'services'
-					? 'bg-indigo-700/80 text-white'
-					: 'bg-slate-100 text-slate-600'}"
+		{#if canViewOverview}
+			<button
+				type="button"
+				aria-current={activeTab === 'overview' ? 'true' : undefined}
+				onclick={() => setTab('overview')}
+				class="inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all {activeTab ===
+				'overview'
+					? 'bg-indigo-600 text-white shadow-2xs'
+					: 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}"
 			>
-				{serviceCount}
-			</span>
-		</button>
-		<button
-			type="button"
-			aria-current={activeTab === 'ledger' ? 'true' : undefined}
-			onclick={() => setTab('ledger')}
-			class="inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all {activeTab ===
-			'ledger'
-				? 'bg-indigo-600 text-white shadow-2xs'
-				: 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}"
-		>
-			<Icon
-				icon={receiptText}
-				class="h-4 w-4 shrink-0 {activeTab === 'ledger' ? 'text-white' : 'text-slate-400'}"
-			/>
-			<span>Ledger & Financials</span>
-			{#if ledgerLoading && !ledgerLoaded}
-				<span class="inline-flex items-center">
-					<Spinner class="h-3 w-3 text-slate-400" />
-				</span>
-			{:else if ledgerSummary}
-				{@const adv = Number(ledgerSummary.advance_balance) || 0}
-				{@const due = Number(ledgerSummary.due) || 0}
+				<Icon
+					icon={viewDashboard}
+					class="h-4 w-4 shrink-0 {activeTab === 'overview' ? 'text-white' : 'text-slate-400'}"
+				/>
+				<span>Overview</span>
+			</button>
+		{/if}
+		{#if canViewServices}
+			<button
+				type="button"
+				aria-current={activeTab === 'services' ? 'true' : undefined}
+				onclick={() => setTab('services')}
+				class="inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all {activeTab ===
+				'services'
+					? 'bg-indigo-600 text-white shadow-2xs'
+					: 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}"
+			>
+				<Icon
+					icon={apps}
+					class="h-4 w-4 shrink-0 {activeTab === 'services' ? 'text-white' : 'text-slate-400'}"
+				/>
+				<span>Services & Milestones</span>
 				<span
-					class="py-0.2 rounded-full px-1.5 text-[10px] font-bold {activeTab === 'ledger'
-						? 'bg-indigo-700/80 text-white'
-						: adv > 0
-							? 'bg-emerald-100 text-emerald-800'
-							: due > 0
-								? 'bg-amber-100 text-amber-800'
-								: 'bg-slate-100 text-slate-600'}"
-				>
-					{adv > 0 ? `+${fmtPrice(ledgerSummary.advance_balance)}` : fmtPrice(ledgerSummary.due)}
-				</span>
-			{/if}
-		</button>
-		<button
-			type="button"
-			aria-current={activeTab === 'invoices' ? 'true' : undefined}
-			onclick={() => setTab('invoices')}
-			class="inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all {activeTab ===
-			'invoices'
-				? 'bg-indigo-600 text-white shadow-2xs'
-				: 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}"
-		>
-			<Icon
-				icon={fileMultiple}
-				class="h-4 w-4 shrink-0 {activeTab === 'invoices' ? 'text-white' : 'text-slate-400'}"
-			/>
-			<span>Invoices</span>
-			{#if invoicesLoading && !invoicesLoaded}
-				<span class="inline-flex items-center">
-					<Spinner class="h-3 w-3 text-slate-400" />
-				</span>
-			{:else}
-				<span
-					class="py-0.2 rounded-full px-1.5 text-[10px] font-bold {activeTab === 'invoices'
+					class="py-0.2 rounded-full px-1.5 text-[10px] font-bold {activeTab === 'services'
 						? 'bg-indigo-700/80 text-white'
 						: 'bg-slate-100 text-slate-600'}"
 				>
-					{invoiceList.length}
+					{serviceCount}
 				</span>
-			{/if}
-		</button>
-		<button
-			type="button"
-			aria-current={activeTab === 'files' ? 'true' : undefined}
-			onclick={() => setTab('files')}
-			class="inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all {activeTab ===
-			'files'
-				? 'bg-indigo-600 text-white shadow-2xs'
-				: 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}"
-		>
-			<Icon
-				icon={folderOutline}
-				class="h-4 w-4 shrink-0 {activeTab === 'files' ? 'text-white' : 'text-slate-400'}"
-			/>
-			<span>Files</span>
-			{#if filesLoading && !filesLoaded}
-				<span class="inline-flex items-center">
-					<Spinner class="h-3 w-3 text-slate-400" />
-				</span>
-			{:else}
-				<span
-					class="py-0.2 rounded-full px-1.5 text-[10px] font-bold {activeTab === 'files'
-						? 'bg-indigo-700/80 text-white'
-						: 'bg-slate-100 text-slate-600'}"
-				>
-					{projectFileList.length}
-				</span>
-			{/if}
-		</button>
-		<button
-			type="button"
-			aria-current={activeTab === 'comments' ? 'true' : undefined}
-			onclick={() => setTab('comments')}
-			class="inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all {activeTab ===
-			'comments'
-				? 'bg-indigo-600 text-white shadow-2xs'
-				: 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}"
-		>
-			<Icon
-				icon={comment}
-				class="h-4 w-4 shrink-0 {activeTab === 'comments' ? 'text-white' : 'text-slate-400'}"
-			/>
-			<span>Comments</span>
-		</button>
-		<button
-			type="button"
-			aria-current={activeTab === 'purchases' ? 'true' : undefined}
-			onclick={() => setTab('purchases')}
-			class="inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all {activeTab ===
-			'purchases'
-				? 'bg-indigo-600 text-white shadow-2xs'
-				: 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}"
-			id="tab-purchases"
-		>
-			<Icon
-				icon={cartOutline}
-				class="h-4 w-4 shrink-0 {activeTab === 'purchases' ? 'text-white' : 'text-slate-400'}"
-			/>
-			<span>Purchases</span>
-			{#if purchaseList.length > 0}
-				<span
-					class="py-0.2 rounded-full px-1.5 text-[10px] font-bold {activeTab === 'purchases'
-						? 'bg-indigo-700/80 text-white'
-						: 'bg-slate-100 text-slate-600'}"
-				>
-					{purchaseList.length}
-				</span>
-			{/if}
-		</button>
-		<button
-			type="button"
-			aria-current={activeTab === 'team' ? 'true' : undefined}
-			onclick={() => setTab('team')}
-			class="inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all {activeTab ===
-			'team'
-				? 'bg-indigo-600 text-white shadow-2xs'
-				: 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}"
-			id="tab-team"
-		>
-			<Icon
-				icon={account}
-				class="h-4 w-4 shrink-0 {activeTab === 'team' ? 'text-white' : 'text-slate-400'}"
-			/>
-			<span>Team</span>
-			{#if teamLoading && !teamLoaded}
-				<span class="inline-flex items-center">
-					<Spinner class="h-3 w-3 text-slate-400" />
-				</span>
-			{:else if memberList.length > 0}
-				<span
-					class="py-0.2 rounded-full px-1.5 text-[10px] font-bold {activeTab === 'team'
-						? 'bg-indigo-700/80 text-white'
-						: 'bg-slate-100 text-slate-600'}"
-				>
-					{memberList.length}
-				</span>
-			{/if}
-		</button>
+			</button>
+		{/if}
+		{#if canViewLedger}
+			<button
+				type="button"
+				aria-current={activeTab === 'ledger' ? 'true' : undefined}
+				onclick={() => setTab('ledger')}
+				class="inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all {activeTab ===
+				'ledger'
+					? 'bg-indigo-600 text-white shadow-2xs'
+					: 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}"
+			>
+				<Icon
+					icon={receiptText}
+					class="h-4 w-4 shrink-0 {activeTab === 'ledger' ? 'text-white' : 'text-slate-400'}"
+				/>
+				<span>Ledger & Financials</span>
+				{#if ledgerLoading && !ledgerLoaded}
+					<span class="inline-flex items-center">
+						<Spinner class="h-3 w-3 text-slate-400" />
+					</span>
+				{:else if ledgerSummary}
+					{@const adv = Number(ledgerSummary.advance_balance) || 0}
+					{@const due = Number(ledgerSummary.due) || 0}
+					<span
+						class="py-0.2 rounded-full px-1.5 text-[10px] font-bold {activeTab === 'ledger'
+							? 'bg-indigo-700/80 text-white'
+							: adv > 0
+								? 'bg-emerald-100 text-emerald-800'
+								: due > 0
+									? 'bg-amber-100 text-amber-800'
+									: 'bg-slate-100 text-slate-600'}"
+					>
+						{adv > 0 ? `+${fmtPrice(ledgerSummary.advance_balance)}` : fmtPrice(ledgerSummary.due)}
+					</span>
+				{/if}
+			</button>
+		{/if}
+		{#if canViewInvoices}
+			<button
+				type="button"
+				aria-current={activeTab === 'invoices' ? 'true' : undefined}
+				onclick={() => setTab('invoices')}
+				class="inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all {activeTab ===
+				'invoices'
+					? 'bg-indigo-600 text-white shadow-2xs'
+					: 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}"
+			>
+				<Icon
+					icon={fileMultiple}
+					class="h-4 w-4 shrink-0 {activeTab === 'invoices' ? 'text-white' : 'text-slate-400'}"
+				/>
+				<span>Invoices</span>
+				{#if invoicesLoading && !invoicesLoaded}
+					<span class="inline-flex items-center">
+						<Spinner class="h-3 w-3 text-slate-400" />
+					</span>
+				{:else}
+					<span
+						class="py-0.2 rounded-full px-1.5 text-[10px] font-bold {activeTab === 'invoices'
+							? 'bg-indigo-700/80 text-white'
+							: 'bg-slate-100 text-slate-600'}"
+					>
+						{invoiceList.length}
+					</span>
+				{/if}
+			</button>
+		{/if}
+		{#if canViewFiles}
+			<button
+				type="button"
+				aria-current={activeTab === 'files' ? 'true' : undefined}
+				onclick={() => setTab('files')}
+				class="inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all {activeTab ===
+				'files'
+					? 'bg-indigo-600 text-white shadow-2xs'
+					: 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}"
+			>
+				<Icon
+					icon={folderOutline}
+					class="h-4 w-4 shrink-0 {activeTab === 'files' ? 'text-white' : 'text-slate-400'}"
+				/>
+				<span>Files</span>
+				{#if filesLoading && !filesLoaded}
+					<span class="inline-flex items-center">
+						<Spinner class="h-3 w-3 text-slate-400" />
+					</span>
+				{:else}
+					<span
+						class="py-0.2 rounded-full px-1.5 text-[10px] font-bold {activeTab === 'files'
+							? 'bg-indigo-700/80 text-white'
+							: 'bg-slate-100 text-slate-600'}"
+					>
+						{projectFileList.length}
+					</span>
+				{/if}
+			</button>
+		{/if}
+		{#if canViewComments}
+			<button
+				type="button"
+				aria-current={activeTab === 'comments' ? 'true' : undefined}
+				onclick={() => setTab('comments')}
+				class="inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all {activeTab ===
+				'comments'
+					? 'bg-indigo-600 text-white shadow-2xs'
+					: 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}"
+			>
+				<Icon
+					icon={comment}
+					class="h-4 w-4 shrink-0 {activeTab === 'comments' ? 'text-white' : 'text-slate-400'}"
+				/>
+				<span>Comments</span>
+			</button>
+		{/if}
+		{#if canViewPurchases}
+			<button
+				type="button"
+				aria-current={activeTab === 'purchases' ? 'true' : undefined}
+				onclick={() => setTab('purchases')}
+				class="inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all {activeTab ===
+				'purchases'
+					? 'bg-indigo-600 text-white shadow-2xs'
+					: 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}"
+				id="tab-purchases"
+			>
+				<Icon
+					icon={cartOutline}
+					class="h-4 w-4 shrink-0 {activeTab === 'purchases' ? 'text-white' : 'text-slate-400'}"
+				/>
+				<span>Purchases</span>
+				{#if purchaseList.length > 0}
+					<span
+						class="py-0.2 rounded-full px-1.5 text-[10px] font-bold {activeTab === 'purchases'
+							? 'bg-indigo-700/80 text-white'
+							: 'bg-slate-100 text-slate-600'}"
+					>
+						{purchaseList.length}
+					</span>
+				{/if}
+			</button>
+		{/if}
+		{#if canViewTeam}
+			<button
+				type="button"
+				aria-current={activeTab === 'team' ? 'true' : undefined}
+				onclick={() => setTab('team')}
+				class="inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all {activeTab ===
+				'team'
+					? 'bg-indigo-600 text-white shadow-2xs'
+					: 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}"
+				id="tab-team"
+			>
+				<Icon
+					icon={account}
+					class="h-4 w-4 shrink-0 {activeTab === 'team' ? 'text-white' : 'text-slate-400'}"
+				/>
+				<span>Team</span>
+				{#if teamLoading && !teamLoaded}
+					<span class="inline-flex items-center">
+						<Spinner class="h-3 w-3 text-slate-400" />
+					</span>
+				{:else if memberList.length > 0}
+					<span
+						class="py-0.2 rounded-full px-1.5 text-[10px] font-bold {activeTab === 'team'
+							? 'bg-indigo-700/80 text-white'
+							: 'bg-slate-100 text-slate-600'}"
+					>
+						{memberList.length}
+					</span>
+				{/if}
+			</button>
+		{/if}
 	</ScrollableTabs>
 </div>
 
@@ -3083,7 +3167,7 @@
 				</h2>
 				<p class="mt-0.5 text-xs text-slate-500">Record purchase costs for this project.</p>
 			</div>
-			{#if canManage}
+			{#if canCreatePurchases}
 				<button
 					type="button"
 					onclick={openNewPurchaseModal}
@@ -3168,7 +3252,7 @@
 									class="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600 transition-colors hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
 									title="Invoice-style view">View</button
 								>
-								{#if canManage}
+								{#if canEditPurchases}
 									<button
 										type="button"
 										onclick={async () => {

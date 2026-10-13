@@ -14,7 +14,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import Date, case, cast, func, literal, select, text, union_all
+from sqlalchemy import Date, case, cast, func, literal, or_, select, text, union_all
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.advance import Advance
@@ -135,7 +135,31 @@ async def get_company_ledger(
         .cte("p_pay_sub")
     )
 
-    # 1c. Legacy unmigrated payment transactions on project invoices
+    # 1b-2. Legacy unmigrated direct LedgerEntry payments/refunds
+    leg_pay_sub = (
+        select(
+            LedgerEntry.project_id,
+            func.coalesce(
+                func.sum(
+                    case(
+                        (LedgerEntry.type == LedgerEntryType.PAYMENT, LedgerEntry.amount),
+                        (LedgerEntry.type == LedgerEntryType.REFUND, -LedgerEntry.amount),
+                        else_=0,
+                    )
+                ),
+                0,
+            ).label("leg_paid"),
+        )
+        .where(
+            LedgerEntry.source_id.is_(None),
+            LedgerEntry.voided_at.is_(None),
+            LedgerEntry.type.in_([LedgerEntryType.PAYMENT, LedgerEntryType.REFUND]),
+        )
+        .group_by(LedgerEntry.project_id)
+        .cte("p_leg_pay_sub")
+    )
+
+    # 1c. Payment transactions on project invoices
     tx_sub = (
         select(
             Invoice.project_id,
@@ -151,10 +175,15 @@ async def get_company_ledger(
             ).label("net_tx"),
         )
         .join(Invoice, Transaction.invoice_id == Invoice.id)
+        .outerjoin(Payment, Transaction.payment_id == Payment.id)
         .where(
             Invoice.tenant_id == tenant_id,
-            Invoice.status.in_(_MONEY_STATUSES),
-            Transaction.payment_id.is_(None),
+            or_(Invoice.status.in_(_MONEY_STATUSES), Invoice.is_auto.is_(True)),
+            Invoice.status != InvoiceStatus.VOID,
+            or_(
+                Transaction.payment_id.is_(None),
+                Payment.project_id.is_(None),
+            ),
             Transaction.voided_at.is_(None),
         )
         .group_by(Invoice.project_id)
@@ -224,7 +253,10 @@ async def get_company_ledger(
             func.coalesce(Client.tags, text("'[]'::jsonb")).label("client_tags"),
             func.coalesce(charge_sub.c.charge_amt, 0).label("charge_amt"),
             func.coalesce(charge_sub.c.charge_cnt, 0).label("charge_cnt"),
-            func.coalesce(pay_sub.c.paid_amt, 0).label("direct_paid"),
+            (
+                func.coalesce(pay_sub.c.paid_amt, 0)
+                + func.coalesce(leg_pay_sub.c.leg_paid, 0)
+            ).label("direct_paid"),
             func.coalesce(tx_sub.c.net_tx, 0).label("net_tx"),
             func.coalesce(adv_alloc_sub.c.adv_allocated, 0).label("adv_allocated"),
             func.coalesce(svc_sub.c.svc_cnt, 0).label("services_count"),
@@ -234,6 +266,7 @@ async def get_company_ledger(
         .outerjoin(Client, Project.client_id == Client.id)
         .outerjoin(charge_sub, Project.id == charge_sub.c.project_id)
         .outerjoin(pay_sub, Project.id == pay_sub.c.project_id)
+        .outerjoin(leg_pay_sub, Project.id == leg_pay_sub.c.project_id)
         .outerjoin(tx_sub, Project.id == tx_sub.c.project_id)
         .outerjoin(adv_alloc_sub, Project.id == adv_alloc_sub.c.project_id)
         .outerjoin(svc_sub, Project.id == svc_sub.c.project_id)
