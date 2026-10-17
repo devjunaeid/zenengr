@@ -506,6 +506,7 @@ async def list_invoices(
     session: AsyncSession,
     *,
     tenant_id: uuid.UUID,
+    user_id: uuid.UUID | None = None,
     page: int = 1,
     page_size: int = 20,
     status_filter: InvoiceStatus | None = None,
@@ -515,13 +516,30 @@ async def list_invoices(
     date_from: date | None = None,
     date_to: date | None = None,
 ) -> dict[str, Any]:
-    """List invoices for a tenant with optional status/type/date/project/client filters."""
+    """List invoices for a tenant with optional status/type/date/project/client/user scoping filters."""
     query = (
         select(Invoice)
         .options(joinedload(Invoice.project).joinedload(Project.client))
         .where(Invoice.tenant_id == tenant_id)
     )
     count_stmt = select(Invoice).where(Invoice.tenant_id == tenant_id)
+
+    if user_id is not None:
+        from app.models.project import ProjectMember
+        member_sub = select(ProjectMember.project_id).where(
+            ProjectMember.user_id == user_id,
+            ProjectMember.tenant_id == tenant_id,
+        )
+        owner_sub = select(Project.id).where(
+            Project.owner_id == user_id,
+            Project.tenant_id == tenant_id,
+        )
+        user_projects = or_(
+            Invoice.project_id.in_(member_sub),
+            Invoice.project_id.in_(owner_sub),
+        )
+        query = query.where(user_projects)
+        count_stmt = count_stmt.where(user_projects)
 
     if status_filter is not None:
         query = query.where(Invoice.status == status_filter)

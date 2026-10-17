@@ -29,12 +29,13 @@ from app.models.enums import (
     AdminUserRole,
     ClientStatus,
     ClientType,
+    ProjectMemberRole,
     ProjectStatus,
     TenantStatus,
 )
 from app.models.plan import Plan
 from app.models.plan_feature_default import PlanFeatureDefault
-from app.models.project import Project
+from app.models.project import Project, ProjectMember
 from app.models.role import RolePermission
 from app.models.tenant import Tenant
 from app.services.feature_flags import FEATURE_KEYS
@@ -48,6 +49,10 @@ SEED_SUPERADMIN_EMAIL = os.getenv("SEED_SUPERADMIN_EMAIL", "admin@zenengr.dev")
 SEED_SUPERADMIN_PASSWORD = os.getenv("SEED_SUPERADMIN_PASSWORD", "changeme123!")
 SEED_DEMO_EMAIL = os.getenv("SEED_DEMO_EMAIL", "demo@demo-agency.dev")
 SEED_DEMO_PASSWORD = os.getenv("SEED_DEMO_PASSWORD", "changeme123!")
+SEED_MANAGER_EMAIL = os.getenv("SEED_MANAGER_EMAIL", "manager@demo-agency.dev")
+SEED_MANAGER_PASSWORD = os.getenv("SEED_MANAGER_PASSWORD", "changeme123!")
+SEED_EMPLOYEE_EMAIL = os.getenv("SEED_EMPLOYEE_EMAIL", "employee@demo-agency.dev")
+SEED_EMPLOYEE_PASSWORD = os.getenv("SEED_EMPLOYEE_PASSWORD", "changeme123!")
 SEED_CLIENT_EMAIL = os.getenv("SEED_CLIENT_EMAIL", "client@demo-agency.dev")
 SEED_CLIENT_PASSWORD = os.getenv("SEED_CLIENT_PASSWORD", "changeme123!")
 
@@ -190,8 +195,44 @@ async def _seed() -> None:
             await attach_default_role(session, demo_user)
             await session.flush()
             print("Created demo admin: demo@demo-agency.dev")
+        # ── Demo manager & employee ──────────────────────────────────────
+        mgr_result = await session.execute(
+            select(AdminUser).where(AdminUser.email == SEED_MANAGER_EMAIL)
+        )
+        mgr_user = mgr_result.scalar_one_or_none()
+        if mgr_user is None:
+            mgr_user = AdminUser(
+                tenant_id=tenant.id,
+                email=SEED_MANAGER_EMAIL,
+                full_name="Demo Manager",
+                hashed_password=hash_password(SEED_MANAGER_PASSWORD),
+                role=AdminUserRole.MANAGER,
+            )
+            session.add(mgr_user)
+            await attach_default_role(session, mgr_user)
+            await session.flush()
+            print("Created demo manager: manager@demo-agency.dev")
         else:
-            print("Demo admin already exists — skipping")
+            print("Demo manager already exists — skipping")
+
+        emp_result = await session.execute(
+            select(AdminUser).where(AdminUser.email == SEED_EMPLOYEE_EMAIL)
+        )
+        emp_user = emp_result.scalar_one_or_none()
+        if emp_user is None:
+            emp_user = AdminUser(
+                tenant_id=tenant.id,
+                email=SEED_EMPLOYEE_EMAIL,
+                full_name="Demo Employee",
+                hashed_password=hash_password(SEED_EMPLOYEE_PASSWORD),
+                role=AdminUserRole.EMPLOYEE,
+            )
+            session.add(emp_user)
+            await attach_default_role(session, emp_user)
+            await session.flush()
+            print("Created demo employee: employee@demo-agency.dev")
+        else:
+            print("Demo employee already exists — skipping")
 
         # ── Client portal user ───────────────────────────────────────────
         client_result = await session.execute(
@@ -232,7 +273,7 @@ async def _seed() -> None:
         else:
             print("Client user already exists — skipping")
 
-        # ── Demo project for the client ──────────────────────────────────
+        # ── Demo projects for the client ──────────────────────────────────
         project_result = await session.execute(
             select(Project).where(
                 Project.tenant_id == tenant.id,
@@ -254,6 +295,47 @@ async def _seed() -> None:
             print("Created project: Demo Project")
         else:
             print("Project 'Demo Project' already exists — skipping")
+
+        # Assign employee to Demo Project as CONTRIBUTOR
+        if emp_user is not None and project is not None:
+            member_check = await session.execute(
+                select(ProjectMember).where(
+                    ProjectMember.project_id == project.id,
+                    ProjectMember.user_id == emp_user.id,
+                )
+            )
+            if member_check.scalar_one_or_none() is None:
+                session.add(
+                    ProjectMember(
+                        project_id=project.id,
+                        user_id=emp_user.id,
+                        tenant_id=tenant.id,
+                        role=ProjectMemberRole.CONTRIBUTOR,
+                    )
+                )
+                await session.flush()
+                print("Assigned employee to Demo Project")
+
+        # Second project (unassigned to employee to test scoping)
+        p2_result = await session.execute(
+            select(Project).where(
+                Project.tenant_id == tenant.id,
+                Project.client_id == client.id,
+                Project.name == "Demo Project 2 (Unassigned)",
+            )
+        )
+        p2 = p2_result.scalar_one_or_none()
+        if p2 is None:
+            p2 = Project(
+                tenant_id=tenant.id,
+                name="Demo Project 2 (Unassigned)",
+                client_id=client.id,
+                status=ProjectStatus.ACTIVE,
+                start_date=date.today(),
+            )
+            session.add(p2)
+            await session.flush()
+            print("Created unassigned project: Demo Project 2 (Unassigned)")
 
         # ── Feature-flag plan defaults ───────────────────────────────────
         plans_result = await session.execute(select(Plan))
@@ -278,6 +360,8 @@ def main() -> None:
     print("\nSeed complete. Credentials:")
     print(f"  Super admin: {SEED_SUPERADMIN_EMAIL} / {SEED_SUPERADMIN_PASSWORD}")
     print(f"  Tenant admin: {SEED_DEMO_EMAIL} / {SEED_DEMO_PASSWORD}")
+    print(f"  Tenant manager: {SEED_MANAGER_EMAIL} / {SEED_MANAGER_PASSWORD}")
+    print(f"  Tenant employee: {SEED_EMPLOYEE_EMAIL} / {SEED_EMPLOYEE_PASSWORD}")
     print(f"  Client portal: {SEED_CLIENT_EMAIL} / {SEED_CLIENT_PASSWORD}")
 
 

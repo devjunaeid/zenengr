@@ -59,13 +59,22 @@ def _parse_uuid(value: str, *, kind: str) -> uuid.UUID:
 
 
 async def _get_project(
-    session: AsyncSession, tenant_id: uuid.UUID, project_id: uuid.UUID
+    session: AsyncSession,
+    tenant_id: uuid.UUID,
+    project_id: uuid.UUID,
+    user: AdminUser | None = None,
 ) -> Project:
     project = await session.get(Project, project_id)
     if project is None or project.tenant_id != tenant_id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Project not found",
+        )
+    if user is not None:
+        from app.services.projects import verify_project_access
+
+        await verify_project_access(
+            session, tenant_id=tenant_id, project_id=project_id, user=user
         )
     return project
 
@@ -160,7 +169,7 @@ async def create_purchase_entry(
     """Create a purchase entry with line items. Admin/Manager only."""
     tenant_id = _get_tenant_id(user)
     pid = _parse_uuid(project_id, kind="Project")
-    await _get_project(session, tenant_id, pid)
+    await _get_project(session, tenant_id, pid, user=user)
 
     entry = PurchaseEntry(
         tenant_id=tenant_id,
@@ -217,7 +226,7 @@ async def list_purchase_entries(
     """List purchase entries for a project. All staff can read."""
     tenant_id = _get_tenant_id(user)
     pid = _parse_uuid(project_id, kind="Project")
-    await _get_project(session, tenant_id, pid)
+    await _get_project(session, tenant_id, pid, user=user)
 
     count_stmt = select(func.count()).where(
         PurchaseEntry.project_id == pid,

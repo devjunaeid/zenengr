@@ -1999,6 +1999,7 @@
 			</div>
 		</section>
 
+		{#if canViewLedger || canViewInvoices}
 		<!-- Financial Overview Card -->
 		<section
 			class="rounded-xl border border-slate-200 bg-white p-6 shadow-2xs"
@@ -2023,7 +2024,7 @@
 					<dd class="mt-1 text-xl font-bold text-slate-900">
 						{ledgerSummary
 							? fmtPrice(ledgerSummary.total)
-							: currentOverview
+							: currentOverview?.total_billed != null
 								? fmtPrice(
 										currentOverview.total_billed ??
 											currentOverview.total ??
@@ -2037,7 +2038,7 @@
 					<dd class="mt-1 text-xl font-bold text-emerald-700">
 						{ledgerSummary
 							? fmtPrice(ledgerSummary.paid)
-							: currentOverview
+							: currentOverview?.paid != null || currentOverview?.total_paid != null
 								? fmtPrice(currentOverview.paid ?? currentOverview.total_paid)
 								: '—'}
 					</dd>
@@ -2067,7 +2068,7 @@
 					>
 						{ledgerSummary
 							? fmtPrice(ledgerSummary.due)
-							: currentOverview
+							: currentOverview?.due != null || currentOverview?.balance_due != null
 								? fmtPrice(currentOverview.due ?? currentOverview.balance_due)
 								: '—'}
 					</dd>
@@ -2085,6 +2086,7 @@
 				</div>
 			{/if}
 		</section>
+		{/if}
 
 		<!-- Timestamps -->
 		<div class="flex flex-wrap items-center justify-between px-1 text-xs text-slate-400">

@@ -71,6 +71,7 @@ async def search_projects_picker(
     session: AsyncSession,
     *,
     tenant_id: uuid.UUID,
+    user_id: uuid.UUID | None = None,
     q: str | None = None,
     client_id: uuid.UUID | None = None,
     limit: int = 10,
@@ -87,6 +88,17 @@ async def search_projects_picker(
         .outerjoin(Client, Client.id == Project.client_id)
         .where(Project.tenant_id == tenant_id)
     )
+    if user_id is not None:
+        member_sub = select(ProjectMember.project_id).where(
+            ProjectMember.user_id == user_id,
+            ProjectMember.tenant_id == tenant_id,
+        )
+        query = query.where(
+            or_(
+                Project.id.in_(member_sub),
+                Project.owner_id == user_id,
+            )
+        )
     if client_id is not None:
         query = query.where(Project.client_id == client_id)
     if q and q.strip():
@@ -114,10 +126,39 @@ async def search_projects_picker(
     ]
 
 
+async def is_user_project_member(
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    project_id: uuid.UUID,
+    user_id: uuid.UUID,
+) -> bool:
+    """Check if user is assigned as member or owner of the project."""
+    member_sub = select(ProjectMember.id).where(
+        ProjectMember.project_id == project_id,
+        ProjectMember.user_id == user_id,
+        ProjectMember.tenant_id == tenant_id,
+    )
+    stmt = (
+        select(func.count(Project.id))
+        .where(
+            Project.id == project_id,
+            Project.tenant_id == tenant_id,
+            or_(
+                Project.owner_id == user_id,
+                Project.id.in_(select(ProjectMember.project_id).where(ProjectMember.id.in_(member_sub))),
+            ),
+        )
+    )
+    result = await session.execute(stmt)
+    return (result.scalar() or 0) > 0
+
+
 async def list_projects_for_tenant(
     session: AsyncSession,
     *,
     tenant_id: uuid.UUID,
+    user_id: uuid.UUID | None = None,
     page: int = 1,
     page_size: int = 20,
     status: ProjectStatus | None = None,
@@ -126,9 +167,9 @@ async def list_projects_for_tenant(
     q: str | None = None,
     sort: str | None = None,
 ) -> tuple[list[dict[str, Any]], int]:
-    """List projects for a tenant with filters and pagination.
+    """List projects for a tenant with filters, optional user scoping, and pagination.
 
-    Uses single-query SQL pushdown aggregation.
+    Uses single-query SQL pushdown aggregation with tenant-bounded subqueries.
     """
     count_q = (
         select(func.count(Project.id))
@@ -138,6 +179,17 @@ async def list_projects_for_tenant(
 
     clean_tag = tag.strip().lstrip("#") if tag and tag.strip() else None
     search_filter = None
+    if user_id is not None:
+        member_sub = select(ProjectMember.project_id).where(
+            ProjectMember.user_id == user_id,
+            ProjectMember.tenant_id == tenant_id,
+        )
+        count_q = count_q.where(
+            or_(
+                Project.id.in_(member_sub),
+                Project.owner_id == user_id,
+            )
+        )
     if status is not None:
         count_q = count_q.where(Project.status == status)
     if client_id is not None:
@@ -159,13 +211,17 @@ async def list_projects_for_tenant(
     if total == 0:
         return [], 0
 
-    # Subqueries for active service count and milestone stats
+    # Subqueries for active service count and milestone stats scoped to tenant projects
     svc_sub = (
         select(
             ProjectService.project_id,
             func.count().label("service_count"),
         )
-        .where(ProjectService.status == ProjectServiceStatus.ACTIVE)
+        .join(Project, Project.id == ProjectService.project_id)
+        .where(
+            Project.tenant_id == tenant_id,
+            ProjectService.status == ProjectServiceStatus.ACTIVE,
+        )
         .group_by(ProjectService.project_id)
         .subquery()
     )
@@ -177,6 +233,8 @@ async def list_projects_for_tenant(
             .filter(ProjectMilestone.status == MilestoneStatus.COMPLETED)
             .label("milestone_completed"),
         )
+        .join(Project, Project.id == ProjectMilestone.project_id)
+        .where(Project.tenant_id == tenant_id)
         .group_by(ProjectMilestone.project_id)
         .subquery()
     )
@@ -205,6 +263,17 @@ async def list_projects_for_tenant(
         .where(Project.tenant_id == tenant_id)
     )
 
+    if user_id is not None:
+        member_sub = select(ProjectMember.project_id).where(
+            ProjectMember.user_id == user_id,
+            ProjectMember.tenant_id == tenant_id,
+        )
+        query = query.where(
+            or_(
+                Project.id.in_(member_sub),
+                Project.owner_id == user_id,
+            )
+        )
     if status is not None:
         query = query.where(Project.status == status)
     if client_id is not None:

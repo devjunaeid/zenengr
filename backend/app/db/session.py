@@ -19,10 +19,11 @@ if is_pooler:
     # TLS handshake overhead on every query while safely coexisting with PgBouncer.
     engine = create_async_engine(
         settings.database_url,
-        pool_size=10,
-        max_overflow=10,
+        pool_size=20,
+        max_overflow=20,
         pool_pre_ping=True,
         pool_recycle=120,
+        pool_timeout=30,
         connect_args={
             "statement_cache_size": 0,
             "command_timeout": 60,
@@ -31,11 +32,11 @@ if is_pooler:
 else:
     engine = create_async_engine(
         settings.database_url,
-        pool_size=10,
-        max_overflow=10,
+        pool_size=20,
+        max_overflow=20,
         pool_pre_ping=True,
         pool_recycle=60,  # recycle idle connections every 60s (prevents cPanel timeout disconnects)
-        pool_timeout=20,
+        pool_timeout=30,
         connect_args={
             "statement_cache_size": 0,
             "command_timeout": 60,

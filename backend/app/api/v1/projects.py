@@ -13,11 +13,17 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.invoices import _to_response as _to_invoice_response
-from app.core.dependencies import get_current_admin_user, require_permission
+from app.core.dependencies import (
+    get_current_admin_user,
+    require_any_permission,
+    require_permission,
+)
 from app.db.session import get_session
 from app.models.admin_user import AdminUser
-from app.models.enums import ProjectMemberRole, ProjectStatus
+from app.models.enums import AdminUserRole, ProjectMemberRole, ProjectStatus
+from app.models.role import Role
 from app.models.tenant import Tenant
+from app.services.permissions import has_permission, role_has_permission
 from app.schemas.comments import CommentCreateRequest, CommentEditRequest, CommentResponse
 from app.schemas.invoices import InvoiceResponse
 from app.schemas.ledger import (
@@ -281,9 +287,11 @@ async def list_projects_endpoint(
                 detail="client_id must be a valid UUID",
             ) from exc
 
+    user_id = user.id if user.role == AdminUserRole.EMPLOYEE else None
     result = await project_service.list_projects(
         session,
         tenant_id=tenant_id,
+        user_id=user_id,
         page=page,
         page_size=page_size,
         status_filter=status_filter,
@@ -322,9 +330,11 @@ async def get_projects_picker_endpoint(
                 detail="client_id must be a valid UUID",
             ) from exc
 
+    user_id = user.id if user.role == AdminUserRole.EMPLOYEE else None
     result = await project_service.get_projects_picker(
         session,
         tenant_id=tenant_id,
+        user_id=user_id,
         q=q,
         client_id=parsed_client_id,
         limit=limit,
@@ -339,10 +349,12 @@ async def get_project_endpoint(
     session: AsyncSession = Depends(get_session),
     user: AdminUser = Depends(get_current_admin_user),
 ) -> ProjectDetailResponse:
-    """Get project detail with services + milestones. All staff can read."""
+    """Get project detail with services + milestones. Scoped to assigned projects for employees."""
     tenant_id = _get_tenant_id(user)
     pid = _parse_uuid(project_id, kind="Project")
-    project = await project_service.get_project(session, tenant_id=tenant_id, project_id=pid)
+    project = await project_service.verify_project_access(
+        session, tenant_id=tenant_id, project_id=pid, user=user
+    )
     return _to_detail(project)
 
 
@@ -356,9 +368,38 @@ async def get_project_overview_endpoint(
     session: AsyncSession = Depends(get_session),
     user: AdminUser = Depends(get_current_admin_user),
 ) -> ProjectOverviewResponse:
-    """Project overview with milestone completion and financial summary. All staff can read."""
+    """Project overview with milestone completion and financial summary.
+
+    Scoped to assigned projects for employees. Financial figures are masked unless
+    the user has explicit financial permissions.
+    """
     tenant_id = _get_tenant_id(user)
     pid = _parse_uuid(project_id, kind="Project")
+    await project_service.verify_project_access(
+        session, tenant_id=tenant_id, project_id=pid, user=user
+    )
+
+    can_view_finances = False
+    if user.role in (AdminUserRole.SUPER_ADMIN, AdminUserRole.ADMIN, AdminUserRole.MANAGER):
+        can_view_finances = True
+    else:
+        can_view_finances = (
+            has_permission(user.role, "view", "ledger")
+            or has_permission(user.role, "view", "invoices")
+            or has_permission(user.role, "view", "financial_reports")
+        )
+        if not can_view_finances and user.role_id is not None:
+            role = await session.get(Role, user.role_id)
+            if role:
+                for a, r in [
+                    ("view", "ledger"),
+                    ("view", "invoices"),
+                    ("view", "financial_reports"),
+                ]:
+                    if await role_has_permission(session, role=role, action=a, resource=r):
+                        can_view_finances = True
+                        break
+
     include_parts = [p.strip().lower() for p in include.split(",")] if include else []
     data = await project_service.get_project_overview(
         session,
@@ -366,6 +407,7 @@ async def get_project_overview_endpoint(
         project_id=pid,
         include_invoices="invoices" in include_parts,
         include_breakdown="breakdown" in include_parts,
+        include_financials=can_view_finances,
     )
     return ProjectOverviewResponse(
         project_id=data["project_id"],
@@ -374,14 +416,14 @@ async def get_project_overview_endpoint(
         milestone_total=data["milestone_total"],
         milestone_completed=data["milestone_completed"],
         milestone_completion_pct=data["milestone_completion_pct"],
-        total_billed=data["financials"].get("total_billed", data["financials"]["total_invoiced"]),
-        total_invoiced=data["financials"]["total_invoiced"],
-        total_paid=data["financials"]["total_paid"],
-        balance_due=data["financials"]["balance_due"],
-        total=data["financials"].get("total", data["financials"]["total_invoiced"]),
-        paid=data["financials"].get("paid", data["financials"]["total_paid"]),
-        due=data["financials"].get("due", data["financials"]["balance_due"]),
-        advance_balance=data["financials"].get("advance_balance", "0.00"),
+        total_billed=data["financials"].get("total_billed"),
+        total_invoiced=data["financials"].get("total_invoiced"),
+        total_paid=data["financials"].get("total_paid"),
+        balance_due=data["financials"].get("balance_due"),
+        total=data["financials"].get("total"),
+        paid=data["financials"].get("paid"),
+        due=data["financials"].get("due"),
+        advance_balance=data["financials"].get("advance_balance"),
         linked_invoices=[LinkedInvoiceItem(**inv) for inv in data["invoices"]],
         service_breakdown=[
             ProjectServiceFinancialItem(**item) for item in data["service_breakdown"]
@@ -570,14 +612,20 @@ async def remove_project_service_endpoint(
 async def get_project_ledger_endpoint(
     project_id: str,
     session: AsyncSession = Depends(get_session),
-    user: AdminUser = Depends(get_current_admin_user),
+    user: AdminUser = Depends(
+        require_any_permission(
+            ("view", "ledger"),
+            ("manage", "ledger"),
+            ("view", "financial_reports"),
+        )
+    ),
 ) -> ProjectLedgerResponse:
-    """Project ledger: merged charges + derived payments/refunds + live summary.
-
-    All staff can read.
-    """
+    """Project ledger: merged charges + derived payments/refunds + live summary."""
     tenant_id = _get_tenant_id(user)
     pid = _parse_uuid(project_id, kind="Project")
+    await project_service.verify_project_access(
+        session, tenant_id=tenant_id, project_id=pid, user=user
+    )
     data = await ledger_service.get_project_ledger(session, tenant_id=tenant_id, project_id=pid)
     return ProjectLedgerResponse(
         entries=[LedgerEntryResponse(**entry) for entry in data["entries"]],

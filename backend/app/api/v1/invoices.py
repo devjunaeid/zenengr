@@ -16,8 +16,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.dependencies import get_current_admin_user, require_permission
 from app.db.session import get_session
 from app.models.admin_user import AdminUser
-from app.models.enums import InvoiceStatus, PaymentMethod
+from app.models.enums import AdminUserRole, InvoiceStatus, PaymentMethod
+from app.models.role import Role
 from app.models.tenant import Tenant
+from app.services.permissions import has_permission, role_has_permission
 from app.schemas.invoices import (
     InvoiceCreateRequest,
     InvoiceLineItemResponse,
@@ -232,9 +234,30 @@ async def list_invoices_endpoint(
                 detail="client_id must be a valid UUID",
             ) from exc
 
+    user_id = None
+    if user.role == AdminUserRole.EMPLOYEE:
+        can_view = (
+            has_permission(user.role, "view", "invoices")
+            or has_permission(user.role, "manage", "invoices")
+        )
+        if not can_view and user.role_id is not None:
+            role = await session.get(Role, user.role_id)
+            if role:
+                for a in ("view", "manage"):
+                    if await role_has_permission(session, role=role, action=a, resource="invoices"):
+                        can_view = True
+                        break
+        if not can_view:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Insufficient permissions to view invoices",
+            )
+        user_id = user.id
+
     result = await invoice_service.list_invoices(
         session,
         tenant_id=tenant_id,
+        user_id=user_id,
         page=page,
         page_size=page_size,
         status_filter=status_filter,
@@ -259,10 +282,21 @@ async def get_invoice_endpoint(
     session: AsyncSession = Depends(get_session),
     user: AdminUser = Depends(get_current_admin_user),
 ) -> InvoiceResponse:
-    """Get invoice detail with line items. All staff can read."""
+    """Get invoice detail with line items. Scoped to assigned projects for employees."""
     tenant_id = _get_tenant_id(user)
     iid = _parse_uuid(invoice_id, kind="Invoice")
     invoice = await invoice_service.get_invoice(session, tenant_id=tenant_id, invoice_id=iid)
+
+    if user.role == AdminUserRole.EMPLOYEE:
+        if invoice.project_id is not None:
+            from app.services.projects import verify_project_access
+            await verify_project_access(session, tenant_id=tenant_id, project_id=invoice.project_id, user=user)
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have access to this invoice",
+            )
+
     return _to_response(invoice)
 
 

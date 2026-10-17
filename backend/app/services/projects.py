@@ -24,6 +24,7 @@ from sqlalchemy.orm import selectinload
 from app.models.client import Client
 from app.models.enums import (
     ActorType,
+    AdminUserRole,
     InvoiceStatus,
     LedgerEntryType,
     LedgerSourceType,
@@ -376,6 +377,36 @@ async def get_project(
     return project
 
 
+async def verify_project_access(
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    project_id: uuid.UUID,
+    user: AdminUser,
+) -> Project:
+    """Verify that the user has access to this project.
+
+    Super admin, admin, and manager have access to all projects in the tenant.
+    Employees must be assigned as owner or project member. 403 Forbidden otherwise.
+    """
+    project = await get_project(session, tenant_id=tenant_id, project_id=project_id)
+    if user.role in (AdminUserRole.SUPER_ADMIN, AdminUserRole.ADMIN, AdminUserRole.MANAGER):
+        return project
+
+    is_member = await project_repo.is_user_project_member(
+        session,
+        tenant_id=tenant_id,
+        project_id=project_id,
+        user_id=user.id,
+    )
+    if not is_member:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have access to this project",
+        )
+    return project
+
+
 async def get_project_overview(
     session: AsyncSession,
     *,
@@ -383,30 +414,47 @@ async def get_project_overview(
     project_id: uuid.UUID,
     include_invoices: bool = False,
     include_breakdown: bool = False,
+    include_financials: bool = True,
 ) -> dict[str, Any]:
     """Build project overview data: milestone completion + financial summary.
 
-    404 if project not found in tenant. Financial fields come from
-    services/financials.py (live sums; see TODO-095/FEAT-008).
+    404 if project not found in tenant. If include_financials is False,
+    financial data is masked to prevent leaking sensitive billing to unauthorized users.
     Invoices and service breakdown are conditionally queried on demand.
     """
     project = await get_project(session, tenant_id=tenant_id, project_id=project_id)
     total = len(project.milestones)
     completed = sum(1 for m in project.milestones if m.status == MilestoneStatus.COMPLETED)
     pct = 0.0 if total == 0 else round(completed / total * 100, 2)
-    financials = await financials_service.get_project_financials(session, project_id=project.id)
-    invoices = (
-        await financials_service.list_linked_invoices(session, project_id=project.id)
-        if include_invoices
-        else []
-    )
-    service_breakdown = (
-        await financials_service.get_project_financials_by_service(
-            session, project_id=project.id
+
+    if include_financials:
+        financials = await financials_service.get_project_financials(session, project_id=project.id)
+        invoices = (
+            await financials_service.list_linked_invoices(session, project_id=project.id)
+            if include_invoices
+            else []
         )
-        if include_breakdown
-        else []
-    )
+        service_breakdown = (
+            await financials_service.get_project_financials_by_service(
+                session, project_id=project.id
+            )
+            if include_breakdown
+            else []
+        )
+    else:
+        financials = {
+            "total_invoiced": None,
+            "total_paid": None,
+            "balance_due": None,
+            "total_billed": None,
+            "total": None,
+            "paid": None,
+            "due": None,
+            "advance_balance": None,
+        }
+        invoices = []
+        service_breakdown = []
+
     return {
         "project_id": project.id,
         "name": project.name,
@@ -424,6 +472,7 @@ async def list_projects(
     session: AsyncSession,
     *,
     tenant_id: uuid.UUID,
+    user_id: uuid.UUID | None = None,
     page: int = 1,
     page_size: int = 20,
     status_filter: ProjectStatus | None = None,
@@ -436,6 +485,7 @@ async def list_projects(
     items, total = await project_repo.list_projects_for_tenant(
         session,
         tenant_id=tenant_id,
+        user_id=user_id,
         page=page,
         page_size=page_size,
         status=status_filter,
@@ -457,6 +507,7 @@ async def get_projects_picker(
     session: AsyncSession,
     *,
     tenant_id: uuid.UUID,
+    user_id: uuid.UUID | None = None,
     q: str | None = None,
     client_id: uuid.UUID | None = None,
     limit: int = 10,
@@ -465,6 +516,7 @@ async def get_projects_picker(
     items = await project_repo.search_projects_picker(
         session,
         tenant_id=tenant_id,
+        user_id=user_id,
         q=q,
         client_id=client_id,
         limit=min(max(1, limit), 50),
