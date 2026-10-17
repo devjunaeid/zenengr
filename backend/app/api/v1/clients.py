@@ -12,7 +12,11 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.dependencies import get_current_admin_user, require_permission
+from app.core.dependencies import (
+    get_current_admin_user,
+    require_any_permission,
+    require_permission,
+)
 from app.db.session import get_session
 from app.models.admin_user import AdminUser
 from app.models.client import Client
@@ -113,9 +117,14 @@ async def list_clients_endpoint(
     tag: str | None = Query(default=None),
     sort: str | None = Query(default=None),
     session: AsyncSession = Depends(get_session),
-    user: AdminUser = Depends(get_current_admin_user),
+    user: AdminUser = Depends(
+        require_any_permission(
+            ("view", "clients"),
+            ("manage", "clients"),
+        )
+    ),
 ) -> ClientListResponse:
-    """List clients with pagination, filtering, search. All staff can view."""
+    """List clients with pagination, filtering, search. Permission-scoped."""
     tenant_id = _get_tenant_id(user)
 
     status_filter = None
@@ -244,7 +253,12 @@ async def get_client_endpoint(
         description="Comma-separated optional inclusions, e.g. 'activity'",
     ),
     session: AsyncSession = Depends(get_session),
-    user: AdminUser = Depends(get_current_admin_user),
+    user: AdminUser = Depends(
+        require_any_permission(
+            ("view", "clients"),
+            ("manage", "clients"),
+        )
+    ),
 ) -> ClientDetailResponse:
     """Get client detail with client_users and optional recent activity."""
     tenant_id = _get_tenant_id(user)
@@ -320,9 +334,15 @@ async def get_client_endpoint(
 async def get_client_ledger_endpoint(
     client_id: str,
     session: AsyncSession = Depends(get_session),
-    user: AdminUser = Depends(get_current_admin_user),
+    user: AdminUser = Depends(
+        require_any_permission(
+            ("view", "ledger"),
+            ("manage", "ledger"),
+            ("view", "financial_reports"),
+        )
+    ),
 ) -> ClientLedgerResponse:
-    """Client ledger: advance balance + signed money entries. All staff can view."""
+    """Client ledger: advance balance + signed money entries. Financial permission gated."""
     tenant_id = _get_tenant_id(user)
 
     try:
@@ -525,9 +545,14 @@ async def list_notes_endpoint(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
     session: AsyncSession = Depends(get_session),
-    user: AdminUser = Depends(get_current_admin_user),
+    user: AdminUser = Depends(
+        require_any_permission(
+            ("view", "clients"),
+            ("manage", "clients"),
+        )
+    ),
 ) -> ClientNoteListResponse:
-    """List notes for client. All staff can view (employee included)."""
+    """List notes for client. Permission-scoped."""
     tenant_id = _get_tenant_id(user)
 
     try:
@@ -574,9 +599,14 @@ async def get_activity_endpoint(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
     session: AsyncSession = Depends(get_session),
-    user: AdminUser = Depends(get_current_admin_user),
+    user: AdminUser = Depends(
+        require_any_permission(
+            ("view", "clients"),
+            ("manage", "clients"),
+        )
+    ),
 ) -> ClientActivityResponse:
-    """Get activity timeline for client. All staff can view."""
+    """Get activity timeline for client. Permission-scoped."""
     tenant_id = _get_tenant_id(user)
 
     try:

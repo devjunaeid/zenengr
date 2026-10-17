@@ -13,7 +13,10 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.dependencies import get_current_admin_user, require_permission
+from app.core.dependencies import (
+    require_any_permission,
+    require_permission,
+)
 from app.db.session import get_session
 from app.models.admin_user import AdminUser
 from app.schemas.roles import (
@@ -68,9 +71,14 @@ def _to_role_response(role: Any) -> RoleResponse:
 async def list_roles_endpoint(
     role_type: str | None = None,
     session: AsyncSession = Depends(get_session),
-    user: AdminUser = Depends(get_current_admin_user),
+    user: AdminUser = Depends(
+        require_any_permission(
+            ("view", "roles"),
+            ("manage", "roles"),
+        )
+    ),
 ) -> list[RoleResponse]:
-    """List system roles + this tenant's custom roles. All staff can read."""
+    """List system roles + this tenant's custom roles. Permission-scoped."""
     tenant_id = _get_tenant_id(user)
     roles = await role_service.list_roles(session, tenant_id=tenant_id, role_type=role_type)
     return [_to_role_response(r) for r in roles]
@@ -79,12 +87,17 @@ async def list_roles_endpoint(
 @router.get("/permissions", response_model=list[PermissionCatalogItem])
 async def get_permission_catalog_endpoint(
     session: AsyncSession = Depends(get_session),
-    user: AdminUser = Depends(get_current_admin_user),
+    user: AdminUser = Depends(
+        require_any_permission(
+            ("view", "roles"),
+            ("manage", "roles"),
+        )
+    ),
 ) -> list[PermissionCatalogItem]:
     """Return the tenant-scoped action/resource catalog (label + group).
 
     Resources gated behind a feature flag that is disabled for the tenant
-    are omitted. All staff can read.
+    are omitted. Permission-scoped.
     """
     tenant_id = _get_tenant_id(user)
     items = await role_service.get_permission_catalog_for_tenant(session, tenant_id=tenant_id)
@@ -93,7 +106,12 @@ async def get_permission_catalog_endpoint(
 
 @router.get("/project-permissions", response_model=list[PermissionCatalogItem])
 async def get_project_permission_catalog_endpoint(
-    user: AdminUser = Depends(get_current_admin_user),
+    user: AdminUser = Depends(
+        require_any_permission(
+            ("view", "roles"),
+            ("manage", "roles"),
+        )
+    ),
 ) -> list[PermissionCatalogItem]:
     """Return the project-scoped action/resource catalog (label + group)."""
     from app.services.permissions import PROJECT_PERMISSION_CATALOG

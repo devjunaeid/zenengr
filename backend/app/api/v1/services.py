@@ -12,7 +12,10 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.dependencies import get_current_admin_user, require_permission
+from app.core.dependencies import (
+    require_any_permission,
+    require_permission,
+)
 from app.db.session import get_session
 from app.models.admin_user import AdminUser
 from app.schemas.services import (
@@ -98,9 +101,14 @@ async def list_services_endpoint(
     q: str | None = Query(default=None, min_length=1),
     sort: str | None = Query(default=None),
     session: AsyncSession = Depends(get_session),
-    user: AdminUser = Depends(get_current_admin_user),
+    user: AdminUser = Depends(
+        require_any_permission(
+            ("view", "services"),
+            ("manage", "services"),
+        )
+    ),
 ) -> ServiceListResponse:
-    """List services for a tenant. All staff can read."""
+    """List services for a tenant. Permission-scoped."""
     tenant_id = _get_tenant_id(user)
 
     result = await service_service.list_services(
@@ -126,9 +134,14 @@ async def list_services_endpoint(
 async def get_service_endpoint(
     service_id: str,
     session: AsyncSession = Depends(get_session),
-    user: AdminUser = Depends(get_current_admin_user),
+    user: AdminUser = Depends(
+        require_any_permission(
+            ("view", "services"),
+            ("manage", "services"),
+        )
+    ),
 ) -> ServiceDetailResponse:
-    """Get service detail with milestone step templates. All staff can read."""
+    """Get service detail with milestone step templates. Permission-scoped."""
     tenant_id = _get_tenant_id(user)
 
     try:

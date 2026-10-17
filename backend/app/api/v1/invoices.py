@@ -13,13 +13,14 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.dependencies import get_current_admin_user, require_permission
+from app.core.dependencies import (
+    require_any_permission,
+    require_permission,
+)
 from app.db.session import get_session
 from app.models.admin_user import AdminUser
 from app.models.enums import AdminUserRole, InvoiceStatus, PaymentMethod
-from app.models.role import Role
 from app.models.tenant import Tenant
-from app.services.permissions import has_permission, role_has_permission
 from app.schemas.invoices import (
     InvoiceCreateRequest,
     InvoiceLineItemResponse,
@@ -185,9 +186,14 @@ async def list_invoices_endpoint(
     date_from: date | None = Query(default=None),
     date_to: date | None = Query(default=None),
     session: AsyncSession = Depends(get_session),
-    user: AdminUser = Depends(get_current_admin_user),
+    user: AdminUser = Depends(
+        require_any_permission(
+            ("view", "invoices"),
+            ("manage", "invoices"),
+        )
+    ),
 ) -> InvoiceListResponse:
-    """List invoices for a tenant. All staff can read."""
+    """List invoices for a tenant. Permission-scoped."""
     tenant_id = _get_tenant_id(user)
 
     status_filter: InvoiceStatus | None = None
@@ -234,25 +240,7 @@ async def list_invoices_endpoint(
                 detail="client_id must be a valid UUID",
             ) from exc
 
-    user_id = None
-    if user.role == AdminUserRole.EMPLOYEE:
-        can_view = (
-            has_permission(user.role, "view", "invoices")
-            or has_permission(user.role, "manage", "invoices")
-        )
-        if not can_view and user.role_id is not None:
-            role = await session.get(Role, user.role_id)
-            if role:
-                for a in ("view", "manage"):
-                    if await role_has_permission(session, role=role, action=a, resource="invoices"):
-                        can_view = True
-                        break
-        if not can_view:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Insufficient permissions to view invoices",
-            )
-        user_id = user.id
+    user_id = user.id if user.role == AdminUserRole.EMPLOYEE else None
 
     result = await invoice_service.list_invoices(
         session,
@@ -280,7 +268,12 @@ async def list_invoices_endpoint(
 async def get_invoice_endpoint(
     invoice_id: str,
     session: AsyncSession = Depends(get_session),
-    user: AdminUser = Depends(get_current_admin_user),
+    user: AdminUser = Depends(
+        require_any_permission(
+            ("view", "invoices"),
+            ("manage", "invoices"),
+        )
+    ),
 ) -> InvoiceResponse:
     """Get invoice detail with line items. Scoped to assigned projects for employees."""
     tenant_id = _get_tenant_id(user)
@@ -290,7 +283,10 @@ async def get_invoice_endpoint(
     if user.role == AdminUserRole.EMPLOYEE:
         if invoice.project_id is not None:
             from app.services.projects import verify_project_access
-            await verify_project_access(session, tenant_id=tenant_id, project_id=invoice.project_id, user=user)
+
+            await verify_project_access(
+                session, tenant_id=tenant_id, project_id=invoice.project_id, user=user
+            )
         else:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -304,12 +300,31 @@ async def get_invoice_endpoint(
 async def get_invoice_pdf_endpoint(
     invoice_id: str,
     session: AsyncSession = Depends(get_session),
-    user: AdminUser = Depends(get_current_admin_user),
+    user: AdminUser = Depends(
+        require_any_permission(
+            ("view", "invoices"),
+            ("manage", "invoices"),
+        )
+    ),
 ) -> Response:
-    """Render an invoice as a PDF attachment (TODO-084/085). All staff can read."""
+    """Render an invoice as a PDF attachment. Permission and project-scoped."""
     tenant_id = _get_tenant_id(user)
     iid = _parse_uuid(invoice_id, kind="Invoice")
     invoice = await invoice_service.get_invoice(session, tenant_id=tenant_id, invoice_id=iid)
+
+    if user.role == AdminUserRole.EMPLOYEE:
+        if invoice.project_id is not None:
+            from app.services.projects import verify_project_access
+
+            await verify_project_access(
+                session, tenant_id=tenant_id, project_id=invoice.project_id, user=user
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have access to this invoice",
+            )
+
     tenant = await session.get(Tenant, tenant_id)
     pdf_bytes = await pdf_service.render_invoice_pdf(session, invoice=invoice, tenant=tenant)
     filename = invoice.invoice_number or "DRAFT"
@@ -446,11 +461,33 @@ async def record_transaction_endpoint(
 async def list_transactions_endpoint(
     invoice_id: str,
     session: AsyncSession = Depends(get_session),
-    user: AdminUser = Depends(get_current_admin_user),
+    user: AdminUser = Depends(
+        require_any_permission(
+            ("view", "invoices"),
+            ("manage", "invoices"),
+            ("view", "ledger"),
+            ("manage", "ledger"),
+        )
+    ),
 ) -> list[TransactionResponse]:
-    """List payments recorded against an invoice. All staff can read."""
+    """List payments recorded against an invoice. Permission and project-scoped."""
     tenant_id = _get_tenant_id(user)
     iid = _parse_uuid(invoice_id, kind="Invoice")
+
+    if user.role == AdminUserRole.EMPLOYEE:
+        invoice = await invoice_service.get_invoice(session, tenant_id=tenant_id, invoice_id=iid)
+        if invoice.project_id is not None:
+            from app.services.projects import verify_project_access
+
+            await verify_project_access(
+                session, tenant_id=tenant_id, project_id=invoice.project_id, user=user
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have access to this invoice",
+            )
+
     txs = await transaction_service.list_transactions(session, tenant_id=tenant_id, invoice_id=iid)
     return [_to_transaction_response(tx) for tx in txs]
 

@@ -24,7 +24,11 @@ from fastapi import (
 from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.dependencies import get_current_admin_user, require_permission
+from app.core.dependencies import (
+    get_current_admin_user,
+    require_any_permission,
+    require_permission,
+)
 from app.db.session import get_session
 from app.models.admin_user import AdminUser
 from app.models.enums import ActorType, FileScope
@@ -99,9 +103,14 @@ def _to_asset_item(asset: FileAsset) -> FileAssetItem:
 @router.get("/folders", response_model=list[FolderTreeNode])
 async def list_folder_tree_endpoint(
     session: AsyncSession = Depends(get_session),
-    user: AdminUser = Depends(get_current_admin_user),
+    user: AdminUser = Depends(
+        require_any_permission(
+            ("view", "files"),
+            ("manage", "files"),
+        )
+    ),
 ) -> list[FolderTreeNode]:
-    """Folder tree (incl. virtual "My files" root). All staff can read."""
+    """Folder tree (incl. virtual "My files" root). Permission-scoped."""
     tenant_id = _get_tenant_id(user)
     return await files_service.list_folder_tree(session, tenant_id=tenant_id, actor_id=user.id)
 
@@ -189,15 +198,26 @@ async def upload_file_endpoint(
     folder_id: str | None = Form(default=None),
     project_id: str | None = Form(default=None),
     session: AsyncSession = Depends(get_session),
-    user: AdminUser = Depends(get_current_admin_user),
+    user: AdminUser = Depends(
+        require_any_permission(
+            ("manage", "files"),
+            ("view", "files"),
+        )
+    ),
 ) -> FileAssetItem:
-    """Multipart upload into a visibility scope. All staff may upload; USER
-    files are creator-scoped, TENANT/PROJECT visibility rules are enforced
-    in the service."""
+    """Multipart upload into a visibility scope. Permission and project-scoped."""
     tenant_id = _get_tenant_id(user)
     content = await file.read()
     parsed_folder_id = _parse_uuid(folder_id, kind="Folder") if folder_id else None
     parsed_project_id = _parse_uuid(project_id, kind="Project") if project_id else None
+
+    if parsed_project_id is not None:
+        from app.services.projects import verify_project_access
+
+        await verify_project_access(
+            session, tenant_id=tenant_id, project_id=parsed_project_id, user=user
+        )
+
     asset = await files_service.upload_file(
         session,
         tenant_id=tenant_id,
@@ -223,12 +243,25 @@ async def list_files_endpoint(
     project_id: str | None = Query(default=None),
     q: str | None = Query(default=None),
     session: AsyncSession = Depends(get_session),
-    user: AdminUser = Depends(get_current_admin_user),
+    user: AdminUser = Depends(
+        require_any_permission(
+            ("view", "files"),
+            ("manage", "files"),
+        )
+    ),
 ) -> FileListResponse:
-    """List files for a tenant with optional scope/folder/project/q filters."""
+    """List files for a tenant with optional scope/folder/project/q filters. Permission-scoped."""
     tenant_id = _get_tenant_id(user)
     parsed_folder_id = _parse_uuid(folder_id, kind="Folder") if folder_id else None
     parsed_project_id = _parse_uuid(project_id, kind="Project") if project_id else None
+
+    if parsed_project_id is not None:
+        from app.services.projects import verify_project_access
+
+        await verify_project_access(
+            session, tenant_id=tenant_id, project_id=parsed_project_id, user=user
+        )
+
     result = await files_service.list_files(
         session,
         tenant_id=tenant_id,
@@ -252,9 +285,14 @@ async def list_files_endpoint(
 async def get_file_endpoint(
     file_id: str,
     session: AsyncSession = Depends(get_session),
-    user: AdminUser = Depends(get_current_admin_user),
+    user: AdminUser = Depends(
+        require_any_permission(
+            ("view", "files"),
+            ("manage", "files"),
+        )
+    ),
 ) -> FileAssetItem:
-    """File metadata. Access-checked (USER files are creator-only)."""
+    """File metadata. Permission and project-scoped."""
     tenant_id = _get_tenant_id(user)
     fid = _parse_uuid(file_id, kind="File")
     asset = await files_service.get_file_for_access(
@@ -264,6 +302,12 @@ async def get_file_endpoint(
         actor_id=user.id,
         actor_type=ActorType.ADMIN_USER.value,
     )
+    if asset.project_id is not None:
+        from app.services.projects import verify_project_access
+
+        await verify_project_access(
+            session, tenant_id=tenant_id, project_id=asset.project_id, user=user
+        )
     return _to_asset_item(asset)
 
 
@@ -271,10 +315,14 @@ async def get_file_endpoint(
 async def get_file_content_endpoint(
     file_id: str,
     session: AsyncSession = Depends(get_session),
-    user: AdminUser = Depends(get_current_admin_user),
+    user: AdminUser = Depends(
+        require_any_permission(
+            ("view", "files"),
+            ("manage", "files"),
+        )
+    ),
 ) -> Response:
-    """Download a file. Access-checked; presigned URL (S3) redirects with 307,
-    local backend streams bytes as an attachment. PROJECT downloads are audited."""
+    """Download a file. Permission and project-scoped."""
     tenant_id = _get_tenant_id(user)
     fid = _parse_uuid(file_id, kind="File")
     content, presigned, asset = await files_service.get_file_content(
@@ -284,6 +332,12 @@ async def get_file_content_endpoint(
         actor_id=user.id,
         actor_type=ActorType.ADMIN_USER.value,
     )
+    if asset.project_id is not None:
+        from app.services.projects import verify_project_access
+
+        await verify_project_access(
+            session, tenant_id=tenant_id, project_id=asset.project_id, user=user
+        )
     if presigned is not None:
         return RedirectResponse(presigned, status_code=status.HTTP_307_TEMPORARY_REDIRECT)
     return Response(

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import uuid
 from datetime import date
-from decimal import Decimal
 
 import pytest
 from httpx import AsyncClient
@@ -250,8 +249,19 @@ async def test_employee_financial_masking_and_ledger_protection(
     )
     assert res_emp_ledger.status_code == 403
 
-    # 4. Admin accessing ledger -> 200 OK
+    # 4. Employee accessing payments endpoint -> 403 Forbidden
+    res_emp_payments = await client.get(
+        f"/api/v1/tenant/projects/{proj.id}/payments", headers=emp_headers
+    )
+    assert res_emp_payments.status_code == 403
+
+    # 5. Admin accessing ledger & payments -> 200 OK
     res_admin_ledger = await client.get(
         f"/api/v1/tenant/projects/{proj.id}/ledger", headers=admin_headers
     )
     assert res_admin_ledger.status_code == 200
+
+    res_admin_payments = await client.get(
+        f"/api/v1/tenant/projects/{proj.id}/payments", headers=admin_headers
+    )
+    assert res_admin_payments.status_code == 200

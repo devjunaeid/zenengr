@@ -15,7 +15,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.dependencies import (
-    get_current_admin_user,
     require_any_permission,
 )
 from app.db.session import get_session
@@ -221,7 +220,13 @@ async def list_purchase_entries(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=50, ge=1, le=200),
     session: AsyncSession = Depends(get_session),
-    user: AdminUser = Depends(get_current_admin_user),
+    user: AdminUser = Depends(
+        require_any_permission(
+            ("view", "purchases"),
+            ("create", "purchases"),
+            ("manage", "purchases"),
+        )
+    ),
 ) -> PurchaseEntryListResponse:
     """List purchase entries for a project. All staff can read."""
     tenant_id = _get_tenant_id(user)
@@ -281,12 +286,19 @@ async def get_purchase_entry(
     project_id: str,
     entry_id: str,
     session: AsyncSession = Depends(get_session),
-    user: AdminUser = Depends(get_current_admin_user),
+    user: AdminUser = Depends(
+        require_any_permission(
+            ("view", "purchases"),
+            ("create", "purchases"),
+            ("manage", "purchases"),
+        )
+    ),
 ) -> PurchaseEntryResponse:
-    """Get a single purchase entry with its items. All staff can read."""
+    """Get a single purchase entry with its items. Permission-scoped."""
     tenant_id = _get_tenant_id(user)
     pid = _parse_uuid(project_id, kind="Project")
     eid = _parse_uuid(entry_id, kind="PurchaseEntry")
+    await _get_project(session, tenant_id, pid, user=user)
     entry = await _get_entry(session, tenant_id, pid, eid)
     return _entry_to_response(entry)
 
@@ -308,6 +320,7 @@ async def update_purchase_entry(
     tenant_id = _get_tenant_id(user)
     pid = _parse_uuid(project_id, kind="Project")
     eid = _parse_uuid(entry_id, kind="PurchaseEntry")
+    await _get_project(session, tenant_id, pid, user=user)
     entry = await _get_entry(session, tenant_id, pid, eid)
 
     if body.title is not None:
@@ -373,6 +386,7 @@ async def delete_purchase_entry(
     tenant_id = _get_tenant_id(user)
     pid = _parse_uuid(project_id, kind="Project")
     eid = _parse_uuid(entry_id, kind="PurchaseEntry")
+    await _get_project(session, tenant_id, pid, user=user)
     entry = await _get_entry(session, tenant_id, pid, eid)
     await session.delete(entry)
     await session.commit()

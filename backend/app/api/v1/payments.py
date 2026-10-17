@@ -7,7 +7,10 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.dependencies import get_current_admin_user, require_permission
+from app.core.dependencies import (
+    require_any_permission,
+    require_permission,
+)
 from app.db.session import get_session
 from app.models.admin_user import AdminUser
 from app.schemas.payments import (
@@ -93,6 +96,10 @@ async def create_project_payment(
     tenant_id = _get_tenant_id(user)
     pid = _parse_uuid(project_id, kind="Project")
 
+    from app.services.projects import verify_project_access
+
+    await verify_project_access(session, tenant_id=tenant_id, project_id=pid, user=user)
+
     payment = await record_payment(
         session,
         tenant_id=tenant_id,
@@ -119,11 +126,22 @@ async def get_project_payments(
     project_id: str,
     include_voided: bool = Query(default=True),
     session: AsyncSession = Depends(get_session),
-    user: AdminUser = Depends(get_current_admin_user),
+    user: AdminUser = Depends(
+        require_any_permission(
+            ("view", "ledger"),
+            ("manage", "ledger"),
+            ("view", "financial_reports"),
+        )
+    ),
 ) -> list[PaymentResponse]:
     """List payments for a project."""
     tenant_id = _get_tenant_id(user)
     pid = _parse_uuid(project_id, kind="Project")
+
+    from app.services.projects import verify_project_access
+
+    await verify_project_access(session, tenant_id=tenant_id, project_id=pid, user=user)
+
     payments = await list_project_payments(
         session,
         tenant_id=tenant_id,

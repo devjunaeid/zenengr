@@ -23,7 +23,6 @@ from app.models.admin_user import AdminUser
 from app.models.enums import AdminUserRole, ProjectMemberRole, ProjectStatus
 from app.models.role import Role
 from app.models.tenant import Tenant
-from app.services.permissions import has_permission, role_has_permission
 from app.schemas.comments import CommentCreateRequest, CommentEditRequest, CommentResponse
 from app.schemas.invoices import InvoiceResponse
 from app.schemas.ledger import (
@@ -64,6 +63,8 @@ from app.services import invoices as invoice_service
 from app.services import ledger as ledger_service
 from app.services import pdf as pdf_service
 from app.services import projects as project_service
+from app.services.permissions import has_permission, role_has_permission
+from app.services.projects import verify_project_access
 
 router = APIRouter(prefix="/tenant/projects", tags=["projects"])
 
@@ -259,9 +260,16 @@ async def list_projects_endpoint(
     tag: str | None = Query(default=None),
     sort: str | None = Query(default=None),
     session: AsyncSession = Depends(get_session),
-    user: AdminUser = Depends(get_current_admin_user),
+    user: AdminUser = Depends(
+        require_any_permission(
+            ("manage", "projects"),
+            ("manage_assigned", "projects"),
+            ("view", "projects"),
+            ("view", "project_overview"),
+        )
+    ),
 ) -> ProjectListResponse:
-    """List projects for a tenant. All staff can read."""
+    """List projects for a tenant. Permission-scoped."""
     tenant_id = _get_tenant_id(user)
 
     status_filter: ProjectStatus | None = None
@@ -867,11 +875,18 @@ async def delete_project_payment_endpoint(
 async def get_project_statement_endpoint(
     project_id: str,
     session: AsyncSession = Depends(get_session),
-    user: AdminUser = Depends(get_current_admin_user),
+    user: AdminUser = Depends(
+        require_any_permission(
+            ("view", "ledger"),
+            ("manage", "ledger"),
+            ("view", "financial_reports"),
+        )
+    ),
 ) -> ProjectLedgerResponse:
     """Live project financial statement data (charges, payments, advances, due)."""
     tenant_id = _get_tenant_id(user)
     pid = _parse_uuid(project_id, kind="Project")
+    await verify_project_access(session, tenant_id=tenant_id, project_id=pid, user=user)
     data = await ledger_service.get_project_ledger(session, tenant_id=tenant_id, project_id=pid)
     return ProjectLedgerResponse(
         entries=[LedgerEntryResponse(**entry) for entry in data["entries"]],
@@ -883,11 +898,18 @@ async def get_project_statement_endpoint(
 async def get_project_statement_pdf_endpoint(
     project_id: str,
     session: AsyncSession = Depends(get_session),
-    user: AdminUser = Depends(get_current_admin_user),
+    user: AdminUser = Depends(
+        require_any_permission(
+            ("view", "ledger"),
+            ("manage", "ledger"),
+            ("view", "financial_reports"),
+        )
+    ),
 ) -> Response:
     """Render and download/view live project statement PDF."""
     tenant_id = _get_tenant_id(user)
     pid = _parse_uuid(project_id, kind="Project")
+    await verify_project_access(session, tenant_id=tenant_id, project_id=pid, user=user)
     tenant = await session.get(Tenant, tenant_id)
     pdf_bytes = await pdf_service.render_project_statement_pdf(
         session, project_id=pid, tenant=tenant
@@ -1012,9 +1034,10 @@ async def list_comments_endpoint(
     session: AsyncSession = Depends(get_session),
     user: AdminUser = Depends(get_current_admin_user),
 ) -> list[CommentResponse]:
-    """List comments on a project (internal + shared). All staff can read."""
+    """List comments on a project. Project-scoped."""
     tenant_id = _get_tenant_id(user)
     pid = _parse_uuid(project_id, kind="Project")
+    await verify_project_access(session, tenant_id=tenant_id, project_id=pid, user=user)
     comments = await comment_service.list_comments(session, tenant_id=tenant_id, project_id=pid)
     return [_to_comment_response(c) for c in comments]
 
@@ -1032,8 +1055,10 @@ async def list_project_members(
     session: AsyncSession = Depends(get_session),
     user: AdminUser = Depends(get_current_admin_user),
 ) -> list[ProjectMemberSummary]:
+    tenant_id = _get_tenant_id(user)
+    await verify_project_access(session, tenant_id=tenant_id, project_id=id, user=user)
     members = await project_service.list_project_members(
-        session, tenant_id=_get_tenant_id(user), project_id=id
+        session, tenant_id=tenant_id, project_id=id
     )
     return [ProjectMemberSummary(**m) for m in members]
 
