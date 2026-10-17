@@ -19,27 +19,15 @@
       "git log*": "allow"
     },
 
-    "github_*": "ask",
     "git_*": "allow",
     "postgres_*": "ask",
     "docker_*": "ask",
-    "browser_*": "ask"
+    "browser_*": "ask",
+    "redis_*": "ask",
+    "fetch_*": "allow"
   },
 
   "mcp": {
-    "github": {
-      "type": "local",
-      "command": [
-        "npx",
-        "-y",
-        "@modelcontextprotocol/server-github"
-      ],
-      "enabled": true,
-      "environment": {
-        "GITHUB_PERSONAL_ACCESS_TOKEN": "{env:GITHUB_TOKEN}"
-      }
-    },
-
     "git": {
       "type": "local",
       "command": [
@@ -61,6 +49,30 @@
         "mcp>=1.2,<2",
         "postgres-mcp",
         "postgresql://app:app@localhost:5432/app"
+      ],
+      "enabled": true
+    },
+
+    "redis": {
+      "type": "local",
+      "command": [
+        "npx",
+        "-y",
+        "@redis/mcp-server"
+      ],
+      "environment": {
+        "REDIS_URL": "redis://localhost:6379"
+      },
+      "enabled": true
+    },
+
+    "fetch": {
+      "type": "local",
+      "command": [
+        "uvx",
+        "--with",
+        "mcp>=1.2,<2",
+        "mcp-server-fetch"
       ],
       "enabled": true
     },

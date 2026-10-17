@@ -6,22 +6,22 @@ MCP servers recommended for the zenengr project. Current state reflects `/projec
 
 | Server | Purpose | Status | Notes |
 | ------ | ------- | ------ | ----- |
-| GitHub | PRs, issues, repo search | **Enabled** | `opencode.json` `mcp.github`; token via `{env:GITHUB_TOKEN}`. |
 | Git | Local git ops (status, diffs) | **Enabled** | `opencode.json` `mcp.git` (`uvx mcp-server-git`). |
 | File system | Structured file access | Built-in | No config needed. |
-| Web fetch | Library docs lookup | Optional | Consider adding when researching Svelte/FastAPI docs. |
+| Fetch | Web docs & library lookup | **Enabled** | `opencode.json` `mcp.fetch` (`uvx mcp-server-fetch`). |
+| GitHub | PRs, issues, repo search | Removed | Removed from `opencode.json`. |
 
 ## Project-specific MCP servers
 
 | Server | Purpose | Status | Notes |
 | ------ | ------- | ------ | ----- |
 | PostgreSQL | Run queries / inspect schema | **Enabled** | Connects to local Postgres in Compose (`app`/`app@localhost:5432/app`). |
-| Docker | Container / build tasks for local Compose stack | **Enabled** | Useful while building FEAT-001 dev environment. |
-| Browser / Puppeteer | E2E, screenshots, DOM inspection for SvelteKit UI | **Enabled** | Frontend-heavy work once UI is implemented. |
+| Redis | Inspect cache keys, TTLs, invalidate cache | **Enabled** | Connects to local Redis in Compose (`redis://localhost:6379`). |
+| Docker | Container / build tasks for local Compose stack | **Enabled** | Useful while building and running dev containers. |
+| Browser / Playwright | E2E, screenshots, DOM inspection for SvelteKit UI | **Enabled** | Frontend-heavy work for SvelteKit UI verification. |
 | Test runner | Run tests and parse results | Optional | Add when pytest/vitest suites land. |
 
-> All five MCP servers were approved by the user during `/project-init` ("all" MCP)
-> and are currently enabled in `opencode.json`. **Tokens must use `{env:VAR}` — never commit secrets.**
+> MCP servers are declared in `opencode.json` under `mcp`. **Tokens must use `{env:VAR}` — never commit secrets.**
 
 ## Configuration
 
@@ -30,14 +30,19 @@ MCP servers are declared in `opencode.json` under `mcp`. Current entries:
 ```json
 {
   "mcp": {
-    "github": { "type": "local", "command": ["npx", "-y", "@modelcontextprotocol/server-github"],
-      "enabled": true, "environment": { "GITHUB_PERSONAL_ACCESS_TOKEN": "{env:GITHUB_TOKEN}" } },
     "git": { "type": "local",
       "command": ["uvx", "--with", "mcp>=1.2,<2", "mcp-server-git"],
       "enabled": true },
     "postgres": { "type": "local",
       "command": ["uvx", "--python", "3.13", "--with", "mcp>=1.2,<2", "postgres-mcp",
         "postgresql://app:app@localhost:5432/app"],
+      "enabled": true },
+    "redis": { "type": "local",
+      "command": ["npx", "-y", "@redis/mcp-server"],
+      "environment": { "REDIS_URL": "redis://localhost:6379" },
+      "enabled": true },
+    "fetch": { "type": "local",
+      "command": ["uvx", "--with", "mcp>=1.2,<2", "mcp-server-fetch"],
       "enabled": true },
     "docker": { "type": "local", "command": ["npx", "-y", "mcp-server-docker"], "enabled": true },
     "browser": { "type": "local",
