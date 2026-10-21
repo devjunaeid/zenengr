@@ -388,35 +388,6 @@ async def get_client_financials_batch(
             client_billed[p.client_id] += total
             client_paid[p.client_id] += paid
 
-    # ── 6. Standalone client invoices (project_id IS NULL) ───────────────────
-    standalone_inv_stmt = (
-        select(Invoice)
-        .where(
-            Invoice.client_id.in_(client_ids),
-            Invoice.project_id.is_(None),
-            or_(Invoice.status != InvoiceStatus.DRAFT, Invoice.is_auto.is_(True)),
-            Invoice.status != InvoiceStatus.VOID,
-        )
-    )
-    standalone_invs = list((await session.execute(standalone_inv_stmt)).scalars().all())
-    for sinv in standalone_invs:
-        client_billed[sinv.client_id] += _m(sinv.total)
-
-    if standalone_invs:
-        sinv_ids = [s.id for s in standalone_invs]
-        stx_stmt = (
-            select(Transaction, Invoice.client_id)
-            .join(Invoice, Transaction.invoice_id == Invoice.id)
-            .where(
-                Invoice.id.in_(sinv_ids),
-                Transaction.voided_at.is_(None),
-            )
-        )
-        for stx, scid in (await session.execute(stx_stmt)).all():
-            if stx.direction == TransactionDirection.DEBIT:
-                client_paid[scid] += _m(stx.amount)
-            else:
-                client_paid[scid] -= _m(stx.amount)
 
     for cid in client_ids:
         billed = client_billed.get(cid, Decimal("0"))

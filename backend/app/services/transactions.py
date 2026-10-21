@@ -717,9 +717,10 @@ async def build_client_ledger(
     tx_stmt = (
         select(Transaction)
         .join(Invoice, Transaction.invoice_id == Invoice.id)
+        .join(Project, Invoice.project_id == Project.id)
         .where(
             Invoice.tenant_id == tenant_id,
-            Invoice.client_id == client_id,
+            Project.client_id == client_id,
             Transaction.voided_at.is_(None),
         )
         .order_by(Transaction.recorded_at.asc())
