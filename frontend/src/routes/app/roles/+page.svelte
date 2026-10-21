@@ -164,7 +164,7 @@
 		saveErr = null;
 		saveMsg = null;
 		try {
-			const permissions = data.catalog.map((c) => ({
+			const permissions = currentCatalog.map((c) => ({
 				action: c.action,
 				resource: c.resource,
 				granted: draftGranted.has(`${c.action}.${c.resource}`)

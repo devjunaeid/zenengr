@@ -3,6 +3,7 @@ import { ApiError } from '$lib/api/client.js';
 import * as clientsApi from '$lib/api/clients.js';
 import * as invoiceApi from '$lib/api/invoices.js';
 import * as projectApi from '$lib/api/projects.js';
+import * as rolesApi from '$lib/api/roles.js';
 import { auth } from '$lib/stores/auth.svelte.js';
 
 export async function load({ fetch, params }) {
@@ -17,16 +18,19 @@ export async function load({ fetch, params }) {
 			)
 			.catch(() => null);
 
-		const [project, client, overview] = await Promise.all([
+		const [project, client, overview, allRoles] = await Promise.all([
 			projectPromise,
 			clientPromise,
-			invoiceApi.getProjectOverview(fetch, token, params.id).catch(() => null)
+			invoiceApi.getProjectOverview(fetch, token, params.id).catch(() => null),
+			rolesApi.getRoles(fetch, token).catch(() => [])
 		]);
 
 		const serviceDetails = {};
 		for (const s of project.services ?? []) {
 			serviceDetails[s.service_id] = { id: s.service_id, name: s.service_name, steps: [] };
 		}
+
+		const projectRoles = (allRoles ?? []).filter((r) => r.role_type === 'project');
 
 		return {
 			project,
@@ -39,7 +43,7 @@ export async function load({ fetch, params }) {
 			invoices: { items: [], total: 0 },
 			projectFiles: [],
 			folderTree: [],
-			projectRoles: []
+			projectRoles
 		};
 	} catch (e) {
 		if (e instanceof ApiError && e.status === 404) {
