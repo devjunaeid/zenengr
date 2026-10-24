@@ -18,7 +18,7 @@
 	import walletOutline from '@iconify-icons/mdi/wallet-outline';
 	import magnify from '@iconify-icons/mdi/magnify';
 	import tagOutline from '@iconify-icons/mdi/tag-outline';
-	import { SvelteURLSearchParams } from 'svelte/reactivity';
+	import { SvelteMap, SvelteSet, SvelteURLSearchParams } from 'svelte/reactivity';
 
 	let { data } = $props();
 
@@ -30,6 +30,7 @@
 	let projectSearch = $state('');
 	let projectSort = $state('due_desc'); // 'due_desc' | 'invoiced_desc' | 'name_asc'
 	let projectTag = $state('');
+	let projectClientFilter = $state('');
 	let clientSearch = $state('');
 	let clientSort = $state('due_desc'); // 'due_desc' | 'invoiced_desc' | 'name_asc'
 
@@ -39,6 +40,8 @@
 	let customTo = $state(data.filters.date_to || '');
 	let selectedClientId = $state(data.filters.client_id || '');
 	let selectedProjectId = $state(data.filters.project_id || '');
+	let clientLabel = $state('');
+	let projectLabel = $state('');
 
 	$effect(() => {
 		selectedPreset = data.filters.preset || 'this_month';
@@ -75,6 +78,23 @@
 				? (data.ledgerData.clients || []).find((c) => c.client_id === activeProject.client_id)
 				: null
 	);
+
+	$effect(() => {
+		if (selectedClientId && activeClient) {
+			clientLabel = activeClient.name;
+		} else if (!selectedClientId) {
+			clientLabel = '';
+		}
+	});
+
+	$effect(() => {
+		if (selectedProjectId && activeProject) {
+			projectLabel = activeProject.name;
+		} else if (!selectedProjectId) {
+			projectLabel = '';
+		}
+	});
+
 	let hasActiveFilters = $derived(
 		selectedPreset !== 'this_month' ||
 			Boolean(selectedClientId) ||
@@ -126,6 +146,8 @@
 		customTo = '';
 		selectedClientId = '';
 		selectedProjectId = '';
+		clientLabel = '';
+		projectLabel = '';
 		const sp = new SvelteURLSearchParams();
 		sp.set('preset', 'this_month');
 		if (activeTab && activeTab !== 'timeline') sp.set('tab', activeTab);
@@ -136,7 +158,7 @@
 
 	// Available tags across reporting projects
 	let availableProjectTags = $derived.by(() => {
-		const set = new Set();
+		const set = new SvelteSet();
 		for (const p of data.ledgerData.projects || []) {
 			if (Array.isArray(p.client_tags)) {
 				for (const t of p.client_tags) {
@@ -145,6 +167,19 @@
 			}
 		}
 		return Array.from(set).sort();
+	});
+
+	// Available clients across reporting projects for sub-filter
+	let availableClientsForProjects = $derived.by(() => {
+		const map = new SvelteMap();
+		for (const p of data.ledgerData.projects || []) {
+			if (p.client_id && p.client_name) {
+				map.set(p.client_id, p.client_name);
+			}
+		}
+		return Array.from(map.entries())
+			.map(([id, name]) => ({ id, name }))
+			.sort((a, b) => a.name.localeCompare(b.name));
 	});
 
 	// Filtered & sorted projects
@@ -164,6 +199,9 @@
 			list = list.filter(
 				(p) => Array.isArray(p.client_tags) && p.client_tags.some((t) => t.toLowerCase() === pt)
 			);
+		}
+		if (projectClientFilter) {
+			list = list.filter((p) => p.client_id === projectClientFilter);
 		}
 		return [...list].sort((a, b) => {
 			if (projectSort === 'due_desc') return Number(b.balance_due) - Number(a.balance_due);
@@ -354,8 +392,15 @@
 			<ClientPicker
 				id="rep-client-filter"
 				bind:value={selectedClientId}
+				bind:selectedLabel={clientLabel}
+				allOptionLabel="All Clients"
 				onselect={(c) => {
 					selectedClientId = c ? c.id : '';
+					clientLabel = c ? c.name : '';
+					if (c && activeProject && activeProject.client_id !== c.id) {
+						selectedProjectId = '';
+						projectLabel = '';
+					}
 					applyFilters();
 				}}
 				placeholder="All Clients"
@@ -367,9 +412,18 @@
 			<ProjectPicker
 				id="rep-proj-filter"
 				bind:value={selectedProjectId}
+				bind:selectedLabel={projectLabel}
 				clientId={selectedClientId || undefined}
+				allOptionLabel="All Projects"
 				onselect={(p) => {
 					selectedProjectId = p ? p.id : '';
+					projectLabel = p ? p.name : '';
+					if (p && p.client_id && !selectedClientId) {
+						selectedClientId = p.client_id;
+						if (p.client_name) {
+							clientLabel = p.client_name;
+						}
+					}
 					applyFilters();
 				}}
 				placeholder="All Projects"
@@ -713,6 +767,22 @@
 							</div>
 
 							<div class="flex items-center gap-1.5">
+								<label for="rep-proj-client" class="text-xs font-medium text-slate-500"
+									>Client:</label
+								>
+								<select
+									id="rep-proj-client"
+									bind:value={projectClientFilter}
+									class="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-800 shadow-2xs focus:border-indigo-500 focus:outline-hidden"
+								>
+									<option value="">All Clients</option>
+									{#each availableClientsForProjects as c (c.id)}
+										<option value={c.id}>{c.name}</option>
+									{/each}
+								</select>
+							</div>
+
+							<div class="flex items-center gap-1.5">
 								<label for="rep-proj-tag" class="text-xs font-medium text-slate-500">Tag:</label>
 								<select
 									id="rep-proj-tag"
@@ -726,12 +796,13 @@
 								</select>
 							</div>
 
-							{#if projectSearch || projectTag}
+							{#if projectSearch || projectTag || projectClientFilter}
 								<button
 									type="button"
 									onclick={() => {
 										projectSearch = '';
 										projectTag = '';
+										projectClientFilter = '';
 									}}
 									class="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-medium text-slate-500 hover:bg-slate-100"
 								>

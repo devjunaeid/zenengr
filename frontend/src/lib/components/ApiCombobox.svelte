@@ -28,6 +28,7 @@
 	 *   disabled?: boolean,
 	 *   required?: boolean,
 	 *   clearable?: boolean,
+	 *   allOptionLabel?: string,
 	 *   initialItems?: ComboboxOption[],
 	 *   fetchItems: (query: string) => Promise<ComboboxOption[]>,
 	 *   onselect?: (item: ComboboxOption | null) => void
@@ -44,6 +45,7 @@
 		disabled = false,
 		required = false,
 		clearable = true,
+		allOptionLabel = '',
 		initialItems = [],
 		fetchItems,
 		onselect
@@ -75,9 +77,7 @@
 	async function openDropdown() {
 		if (disabled) return;
 		open = true;
-		if (items.length === 0) {
-			await executeSearch('');
-		}
+		executeSearch(query.trim());
 		await tick();
 		searchInputRef?.focus();
 	}
@@ -233,6 +233,23 @@
 
 			<!-- Options List -->
 			<div class="max-h-60 overflow-y-auto p-1">
+				{#if allOptionLabel && !query}
+					<button
+						type="button"
+						role="option"
+						aria-selected={!value}
+						onclick={clearSelection}
+						class="flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-xs transition-colors hover:bg-indigo-50/60 {!value
+							? 'bg-indigo-50 font-semibold text-indigo-900'
+							: 'text-slate-700'}"
+					>
+						<span class="truncate font-medium">{allOptionLabel}</span>
+						{#if !value}
+							<Icon icon={check} class="h-4 w-4 shrink-0 text-indigo-600" />
+						{/if}
+					</button>
+				{/if}
+
 				{#if loading}
 					<div class="flex items-center justify-center gap-2 py-4 text-xs text-slate-500">
 						<Spinner class="h-4 w-4 text-indigo-600" />

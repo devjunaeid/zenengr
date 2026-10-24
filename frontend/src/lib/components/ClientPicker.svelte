@@ -15,6 +15,7 @@
 	 *   disabled?: boolean,
 	 *   required?: boolean,
 	 *   clearable?: boolean,
+	 *   allOptionLabel?: string,
 	 *   initialItems?: import('$lib/api/clients.js').ClientPickerItem[],
 	 *   onselect?: (client: import('$lib/api/clients.js').ClientPickerItem | null) => void
 	 * }}
@@ -30,6 +31,7 @@
 		disabled = false,
 		required = false,
 		clearable = true,
+		allOptionLabel = '',
 		initialItems = [],
 		onselect
 	} = $props();
@@ -71,6 +73,7 @@
 	{disabled}
 	{required}
 	{clearable}
+	{allOptionLabel}
 	initialItems={transformedInitialItems}
 	fetchItems={fetchClients}
 	onselect={handleSelect}
